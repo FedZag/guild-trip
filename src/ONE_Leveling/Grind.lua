@@ -104,20 +104,57 @@ function Gr.FarmMinutes(camp, need)
     return camp.travel + need / camp.epm
 end
 
--- Empfehlung (Nutzer 17.11.2026: "Monster nur, wenn es fuer den Stufenaufstieg schneller ist als Quests"):
--- Vergleich Zeit bis zur naechsten Stufe – nur Quests (Plan) gegen nur Monster hauen (je Lager).
---   worth  = mindestens ein Lager bringt dich spuerbar schneller zur naechsten Stufe
---   reason = "empty" (keine passenden Quests) | "noLevel" (Plan reicht nicht bis zur Stufe) | "faster"
---   camps  = nur die Lager, die schneller sind (beste zuerst), je mit .minutes (bis zur Stufe)
--- ctx.xpNeed = fehlende EP bis zur naechsten Stufe. Ohne diese Angabe: Vergleich der EP pro Minute.
+-- Wichtige Quests, die du im aktuellen Gebiet JETZT machen kannst (Annehmen/Erledigen/Abgeben im
+-- ersten Gebietsblock): Dungeon-Ketten, Klassenquests, Vorquests, Quests mit Upgrade. Dungeon-Halte
+-- selbst zaehlen nicht (dafuer braucht es eine Gruppe). Rueckgabe: Liste der Quest-Nummern.
+Gr.IMPORTANT = {dungeon = true, class = true, pre = true}
+function Gr.ImportantNow(plan)
+    local out, seen = {}, {}
+    local b = plan and plan.blocks and plan.blocks[1]
+    if not b then return out end
+    for i = b.first, b.last do
+        local st = plan.steps[i]
+        if st.kind ~= "dungeon" then
+            for _, a in ipairs(st.actions or {}) do
+                local o = plan.info and plan.info[a.id]
+                local important = o and (Gr.IMPORTANT[o.why or ""] or false)
+                for _, t in ipairs(o and o.tags or {}) do if t == "upgrade" then important = true end end
+                if important and not seen[a.id] then seen[a.id] = true out[#out + 1] = a.id end
+            end
+        end
+    end
+    return out
+end
+
+-- Schaltet die naechste Stufe etwas frei? (Zauber beim Lehrer, neue Quests, Dungeon)
+function Gr.HasUnlock(u)
+    return u ~= nil and ((#(u.spells or {}) > 0) or (#(u.quests or {}) > 0) or (#(u.dungeons or {}) > 0))
+end
+
+-- Empfehlung (Nutzer 17.11.2026): Monster hauen NUR, wenn
+--   1. im aktuellen Gebiet keine wichtige Quest mehr machbar ist (die gehen vor),
+--   2. die naechste Stufe etwas freischaltet (neue Zauber, neue Quests, ein Dungeon) und
+--   3. Farmen dich mindestens 25 % schneller dorthin bringt als die Quests im Plan
+--      (oder die Quests gar nicht bis zur naechsten Stufe reichen).
+-- Ausnahme: gar keine passenden Quests mehr ("empty") – dann ist Farmen der Weg weiter.
+-- Rueckgabe: {worth, reason, camps, unlocks, level, planEPM, questMinutes, need, important}
+--   reason: "empty" | "noLevel" | "faster" (lohnt) – "important" | "nothing" | nil (lohnt nicht)
+-- ctx.xpNeed = fehlende EP; ctx.unlocks(stufe) -> {spells, quests, dungeons}. Ohne xpNeed: EP-pro-Minute-Vergleich.
 function Gr:Advice(ctx, plan)
-    local all = self:Camps(ctx)
+    local L = ctx.me and ctx.me.level or 1
     local need = ctx.xpNeed
     local planEPM = Gr.PlanEPM(plan)
     local questMin = Gr.QuestMinutes(plan, need)
     local empty = not plan or #(plan.steps or {}) == 0
-    local out, reason = {}, nil
-    for _, c in ipairs(all) do
+    local advice = {worth = false, camps = {}, level = L + 1, planEPM = planEPM, questMinutes = questMin, need = need}
+    advice.unlocks = ctx.unlocks and ctx.unlocks(L + 1) or nil
+    if not empty then
+        advice.important = Gr.ImportantNow(plan)
+        if #advice.important > 0 then advice.reason = "important" return advice end
+        if not Gr.HasUnlock(advice.unlocks) then advice.reason = "nothing" return advice end
+    end
+    local out = {}
+    for _, c in ipairs(self:Camps(ctx)) do
         local faster
         if need and need > 0 then
             c.minutes = Gr.FarmMinutes(c, need)
@@ -128,8 +165,10 @@ function Gr:Advice(ctx, plan)
         if faster then out[#out + 1] = c end
     end
     if need and need > 0 then table.sort(out, function(a, b) return a.minutes < b.minutes end) end
-    local top = {}
-    for i = 1, math.min(self.TOP, #out) do top[i] = out[i] end
-    if #top > 0 then reason = empty and "empty" or (need and not questMin) and "noLevel" or "faster" end
-    return {worth = #top > 0, reason = reason, camps = top, planEPM = planEPM, questMinutes = questMin, need = need}
+    for i = 1, math.min(self.TOP, #out) do advice.camps[i] = out[i] end
+    if #advice.camps > 0 then
+        advice.worth = true
+        advice.reason = empty and "empty" or (need and not questMin) and "noLevel" or "faster"
+    end
+    return advice
 end

@@ -68,6 +68,25 @@ local function SmallestBag()
     return small
 end
 
+-- Kontext ohne Rueckfragen (fuer UnlockedQuests)
+function G:BaseContext()
+    local _, race = Try(UnitRace, "player")
+    local _, class = Try(UnitClass, "player")
+    local nav = Nav()
+    local mapID, x, y
+    if nav and nav.Travel then mapID, x, y = nav.Travel.PlayerMapPosition() end
+    return {
+        me = {level = Try(UnitLevel, "player") or 1, class = class and G.CLASS[class], race = race and G.RACE[race],
+            faction = Try(UnitFactionGroup, "player") or "?", mapID = mapID, x = x, y = y},
+        world = nav and nav.Travel and nav.Travel.World,
+        done = function(id) return Try(C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted, id) == true end,
+        inLog = function(id)
+            local i = Try(C_QuestLog and C_QuestLog.GetLogIndexForQuestID, id)
+            return type(i) == "number" and i > 0
+        end,
+    }
+end
+
 function G:Context()
     local db = self:DB()
     local _, race = Try(UnitRace, "player")
@@ -106,6 +125,8 @@ function G:Context()
         prefer = self.plan and self.plan.steps[1] and self.plan.steps[1].stopKey,
         -- fehlende EP bis zur naechsten Stufe (fuer "Monster hauen oder Quests?")
         xpNeed = (Try(UnitXPMax, "player") or 0) - (Try(UnitXP, "player") or 0),
+        -- was schaltet Stufe "lvl" frei? (Monster hauen nur, wenn es sich dafuer lohnt)
+        unlocks = function(lvl) return G:Unlocks(lvl, level) end,
     }
 end
 
@@ -218,6 +239,50 @@ function G.ZoneName(mapID)
     return info and info.name or ""
 end
 
+-- Was bringt dir Stufe "lvl"? {spells = {Namen}, quests = {ids}, dungeons = {Namen}}
+--  * Zauber/Raenge beim Klassenlehrer (Wissen der Klassen-Seite: eigener Besuch oder Startpaket)
+--  * Quests, die erst ab dieser Stufe gehen (Questdatenbank)
+--  * Dungeons, deren Mindeststufe genau diese ist (Katalog, eigene Fraktion)
+function G:Unlocks(lvl, level)
+    local out = {spells = {}, quests = {}, dungeons = {}}
+    local classes = ONE.ns and ONE.ns.classes
+    if classes and classes.Trainer and classes.Player then
+        local p = Try(classes.Player.Read, classes.Player, ONE.db and ONE.db.classGuide and ONE.db.classGuide.spec)
+        if p then
+            p.level = level or p.level
+            local _, nextLevel, nextList = Try(classes.Trainer.Upcoming, classes.Trainer, p)
+            if nextLevel == lvl then
+                for _, s in ipairs(nextList or {}) do
+                    out.spells[#out.spells + 1] = s.name .. ((type(s.rank) == "string" and s.rank ~= "") and (" (" .. s.rank .. ")") or "")
+                end
+            end
+        end
+    end
+    local ok, ids = pcall(P.UnlockedQuests, self:BaseContext(), lvl)
+    out.quests = ok and ids or {}
+    local faction = Try(UnitFactionGroup, "player")
+    for _, d in ipairs((Dungeons() or {}).Catalog or {}) do
+        if d.min == lvl and (not d.faction or d.faction == faction) and not tostring(d.key):match("^raid") then
+            out.dungeons[#out.dungeons + 1] = d.name
+        end
+    end
+    return out
+end
+
+-- Kurztext: "Tier zähmen, Arkane Geschosse (Rang 2) · 3 neue Quests · Dungeon: Die Todesminen"
+function G.UnlockText(u)
+    if not u then return "" end
+    local parts = {}
+    if #u.spells > 0 then
+        local names = {}
+        for i, n in ipairs(u.spells) do if i > 3 then names[#names + 1] = "+" .. (#u.spells - 3) break end names[#names + 1] = n end
+        parts[#parts + 1] = table.concat(names, ", ")
+    end
+    if #u.quests > 0 then parts[#parts + 1] = #u.quests == 1 and T("1 neue Quest") or T("%d neue Quests", #u.quests) end
+    if #u.dungeons > 0 then parts[#parts + 1] = T("Dungeon: %s", table.concat(u.dungeons, ", ")) end
+    return table.concat(parts, " · ")
+end
+
 -- ===== Monster hauen (Grind.lua) – Hinweis, aendert den Plan nicht =====
 function G:Grind(plan)
     plan = plan or self.plan
@@ -252,6 +317,11 @@ function G:GrindItems(advice)
         math.max(1, math.floor(advice.camps[1].minutes + .5)), math.floor(advice.questMinutes + .5))
     else head = T("MONSTER HAUEN LOHNT SICH GERADE") end
     out[#out + 1] = {key = "gh", header = true, text = head}
+    -- wofuer? "Auf Stufe 20: Tier zähmen · 3 neue Quests"
+    local unlock = G.UnlockText(advice.unlocks)
+    if unlock ~= "" then
+        out[#out + 1] = {key = "gu", header = true, text = "|cff9d9d9d" .. T("Auf Stufe %d: %s", advice.level, unlock) .. "|r"}
+    end
     for _, c in ipairs(advice.camps) do
         local tag = c.minutes and T("Stufe in ~%d Min.", math.max(1, math.floor(c.minutes + .5))) or T("~%d EP/Min", math.floor(c.epm + .5))
         out[#out + 1] = {key = "g" .. c.npc .. ":" .. c.mapID, camp = c, step = G.CampStep(c),
@@ -284,6 +354,8 @@ function G:CampWhy(c, advice)
     if advice and advice.reason == "empty" then verdict = T("Gerade keine passenden Quests – hier geht es am schnellsten weiter.")
     elseif advice and advice.reason == "noLevel" then verdict = T("Die Quests im Plan reichen nicht bis zur nächsten Stufe – hier holst du den Rest am schnellsten.")
     else verdict = T("Hier kommst du schneller zur nächsten Stufe als mit den Quests. Danach geht es mit dem Plan weiter.") end
+    local unlock = advice and G.UnlockText(advice.unlocks) or ""
+    if unlock ~= "" then verdict = verdict .. "\n" .. T("Auf Stufe %d: %s", advice.level, unlock) end
     return rows, verdict
 end
 

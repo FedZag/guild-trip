@@ -106,6 +106,17 @@ do
         if seen[id] then assert(seen[id] == "plan", "im Plan: " .. id .. " " .. seen[id]) end
     end
 end
+-- 0.7.0 Was schaltet Stufe 16 frei? Quests mit Mindeststufe 16, passend (Allianz, Schurke)
+do
+    local ids = P.UnlockedQuests(ctx, 16)
+    assert(#ids > 0, "Stufe 16 schaltet Quests frei")
+    for _, id in ipairs(ids) do
+        local e = Q.q[id]
+        assert(e[2] == 16 and not done[id])
+        assert(e[3] == 0 or P.Band(e[3], 1) > 0, "fuer Menschen: " .. id)
+    end
+    assert(#P.UnlockedQuests(ctx, 99) == 0)
+end
 if os.getenv("SHOW") then
     ctx.tempo = "need"
     plan = P:Plan(ctx)

@@ -492,6 +492,37 @@ function P:Plan(ctx)
         grind = grind, factor = factor, level = L}
 end
 
+-- Quests, die erst ab Stufe "level" angenommen werden koennen (Mindeststufe = level) und sonst fuer
+-- dich passen (Volk, Klasse, Vorquests, nicht erledigt) – fuer "was schaltet die naechste Stufe frei?"
+function P.UnlockedQuests(ctx, level)
+    local Q = P.Data()
+    if not Q then return {} end
+    local me = ctx.me
+    local done = ctx.done or function() return false end
+    local inLog = ctx.inLog or function() return false end
+    local probe = {}
+    for k, v in pairs(me) do probe[k] = v end
+    probe.level = level
+    -- nur Quests auf deinem Kontinent (Questgeber), wenn die Lage bekannt ist
+    local myC = me.mapID and ctx.world and ctx.world(me.mapID, me.x or .5, me.y or .5)
+    local out = {}
+    for id, e in pairs(Q.q) do
+        if (e[2] or 0) == level and not inLog(id) and Fits(id, e, probe, done, inLog) then
+            local ok = true
+            if myC then
+                local giver = e[6] and e[6][1]
+                local m, x, y
+                if giver then m, x, y = P.NodePoint(Q, giver, me.mapID) end
+                local c = m and ctx.world(m, x, y)
+                ok = c == myC
+            end
+            if ok then out[#out + 1] = id end
+        end
+    end
+    table.sort(out)
+    return out
+end
+
 -- ===== Gebietsuebersicht (0.7.0) – NUR Anzeige, aendert den Plan nicht =====
 -- Je Gebiet (Karte des Questgebers): wie viele Quests fuer dich es gibt, wie viele erledigt sind,
 -- und fuer jede offene: im Plan / im Log / ausgelassen (mit Grund) / gesperrt / spaeter.

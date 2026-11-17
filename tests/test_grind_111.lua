@@ -20,7 +20,9 @@ assert(loadfile(root .. "/ONE_Leveling/Grind.lua"))("ONE_Leveling", lev)
 local P, Gr = lev.Planner, lev.Grind
 -- Karte 1 auf Kontinent 1 (1000 x 1000 Yards), Karte 2 auf Kontinent 2
 local function World(m, x, y) return m, x * 1000, y * 1000 end
-local ctx = {me = {level = 15, faction = "Horde", mapID = 1, x = .5, y = .45}, world = World, speed = 7}
+local unlock = {spells = {"Tier zähmen"}, quests = {}, dungeons = {}}
+local ctx = {me = {level = 15, faction = "Horde", mapID = 1, x = .5, y = .45}, world = World, speed = 7,
+    unlocks = function(lvl) assert(lvl == 16) return unlock end}
 
 -- 1) Lager: passend, feindlich, gleicher Kontinent, nicht grau/zu hoch; je Gegner das beste
 local camps = Gr:Camps(ctx)
@@ -78,6 +80,40 @@ assert(a.worth and a.reason == "noLevel" and a.questMinutes == nil)
 -- knapp: nur 5 % schneller ist nicht "spuerbar"
 local same = Steps({{3000, farmMin * 1.05}})
 assert(not Gr:Advice(ctx, same).worth, "knapp schneller reicht nicht")
+ctx.xpNeed = nil
+
+-- 2c) Regeln des Nutzers: wichtige Quests zuerst, und die naechste Stufe muss etwas freischalten
+ctx.xpNeed = 3000
+local function Info(id, why, tags) return {id = id, why = why, tags = tags or {}} end
+-- langsamer Plan, aber eine Klassenquest im aktuellen Gebiet -> kein Farm-Hinweis
+local withClass = Steps({{500, 20}, {500, 20}, {2500, 30}})
+withClass.steps[1].actions = {{kind = "accept", id = 7}}
+withClass.info = {[7] = Info(7, "class")}
+a = Gr:Advice(ctx, withClass)
+assert(not a.worth and a.reason == "important" and a.important[1] == 7, "Klassenquest geht vor")
+-- Upgrade-Quest zaehlt auch als wichtig, reine EP-Quest nicht
+withClass.info = {[7] = Info(7, "xp", {"xp", "upgrade"})}
+assert(Gr:Advice(ctx, withClass).reason == "important")
+withClass.info = {[7] = Info(7, "xp", {"xp"})}
+assert(Gr:Advice(ctx, withClass).worth, "nur EP-Quest: Farmen erlaubt")
+-- Dungeon-Halt (Gruppe noetig) haelt nicht auf
+withClass.steps[1] = {kind = "dungeon", gain = 500, cost = 20, ids = {9}, actions = {}}
+withClass.info = {[9] = Info(9, "dungeon")}
+assert(Gr:Advice(ctx, withClass).worth)
+-- naechste Stufe schaltet nichts frei -> kein Hinweis
+unlock = {spells = {}, quests = {}, dungeons = {}}
+a = Gr:Advice(ctx, slow)
+assert(not a.worth and a.reason == "nothing")
+unlock = {spells = {}, quests = {101, 102}, dungeons = {}}
+assert(Gr:Advice(ctx, slow).worth, "neue Quests reichen")
+unlock = {spells = {}, quests = {}, dungeons = {"Die Todesminen"}}
+a = Gr:Advice(ctx, slow)
+assert(a.worth and a.unlocks.dungeons[1] == "Die Todesminen" and a.level == 16)
+-- gar keine Quests: Farmen ist der Weg weiter, auch ohne Freischaltung
+unlock = {spells = {}, quests = {}, dungeons = {}}
+a = Gr:Advice(ctx, {steps = {}})
+assert(a.worth and a.reason == "empty")
+unlock = {spells = {"Tier zähmen"}, quests = {}, dungeons = {}}
 ctx.xpNeed = nil
 
 -- 3) Ohne Gegnerdaten: nichts, kein Fehler
