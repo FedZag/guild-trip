@@ -14,5 +14,6 @@ Presence.lua
 Pins.lua
 Reminders.lua
 Help.lua
+Board.lua
 UI.lua
 Init.lua
