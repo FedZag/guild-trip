@@ -137,6 +137,23 @@ nav.QuestPins = {Diameter = function() return 466 end, clearRadius = 11,
     MinimapOffset = function(p, t, diameter, size) local s = size / diameter return -(t[3] - p[3]) * s, (t[2] - p[2]) * s end}
 RD:RefreshMinimap()
 assert(#RD.miniPool > 5 and RD.miniPool[1].shown, "Punkte auf der Minimap")
+-- 0.6.8: Fussspuren (Einstellung), Standard bleibt "dots"
+assert(RD:Style() == "dots", "Standard: goldene Punkte")
+ONE.db = ONE.db or {}
+RD:SetStyle("feet")
+assert(RD:Style() == "feet" and ONE.db.nav.routeStyle == "feet")
+RD:RefreshMinimap()
+assert(RD.miniPool[1].shown and type(RD.miniPool[1].icon.angle) == "number", "Abdrücke zur Laufrichtung gedreht")
+-- Weg nach Norden (y wächst): Zehen zeigen nach oben (Winkel 0); nach Osten -> -90°
+assert(math.abs(RD.Angle(0, 5)) < 1e-9 and math.abs(RD.Angle(5, 0) + math.pi / 2) < 1e-9, "Drehwinkel")
+-- Aufleuchten: eine Welle vom Spieler zum Ziel, frisch gesetzte Abdrücke hell, sonst ruhig
+local bright = 0
+for k = 1, 10 do if RD.FootAlpha(k, 10, 1.0) > .5 then bright = bright + 1 end end
+assert(bright >= 1 and bright <= RD.trail, "nur ein Teil leuchtet: " .. bright)
+assert(RD.FootAlpha(1, 10, 0) == 1, "erster Schritt beginnt hell")
+RD:SetStyle("dots")
+RD:RefreshMinimap()
+assert(RD.miniPool[1].icon.angle == 0, "Punkte wieder ungedreht")
 ONE.FeatureOn = function(_, id) return id ~= "nav.routeDots" end
 RD:RefreshMinimap()
 assert(not RD.miniPool[1].shown, "abschaltbar")

@@ -4,6 +4,36 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.6.8-alpha (gebaut 17.11.2026)
+
+```
+## 0.6.8-alpha
+
+**English**
+- New window layout (Blizzard look): the main areas sit in a column on the left with our own gold icons instead of tabs at the bottom; the page name is shown large at the top with a short summary next to it (e.g. guild name and how many are online, class and level).
+- Every page switches its views at the same spot, top right (Guild: Overview | Members, Dungeons: Dungeons | Groups | Trips, Professions: Recipes | Trainers, Class: Bars | Talents | Weapons, Navi: Guild | Trainers | Flight masters | Vendors, Options: General | Assists | Sharing | Modules | Reminders).
+- No more doubled page titles – the space goes to the content (larger picture on the start page, longer guild and member lists).
+- Guild Trip chat in the Blizzard look: real Blizzard frame with title, channels with our own gold icons and gold edge, unread counts as red pills (Trade muted), whispers with a shield in class colour, online dot and class/level/zone. Large header with a short summary (e.g. "12 of 40 online"); when whispering also Navi and Invite. Messages with grey time, coloured channel name and names in class colours; mentions of your name are highlighted in gold. New "Send" button. The loot window got the same frame, with item icons and who/when below.
+- New option (Options › Assists › Navi): show the route as footprints instead of golden dots – left and right in turn, pointing the way, lighting up step by step on the minimap (calm on the world map). The dots stay the default.
+- The book look stays exactly as it was (main window and chat).
+- Quest database now comes from QuestieDB's Forever data (with kind permission of the Questie team): about 4,900 quests instead of 3,500, including new Forever quests, Forever-accurate positions and stricter prerequisites (all required quests, mutually exclusive quests, maximum level).
+- Navi › Trainers and Vendors now list every trainer (class, profession, weapon master) and every vendor in the world with exact positions – no longer only the ones you or your guild have visited. Vendors show what they sell and whether they repair.
+- Dungeon entrances for all classic dungeons are known from the start (both Stratholme gates, the Stockade in Forever's new Stormwind) – no need to have been there first.
+
+**Deutsch**
+- Neuer Fensteraufbau (Blizzard-Aussehen): Die Hauptbereiche stehen links als Leiste mit eigenen Goldsymbolen statt als Reiter unten; der Seitenname steht groß oben, daneben eine kurze Angabe (z. B. Gildenname und wie viele online sind, Klasse und Stufe).
+- Jede Seite wechselt ihre Ansichten an derselben Stelle oben rechts (Gilde: Übersicht | Mitglieder, Dungeons: Dungeons | Gruppen | Ausflüge, Berufe: Rezepte | Lehrer, Klasse: Leisten | Talente | Bewaffnung, Navi: Gilde | Lehrer | Flugmeister | Händler, Optionen: Allgemein | Spielhilfen | Teilen | Module | Erinnerungen).
+- Keine doppelten Seitentitel mehr – der Platz geht an den Inhalt (größeres Bild auf der Startseite, längere Gilden- und Mitgliederliste).
+- Guild-Trip-Chat im Blizzard-Aussehen: echter Blizzard-Rahmen mit Titel, Kanäle mit eigenen Goldsymbolen und goldener Kante, Ungelesenes als rote Zahl (Handel gedämpft), Flüstern mit Wappenschild in Klassenfarbe, Online-Punkt und Klasse/Stufe/Gebiet. Große Kopfzeile mit kurzer Angabe (z. B. „12 von 40 online“), beim Flüstern zusätzlich Navi und Einladen. Nachrichten mit grauer Uhrzeit, farbigem Kanalnamen und Namen in Klassenfarbe; wer dich erwähnt, wird golden hervorgehoben. Neuer „Senden“-Knopf. Das Beute-Fenster hat denselben Rahmen, mit Gegenstandssymbol und darunter wer/wann.
+- Neue Einstellung (Optionen › Spielhilfen › Navi): den Weg als Fußspuren statt goldener Punkte zeigen – links und rechts im Wechsel, in Laufrichtung, auf der Minimap Schritt für Schritt aufleuchtend (auf der Weltkarte ruhig). Standard bleiben die Punkte.
+- Das Buch-Aussehen bleibt genau wie bisher (Hauptfenster und Chat).
+- Die Questdatenbank kommt jetzt aus den Forever-Daten von QuestieDB (mit freundlicher Erlaubnis des Questie-Teams): rund 4.900 statt 3.500 Quests, inklusive neuer Forever-Quests, Forever-genaue Positionen und genauere Vorquest-Prüfung (alle nötigen Quests, sich ausschließende Quests, Höchststufe).
+- Navi › Lehrer und Händler zeigen jetzt alle Lehrer (Klasse, Beruf, Waffenmeister) und alle Händler der Welt mit genauer Position – nicht mehr nur die, bei denen du oder deine Gilde schon wart. Händler zeigen, was sie verkaufen und ob sie reparieren.
+- Die Eingänge aller Classic-Dungeons sind von Anfang an bekannt (beide Tore von Stratholme, das Verlies im neuen Forever-Sturmwind) – man muss nicht erst dort gewesen sein.
+```
+
+---
+
 ## 0.6.7-alpha (gebaut 17.11.2026)
 
 ```

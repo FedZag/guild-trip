@@ -266,7 +266,28 @@ function Trainers:BestFor(prof, rankName)
     return best
 end
 
--- Gemeinsames Verzeichnis: Grundliste + Gilden-Funde (Funde ersetzen die Grundliste).
+-- Lehrer aus ONE_QuestDB (einmal je Fraktion umgewandelt): {npc, kind, what, map, x, y, faction, confirmed, db}
+Trainers.dbCache = {}
+function Trainers.FromQuestDB(faction)
+    if Trainers.dbCache[faction] then return Trainers.dbCache[faction] end
+    local d = rawget(_G, "GuildTripQuestDB")
+    local list = {}
+    if type(d) == "table" and type(d.trainers) == "table" then
+        local names = d.svcNames or d.names or {}
+        local want = faction == "Alliance" and 1 or 2
+        for id, t in pairs(d.trainers) do
+            local fac, name = t[6], names[id]
+            if name and (fac == 3 or fac == want) then
+                list[#list + 1] = {npc = name, kind = t[1], what = t[2], map = t[3], x = t[4] / 1000, y = t[5] / 1000,
+                    faction = faction, confirmed = true, db = true, npcID = id}
+            end
+        end
+    end
+    Trainers.dbCache[faction] = list
+    return list
+end
+
+-- Gemeinsames Verzeichnis: eigene/Gilden-Funde, Startpaket, Questdatenbank (sonst Grundliste).
 function Trainers:All()
     local out, byName = {}, {}
     for npc, e in pairs(self:Store()) do
@@ -287,7 +308,13 @@ function Trainers:All()
             byName[npc] = copy
         end
     end
-    for _, s in ipairs(self.seed) do
+    -- Lehrer-Verzeichnis aus der Questdatenbank (ONE_QuestDB/Services.lua, QuestieDB Forever): alle Lehrer
+    -- mit genauer Position. Ersetzt die ungefähre Grundliste, eigene Funde und Startpaket haben Vorrang.
+    local dbList = Trainers.FromQuestDB(faction)
+    for _, e in ipairs(dbList) do
+        if not byName[e.npc] then byName[e.npc] = e end
+    end
+    for _, s in ipairs(#dbList == 0 and self.seed or {}) do
         if (s.faction or "Horde") == faction and not byName[s.npc] then
             local copy = {}
             for k, v in pairs(s) do copy[k] = v end

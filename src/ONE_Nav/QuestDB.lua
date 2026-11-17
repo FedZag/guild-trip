@@ -1,4 +1,4 @@
--- Guild Trip Navi: Questdatenbank (Addon ONE_QuestDB, Daten aus pfQuest/MIT) anbinden.
+-- Guild Trip Navi: Questdatenbank (Addon ONE_QuestDB, Daten aus QuestieDB Forever, GPLv3) anbinden.
 -- * Questgeber "!" fuer Quests, die du annehmen kannst: Stufe, Volk, Klasse, Vorquests erledigt,
 --   noch nicht erledigt und nicht im Log. Nur fuer die Gebiete, die gerade gebraucht werden.
 -- * Ort fuer Quests im Log, wenn das Spiel keinen liefert: Ziel-NPCs/-Objekte bzw. Abgabe.
@@ -67,11 +67,21 @@ function QDB.Fits(id, e, me)
     end
     if class > 0 and me.class and Band(class, me.class) == 0 then return false end
     if type(pre) == "table" and #pre > 0 then
-        -- eine Vorquest: muss erledigt sein; mehrere: mindestens eine (Datenbank kennt "eine von")
+        -- Vorquests "eine von": mindestens eine muss erledigt sein
         local any = false
         for _, p in ipairs(pre) do if Done(p) then any = true break end end
         if not any then return false end
     end
+    -- Vorquests "alle" (QuestieDB): jede muss erledigt sein
+    if type(e[9]) == "table" then
+        for _, p in ipairs(e[9]) do if not Done(p) then return false end end
+    end
+    -- schließt sich mit anderen Quests aus (z. B. Fraktionswahl): keine davon erledigt oder im Log
+    if type(e[10]) == "table" then
+        for _, p in ipairs(e[10]) do if Done(p) or InLog(p) then return false end end
+    end
+    -- höchste Stufe, bis zu der die Quest angeboten wird
+    if (e[13] or 0) > 0 and me.level > e[13] then return false end
     return true
 end
 

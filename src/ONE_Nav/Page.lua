@@ -209,6 +209,9 @@ function Page:Build(panel)
     Tab("trainers", 126, 110)
     Tab("flights", 242, 120)
     Tab("merchants", 368, 100)
+    -- 0.6.8: mit Symbolleiste stehen die Zielarten oben in der Kopfzeile
+    local headerViews = ONE.UI.SetViews and ONE.UI:SetViews("nav", {}) or false
+    if headerViews then ONE.UI:RetireButtons(tabs.guild, tabs.trainers, tabs.flights, tabs.merchants) end
 
     -- Lehrer-Art (nur in der Ansicht Lehrer): im Buch links unter dem Ziel, sonst rechts neben den Reitern
     local trainerFilter = ONE.Kit:Dropdown(panel, {point = "TOPLEFT", x = bookL and 16 or (W - 200), y = bookL and -160 or (tabY - 2),
@@ -309,6 +312,13 @@ function Page:Build(panel)
         if merchantFilter.frame then
             if self.view == "merchants" then merchantFilter.frame:Show() merchantFilter:Refresh() else merchantFilter.frame:Hide() end
         end
+        if headerViews then
+            local function Go(key) Page.view = key ONE.UI:Refresh() end
+            local items = {{key = "guild", label = T("Gilde (%d)", counts.guild), onClick = Go},
+                {key = "trainers", label = "Lehrer", onClick = Go}, {key = "flights", label = "Flugmeister", onClick = Go}}
+            if merchantsOn then items[#items + 1] = {key = "merchants", label = "Händler", onClick = Go} end
+            ONE.UI:SetViews("nav", items, self.view)
+        end
         for id, b in pairs(tabs) do
             if id == self.view then if b.LockHighlight then b:LockHighlight() end
             elseif b.UnlockHighlight then b:UnlockHighlight() end
@@ -362,6 +372,13 @@ function Page:Register()
             end,
             get = function() return nav.Arrow:Settings().style == "blizzard" and "blizzard" or "one" end,
             set = function(v) nav.Arrow:Create() nav.Arrow:SetStyle(v) end})
+        -- Weg auf Minimap/Weltkarte: goldene Punkte (Standard) oder Fussspuren
+        opt({id = "navRouteStyle", kind = "dropdown", width = 220,
+            options = function()
+                return {{value = "dots", text = "Weg: goldene Punkte"}, {value = "feet", text = "Weg: Fußspuren"}}
+            end,
+            get = function() return nav.RouteDots and nav.RouteDots:Style() or "dots" end,
+            set = function(v) if nav.RouteDots then nav.RouteDots:SetStyle(v) end end})
         opt({id = "navLock", label = "Festsetzen", tooltip = "Der Pfeil lässt sich dann nicht mehr verschieben.",
             get = function() return nav.Arrow:Settings().locked end,
             set = function(on) nav.Arrow:Create() nav.Arrow:SetLocked(on) end})

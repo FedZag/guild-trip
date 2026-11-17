@@ -219,7 +219,7 @@ function G:Available(maps)
             end
         end
     end
-    -- Classic-Questdaten (ONE_QuestDB) fuer die gebrauchten Karten; selbst gefundene NPCs haben Vorrang
+    -- Questdatenbank (ONE_QuestDB, QuestieDB Forever) fuer die gebrauchten Karten; selbst gefundene NPCs haben Vorrang
     if maps and nav.QuestDB and nav.QuestDB:Available() then
         local store = self:Store()
         for _, g in ipairs(nav.QuestDB:Givers(maps)) do

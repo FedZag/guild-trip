@@ -65,7 +65,9 @@ assert(Chat.unread.all == 1)
 UI:Show("guild")
 assert(UI.frame.shown and UI.current == "guild" and #UI.log.lines == 1 and UI.log.lines[1]:find("Hallo Gilde"))
 assert(Chat.unread.guild == nil, "beim Ansehen gelesen")
-assert(UI.toButton.text == "An: Gilde", UI.toButton.text)
+-- 0.6.8: im Blizzard-Aussehen mit Auswahlpfeil dahinter
+assert(UI.toButton.text:find("^An: Gilde"), UI.toButton.text)
+assert(UI.modern and UI.sendButton and UI.headContext, "Blizzard-Aussehen: Senden-Knopf und Kopfzeile")
 
 -- 2) Fluestern kommt rein: eigenes Gespraech mit Zaehler, das blinkt
 Chat:OnEvent("CHAT_MSG_WHISPER", "Bist du dabei?", "Thrall-Forever", "", "", "", "", 0, 0, "", 0, 9, "")
@@ -76,7 +78,7 @@ assert(#UI.log.lines == 1, "Gildenansicht bekommt kein Fluestern")
 
 -- 3) Gespraech oeffnen (Klick), Enter schickt genau dorthin
 row.scripts.OnClick(row, "LeftButton")
-assert(UI.current == "w:Thrall" and UI.toButton.text == "An: Thrall" and #UI.log.lines == 1)
+assert(UI.current == "w:Thrall" and UI.toButton.text:find("^An: Thrall") and #UI.log.lines == 1)
 assert(not row.pulse.playing, "gelesen: Blinken aus")
 UI.input.text = "Ja, ich komme"
 UI.input.scripts.OnEnterPressed(UI.input)

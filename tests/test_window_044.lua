@@ -82,7 +82,10 @@ assert(not ONE.UI.views.themes, "Designauswahl entfaellt im nativen Look")
 assert(ONE.UI.sidebarButtons.home and ONE.UI.frame.Tabs and #ONE.UI.frame.Tabs>=2, "Reiter unten fehlen")
 assert(ONE.UI.views.modules and not ONE.UI.tabs.modules, "Module sind eine Unterseite der Optionen")
 assert(ONE.UI.inset, "Eingelassene Innenflaeche fehlt")
-assert(ONE.UI.frame._SetSize[1]==774 and ONE.UI.frame._SetSize[2]==548)
+-- 0.6.8: Blizzard-Aussehen mit Symbolleiste links, breiteres Fenster, Inhaltsflaeche bleibt 726x437
+assert(ONE.UI.frame._SetSize[1]==858 and ONE.UI.frame._SetSize[2]==533)
+assert(ONE.UI.sidebar, "Symbolleiste links fehlt")
+assert(ONE.WindowScale.WIDTH==858 and ONE.WindowScale.HEIGHT==533, "Fensterskalierung kennt die neue Groesse")
 local function Click(label, idx)
  local count=0
  for _,e in ipairs(elements) do
@@ -133,6 +136,19 @@ assert(ONE.UI.tabs.guild and ONE.UI.tabs.calendar)
 assert(#ONE.Themes.panels>=7,"Gilden-Karten nicht zentral registriert")
 ONE.UI:Navigate("guild")
 assert(ONE.UI.sidebarButtons.guild.__oneSelected and ONE.UI.pathLabel.text=="Gilde")
+-- 0.6.8: Symbolknopf der Leiste zeigt die Auswahl, Unterseiten markieren ihren Hauptbereich
+do
+ local side=ONE.UI.sidebarButtons.guild.__oneSide
+ assert(side and side.bar.visible~=false and side.label.text=="Gilde", "Gilde in der Leiste markiert")
+ assert(ONE.UI.sidebarButtons.home.__oneSide.bar.visible==false, "Startseite nicht markiert")
+ ONE.UI:Navigate("modules")
+ assert(ONE.UI.sidebarButtons.options.__oneSide.bar.visible~=false, "Module markiert Optionen")
+ ONE.UI:SetContext("calendar","November 2026")
+ ONE.UI:Navigate("calendar")
+ assert(ONE.UI.contextLabel.text=="November 2026", "Zusatzangabe in der Kopfzeile")
+ ONE.UI:Navigate("guild")
+ assert(ONE.UI.contextLabel.text:find("Gilde",1,true), "Gildenseite schreibt Name und Zahlen in die Kopfzeile")
+end
 ONE.UI:Navigate("calendar")
 assert(ONE.UI:GoBack() and ONE.UI.activeTab=="guild")
 assert(ONE.UI:GoForward() and ONE.UI.activeTab=="calendar")

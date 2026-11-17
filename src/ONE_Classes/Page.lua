@@ -118,7 +118,7 @@ function Page:Build(panel)
         LEFT_W, RIGHT_X, RIGHT_W = L.width, R.x, R.width
     end
     local _, sub
-    self.heading, sub = ONE.Widgets:PageHeader(panel, "", "", 290)
+    self.heading, sub = ONE.Widgets:PageHeader(panel, "", "", 290, true)
     self.sub = sub
 
     local content = CreateFrame("Frame", nil, panel)
@@ -710,6 +710,19 @@ function Page:Refresh()
     local showForms = store.view == "forms" and build.forms ~= nil
     if build.forms then self.viewForms:Show() else self.viewForms:Hide() end
     self:LayoutViews(build.forms ~= nil)
+    -- 0.6.8: mit Symbolleiste stehen die Ansichten oben in der Kopfzeile
+    if not self.headerTried then
+        self.headerTried = true
+        self.headerViews = ONE.UI.SetViews and ONE.UI:SetViews("classes", {}) or false
+        if self.headerViews then ONE.UI:RetireButtons(self.viewBars, self.viewTree, self.viewWeapons, self.viewForms) end
+    end
+    if self.headerViews then
+        local function Go(key) Store().view = key Page:Refresh() end
+        local items = {{key = "bars", label = "Leisten", onClick = Go}, {key = "talents", label = "Talente", onClick = Go},
+            {key = "weapons", label = "Bewaffnung", onClick = Go}}
+        if build.forms then items[#items + 1] = {key = "forms", label = "Gestalten", onClick = Go} end
+        ONE.UI:SetViews("classes", items, showTree and "talents" or showWeapons and "weapons" or showForms and "forms" or "bars")
+    end
     self.barView:Hide() self.treeView:Hide() self.weaponView:Hide()
     if showTree then self.treeView:Show() elseif showWeapons then self.weaponView:Show() else self.barView:Show() end
     -- aktiven Knopf hervorheben
@@ -723,6 +736,7 @@ function Page:Refresh()
     local situationName = T(classes.Data.situationNames[p.situation] or "Leveln")
     self.sub:SetText(p.spent > 0 and T("%s · %s · %d Talentpunkte", T(specName), situationName, p.points[p.spec] or 0)
         or T("%s · %s", T(specName), situationName))
+    if ONE.UI.SetContext then ONE.UI:SetContext("classes", (self.heading:GetText() or "") .. "  ·  " .. (self.sub:GetText() or "")) end
 
     if showTree then self:RefreshTree(p, def, build) end
     if showWeapons then self:RefreshWeapons(p) end

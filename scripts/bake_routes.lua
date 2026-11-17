@@ -104,11 +104,23 @@ do
         Add("trainer", World(tonumber(map) or const[map], tonumber(x), tonumber(y)))
     end
 end
+-- Lehrer und Händler aus der Questdatenbank (ONE_QuestDB/Services.lua, Promille)
+do
+    local env = Sandbox("src/ONE_QuestDB/Data.lua")
+    local D = env.GuildTripQuestDB
+    local chunk = assert(loadfile("src/ONE_QuestDB/Services.lua"))
+    setfenv(chunk, setmetatable({GuildTripQuestDB = D}, {__index = {setmetatable = setmetatable}}))
+    chunk()
+    for _, t in pairs(D.trainers or {}) do Add("trainer", World(t[3], t[4] / 1000, t[5] / 1000)) end
+    for _, v in pairs(D.vendors or {}) do Add("vendor", World(v[1], v[2] / 1000, v[3] / 1000)) end
+end
 -- Eingänge (Startpaket: schluessel = {uiMapID, x, y})
 do
     local dungeons = {}
     Sandbox("src/ONE_Dungeons/EntrancePack.lua", "ONE_Dungeons", dungeons)
     for _, e in pairs(dungeons.EntrancePack or {}) do Add("entrance", World(e[1], e[2], e[3])) end
+    Sandbox("src/ONE_Dungeons/EntranceData.lua", "ONE_Dungeons", dungeons)
+    for _, e in pairs(dungeons.EntranceData or {}) do Add("entrance", World(e[1], e[2], e[3])) end
 end
 -- Flugmeister, Anleger, Portale (SPF, Weltkoordinaten)
 for _, n in pairs(ns.TaxiNodes) do Add("taxi", n.map, n.x, n.y) end

@@ -104,6 +104,13 @@ function Loot:Render()
             local stamp = type(date) == "function" and ("|cff8a8a8a" .. date("%H:%M", e.time) .. "|r  ") or ""
             if parchment and ONE.Book and ONE.Book.InkCodes then stamp = ONE.Book.InkCodes(stamp) end
             local line = stamp .. link .. (e.count > 1 and (" x" .. e.count) or "") .. "  →  |Hplayer:" .. e.who .. ":0|h" .. name .. "|h"
+            if self.modern then
+                local id = tonumber(tostring(link):match("item:(%d+)"))
+                local icon = id and C_Item and type(C_Item.GetItemIconByID) == "function" and select(2, pcall(C_Item.GetItemIconByID, id))
+                local tex = (type(icon) == "number" or type(icon) == "string") and ("|T" .. icon .. ":20:20|t  ") or ""
+                local when = type(date) == "function" and date("%H:%M", e.time) or ""
+                line = tex .. link .. (e.count > 1 and (" x" .. e.count) or "") .. "\n|cff8a8a8a      |Hplayer:" .. e.who .. ":0|h" .. name .. "|h|cff8a8a8a  ·  " .. when .. "|r"
+            end
             local r, g, b = 1, 1, 1
             if parchment and ONE.Book and ONE.Book.Ink then r, g, b = ONE.Book.Ink(1, 1, 1) end
             log:AddMessage(line, r, g, b)
@@ -117,8 +124,28 @@ end
 
 function Loot:Build()
     if self.frame then return self.frame end
-    local f = CreateFrame("Frame", "GuildTripLootWindow", UIParent, "BackdropTemplate")
+    -- 0.6.8: im Blizzard-Aussehen derselbe Rahmen wie Hauptfenster und Chat
+    local modern = not chat.Chat:Flat() and not (ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive())
+    local f
+    if modern then
+        local ok, fr = pcall(CreateFrame, "Frame", "GuildTripLootWindow", UIParent, "PortraitFrameTemplate")
+        if ok and fr then f = fr else modern = false end
+    end
+    self.modern = modern
+    f = f or CreateFrame("Frame", "GuildTripLootWindow", UIParent, "BackdropTemplate")
     self.frame = f
+    local top = 38
+    if modern then
+        if f.SetTitle then pcall(f.SetTitle, f, T("Beute")) end
+        local hidden = type(ButtonFrameTemplate_HidePortrait) == "function" and pcall(ButtonFrameTemplate_HidePortrait, f)
+        if not hidden then
+            for _, m in ipairs({"SetPortraitToAsset", "SetPortraitTextureRaw"}) do
+                if type(f[m]) == "function" and pcall(f[m], f, "Interface\\AddOns\\ONE_Core\\Textures\\Common\\Emblem.tga") then break end
+            end
+        end
+        top = hidden and 30 or 58
+        if type(f.CloseButton) == "table" and f.CloseButton.SetScript then f.CloseButton:SetScript("OnClick", function() f:Hide() end) end
+    end
     f:SetSize(Settings().lootWidth or 380, Settings().lootHeight or 300)
     f:SetPoint("CENTER", UIParent, "CENTER", 260, 0)
     f:SetFrameStrata("MEDIUM")
@@ -142,9 +169,28 @@ function Loot:Build()
     title:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -10)
     title:SetText(T("Beute"))
     if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(title, "accent") end
-    ONE.Widgets:CloseButton(f, "TOPRIGHT", -4, -4, function() f:Hide() end)
+    if modern then
+        bg:Hide() title:Hide()
+        -- eingelassene Flaeche mit Kopf "Diese Sitzung" und Filter rechts
+        local box = CreateFrame("Frame", nil, f)
+        box:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -top)
+        box:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8, 38)
+        if box.SetFrameLevel and f.GetFrameLevel then box:SetFrameLevel(f:GetFrameLevel()) end
+        if ONE.Themes and ONE.Themes.RegisterPanel then ONE.Themes:RegisterPanel(box) end
+        local head = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        head:SetPoint("TOPLEFT", box, "TOPLEFT", 10, -10)
+        head:SetText(T("Diese Sitzung"))
+        local rule = f:CreateTexture(nil, "ARTWORK")
+        rule:SetHeight(1)
+        rule:SetPoint("TOPLEFT", box, "TOPLEFT", 6, -32)
+        rule:SetPoint("TOPRIGHT", box, "TOPRIGHT", -6, -32)
+        rule:SetColorTexture(.79, .64, .29, .45)
+        self.box = box
+    else
+        ONE.Widgets:CloseButton(f, "TOPRIGHT", -4, -4, function() f:Hide() end)
+    end
     -- Qualitaet: Knopf wechselt ab welcher Seltenheit gezeigt wird
-    local q = ONE.Widgets:Button(f, "", 130, 22, "TOPRIGHT", -36, -8, function()
+    local q = ONE.Widgets:Button(f, "", 130, 22, "TOPRIGHT", modern and -14 or -36, modern and -(top + 6) or -8, function()
         local n = (Loot:MinQuality() + 1) % 6
         Settings().lootMinQuality = n
         Loot:UpdateQualityButton()
@@ -156,8 +202,8 @@ function Loot:Build()
     self.count:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 14, 15)
     if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(self.count, "soft") end
     local log = CreateFrame("ScrollingMessageFrame", "GuildTripLootLog", f)
-    log:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -38)
-    log:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -14, 40)
+    log:SetPoint("TOPLEFT", f, "TOPLEFT", 14, modern and -(top + 38) or -38)
+    log:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -14, modern and 44 or 40)
     log:SetFading(false)
     log:SetMaxLines(Loot.max)
     log:SetJustifyH("LEFT")
@@ -192,7 +238,7 @@ function Loot:Build()
     grip:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
     grip:SetScript("OnMouseUp", function() f:StopMovingOrSizing() Settings().lootWidth, Settings().lootHeight = math.floor(f:GetWidth() + .5), math.floor(f:GetHeight() + .5) end)
     if UISpecialFrames then table.insert(UISpecialFrames, "GuildTripLootWindow") end
-    ONE.Themes:RegisterWindow(f, bg, title)
+    if not modern then ONE.Themes:RegisterWindow(f, bg, title) end
     if ONE.Themes.StyleTree then ONE.Themes:StyleTree(f) end
     f:Hide()
     return f

@@ -88,7 +88,8 @@ local function Click(label)
     button.scripts.OnClick(button)
 end
 ONE.UI:Navigate("options")
-Click("Erinnerungszeiten einstellen")
+-- 0.6.8: mit Symbolleiste steht die Unterseite oben als Ansicht "Erinnerungen"
+Click(ONE.UI.sidebar and "Erinnerungen" or "Erinnerungszeiten einstellen")
 assert(ONE.UI.activeTab == "guild-reminder-settings")
 local R = guild.Reminders
 Click("30 Min.")

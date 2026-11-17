@@ -43,6 +43,36 @@ function D.Sample(route, px, py, step, max, range)
     return out
 end
 
+-- Darstellung des Wegs: "dots" (goldene Punkte, Standard) oder "feet" (Fussspuren, Nutzer-Wunsch 17.11.2026:
+-- Abdruecke links/rechts im Wechsel, zur Laufrichtung gedreht, auf der Minimap Schritt fuer Schritt
+-- aufleuchtend; Weltkarte ruhig). Gespeichert in ONE.db.nav.routeStyle.
+function D:Style()
+    local s = ONE.db and type(ONE.db.nav) == "table" and ONE.db.nav.routeStyle
+    return s == "feet" and "feet" or "dots"
+end
+function D:SetStyle(v)
+    if not ONE.db then return end
+    ONE.db.nav = type(ONE.db.nav) == "table" and ONE.db.nav or {}
+    ONE.db.nav.routeStyle = v == "feet" and "feet" or "dots"
+    self:RefreshMinimap()
+    self:RefreshMap()
+end
+D.stepsPerSecond, D.trail = 5, 6
+-- Helligkeit des k-ten Abdrucks (1 = am Spieler): eine Welle laeuft vom Spieler zum Ziel,
+-- frisch "gesetzte" Abdruecke leuchten, aeltere verblassen auf einen ruhigen Grundwert
+function D.FootAlpha(k, count, now)
+    local span = count + D.trail
+    local head = math.floor((now or 0) * D.stepsPerSecond) % math.max(1, span) + 1
+    local behind = head - k
+    if behind >= 0 and behind < D.trail then return 1 - behind * (.6 / D.trail) end
+    return .3
+end
+-- Drehwinkel fuer SetRotation (gegen den Uhrzeigersinn, 0 = Zehen nach oben) aus einer Richtung (y nach oben)
+function D.Angle(dx, dy)
+    if dx == 0 and dy == 0 then return 0 end
+    return math.atan2(-dx, dy)
+end
+
 local function NewDot(parent, size)
     local dot = CreateFrame("Frame", nil, parent)
     dot:SetSize(size, size)
@@ -50,8 +80,17 @@ local function NewDot(parent, size)
     dot.icon:SetAllPoints()
     return dot
 end
-local function Style(dot, p, size)
+local function Style(dot, p, size, foot)
+    if foot and not p.turn then
+        dot.icon:SetTexture(TEX .. (foot.left and "RouteFootL.tga" or "RouteFootR.tga"))
+        dot:SetSize(size, size)
+        if dot.icon.SetRotation then dot.icon:SetRotation(foot.angle or 0) end
+        dot:SetAlpha(foot.alpha or 1)
+        return
+    end
     dot.icon:SetTexture(TEX .. (p.turn and "RouteTurn.tga" or "RouteDot.tga"))
+    if dot.icon.SetRotation then dot.icon:SetRotation(0) end
+    dot:SetAlpha(1)
     dot:SetSize(p.turn and size * 1.6 or size, p.turn and size * 1.6 or size)
 end
 
@@ -67,16 +106,41 @@ function D:RefreshMinimap()
             local rotate = type(GetCVar) == "function" and GetCVar("rotateMinimap") == "1"
             local facing = rotate and Travel.Facing() or nil
             local size, diameter = mm:GetWidth(), P:Diameter()
-            for _, p in ipairs(self.Sample(route, px, py, diameter / 28, 60, diameter)) do
+            local feet = self:Style() == "feet"
+            local samples = self.Sample(route, px, py, diameter / (feet and 22 or 28), 60, diameter)
+            -- Fussspuren: Richtung je Abdruck aus dem vorigen Punkt (am Anfang: Spieler), Wechsel links/rechts
+            local placed, lx, ly, count = {}, 0, 0, 0
+            for _, p in ipairs(samples) do
                 local sx, sy = P.MinimapOffset({pc, px, py}, {pc, p.x, p.y}, diameter, size, facing)
-                if sx and sx * sx + sy * sy >= P.clearRadius * P.clearRadius then
+                if sx then
+                    local e = {p = p, sx = sx, sy = sy}
+                    if feet and not p.turn then
+                        count = count + 1
+                        local dx, dy = sx - lx, sy - ly
+                        local len = math.sqrt(dx * dx + dy * dy)
+                        local left = count % 2 == 1
+                        if len > 0 then
+                            local side = left and -1.6 or 1.6
+                            e.sx, e.sy = sx + dy / len * side, sy - dx / len * side
+                        end
+                        e.foot = {left = left, angle = self.Angle(dx, dy), k = count}
+                    end
+                    lx, ly = sx, sy
+                    placed[#placed + 1] = e
+                end
+            end
+            local now = type(GetTime) == "function" and GetTime() or 0
+            for _, e in ipairs(placed) do
+                local sx, sy = e.sx, e.sy
+                if sx * sx + sy * sy >= P.clearRadius * P.clearRadius then
                     n = n + 1
                     local dot = self.miniPool[n] or NewDot(mm, 7)
                     self.miniPool[n] = dot
                     dot:SetFrameLevel((mm.GetFrameLevel and mm:GetFrameLevel() or 1) + 4)
                     dot:ClearAllPoints()
                     dot:SetPoint("CENTER", mm, "CENTER", sx, sy)
-                    Style(dot, p, 7)
+                    if e.foot then e.foot.alpha = self.FootAlpha(e.foot.k, count, now) end
+                    Style(dot, e.p, e.foot and 9 or 7, e.foot)
                     dot:Show()
                 end
             end
@@ -117,6 +181,8 @@ function D:RefreshMap()
         local pc, px, py = nav.Travel.PlayerWorld()
         if canvas and viewed and w and h and w > 0 and pc == route.continent then
             local step = math.max(15, (route.length or 0) / 140)
+            local feet = self:Style() == "feet"
+            local lastX, lastY, count = nil, nil, 0
             for _, p in ipairs(self.Sample(route, px, py, step, 180)) do
                 local mx, my = self.MapPos(route.continent, p.x, p.y, viewed)
                 if mx then
@@ -127,7 +193,15 @@ function D:RefreshMap()
                     dot:SetFrameLevel((canvas.GetFrameLevel and canvas:GetFrameLevel() or 1) + 38)
                     dot:ClearAllPoints()
                     dot:SetPoint("CENTER", canvas, "TOPLEFT", mx * w, -my * h)
-                    Style(dot, p, 9)
+                    -- Weltkarte: Fussspuren ruhig (ohne Aufleuchten), zur Laufrichtung gedreht
+                    local foot
+                    if feet and not p.turn then
+                        count = count + 1
+                        local dx, dy = lastX and (mx - lastX) * w or 0, lastY and -(my - lastY) * h or 1
+                        foot = {left = count % 2 == 1, angle = self.Angle(dx, dy), alpha = .9}
+                    end
+                    lastX, lastY = mx, my
+                    Style(dot, p, foot and 11 or 9, foot)
                     dot:Show()
                 end
             end

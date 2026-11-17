@@ -29,6 +29,20 @@ local NAV_ORDER={home=1,guild=2,calendar=3,dungeons=4,groups=5,crafting=6,classe
 -- bleibt 726x437, damit alle Seiten unveraendert hineinpassen.
 local WINDOW={width=774,height=548,insetX=12,insetTop=60,insetBottom=28,contentX=24,contentY=72}
 UI.WINDOW=WINDOW
+-- 0.6.8 (Nutzer-Wunsch 17.11.2026): im Blizzard-Aussehen Hauptbereiche als Symbolleiste
+-- links (eigene Goldsymbole) statt Reiter unten, Seitenname gross in der Kopfzeile.
+-- Die Inhaltsflaeche bleibt 726x437, nur das Fenster wird breiter. Das Buch behaelt
+-- seine Masse (Buchbild ist auf 774x548 gezeichnet).
+local NATIVE_WINDOW={width=858,height=533,insetX=96,insetRight=12,insetTop=60,insetBottom=12,
+    contentX=108,contentY=72,sideX=10,sideWidth=80,navHeight=44,navGap=2}
+UI.NATIVE_WINDOW=NATIVE_WINDOW
+-- Unterseiten markieren in der Leiste ihren Hauptbereich
+local VIEW_PARENT={modules="options",assists="options",sharing="options",themes="options",
+    ["guild-reminder-settings"]="options",["guild-members"]="guild",today="home"}
+UI.VIEW_PARENT=VIEW_PARENT
+local function BookActive() return ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() end
+local ICONS="Interface\\AddOns\\ONE_Core\\Textures\\Book\\TabIcons"
+local ICON_INDEX={home=0,guild=1,calendar=2,dungeons=3,groups=3,crafting=4,classes=5,quests=6,nav=7,options=8}
 local NAV_LABEL={home="Startseite",guild="Gilde",calendar="Kalender",today="Heute",
     dungeons=T("Dungeons"),groups=T("Gruppen"),crafting=T("Berufe"),classes=T("Klasse"),quests=T("Quests"),nav=T("Navi"),modules=T("Module"),options=T("Optionen"),themes=T("Farben & Klänge")}
 
@@ -61,16 +75,67 @@ local function Panel(parent,x,y,w,h)
 end
 
 -- Reiter unten am Fenster, sortiert nach NAV_ORDER.
+-- Knopf der Symbolleiste: Goldsymbol oben, Name darunter, Auswahl mit goldener Kante links
+function UI:SideButton(id,title)
+    local parent=self.sidebar or self.frame
+    local b=CreateFrame("Button","ProjectONEMainWindowTab"..id,parent)
+    local W=NATIVE_WINDOW
+    b:SetSize(W.sideWidth-8,W.navHeight)
+    local sel=b:CreateTexture(nil,"BACKGROUND")
+    sel:SetAllPoints(b)
+    sel:SetColorTexture(1,.82,0,.13)
+    local bar=b:CreateTexture(nil,"BORDER")
+    bar:SetPoint("TOPLEFT",b,"TOPLEFT",0,0)
+    bar:SetPoint("BOTTOMLEFT",b,"BOTTOMLEFT",0,0)
+    bar:SetWidth(3)
+    bar:SetColorTexture(1,.82,0,.95)
+    local hover=b:CreateTexture(nil,"HIGHLIGHT")
+    hover:SetAllPoints(b)
+    hover:SetColorTexture(1,1,1,.07)
+    local icon=b:CreateTexture(nil,"ARTWORK")
+    icon:SetSize(24,24)
+    icon:SetPoint("TOP",b,"TOP",0,-4)
+    icon:SetTexture(ICONS)
+    local idx=ICON_INDEX[id] or 9
+    local col,row=idx%4,math.floor(idx/4)
+    icon:SetTexCoord(col/4,(col+1)/4,row/4,(row+1)/4)
+    local label=b:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+    label:SetPoint("BOTTOM",b,"BOTTOM",0,4)
+    label:SetWidth(W.sideWidth-8)
+    label:SetJustifyH("CENTER")
+    if label.SetWordWrap then label:SetWordWrap(false) end
+    -- Name immer im eigenen Schriftfeld (kein Vorlagen-Text)
+    b.SetText=function(_,text) label:SetText(text) end
+    b.GetText=function() return label:GetText() end
+    b.__oneSide={sel=sel,bar=bar,icon=icon,label=label}
+    b:SetText(T(NAV_LABEL[id] or title))
+    return b
+end
+function UI:StyleSideButton(b,selected)
+    local r=b and b.__oneSide
+    if not r then return end
+    if selected then r.sel:Show() r.bar:Show() else r.sel:Hide() r.bar:Hide() end
+    local k=selected and 1 or .72
+    r.icon:SetVertexColor(k,k,k)
+    if selected then r.label:SetTextColor(1,.82,0) else r.label:SetTextColor(.82,.76,.6) end
+end
+function UI:IsSidebar() return self.sidebar~=nil end
 function UI:RelayoutNavigation()
     local keys={}
     for id in pairs(self.sidebarButtons) do keys[#keys+1]=id end
     table.sort(keys,function(a,b) return (NAV_ORDER[a] or 90)<(NAV_ORDER[b] or 90) end)
     local tabs={}
+    local W=NATIVE_WINDOW
+    local row=0
     for i,id in ipairs(keys) do
         local tab=self.sidebarButtons[id]
         if tab.SetID then tab:SetID(i) end
         if tab.ClearAllPoints then tab:ClearAllPoints() end
-        if i==1 then tab:SetPoint("TOPLEFT",self.frame,"BOTTOMLEFT",12,2)
+        if self.sidebar then
+            -- Optionen unten in der Leiste, alles andere von oben
+            if id=="options" then tab:SetPoint("BOTTOMLEFT",self.sidebar,"BOTTOMLEFT",4,22)
+            else tab:SetPoint("TOPLEFT",self.sidebar,"TOPLEFT",4,-6-row*(W.navHeight+W.navGap)) row=row+1 end
+        elseif i==1 then tab:SetPoint("TOPLEFT",self.frame,"BOTTOMLEFT",12,2)
         else tab:SetPoint("LEFT",tabs[i-1],"RIGHT",(ONE.Book and ONE.Book:IsActive()) and 2 or -14,0) end
         tabs[i]=tab
         tab.__oneSelected=(id==self.activeTab)
@@ -81,6 +146,11 @@ function UI:RelayoutNavigation()
 end
 function UI:SelectNativeTab()
     if not self.tabIds then return end
+    if self.sidebar then
+        local active=VIEW_PARENT[self.activeTab] or self.activeTab
+        for _,id in ipairs(self.tabIds) do self:StyleSideButton(self.sidebarButtons[id],id==active) end
+        return
+    end
     local selected
     for i,id in ipairs(self.tabIds) do if id==self.activeTab then selected=i end end
     if type(PanelTemplates_SetNumTabs)=="function" then pcall(PanelTemplates_SetNumTabs,self.frame,#self.tabIds) end
@@ -93,13 +163,15 @@ function UI:SelectNativeTab()
 end
 function UI:AddNavButton(id,title)
     if not NAV_ORDER[id] or self.sidebarButtons[id] then return end
-    local ok,tab=pcall(CreateFrame,"Button","ProjectONEMainWindowTab"..id,self.frame,"PanelTabButtonTemplate")
+    local ok,tab
+    if self.sidebar then ok,tab=pcall(self.SideButton,self,id,title)
+    else ok,tab=pcall(CreateFrame,"Button","ProjectONEMainWindowTab"..id,self.frame,"PanelTabButtonTemplate") end
     if not ok or not tab then
         tab=ONE.Widgets:Button(self.frame,NAV_LABEL[id] or title,96,26,"TOPLEFT",0,0)
     end
     tab:SetText(T(NAV_LABEL[id] or title))
     tab:SetScript("OnClick",function() self:Navigate(id) end)
-    if type(PanelTemplates_TabResize)=="function" then pcall(PanelTemplates_TabResize,tab,0) end
+    if not self.sidebar and type(PanelTemplates_TabResize)=="function" then pcall(PanelTemplates_TabResize,tab,0) end
     self.sidebarButtons[id]=tab
     self:RelayoutNavigation()
     return tab
@@ -110,6 +182,7 @@ function UI:AddTab(id,title,builder)
     panel:SetPoint("TOPLEFT",WINDOW.contentX,-WINDOW.contentY)
     panel:SetSize(ONE.Geometry.tokens.contentWidth,ONE.Geometry.tokens.contentHeight)
     panel:Hide()
+    panel.__oneTopPanel=true
     local button=self:AddNavButton(id,title)
     self.tabs[id]={button=button,panel=panel,refresh=builder(panel) or function() end}
     self.order[#self.order+1]=id
@@ -123,6 +196,7 @@ function UI:RegisterView(id,builder)
     panel:SetPoint("TOPLEFT",WINDOW.contentX,-WINDOW.contentY)
     panel:SetSize(ONE.Geometry.tokens.contentWidth,ONE.Geometry.tokens.contentHeight)
     panel:Hide()
+    panel.__oneTopPanel=true
     self.views[id]={panel=panel,refresh=builder(panel) or function() end}
     self:AddNavButton(id,id)
     if ONE.Book then ONE.Book:PanelAdded(self) end
@@ -262,7 +336,9 @@ function UI:Navigate(id,origin)
         if self.__hasNavigated and self.frame:IsShown() then ONE.Book:TurnPage(entry and entry.panel) end
         if entry and entry.panel then ONE.Book:InkTree(entry.panel,0) end
     end
-    if self.pathLabel then self.pathLabel:SetText(T(NAV_LABEL[id] or "")) end
+    if self.pathLabel then self.pathLabel:SetText(T(NAV_LABEL[id] or (self.sidebar and NAV_LABEL[VIEW_PARENT[id] or ""]) or "")) end
+    self:UpdateContext()
+    self:UpdateViews()
     -- Buch: "Guild Trip · Gildenname" links oben nur auf der Startseite (Nutzer-Wunsch 15.11.2026)
     if ONE.Book and ONE.Book.leftHead then
         if id=="home" then ONE.Book.leftHead:Show() else ONE.Book.leftHead:Hide() end
@@ -277,6 +353,105 @@ function UI:Navigate(id,origin)
     self.__hasNavigated=true
     self:UpdateBackButton()
     return true
+end
+-- Seiten mit eigenem Titel (PageHeader): mit Symbolleiste steht der Seitenname schon
+-- gross in der Kopfzeile. Der eigene Titel entfaellt, die Seite rueckt um dy nach oben
+-- (der freie Titelbereich liegt dann unter der Kopfzeile). Unten wird es entsprechend frei.
+UI.LIFT=54
+function UI:LiftPage(panel,dy)
+    if not (self.sidebar and panel and panel.__oneTopPanel) or panel.__oneLifted then return false end
+    panel.__oneLifted=dy or self.LIFT
+    panel:ClearAllPoints()
+    panel:SetPoint("TOPLEFT",self.frame,"TOPLEFT",WINDOW.contentX,-(WINDOW.contentY-panel.__oneLifted))
+    -- die Seite reicht weiter nach unten bis zur alten Unterkante
+    panel:SetSize(ONE.Geometry.tokens.contentWidth,ONE.Geometry.tokens.contentHeight+panel.__oneLifted)
+    return true
+end
+-- Ansichten-Umschalter oben rechts in der Kopfzeile (gleiche Stelle auf jeder Seite).
+-- items = {{key=, label=, onClick=function(key) end}, ...}; active = key der aktiven Ansicht.
+-- Liefert false ohne Symbolleiste (Buch): dann behaelt die Seite ihre eigenen Knoepfe.
+function UI:SetViews(id,items,active)
+    if not self.sidebar then return false end
+    self.viewSets=self.viewSets or {}
+    self.viewSets[id]=items and {items=items,active=active} or nil
+    if id==self.activeTab or (VIEW_PARENT[self.activeTab]==id) then self:UpdateViews() end
+    return true
+end
+-- Alte Seitenknoepfe, die durch die Kopfzeile ersetzt sind: ausblenden (bleiben als
+-- Objekte erhalten, damit Seiten sie weiter beschriften/markieren duerfen)
+function UI:RetireButtons(...)
+    for i=1,select("#",...) do
+        local b=select(i,...)
+        if b then b:Hide() b.Show=function() end end
+    end
+end
+function UI:SetActiveView(id,active)
+    local set=self.viewSets and self.viewSets[id]
+    if not set then return end
+    set.active=active
+    self:UpdateViews()
+end
+function UI:UpdateViews()
+    if not self.sidebar then return end
+    self.viewButtons=self.viewButtons or {}
+    local set=self.viewSets and (self.viewSets[self.activeTab] or self.viewSets[VIEW_PARENT[self.activeTab] or ""])
+    if not set and (self.activeTab=="options" or VIEW_PARENT[self.activeTab]=="options") then
+        -- Optionen: Unterseiten der Module als Ansichten
+        local items={{key="options",label="Allgemein"}}
+        local SHORT={["Module verwalten"]="Module",["Erinnerungszeiten einstellen"]="Erinnerungen"}
+        for _,link in ipairs(self.optionsLinks) do items[#items+1]={key=link.viewId,label=SHORT[link.title] or link.title} end
+        for _,it in ipairs(items) do it.onClick=function(key) self:Navigate(key) end end
+        set={items=items}
+    end
+    local items=set and set.items or {}
+    -- Ansichten, die eigene Seiten sind, folgen der offenen Seite
+    if set then for _,it in ipairs(items) do if it.key==self.activeTab then set.active=it.key end end end
+    local right=-118
+    for i=#items,1,-1 do
+        local it=items[i]
+        local b=self.viewButtons[i]
+        if not b then
+            b=ONE.Widgets:Button(self.frame,"",90,22,"TOPRIGHT",0,0)
+            self.viewButtons[i]=b
+        end
+        local label=T(it.label)
+        b:SetText(label)
+        local w=math.max(64,math.floor(#label*6.2+26))
+        b:SetSize(w,22)
+        b:ClearAllPoints()
+        b:SetPoint("TOPRIGHT",self.frame,"TOPRIGHT",right,-(WINDOW.insetTop-27))
+        right=right-w-2
+        local on=(it.key==set.active)
+        if on then
+            if b.LockHighlight then b:LockHighlight() end
+            local fs=b.GetFontString and b:GetFontString()
+            if fs and fs.SetTextColor then fs:SetTextColor(1,1,1) end
+        else
+            if b.UnlockHighlight then b:UnlockHighlight() end
+            local fs=b.GetFontString and b:GetFontString()
+            if fs and fs.SetTextColor then fs:SetTextColor(1,.82,0) end
+        end
+        b.__oneViewOn=on
+        b:SetScript("OnClick",function()
+            set.active=it.key
+            if it.onClick then it.onClick(it.key) end
+            self:UpdateViews()
+        end)
+        b:Show()
+    end
+    for i=#items+1,#self.viewButtons do self.viewButtons[i]:Hide() end
+end
+-- Kurze Zusatzangabe in der Kopfzeile neben dem Seitennamen (z. B. "5 von 23 online").
+-- Module rufen UI:SetContext(id, text) in ihrer Aktualisierung auf; nil loescht.
+function UI:SetContext(id,text)
+    self.contexts=self.contexts or {}
+    self.contexts[id]=text
+    if id==self.activeTab then self:UpdateContext() end
+end
+function UI:UpdateContext()
+    if not self.contextLabel then return end
+    local text=self.contexts and self.contexts[self.activeTab]
+    self.contextLabel:SetText(text or "")
 end
 function UI:Refresh()
     local active=self.tabs[self.activeTab] or self.views[self.activeTab]
@@ -305,16 +480,21 @@ local function BuildHome(panel)
     local L,R=nil,nil
     if ONE.Book then L,R=ONE.Book:Spread() end
     local LW=L and L.width or W
-    Label(panel,T("Deine Zentrale"),"GameFontNormalLarge",0,-4,LW)
-    Label(panel,T("Dein Gildenalltag. Ein klarer Überblick."),"GameFontHighlight",0,-34,LW,"soft")
+    if not UI:LiftPage(panel) then
+        Label(panel,T("Deine Zentrale"),"GameFontNormalLarge",0,-4,LW)
+        Label(panel,T("Dein Gildenalltag. Ein klarer Überblick."),"GameFontHighlight",0,-34,LW,"soft")
+    end
 
+    -- mit Symbolleiste ohne eigenen Titel: das Bild bekommt den frei gewordenen Platz
+    local lift=panel.__oneLifted or 0
+    local heroH=190+lift
     local hero
     if L then
         hero=CreateFrame("Frame",nil,panel)
         hero:SetPoint("TOPLEFT",panel,"TOPLEFT",L.x,-62)
         hero:SetSize(L.width,190)
     else
-        hero=Panel(panel,0,-62,W,190)
+        hero=Panel(panel,0,-62,W,heroH)
     end
     local heroHeader=ONE.Geometry:CardHeader(LW)
     if L then heroHeader.x=0 heroHeader.width=L.width end
@@ -347,7 +527,7 @@ local function BuildHome(panel)
     Label(hero,T("Termine und Gilde – übersichtlich an einem Ort."),
         "GameFontHighlight",heroHeader.x,-114,L and textW or 430,"soft")
     Action(hero,T("Heutige Termine ansehen"),{
-        x=heroHeader.x,y=ONE.Geometry:BottomActionY(190),width=heroHeader.width,
+        x=heroHeader.x,y=ONE.Geometry:BottomActionY(heroH),width=heroHeader.width,
     },function() ONE.UI:OpenLink("today") end,"primary","primary","left")
 
     -- Kachelreihe: jedes installierte Modul steuert eine Kachel bei
@@ -372,7 +552,7 @@ local function BuildHome(panel)
         end
         for i,def in ipairs(defs) do
             local col=tileCols[i]
-            local frame=Panel(panel,col.x,col.y or -267,col.width,166)
+            local frame=Panel(panel,col.x,col.y or (-267-lift),col.width,166)
             local header=ONE.Geometry:CardHeader(col.width)
             Label(frame,def.title or def.id,"GameFontNormal",header.x,header.y,header.width)
             local rule=frame:CreateTexture(nil,"ARTWORK")
@@ -681,7 +861,10 @@ local function BuildOptions(panel)
     -- Weitere Einstellungen (Unterseiten der Module)
     local moreY,moreH=-62-cardH-12,437-62-cardH-12
     if bookL then moreY,moreH=-62-190-12,437-62-190-12 end
-    local more=OptionCard(panel,0,moreY,bookL and bookL.width or W,moreH,bookL and "WEITERE SEITEN" or "WEITERE EINSTELLUNGEN")
+    local headerViews=UI.sidebar~=nil
+    if headerViews then moreH=moreH+(panel.__oneLifted or 0) end
+    local more=OptionCard(panel,0,moreY,bookL and bookL.width or W,moreH,
+        bookL and "WEITERE SEITEN" or (headerViews and "SPRACHE & AUSSEHEN" or "WEITERE EINSTELLUNGEN"))
     local langCard=more
     if bookL then
         langCard=look
@@ -732,7 +915,8 @@ local function BuildOptions(panel)
         end
         for i,button in ipairs(links) do
             local action=ONE.UI.optionsLinks[i]
-            if action then button:SetText((bookL and "›  " or "")..T(action.title)) button:Show() else button:Hide() end
+            -- mit Symbolleiste stehen die Unterseiten oben als Ansichten
+            if action and not headerViews then button:SetText((bookL and "›  " or "")..T(action.title)) button:Show() else button:Hide() end
         end
     end
 end
@@ -843,6 +1027,10 @@ function UI:Initialize()
     local ok,frame=pcall(CreateFrame,"Frame","ProjectONEMainWindow",UIParent,"PortraitFrameTemplate")
     if not ok or not frame then frame=CreateFrame("Frame","ProjectONEMainWindow",UIParent) end
     self.frame=frame
+    if not BookActive() then
+        for k,v in pairs(NATIVE_WINDOW) do WINDOW[k]=v end
+        ONE.WindowScale.WIDTH,ONE.WindowScale.HEIGHT=WINDOW.width,WINDOW.height
+    end
     frame:SetSize(WINDOW.width,WINDOW.height)
     ONE.WindowScale:Initialize(frame)
     frame:SetFrameStrata("DIALOG")
@@ -895,8 +1083,17 @@ function UI:Initialize()
         ONE.Themes:RegisterPanel(inset)
     end
     inset:SetPoint("TOPLEFT",frame,"TOPLEFT",WINDOW.insetX,-WINDOW.insetTop)
-    inset:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-WINDOW.insetX,WINDOW.insetBottom)
+    inset:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-(WINDOW.insetRight or WINDOW.insetX),WINDOW.insetBottom)
     self.inset=inset
+    if WINDOW.sideWidth then
+        -- Symbolleiste links: eigene eingelassene Flaeche wie die Innenflaeche
+        local sok,side=pcall(CreateFrame,"Frame",nil,frame,"InsetFrameTemplate")
+        if not sok or not side then side=CreateFrame("Frame",nil,frame) ONE.Themes:RegisterPanel(side) end
+        side:SetPoint("TOPLEFT",frame,"TOPLEFT",WINDOW.sideX,-WINDOW.insetTop)
+        side:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",WINDOW.sideX,WINDOW.insetBottom)
+        side:SetWidth(WINDOW.sideWidth)
+        self.sidebar=side
+    end
     -- Blizzard-Aussehen: beim Oeffnen alle Textfarben (Gold/Weiss/Grau) neu setzen,
     -- falls das Spiel Schriften inzwischen aufgefrischt hat
     if frame.HookScript then
@@ -909,14 +1106,33 @@ function UI:Initialize()
         self.closeButton=ONE.Widgets:CloseButton(frame,"TOPRIGHT",-2,-2,function() frame:Hide() end)
     end
     -- Kopfleiste ueber der Innenflaeche: Seitenname links, Zurueck rechts.
-    self.pathLabel=Label(frame,T("Startseite"),"GameFontNormal",WINDOW.insetX+58,-(WINDOW.insetTop-24),300)
+    if self.sidebar then
+        -- Kopfzeile: Seitenname gross, daneben grau die Zusatzangabe
+        self.pathLabel=Label(frame,T("Startseite"),"GameFontNormalLarge",WINDOW.insetX+4,-(WINDOW.insetTop-29),360)
+        self.pathLabel:SetWidth(0)
+        if self.pathLabel.SetWordWrap then self.pathLabel:SetWordWrap(false) end
+        self.contextLabel=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+        self.contextLabel:SetPoint("BOTTOMLEFT",self.pathLabel,"BOTTOMRIGHT",10,1)
+        self.contextLabel:SetJustifyH("LEFT")
+        if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(self.contextLabel,"soft") end
+    else
+        self.pathLabel=Label(frame,T("Startseite"),"GameFontNormal",WINDOW.insetX+58,-(WINDOW.insetTop-24),300)
+    end
     self.backButton=ONE.Widgets:Button(frame,T("Zurück"),96,22,"TOPRIGHT",-12,-(WINDOW.insetTop-27),function() self:GoBack() end)
     self.forwardButton=ONE.Widgets:Button(frame,T("Weiter"),96,22,"TOPRIGHT",-112,-(WINDOW.insetTop-27),function() self:GoForward() end)
     self.forwardButton:Hide()
     -- Fussleiste: Version
     -- endet links neben dem Groessen-Griff unten rechts (26 px)
-    self.themeStatus=Label(frame,"","GameFontDisableSmall",WINDOW.width-262,-(WINDOW.height-WINDOW.insetBottom+7),220)
-    if self.themeStatus.SetJustifyH then self.themeStatus:SetJustifyH("RIGHT") end
+    if self.sidebar then
+        -- Version klein unten in der Symbolleiste
+        self.themeStatus=self.sidebar:CreateFontString(nil,"OVERLAY","GameFontDisableSmall")
+        self.themeStatus:SetPoint("BOTTOM",self.sidebar,"BOTTOM",0,7)
+        self.themeStatus:SetWidth(WINDOW.sideWidth-6)
+        self.themeStatus:SetJustifyH("CENTER")
+    else
+        self.themeStatus=Label(frame,"","GameFontDisableSmall",WINDOW.width-262,-(WINDOW.height-WINDOW.insetBottom+7),220)
+        if self.themeStatus.SetJustifyH then self.themeStatus:SetJustifyH("RIGHT") end
+    end
     if UISpecialFrames then table.insert(UISpecialFrames,"ProjectONEMainWindow") end
     if ONE.Kit then
         ONE.Kit:RegisterTile("termine",{title="TERMINE",order=10,build=TermineTile})

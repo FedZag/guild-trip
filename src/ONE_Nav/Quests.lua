@@ -143,7 +143,7 @@ function Q:Where(q)
     if loc then return loc end
     local shared = nav.QuestShare and nav.QuestShare:Location(q.id) or nil
     if shared then return shared end
-    -- Questdatenbank (Classic-Daten aus pfQuest): Ziel bzw. Abgabe
+    -- Questdatenbank (QuestieDB Forever): Ziel bzw. Abgabe
     if nav.QuestDB and nav.QuestDB:Available() then
         local here = nav.Travel and nav.Travel.PlayerMapPosition and nav.Travel.PlayerMapPosition()
         return nav.QuestDB:Location(q, here)

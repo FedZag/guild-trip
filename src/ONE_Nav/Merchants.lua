@@ -192,6 +192,33 @@ function M:List(filter)
             out[#out + 1] = {key = key, name = m.name or "?", mapID = m.mapID, x = m.x, y = m.y, cats = m.cats, items = m.items}
         end
     end
+    -- Händler-Verzeichnis aus der Questdatenbank (ONE_QuestDB/Services.lua): nur, was noch nicht selbst gefunden ist
+    local store = self:Store()
+    for key, m in pairs(M.FromQuestDB(faction)) do
+        if store[key] == nil and (filter == nil or filter == "all" or m.cats[filter]) then
+            out[#out + 1] = {key = key, name = m.name, mapID = m.mapID, x = m.x, y = m.y, cats = m.cats, db = true}
+        end
+    end
+    return out
+end
+-- Händler aus ONE_QuestDB, einmal je Fraktion umgewandelt: ["c<npc>"] = {name, mapID, x, y, cats}
+M.dbCache = {}
+function M.FromQuestDB(faction)
+    if M.dbCache[faction] then return M.dbCache[faction] end
+    local d = rawget(_G, "GuildTripQuestDB")
+    local out = {}
+    if type(d) == "table" and type(d.vendors) == "table" then
+        local names = d.svcNames or d.names or {}
+        local want = faction == "Alliance" and 1 or faction == "Horde" and 2 or 0
+        for id, v in pairs(d.vendors) do
+            if names[id] and (v[4] == 3 or v[4] == want) then
+                local cats = {}
+                for c in tostring(v[5] or ""):gmatch("%S+") do cats[c] = true end
+                out["c" .. id] = {name = names[id], mapID = v[1], x = v[2] / 1000, y = v[3] / 1000, cats = cats}
+            end
+        end
+    end
+    M.dbCache[faction] = out
     return out
 end
 -- Kurztext: "Phiolen · Handwerkswaren · Reparieren"

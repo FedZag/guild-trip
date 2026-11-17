@@ -102,7 +102,7 @@ local function Tooltip(pin)
             if i > 8 then GameTooltip:AddLine(T("… und %d weitere", #p.giver.quests - 8), .7, .7, .7) break end
             GameTooltip:AddLine("!  " .. (q.title or "?") .. (q.level and (" (" .. q.level .. ")") or ""), 1, 1, 1)
         end
-        if p.giver.db then GameTooltip:AddLine(T("Aus den Classic-Questdaten – in Forever kann es abweichen."), .6, .6, .6, true) end
+        if p.giver.db then GameTooltip:AddLine(T("Aus der Questdatenbank (Questie) – im Einzelfall kann es abweichen."), .6, .6, .6, true) end
         GameTooltip:AddLine(T("Klick: Navi starten"), .6, .8, 1)
         return GameTooltip:Show()
     end

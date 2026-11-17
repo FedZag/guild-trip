@@ -71,7 +71,7 @@ function Page:Build(panel)
     local store = R:Store()
     local state = {}
 
-    Text(panel, "GameFontNormalLarge", 0, -4, 80, "accent", T("Berufe"))
+    local pageTitle = Text(panel, "GameFontNormalLarge", 0, -4, 80, "accent", T("Berufe"))
     -- Zwei Ansichten: Rezepte (wer kann was herstellen) und Lehrer (wo lerne ich was)
     local rv = CreateFrame("Frame", nil, panel)
     rv:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
@@ -85,6 +85,13 @@ function Page:Build(panel)
     local viewTrainers = ONE.Widgets:Button(panel, T("Lehrer"), 96, 24, "TOPLEFT", 186, -2, function()
         store.view = "trainers" Page:Refresh()
     end)
+    -- 0.6.8: mit Symbolleiste stehen "Rezepte | Lehrer" oben in der Kopfzeile
+    local function SetView(key) store.view = key Page:Refresh() end
+    if ONE.UI.SetViews and ONE.UI:SetViews("crafting", {{key = "recipes", label = "Rezepte", onClick = SetView},
+        {key = "trainers", label = "Lehrer", onClick = SetView}}, store.view == "trainers" and "trainers" or "recipes") then
+        ONE.UI:RetireButtons(pageTitle, viewRecipes, viewTrainers)
+        self.headerViews = true
+    end
     self:BuildTrainers(tv, W, H)
     -- An/Aus als Haekchen, Auswahl als Dropdown (Blizzard-Bausteine aus dem Kit)
     -- "Rezepte teilen" steht in Optionen › Teilen
@@ -186,6 +193,7 @@ function Page:Build(panel)
         local trainersView = store.view == "trainers"
         if trainersView then rv:Hide() tv:Show() else tv:Hide() rv:Show() end
         if viewRecipes.SetEnabled then viewRecipes:SetEnabled(trainersView) viewTrainers:SetEnabled(not trainersView) end
+        if self.headerViews then ONE.UI:SetActiveView("crafting", trainersView and "trainers" or "recipes") end
         if trainersView then Page:RefreshTrainers() return end
         filter:Refresh()
         local own = {}

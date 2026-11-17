@@ -4,14 +4,15 @@
 --  2. "self":  selbst gemerkt – betritt der Spieler einen Dungeon, ist die letzte Position
 --              draussen (hoechstens 2 Minuten alt) der Eingang
 --  3. "guild": von Gildenmitgliedern geteilt (nur mit "Dungeon-Fortschritt teilen")
---  4. "seed":  ungefaehre Classic-Werte (eigenes Spielwissen, in Forever pruefen)
+--  4. "data":  QuestieDB Forever (EntranceData.lua, scripts/import_entrances.lua)
+--  5. "seed":  ungefaehre Classic-Werte (eigenes Spielwissen) – nur noch fuer Duesterbruch-Fluegel u. Ae.
 -- Gespeichert in ONE.db.dungeons.entrances[schluessel] = {mapID, x, y, source}.
 -- Nachricht (Praefix ONEGRP1): DE|schluessel|karte|x|y  (x/y in Tausendsteln)
 local _, dungeons = ...
 local ONE = _G.ProjectONE
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 
-local E = {rank = {game = 5, self = 4, guild = 3, pack = 2, seed = 1}, maxAge = 120}
+local E = {rank = {game = 5, self = 4, guild = 3, pack = 2, data = 1.5, seed = 1}, maxAge = 120}
 dungeons.Entrances = E
 
 -- Ungefaehre Eingaenge (Classic-uiMapIDs, Anteile 0..1). Neue Forever-Dungeons fehlen
@@ -106,6 +107,9 @@ function E:Get(key)
     -- Startpaket aus eigenen Funden (EntrancePack.lua), dann ungefaehre Startwerte
     local p = dungeons.EntrancePack and dungeons.EntrancePack[key]
     if p then return {mapID = p[1], x = p[2], y = p[3], source = "pack"} end
+    -- Eingänge aus der Questdatenbank (EntranceData.lua, QuestieDB Forever – schon im Forever-Kartenrahmen)
+    local q = dungeons.EntranceData and dungeons.EntranceData[key]
+    if q then return {mapID = q[1], x = q[2], y = q[3], source = "data"} end
     local s = E.seed[key]
     if s then return {mapID = s[1], x = s[2], y = s[3], source = "seed"} end
 end

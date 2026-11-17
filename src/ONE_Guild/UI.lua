@@ -807,7 +807,22 @@ function UI:BuildGuild(panel)
         if motd.SetMaxLines then motd:SetMaxLines(3) end
     end
     local NAMEW=bookL and 110 or 150
-    local cardY,cardH=-72,H-72-40
+    -- 0.6.8 Symbolleiste: Gildenname + Zahlen stehen in der Kopfzeile, Seite rueckt hoch,
+    -- die Karten bekommen die frei gewordene Hoehe
+    local lift=0
+    local sidebar=ONE.UI.LiftPage and ONE.UI:LiftPage(panel,46)
+    if sidebar then
+        lift=46
+        ONE.UI:RetireButtons(title,facts)
+        ONE.UI:SetViews("guild",{{key="guild",label="Übersicht"},{key="guild-members",label="Mitglieder"}},"guild")
+        for _,it in ipairs(ONE.UI.viewSets.guild.items) do
+            it.onClick=function(key)
+                if key=="guild-members" and guild.Roster then guild.Roster:Request() end
+                ONE.UI:Navigate(key)
+            end
+        end
+    end
+    local cardY,cardH=-72,H-72-40+lift
     -- Links: Jetzt online
     local left=Card(panel,0,cardY,LW,cardH)
     local onlineTitle=CardHeader(left,"","GameFontNormal",LW)
@@ -932,15 +947,17 @@ function UI:BuildGuild(panel)
         "GameFontHighlightSmall",16,-50,RW-32)
 
     -- Unten: schmale Knopfleiste und Haekchen fuer die Position
-    local by=-(H-30)
+    local by=-(H-30)-lift
     ONE.Widgets:Button(panel,T("Weltkarte"),130,24,"TOPLEFT",0,by,function()
         if guild.Pins then guild.Pins:OpenMap() end
     end)
-    ONE.Widgets:Button(panel,T("Alle Mitglieder"),140,24,"TOPLEFT",bookL and 150 or 136,by,function()
+    local allMembers=ONE.Widgets:Button(panel,T("Alle Mitglieder"),140,24,"TOPLEFT",bookL and 150 or 136,by,function()
         if guild.Roster then guild.Roster:Request() end
         ONE.UI:Navigate("guild-members")
     end)
-    ONE.Widgets:Button(panel,T("Gildenfenster"),140,24,"TOPLEFT",bookR and bookR.x or 282,by,function()
+    -- mit Symbolleiste ist "Mitglieder" eine Ansicht oben; Gildenfenster rueckt nach
+    if sidebar then ONE.UI:RetireButtons(allMembers) end
+    ONE.Widgets:Button(panel,T("Gildenfenster"),140,24,"TOPLEFT",bookR and bookR.x or (sidebar and 136 or 282),by,function()
         if guild.Roster then guild.Roster:OpenNativeGuildUI() end
     end)
     -- "Meine Position teilen" steht in Optionen › Teilen
@@ -956,6 +973,7 @@ function UI:BuildGuild(panel)
         parts[#parts+1] = T("%d online", online)
         if live > 0 then parts[#parts+1] = T("%d teilen Position", live) end
         facts:SetText(table.concat(parts, "  ·  "))
+        if sidebar then ONE.UI:SetContext("guild", (info.name ~= "" and (info.name .. "  ·  ") or "") .. table.concat(parts, "  ·  ")) end
         local m = GuildMotd()
         motd:SetText(m ~= "" and ("„" .. m .. "“") or "")
         -- Online-Liste: wer Position teilt zuerst, dann nach Name
@@ -1015,6 +1033,9 @@ function UI:BuildGuildMembers(panel)
     local W=ONE.UI.Layout.width
     local title=Label(panel,T("Gildenmitglieder"),"GameFontNormalLarge",0,-4,W)
     local summary=Label(panel,"","GameFontHighlightSmall",0,-30,W)
+    -- 0.6.8 Symbolleiste: Titel/Zahlen in der Kopfzeile, Seite rueckt hoch, Liste wird laenger
+    local lift=0
+    if ONE.UI.LiftPage and ONE.UI:LiftPage(panel,46) then lift=46 ONE.UI:RetireButtons(title,summary) end
     -- Werkzeugleiste: Suche, Filter, Blizzard-Verwaltung
     local okSearch,search=pcall(CreateFrame,"EditBox",nil,panel,"SearchBoxTemplate")
     if not okSearch or not search then
@@ -1035,7 +1056,7 @@ function UI:BuildGuildMembers(panel)
     end)
     local sortKey,ascending="name",true
     local list
-    list=ONE.Kit:List(panel,{x=0,y=-88,width=W,height=437-88-4,rowHeight=22,
+    list=ONE.Kit:List(panel,{x=0,y=-88,width=W,height=437-88-4+lift,rowHeight=22,
         columns={
             {key="name",title="NAME",width=186,indent=16},
             {key="level",title="STUFE",width=44,align="CENTER"},
@@ -1111,6 +1132,7 @@ function UI:BuildGuildMembers(panel)
         list:SetItems(items)
         summary:SetText((query~="" or onlineOnly) and T("%d Mitglieder · %d online · %d angezeigt", #all, online, #items)
             or T("%d Mitglieder · %d online", #all, online))
+        if lift>0 then ONE.UI:SetContext("guild-members", summary:GetText()) end
     end
 end
 

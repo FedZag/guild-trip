@@ -1,4 +1,4 @@
--- Offline-Test: Questdatenbank (ONE_QuestDB aus pfQuest) – Geber fuer mich, Filter, Orte, Klick in der Zielverfolgung.
+-- Offline-Test: Questdatenbank (ONE_QuestDB aus QuestieDB Forever) – Geber fuer mich, Filter, Orte, Klick in der Zielverfolgung.
 local root = arg[1] or "src"
 GetLocale = function() return "deDE" end
 local done, log = {}, {}
@@ -24,21 +24,34 @@ local function Has(list, qid)
 end
 -- 1) Ork Stufe 1 im Tal der Pruefungen (Durotar 1411): erste Quest bei Kaltunk
 local g = Has(Q:Givers({1411}), 4641)
-assert(g and g.key == "c10176" and g.mapID == 1411 and math.abs(g.x - .433) < 1e-6 and g.name ~= "", "Kaltunk mit Quest")
--- Folgequest 788 erst nach Vorquest
-assert(not Has(Q:Givers({1411}), 788), "Vorquest fehlt")
-done[4641] = true
-assert(Has(Q:Givers({1411}), 788) and not Has(Q:Givers({1411}), 4641), "erledigt weg, Folgequest da")
+assert(g and g.key == "c10176" and g.mapID == 1411 and math.abs(g.x - .433) < .01 and g.name ~= "", "Kaltunk mit Quest")
+-- Vorquest: Nordhain (Mensch) – 7 „Säuberung im Koboldlager“ erst nach 783
+me.race, me.faction = "Human", "Alliance"
+assert(Has(Q:Givers({1429}), 783) and not Has(Q:Givers({1429}), 7), "Vorquest fehlt")
+done[783] = true
+assert(Has(Q:Givers({1429}), 7) and not Has(Q:Givers({1429}), 783), "erledigt weg, Folgequest da")
 -- im Log: nicht mehr anbieten
-log[788] = 3
-assert(not Has(Q:Givers({1411}), 788))
-log[788] = nil
+log[7] = 3
+assert(not Has(Q:Givers({1429}), 7))
+log[7] = nil
+me.race, me.faction = "Orc", "Horde"
+-- Neue Felder: alle Vorquests, schließt aus, Höchststufe (am Datensatz geprüft)
+local probe = {1, 1, 0, 0, false, {}, {}, {}, {111, 112}, {113}, 0, 0, 5, 0}
+assert(not Q.Fits(99999, probe, Q.Player()), "nicht alle Vorquests")
+done[111], done[112] = true, true
+assert(Q.Fits(99999, probe, Q.Player()), "alle Vorquests erledigt")
+log[113] = 1
+assert(not Q.Fits(99999, probe, Q.Player()), "ausschließende Quest im Log")
+log[113] = nil
+me.level = 6
+assert(not Q.Fits(99999, probe, Q.Player()), "über der Höchststufe")
+me.level = 1
 -- 2) Menschen sehen keine Horde-Geber
 me.race, me.faction = "Human", "Alliance"
-assert(not Has(Q:Givers({1411}), 788), "Allianz sieht keine Horde-NPCs")
+assert(not Has(Q:Givers({1411}), 4641), "Allianz sieht keine Horde-NPCs")
 -- 3) Neues Volk (Forever) ohne Bitmaske: Fraktion entscheidet
 me.race, me.faction = "Skyborne", "Horde"
-assert(Has(Q:Givers({1411}), 788))
+assert(Has(Q:Givers({1411}), 4641))
 -- 4) Stufe: zu hohe Quests nicht
 me.race, me.level = "Orc", 1
 local high = false
@@ -48,7 +61,7 @@ assert(not high, "Brachland-Quests fuer Stufe 1 ausgeblendet")
 local open = Q:Location({id = 788, complete = false}, 1411)
 assert(open and open.mapID == 1411 and open.db)
 local finished = Q:Location({id = 788, complete = true}, 1411)
-assert(finished and math.abs(finished.x - .421) < 1e-6, "Abgabe bei Gornek")
+assert(finished and math.abs(finished.x - .421) < .01, "Abgabe bei Gornek")
 -- 6) Bitmaske
 assert(Q.Band(178, 2) == 2 and Q.Band(77, 2) == 0)
 print("OK test_questdb_095")

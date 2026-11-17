@@ -236,3 +236,7 @@ EN["Questdatenbank: „!“ auch bei Questgebern, bei denen du noch nie warst; K
 EN["Navi: Ankunft mit Ton, „hin und zurück“ bei Händler/Lehrer, Pfeil zur Leiche, eigene Wegpunkte (Umschalt+Klick, /way)"] = "Navi: arrival sound, \"there and back\" for vendors/trainers, arrow to your corpse, own waypoints (shift+click, /way)"
 EN["Guild-Trip-Chat kann den WoW-Chat ersetzen (freiwillig), neues Beute-Fenster (/trip beute)"] = "Guild Trip chat can replace the WoW chat (optional), new loot window (/trip beute)"
 EN["Guild Trip ist jetzt freie Software (GNU GPL v3)"] = "Guild Trip is now free software (GNU GPL v3)"
+EN["Neuer Fensteraufbau im Blizzard-Stil: Bereiche links mit Goldsymbolen, Ansichten immer oben rechts"] = "New window layout in Blizzard style: areas on the left with gold icons, views always top right"
+EN["Guild-Trip-Chat im Blizzard-Rahmen; Weg im Navi wahlweise als Fußspuren (Optionen › Spielhilfen › Navi)"] = "Guild Trip chat in a Blizzard frame; navi path optionally as footprints (Options › Assists › Navi)"
+EN["Questdatenbank aus QuestieDB (Forever): rund 4.900 Quests, auch neue Forever-Quests"] = "Quest database from QuestieDB (Forever): about 4,900 quests, including new Forever quests"
+EN["Alle Lehrer und Händler der Welt im Navi, alle Dungeon-Eingänge von Anfang an bekannt"] = "Every trainer and vendor in the world in the navi, all dungeon entrances known from the start"

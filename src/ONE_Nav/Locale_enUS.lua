@@ -202,7 +202,7 @@ EN["Deine Leiche"] = "Your corpse"
 EN["Navi zu deiner Leiche. Danach geht es weiter zum vorherigen Ziel."] = "Navi to your corpse. Afterwards it continues to your previous target."
 EN["Wegpunkt setzen: /trip way 45.2 60.1 [Gebiet]"] = "Set a waypoint: /trip way 45.2 60.1 [zone]"
 -- Questdatenbank + Zielverfolgung (17.11.2026)
-EN["Aus den Classic-Questdaten – in Forever kann es abweichen."] = "From the Classic quest data – may differ in Forever."
+EN["Aus der Questdatenbank (Questie) – im Einzelfall kann es abweichen."] = "From the quest database (Questie) – may differ in rare cases."
 EN["Klick auf ? oder … in der Zielverfolgung startet das Navi"] = "Clicking ? or … in the objective tracker starts the navi"
 EN["Klickst du in der Quest-Zielverfolgung auf das Fragezeichen oder die drei Punkte, zeigt der Pfeil zur Quest (Ziel bzw. Abgabe)."] = "Click the question mark or the three dots in the quest objective tracker and the arrow points to the quest (objective or turn-in)."
 -- Wegfuehrung ueber Shortest Path Forever (17.11.2026)
@@ -211,3 +211,6 @@ EN["Zu %s"] = EN["Zu %s"] or "To %s"
 EN["Wegführung über Shortest Path Forever (wenn installiert)"] = "Route guidance via Shortest Path Forever (if installed)"
 EN["Ist das kostenlose Addon Shortest Path Forever installiert, übernimmt es die Wegführung: echte Wege, Flugrouten, Schiffe und die Route auf den Karten. Ohne es zeigt der Guild-Trip-Pfeil die Richtung."] = "If the free add-on Shortest Path Forever is installed, it takes over route guidance: real paths, flight routes, boats and the route on the maps. Without it the Guild Trip arrow shows the direction."
 EN["Tipp: Mit dem kostenlosen Addon „Shortest Path Forever“ führt dich das Navi über echte Wege, Flugrouten und Schiffe."] = "Tip: with the free add-on \"Shortest Path Forever\" the navi guides you along real paths, flight routes and boats."
+-- 0.6.8: Weg als Fussspuren
+EN["Weg: goldene Punkte"] = "Route: golden dots"
+EN["Weg: Fußspuren"] = "Route: footprints"

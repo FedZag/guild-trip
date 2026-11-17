@@ -125,7 +125,7 @@ end
 
 -- Alle Seitentitel/Untertitel bekommen denselben Anker, dieselben
 -- Schriftgroessen und dieselben Palettenrollen; Module benutzen diese API.
-function Widgets:PageHeader(parent, title, subtitle, width)
+function Widgets:PageHeader(parent, title, subtitle, width, keepTop)
     local rect=ONE.Geometry:PageHeader(width)
     local function Line(text,font,y,role)
         local label=parent:CreateFontString(nil,"OVERLAY",font)
@@ -138,6 +138,14 @@ function Widgets:PageHeader(parent, title, subtitle, width)
     end
     local heading=Line(title,"GameFontNormalLarge",rect.titleY,"text")
     local description=Line(subtitle,"GameFontHighlightSmall",rect.subtitleY,"soft")
+    -- Blizzard-Aussehen mit Symbolleiste (0.6.8): Seitenname steht in der Kopfzeile,
+    -- eigener Titel entfaellt, Seite rueckt nach oben
+    -- keepTop: Seite hat neben dem Titel eigene Bedienelemente oben -> nicht hochruecken
+    local sidebar = ONE.UI and ONE.UI.sidebar and parent and parent.__oneTopPanel
+    if sidebar and (keepTop or ONE.UI:LiftPage(parent)) then
+        heading:Hide() description:Hide()
+        heading.Show=function() end description.Show=function() end
+    end
     -- Buch: Titel nur auf der linken Seite, in Rubrik-Rot; die Unterzeile laeuft
     -- sonst ueber die Falz und steht ohnehin im Tooltip-Wissen der Seite
     if ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() then

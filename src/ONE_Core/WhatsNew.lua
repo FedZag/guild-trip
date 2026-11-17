@@ -10,6 +10,12 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.6.8-alpha"] = {
+        "Neuer Fensteraufbau im Blizzard-Stil: Bereiche links mit Goldsymbolen, Ansichten immer oben rechts",
+        "Guild-Trip-Chat im Blizzard-Rahmen; Weg im Navi wahlweise als Fußspuren (Optionen › Spielhilfen › Navi)",
+        "Questdatenbank aus QuestieDB (Forever): rund 4.900 Quests, auch neue Forever-Quests",
+        "Alle Lehrer und Händler der Welt im Navi, alle Dungeon-Eingänge von Anfang an bekannt",
+    },
     ["0.6.7-alpha"] = {
         "Echte Wegführung ohne Zusatz-Addon: Der Pfeil folgt Straßen und Pässen, goldene Punkte zeigen den Weg auf Minimap und Weltkarte",
         "Questdatenbank: „!“ auch bei Questgebern, bei denen du noch nie warst; Klick auf ? oder … in der Zielverfolgung startet das Navi",

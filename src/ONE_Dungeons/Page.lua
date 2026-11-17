@@ -514,7 +514,19 @@ function Page:BuildCombined(panel)
     local bG = ONE.Widgets:Button(panel, "Gruppen", bw, 24, "TOPLEFT", bw + 4, -2, function() Page:ShowView("groups") end)
     local bT = ONE.Widgets:Button(panel, "Ausflüge", span - 2 * (bw + 4), 24, "TOPLEFT", 2 * (bw + 4), -2, function() Page:ShowView("trips") end)
     self.combined = {dv = dv, gv = gv, tv = tv, refreshD = refreshD, refreshG = refreshG, refreshT = refreshT, bD = bD, bG = bG, bT = bT}
+    -- 0.6.8: mit Symbolleiste stehen die drei Ansichten oben in der Kopfzeile
+    if ONE.UI.SetViews and ONE.UI:SetViews("dungeons", self:HeaderViews(), "dungeons") then
+        ONE.UI:RetireButtons(bD, bG, bT)
+        self.headerViews = true
+    end
     return function() Page:RefreshCombined() end
+end
+
+function Page:HeaderViews(nG, nT)
+    local function Go(key) Page:ShowView(key) end
+    return {{key = "dungeons", label = T("Dungeons"), onClick = Go},
+        {key = "groups", label = (nG or 0) > 0 and T("Gruppen (%d)", nG) or T("Gruppen"), onClick = Go},
+        {key = "trips", label = (nT or 0) > 0 and T("Ausflüge (%d)", nT) or T("Ausflüge"), onClick = Go}}
 end
 
 function Page:ShowView(view)
@@ -531,6 +543,7 @@ function Page:RefreshCombined()
     local nt = dungeons.Trips and #dungeons.Trips:List() or 0
     c.bT:SetText(nt > 0 and T("Ausflüge (%d)", nt) or T("Ausflüge"))
     local view = (self.view == "groups" or self.view == "trips") and self.view or "dungeons"
+    if self.headerViews then ONE.UI:SetViews("dungeons", self:HeaderViews(n, nt), view) end
     local frames = {dungeons = c.dv, groups = c.gv, trips = c.tv}
     local buttons = {dungeons = c.bD, groups = c.bG, trips = c.bT}
     for key, f in pairs(frames) do if key == view then f:Show() else f:Hide() end end

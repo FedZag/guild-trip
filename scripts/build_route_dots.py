@@ -2,6 +2,7 @@
 Eigene Zeichnung, keine fremden Grafiken. Ausgabe: 32x32 TGA mit Alpha.
   RouteDot.tga  – Punkt auf dem Weg
   RouteTurn.tga – nächste Abbiegung (Ring mit hellem Kern)
+  RouteFootL/R.tga – Fussabdruecke (Einstellung „Weg: Fußspuren“), Aufruf mit --feet nur diese
 Aufruf: python3 scripts/build_route_dots.py
 """
 from pathlib import Path
@@ -71,7 +72,42 @@ def turn():
     return img
 
 
-for name, build in (('RouteDot.tga', dot), ('RouteTurn.tga', turn)):
+def foot(left):
+    """Fussabdruck (rechter Fuss, Zehen oben), gold mit dunklem Rand; links = gespiegelt.
+    Wird im Spiel zur Laufrichtung gedreht (SetRotation)."""
+    shape = Image.new('L', (W, W), 0)
+    d = ImageDraw.Draw(shape)
+    c = W / 2
+    # Sohle (leicht schraeg), Ferse, fuenf Zehen
+    d.ellipse((c - 5 * S, c - 6 * S, c + 5.5 * S, c + 6 * S), fill=255)
+    d.ellipse((c - 4 * S, c + 4 * S, c + 3.5 * S, c + 11 * S), fill=255)
+    for x, y, r in ((-4.2, -9.5, 2.4), (-0.6, -11.6, 2.5), (2.9, -10.6, 2.2), (5.4, -8.2, 1.8), (6.8, -5.4, 1.5)):
+        d.ellipse((c + (x - r) * S, c + (y - r) * S, c + (x + r) * S, c + (y + r) * S), fill=255)
+    rim = shape.filter(ImageFilter.MaxFilter(2 * S + 1))
+    img = Image.new('RGBA', (W, W), (0, 0, 0, 0))
+    sh = Image.new('RGBA', (W, W), (0, 0, 0, 0))
+    sh.putalpha(rim.filter(ImageFilter.GaussianBlur(1.5 * S)).point(lambda v: int(v * .55)))
+    img = Image.alpha_composite(img, sh)
+    dark = Image.new('RGBA', (W, W), (*RIM, 255))
+    img.paste(dark, (0, 0), rim)
+    grad = Image.new('RGBA', (W, W))
+    g = ImageDraw.Draw(grad)
+    for y in range(W):
+        t = y / (W - 1)
+        g.line((0, y, W, y), fill=(*tuple(round(GOLD_TOP[i] * (1 - t) + GOLD_BOTTOM[i] * t) for i in range(3)), 255))
+    img.paste(grad, (0, 0), shape)
+    if left:
+        img = img.transpose(Image.FLIP_LEFT_RIGHT)
+    return img
+
+
+BUILDS = [('RouteDot.tga', dot), ('RouteTurn.tga', turn),
+          ('RouteFootL.tga', lambda: foot(True)), ('RouteFootR.tga', lambda: foot(False))]
+import sys
+only_feet = '--feet' in sys.argv   # nur die Fussspuren neu (Punkte bleiben unveraendert)
+for name, build in BUILDS:
+    if only_feet and 'Foot' not in name:
+        continue
     out = build().resize((N, N), Image.LANCZOS)
     out.save(DIR / name)
     print('geschrieben:', DIR / name)
