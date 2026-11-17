@@ -34,7 +34,7 @@ assert(T(nil) == nil and T(42) == 42)
 --    und Platzhalter stimmen ueberein.
 local done = {
     "ONE_Core/UI.lua", "ONE_Core/Welcome.lua", "ONE_Core/WhatsNew.lua", "ONE_Core/MinimapButton.lua", "ONE_Core/Core.lua",
-    "ONE_Classes/Page.lua", "ONE_Classes/Bars.lua", "ONE_Classes/Ranks.lua", "ONE_Classes/Share.lua", "ONE_Classes/Buffs.lua", "ONE_Classes/Talents.lua", "ONE_Classes/Trainer.lua", "ONE_Classes/Gear.lua", "ONE_Classes/Loot.lua",
+    "ONE_Classes/Page.lua", "ONE_Classes/Bars.lua", "ONE_Classes/Ranks.lua", "ONE_Classes/Share.lua", "ONE_Classes/Buffs.lua", "ONE_Classes/Nearby.lua", "ONE_Classes/Init.lua", "ONE_Classes/Talents.lua", "ONE_Classes/Trainer.lua", "ONE_Classes/Gear.lua", "ONE_Classes/Loot.lua",
     "ONE_Guild/UI.lua", "ONE_Guild/Calendar.lua", "ONE_Guild/Pins.lua", "ONE_Guild/Reminders.lua",
     "ONE_Guild/Roster.lua", "ONE_Guild/Presence.lua", "ONE_Guild/Guild.lua",
     "ONE_Nav/Arrow.lua", "ONE_Nav/Flights.lua", "ONE_Nav/Page.lua", "ONE_Nav/Travel.lua", "ONE_Nav/Init.lua", "ONE_Nav/Quests.lua", "ONE_Nav/QuestShare.lua", "ONE_Nav/QuestPins.lua", "ONE_Nav/Merchants.lua", "ONE_Nav/Waypoints.lua", "ONE_Nav/QuestDB.lua", "ONE_Nav/QuestGivers.lua", "ONE_Nav/Routes.lua", "ONE_Nav/RouteDots.lua",

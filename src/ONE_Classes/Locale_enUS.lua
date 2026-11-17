@@ -128,6 +128,19 @@ EN["Fehlt"] = "Missing"
 EN["Klicken zum Wirken · Alt + Ziehen: verschieben"] = "Click to cast · Alt + drag: move"
 EN["Buffs fehlen"] = "Buffs missing"
 
+-- Spieler in der Naehe buffen
+EN["Spieler in der Nähe buffen"] = "Buff players nearby"
+EN["Kleines Fenster mit allen Spielern in Reichweite, denen einer deiner Buffs fehlt – Gruppe, Gilde, Freunde und Fremde. Klick auf einen Namen wirkt den Buff (Linksklick, Rechtsklick, Umschalt + Linksklick), im passenden Rang für die Stufe. Fremde erscheinen mit freundlichen Namensplaketten (Umschalt + V) oder wenn du sie mit der Maus berührst. Nur außerhalb des Kampfes."] =
+    "Small window with every player in range who is missing one of your buffs – group, guild, friends and strangers. Click a name to cast the buff (left-click, right-click, Shift + left-click), in the right rank for their level. Strangers show up with friendly nameplates (Shift + V) or when you mouse over them. Out of combat only."
+EN["Buffen in der Nähe (%d)"] = "Buff nearby (%d)"
+EN["Linksklick"] = "Left-click"
+EN["Rechtsklick"] = "Right-click"
+EN["Umschalt + Linksklick"] = "Shift + left-click"
+EN["Freund"] = "Friend"
+EN["Nur per Name bekannt – zielt kurz an und wieder zurück."] = "Known by name only – targets them briefly and switches back."
+EN["Reichweite unbekannt"] = "Range unknown"
+EN["Alt + Ziehen: verschieben"] = "Alt + drag: move"
+
 -- Talente setzen
 EN["Nächsten Punkt setzen"] = "Spend next point"
 EN["Talente automatisch nach Plan setzen"] = "Spend talents automatically by plan"
