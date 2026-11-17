@@ -17,6 +17,7 @@ Page.lua
 Quests.lua
 Pack.lua
 QuestShare.lua
+Partners.lua
 QuestGivers.lua
 QuestPins.lua
 RouteDots.lua
