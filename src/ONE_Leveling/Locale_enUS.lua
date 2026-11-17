@@ -136,3 +136,8 @@ EN["Zeigt nur den Text; der Rahmen erscheint kurz, wenn die Maus darüber ist (z
 EN["Bis Stufe %d: ~%d min"] = "To level %d: ~%d min"
 EN["nächste Stufe: ~%d min"] = "next level: ~%d min"
 EN["Stufe %d von 60"] = "Level %d of 60"
+
+-- Gebietsbloecke (0.7.0)
+EN["1 Schritt"] = "1 step"
+EN["%d Schritte"] = "%d steps"
+EN["~%d Min."] = "~%d min"

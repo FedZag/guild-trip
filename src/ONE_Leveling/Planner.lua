@@ -22,6 +22,9 @@ P.FAR_MIN = 12           -- anderer Kontinent / unbekannter Ort
 P.VALUE_SLACK = .6       -- Mehrwert-Quests duerfen so viel langsamer sein
 P.UPGRADE_PCT = 10
 P.BUSY_WORK = 40         -- ab hier "viel Aufwand / seltene Drops"
+-- Gebietsbloecke (0.7.0): ein Gebietswechsel "kostet" so viele Minuten extra. So wird ein Gebiet
+-- erst fertig gemacht, bevor es weitergeht. Aendert NUR die Reihenfolge, nie die Auswahl.
+P.ZONE_SWITCH = 4
 -- Questsorten (zoneOrSort < 0) der Klassen
 P.CLASS_SORT = {[-61] = 256, [-81] = 1, [-82] = 64, [-141] = 2, [-161] = 128, [-162] = 8, [-261] = 4, [-262] = 16, [-263] = 1024}
 P.FACTION_MASK = {Alliance = 77, Horde = 178}
@@ -402,23 +405,30 @@ function P:Plan(ctx)
     end
     local order, pos, minutes, xpSum = {}, here, 0, 0
     local prefer = ctx.prefer
+    local zone = me.mapID
+    local switch = ctx.zoneBlocks == false and 0 or P.ZONE_SWITCH
     while #order < P.MAX_STEPS and minutes < P.MAX_MINUTES do
-        local best, bm
+        local best, bm, bwalk
         for _, s in ipairs(stops) do
             if not s.used and Ready(s) then
-                local m = s.w and pos and Minutes(pos, s.w) or (s.w and 0) or P.FAR_MIN
-                if s.kind == "dungeon" then m = m + 1 end
+                local walk = s.w and pos and Minutes(pos, s.w) or (s.w and 0) or P.FAR_MIN
+                if s.kind == "dungeon" then walk = walk + 1 end
+                local m = walk
+                -- im Gebiet bleiben, solange dort noch etwas Passendes in der Naehe ist (nur fuer die Wahl)
+                if zone and s.w and s.w[4] and s.w[4] ~= zone then m = m + switch end
                 -- Reihenfolge ruhig halten: der bisherige erste Schritt bleibt, solange er nicht deutlich weiter weg ist
                 if prefer and #order == 0 and prefer == P.StopKey(s) then m = m * .5 end
-                if not bm or m < bm then best, bm = s, m end
+                if not bm or m < bm then best, bm, bwalk = s, m, walk end
             end
         end
         if not best then break end
         best.used = true
-        best.walk = bm
+        best.walk = bwalk
+        bm = bwalk
+        local before = minutes
         order[#order + 1] = best
         minutes = minutes + bm
-        if best.w then pos = best.w end
+        if best.w then pos = best.w zone = best.w[4] or zone end
         if best.kind == "accept" then accepted[best.id] = true
         elseif best.kind == "obj" then
             finished[best.id] = true
@@ -434,6 +444,8 @@ function P:Plan(ctx)
             xpSum = xpSum + info[best.id].xp
             minutes = minutes + P.TALK_MIN
         end
+        -- echte Zeit dieses Halts (die Wechsel-Strafe zaehlt nicht mit)
+        best.cost = minutes - before
     end
     local left = {}
     for _, s in ipairs(stops) do if not s.used then left[#left + 1] = s end end
@@ -446,8 +458,21 @@ function P:Plan(ctx)
         else
             local w = s.w
             steps[#steps + 1] = {kind = s.kind, nr = s.nr, key = s.key, ids = s.ids, mapID = w and w[4], x = w and w[5], y = w and w[6],
-                walk = s.walk, actions = s.kind == "dungeon" and {} or {{kind = s.kind, id = s.id}}, stopKey = P.StopKey(s)}
+                walk = s.walk, actions = s.kind == "dungeon" and {} or {{kind = s.kind, id = s.id}}, stopKey = P.StopKey(s), cost = 0}
         end
+        steps[#steps].cost = steps[#steps].cost + (s.cost or 0)
+    end
+    -- Gebietsbloecke fuer die Anzeige: {mapID, first, last, steps, minutes}
+    local blocks = {}
+    for i, st in ipairs(steps) do
+        local b = blocks[#blocks]
+        local m = st.mapID or (b and b.mapID)
+        if not b or (m and m ~= b.mapID) then
+            b = {mapID = m, first = i, steps = 0, minutes = 0}
+            blocks[#blocks + 1] = b
+        end
+        b.last, b.steps, b.minutes = i, b.steps + 1, b.minutes + (st.cost or 0)
+        st.block = #blocks
     end
     -- Ausgelassen (nur mit Grund, sortiert nach EP)
     local skipped = {}
@@ -455,7 +480,7 @@ function P:Plan(ctx)
         if not chosen[o.id] and o.skip and not o.log then skipped[#skipped + 1] = o end
     end
     table.sort(skipped, function(a, b) if a.totalXP ~= b.totalXP then return a.totalXP > b.totalXP end return a.id < b.id end)
-    return {steps = steps, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left,
+    return {steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left,
         grind = grind, factor = factor, level = L}
 end
 

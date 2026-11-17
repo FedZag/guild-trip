@@ -94,7 +94,7 @@ function Page:Build(parent, W, H, getMode)
         for i, s in ipairs(plan.steps) do
             if s.mapID and s.mapID ~= lastMap then
                 lastMap = s.mapID
-                out[#out + 1] = {key = "h" .. i, header = true, text = G.ZoneName(s.mapID):upper()}
+                out[#out + 1] = {key = "h" .. i, header = true, text = G.BlockTitle(plan, s)}
             end
             local first = s.kind == "dungeon" and s.ids[1] or s.actions[1].id
             out[#out + 1] = {key = s.stopKey, step = s, qid = first, current = i == 1, text = G:StepText(s), tags = G:StepTags(s)}

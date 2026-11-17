@@ -64,6 +64,26 @@ local n1 = 0 for _ in pairs(plan.chosen) do n1 = n1 + 1 end
 ctx.tempo = "all"
 local n2 = 0 for _ in pairs(P:Plan(ctx).chosen) do n2 = n2 + 1 end
 assert(n2 > n1, "gruendlich > noetigste " .. n1 .. "/" .. n2)
+-- 0.7.0 Gebietsbloecke: gleiche Auswahl, nur Reihenfolge; weniger Gebietswechsel; Bloecke stimmen
+for _, tempo in ipairs({"need", "all"}) do
+    ctx.tempo = tempo
+    ctx.zoneBlocks = false
+    local flat = P:Plan(ctx)
+    ctx.zoneBlocks = nil
+    local zoned = P:Plan(ctx)
+    for id, why in pairs(flat.chosen) do assert(zoned.chosen[id] == why, "Auswahl gleich " .. id) end
+    for id in pairs(zoned.chosen) do assert(flat.chosen[id], "keine Zusatzquest " .. id) end
+    local function Switches(pl) local n, last = 0 for _, st in ipairs(pl.steps) do if st.mapID and st.mapID ~= last then n, last = n + 1, st.mapID end end return n end
+    assert(Switches(zoned) <= Switches(flat), tempo .. ": Wechsel " .. Switches(zoned) .. " > " .. Switches(flat))
+    local count, mins = 0, 0
+    for i, b in ipairs(zoned.blocks) do
+        assert(b.first <= b.last and b.steps == b.last - b.first + 1)
+        if i > 1 then assert(b.first == zoned.blocks[i - 1].last + 1) end
+        count, mins = count + b.steps, mins + b.minutes
+    end
+    assert(count == #zoned.steps and math.abs(mins - zoned.minutes) < .01, "Bloecke decken den Plan ab")
+end
+ctx.tempo = "need"
 if os.getenv("SHOW") then
     ctx.tempo = "need"
     plan = P:Plan(ctx)

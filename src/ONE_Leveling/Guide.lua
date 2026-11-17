@@ -216,6 +216,15 @@ function G.ZoneName(mapID)
     return info and info.name or ""
 end
 
+-- Ueberschrift eines Gebietsblocks: "WESTFALL · 12 Schritte · ~40 Min."
+function G.BlockTitle(plan, step)
+    local name = G.ZoneName(step.mapID):upper()
+    local b = plan.blocks and step.block and plan.blocks[step.block]
+    if not b then return name end
+    local steps = b.steps == 1 and T("1 Schritt") or T("%d Schritte", b.steps)
+    return name .. "  |cff9d9d9d· " .. steps .. " · " .. T("~%d Min.", math.max(1, math.floor(b.minutes + .5))) .. "|r"
+end
+
 -- Warum? Zeilen fuer eine Quest: {{links, rechts}, …}, Urteil
 function G:Why(id)
     local plan = self.plan
