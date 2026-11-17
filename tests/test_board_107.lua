@@ -107,4 +107,9 @@ assert(select(2, B:Post("x")) == "guild")
 inGuild = true
 B:Post("bleibt")
 assert(ONE.db.guild.board.mine[ONE.db.guild.board.nextId - 1].text == "bleibt")
+-- 10) Lange Texte werden nicht mitten im Umlaut abgeschnitten
+local long = string.rep("a", 79) .. "üb"
+local okId = B:Post(long)
+local stored = ONE.db.guild.board.mine[okId] and ONE.db.guild.board.mine[okId].text
+assert(stored == string.rep("a", 79), "Umlaut nicht zerschnitten: " .. #(stored or ""))
 print("OK test_board_107")

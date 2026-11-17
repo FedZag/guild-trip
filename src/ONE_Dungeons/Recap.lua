@@ -255,6 +255,8 @@ function R:OnEnteringWorld()
         if not key then return end
         -- Neu laden im selben Dungeon: Lauf geht weiter
         if self.run and self.run.key == key then return end
+        -- direkt aus einem anderen Dungeon hierher (z. B. beschworen): alten Lauf erst abschliessen
+        if self.run then self:Finish() end
         self:Start(key, name)
     elseif self.run then
         self:Finish()

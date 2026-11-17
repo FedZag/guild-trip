@@ -147,12 +147,12 @@ function Gr:Advice(ctx, plan)
     local questMin = Gr.QuestMinutes(plan, need)
     local empty = not plan or #(plan.steps or {}) == 0
     local advice = {worth = false, camps = {}, level = L + 1, planEPM = planEPM, questMinutes = questMin, need = need}
-    advice.unlocks = ctx.unlocks and ctx.unlocks(L + 1) or nil
     if not empty then
         advice.important = Gr.ImportantNow(plan)
         if #advice.important > 0 then advice.reason = "important" return advice end
-        if not Gr.HasUnlock(advice.unlocks) then advice.reason = "nothing" return advice end
     end
+    advice.unlocks = ctx.unlocks and ctx.unlocks(L + 1) or nil
+    if not empty and not Gr.HasUnlock(advice.unlocks) then advice.reason = "nothing" return advice end
     local out = {}
     for _, c in ipairs(self:Camps(ctx)) do
         local faster

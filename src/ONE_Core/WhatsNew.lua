@@ -12,7 +12,7 @@ ONE.WhatsNew = WhatsNew
 WhatsNew.notes = {
     ["0.7.0-alpha"] = {
         "Spieler in der Nähe buffen: Liste aller Spieler in Reichweite, ein Klick wirkt den Buff im passenden Rang",
-        "Gilde: Questpartner in der Nähe, Hilferuf (/trip hilfe), Auftragsbrett (/trip auftrag), wer braucht die Beute?",
+        "Gilde: Questpartner in der Nähe, Hilferuf (/trip sos), Auftragsbrett (/trip auftrag), wer braucht die Beute?",
         "Quest-Führung: Gebiete am Stück, Ansicht „Gebiete“, Questgegner im Tooltip, Lager auf der Karte mit Farm-Runde",
         "Monster hauen nur, wenn es sich wirklich lohnt – mit Grund (neue Zauber, Quests, Dungeon)",
         "Dungeon-Rückblick mit Bestzeit im Gildenpass; Allianz voll unterstützt",

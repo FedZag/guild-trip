@@ -127,7 +127,8 @@ function Nearby:StylePlate(unit)
     local plate = np and Call(np.GetNamePlateForUnit, unit)
     local uf = type(plate) == "table" and plate.UnitFrame
     if type(uf) ~= "table" or type(uf.SetAlpha) ~= "function" then return end
-    local hide = self.hidePlates and U("UnitIsPlayer", unit) and U("UnitCanAssist", "player", unit)
+    -- Spieler und was Spielern gehoert (Begleiter, Totems) – freundliche NPCs bleiben, wie du sie eingestellt hast
+    local hide = self.hidePlates and (U("UnitIsPlayer", unit) or U("UnitPlayerControlled", unit)) and U("UnitCanAssist", "player", unit)
     pcall(uf.SetAlpha, uf, hide and 0 or 1)
 end
 
@@ -321,6 +322,7 @@ function Nearby:MarkDone(name, buff)
     if not name or name == Short(U("UnitName", "player")) then return end
     self.done = self.done or {}
     self.done[name] = {at = Now(), buff = buff}
+    self.forceNext = true
 end
 
 -- Erledigt = in den letzten 30 Minuten von dir gebufft. Kennt man seine Buffs
@@ -456,6 +458,13 @@ end
 -- Fenster neu aufbauen (nur ausserhalb des Kampfes).
 function Nearby:Update()
     if InCombat() then self.dirty = true return end
+    -- Maus auf der Liste: nichts umsortieren (sonst rutscht ein anderer Spieler unter den Mauszeiger).
+    -- Ausnahme: gerade erfolgreich gebufft – dann darf der Spieler raus.
+    local f0 = self.frame
+    if f0 and not self.forceNext and f0.IsMouseOver and f0:IsShown() and (f0:GetAlpha() or 0) > 0 and f0:IsMouseOver() then
+        return self.shown
+    end
+    self.forceNext = nil
     self.dirty = false
     local list = {}
     if self:Enabled() then
@@ -466,7 +475,8 @@ function Nearby:Update()
         self.myOffers = {}
     end
     local want = self:Enabled() and self:AutoEnabled() and #self.myOffers > 0
-    if want ~= (self.autoOn or false) then self:ApplyAuto(want) end
+    if want ~= (self.autoOn or false) then self:ApplyAuto(want)
+    elseif self.hidePlates then for i = 1, 40 do self:StylePlate("nameplate" .. i) end end
     self.shown = list
     if #list == 0 and not self.frame then return list end
     local f = self:Frame()
@@ -506,12 +516,14 @@ function Nearby:Initialize()
     local events = CreateFrame("Frame")
     for _, ev in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "SPELLS_CHANGED", "GROUP_ROSTER_UPDATE",
         "PLAYER_TARGET_CHANGED", "NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED", "UPDATE_MOUSEOVER_UNIT", "UNIT_AURA",
-        "UNIT_SPELLCAST_SENT", "UNIT_SPELLCAST_SUCCEEDED"}) do
+        "UNIT_SPELLCAST_SENT", "UNIT_SPELLCAST_SUCCEEDED", "PLAYER_LOGOUT"}) do
         pcall(events.RegisterEvent, events, ev)
     end
     local pending = false
     events:SetScript("OnEvent", function(_, event, a, b, c, d)
         if event == "UPDATE_MOUSEOVER_UNIT" then Nearby:Remember("mouseover") end
+        -- Ausloggen: Namensplaketten wieder wie vorher (falls das Addon mal fehlt, bleibt nichts verstellt)
+        if event == "PLAYER_LOGOUT" then if Nearby.autoOn then Nearby:ApplyAuto(false) end return end
         if event == "UNIT_SPELLCAST_SENT" then Nearby:OnSent(a, b, c, d) return end
         if event == "NAME_PLATE_UNIT_ADDED" then Nearby:StylePlate(a) end
         if event == "UNIT_SPELLCAST_SUCCEEDED" then

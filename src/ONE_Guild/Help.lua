@@ -1,5 +1,5 @@
 -- Guild Trip: Hilferuf (0.7.0).
--- In Not (Elite-Gegner, Leiche weit weg, verlaufen)? /trip hilfe [Text] oder eine
+-- In Not (Elite-Gegner, Leiche weit weg, verlaufen)? /trip sos [Text] oder eine
 -- eigene Taste (Tastenbelegung › AddOns). Gildenmitglieder auf deinem Kontinent
 -- bekommen ein kleines Fenster: "Bob (23) braucht Hilfe – 420 m: Elite am Wegkreuz"
 -- mit [Ich komme!] (Navi zu dir + Nachricht an dich) und [Flüstern].
@@ -35,7 +35,12 @@ end
 
 local function Clean(text)
     text = type(text) == "string" and (text:gsub("[|\r\n]", " "):gsub("^%s+", ""):gsub("%s+$", "")) or ""
-    if #text > 60 then text = text:sub(1, 60) end
+    if #text > 60 then
+        -- nicht mitten in einem Umlaut abschneiden (UTF-8: Folgebytes 0x80-0xBF)
+        local cut = 60
+        while cut > 0 and text:byte(cut + 1) and text:byte(cut + 1) >= 128 and text:byte(cut + 1) < 192 do cut = cut - 1 end
+        text = text:sub(1, cut)
+    end
     return text
 end
 
@@ -54,7 +59,7 @@ function Help:Call(text)
     self:Send(("H|%d|%d|%d|%d|%s"):format(map, x, y, level, Clean(text)))
     self.lastCall = now
     self.helpers = {}
-    ONE:Print(T("Hilferuf an die Gilde geschickt. /trip hilfe aus = erledigt."))
+    ONE:Print(T("Hilferuf an die Gilde geschickt. /trip sos aus = erledigt."))
     return true
 end
 
@@ -194,7 +199,7 @@ function Help:Initialize()
     f:SetScript("OnEvent", function(_, _, ...) Help:Receive(...) end)
     self.events = f
     if ONE.RegisterSlash then
-        ONE:RegisterSlash("hilfe", function(rest) Help:Slash(rest) end, T("Hilferuf an die Gilde: /trip hilfe [Text], /trip hilfe aus"))
+        ONE:RegisterSlash("sos", function(rest) Help:Slash(rest) end, T("Hilferuf an die Gilde: /trip sos [Text], /trip sos aus"))
     end
 end
 

@@ -226,12 +226,12 @@ EN["Gildentermine"] = "Guild events"
 
 -- Hilferuf (0.7.0)
 EN["Hilferufe der Gilde zeigen"] = "Show help calls from the guild"
-EN["Ruft jemand aus der Gilde um Hilfe (/trip hilfe oder eigene Taste), kommt ein Fenster mit Entfernung und „Ich komme!“ (Navi zu ihm). Nur auf demselben Kontinent."] =
-    "When someone in the guild calls for help (/trip hilfe or your own key), a window shows the distance and \"On my way!\" (navi to them). Same continent only."
+EN["Ruft jemand aus der Gilde um Hilfe (/trip sos oder eigene Taste), kommt ein Fenster mit Entfernung und „Ich komme!“ (Navi zu ihm). Nur auf demselben Kontinent."] =
+    "When someone in the guild calls for help (/trip sos or your own key), a window shows the distance and \"On my way!\" (navi to them). Same continent only."
 EN["Hilferuf geht nur in einer Gilde."] = "Help calls only work in a guild."
 EN["Hilferuf ist schon unterwegs – noch %d Sekunden warten."] = "Help call already sent – wait %d more seconds."
 EN["Hilferuf: Deine Position ist hier nicht bekannt (z. B. in Dungeons)."] = "Help call: your position is unknown here (e.g. in dungeons)."
-EN["Hilferuf an die Gilde geschickt. /trip hilfe aus = erledigt."] = "Help call sent to the guild. /trip hilfe aus = all done."
+EN["Hilferuf an die Gilde geschickt. /trip sos aus = erledigt."] = "Help call sent to the guild. /trip sos aus = all done."
 EN["Hilferuf beendet."] = "Help call ended."
 EN["%s kommt dir zu Hilfe!"] = "%s is coming to help you!"
 EN["Hilferuf"] = "Help call"
@@ -240,7 +240,7 @@ EN["Hilferuf aus der Gilde"] = "Help call from the guild"
 EN["Ich komme!"] = "On my way!"
 EN["Flüstern"] = EN["Flüstern"] or "Whisper"
 EN["Hilferuf: %s"] = "Help call: %s"
-EN["Hilferuf an die Gilde: /trip hilfe [Text], /trip hilfe aus"] = "Call the guild for help: /trip hilfe [text], /trip hilfe aus"
+EN["Hilferuf an die Gilde: /trip sos [Text], /trip sos aus"] = "Call the guild for help: /trip sos [text], /trip sos aus"
 EN["Hilferuf an die Gilde"] = "Call the guild for help"
 
 -- Auftragsbrett (0.7.0)

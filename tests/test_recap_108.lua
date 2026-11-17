@@ -110,4 +110,13 @@ inside = true R:OnEnteringWorld()
 now = now + 600
 inside = false R:OnEnteringWorld()
 assert(not f.shown)
+-- 6) Direkt von einem Dungeon in den naechsten: der erste Lauf wird abgeschlossen
+ONE.FeatureOn = nil
+GetInstanceInfo = function() return "Die Todesminen" end
+inside = true R:OnEnteringWorld()
+now = now + 900
+d.Entrances.Match = function(name) return {{key = name == "Die Todesminen" and "DM" or "SFK"}} end
+GetInstanceInfo = function() return "Burg Schattenfang" end
+R:OnEnteringWorld()
+assert(R.last and R.last.key == "DM" and R.last.secs == 900 and R.run.key == "SFK", "erster Lauf abgeschlossen")
 print("OK test_recap_108")

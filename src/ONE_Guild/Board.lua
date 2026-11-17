@@ -34,7 +34,12 @@ local function Me() return Short(Call(rawget(_G, "UnitName"), "player")) end
 
 local function Clean(text)
     text = type(text) == "string" and (text:gsub("[|\r\n]", " "):gsub("^%s+", ""):gsub("%s+$", "")) or ""
-    if #text > Board.maxLen then text = text:sub(1, Board.maxLen) end
+    if #text > Board.maxLen then
+        -- nicht mitten in einem Umlaut abschneiden (UTF-8: Folgebytes 0x80-0xBF)
+        local cut = Board.maxLen
+        while cut > 0 and text:byte(cut + 1) and text:byte(cut + 1) >= 128 and text:byte(cut + 1) < 192 do cut = cut - 1 end
+        text = text:sub(1, cut)
+    end
     return text
 end
 

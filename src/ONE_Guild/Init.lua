@@ -18,7 +18,7 @@ if ONE.RegisterFeature then
     ONE:RegisterFeature("guild.board", {module = "guild", label = "Auftragsbrett der Gilde",
         tooltip = "Kleine Gesuche an die Gilde („Brauche 10 Leinenstoff“, „Wer hilft bei der Elite-Quest?“). Stehen unter „Was steht an“; /trip auftrag öffnet das Brett, /trip auftrag <Text> stellt direkt ein."})
     ONE:RegisterFeature("guild.help", {module = "guild", label = "Hilferufe der Gilde zeigen",
-        tooltip = "Ruft jemand aus der Gilde um Hilfe (/trip hilfe oder eigene Taste), kommt ein Fenster mit Entfernung und „Ich komme!“ (Navi zu ihm). Nur auf demselben Kontinent."})
+        tooltip = "Ruft jemand aus der Gilde um Hilfe (/trip sos oder eigene Taste), kommt ein Fenster mit Entfernung und „Ich komme!“ (Navi zu ihm). Nur auf demselben Kontinent."})
 end
 
 ONE:RegisterModule("guild", {

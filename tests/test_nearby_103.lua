@@ -227,4 +227,34 @@ assert(cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha =
 N:SetEnabled(false)
 assert(cvars.nameplateMaxDistance == "20" and cvars.nameplateShowFriends == "1" and ONE.db.classGuide.nearbyCVars == nil)
 N:SetEnabled(true)
+-- 12) Maus auf der Liste: nicht umsortieren; nach erfolgreichem Buff doch
+cvars.nameplateShowFriends, cvars.nameplateMaxDistance = "0", "20"
+ONE.db.classGuide.nearbyCVars = nil
+N.autoOn, N.done = nil, nil
+Reset()
+assert(Names(N:Update()) == "Bob,Gildi,Fremder")
+f.IsMouseOver = function() return true end
+f.IsShown = function() return true end
+f.GetAlpha = function() return 1 end
+UNITS.party1.auras = {{name = "Machtwort: Seelenstärke", expirationTime = 0}}
+assert(Names(N:Update()) == "Bob,Gildi,Fremder", "eingefroren, solange die Maus drueber ist")
+N:OnSent("player", "Gildi", "cast-9", 1245) N:OnSucceeded("player", "cast-9")
+assert(Names(N:Update()) == "Fremder", "nach dem Buff aktualisiert")
+f.IsMouseOver = function() return false end
+-- 13) Begleiter fremder Spieler ebenfalls unsichtbar, freundliche NPCs nicht
+UnitPlayerControlled = function(u) return u == "nameplate6" end
+local isPlayer = UnitIsPlayer
+UnitIsPlayer = function(u) return u ~= "nameplate6" and u ~= "nameplate7" end
+plates.nameplate6 = {UnitFrame = Region("Frame")}
+plates.nameplate7 = {UnitFrame = Region("Frame")}
+UNITS.nameplate6 = {name = "Wolf", auras = {}}
+UNITS.nameplate7 = {name = "Wache", auras = {}}
+N:Update()
+assert(plates.nameplate6.UnitFrame.alpha == 0 and plates.nameplate7.UnitFrame.alpha == 1, "Begleiter weg, NPC bleibt")
+UnitIsPlayer = isPlayer
+-- 14) Ausloggen: alte Einstellungen zurueck
+local logout = N.events and N.events.scripts and N.events.scripts.OnEvent
+assert(N.autoOn and cvars.nameplateShowFriends == "1")
+N:ApplyAuto(false)
+assert(cvars.nameplateShowFriends == "0" and cvars.nameplateMaxDistance == "20")
 print("OK test_nearby_103")

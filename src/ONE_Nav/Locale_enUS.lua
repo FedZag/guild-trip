@@ -250,3 +250,6 @@ EN["Farm-Runde für „%s“: %d Lager – der Pfeil führt von Lager zu Lager."
 EN["„%s“ ist fertig – Farm-Runde beendet."] = "\"%s\" is done – grind loop ended."
 EN["Lager mit %d Gegnern – für „%s“"] = "Camp with %d mobs – for \"%s\""
 EN["Klick: Farm-Runde über alle Lager starten"] = "Click: start a grind loop over all camps"
+EN["Questgeber (!) sammeln und zeigen"] = EN["Questgeber (!) sammeln und zeigen"] or "Collect and show quest givers (!)"
+EN["Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."] =
+    "Remembers where you (and, with \"Share quests\", your guild) were offered new quests and shows a \"!\" there – only for quests that fit your level. Off when Questie is installed, because Questie shows its own \"!\"."
