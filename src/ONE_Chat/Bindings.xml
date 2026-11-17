@@ -1,0 +1,3 @@
+<Bindings>
+    <Binding name="GUILDTRIPCHAT_TOGGLE" header="GUILDTRIPCHAT" category="ADDONS">GuildTripChat_Toggle()</Binding>
+</Bindings>

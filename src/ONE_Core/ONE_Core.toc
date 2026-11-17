@@ -1,0 +1,27 @@
+## Interface: 16001
+## Title: Guild Trip | Core
+## Notes: Gemeinsame Plattform für modular aufgebaute WoW-Werkzeuge
+## Author: Guild Trip
+## X-License: GPL-3.0-or-later
+## Version: 0.6.6-alpha
+## SavedVariables: ProjectONEDB
+## IconTexture: Interface\AddOns\ONE_Core\Textures\Common\ONE_Minimap.tga
+## AddonCompartmentFunc: ProjectONE_Toggle
+
+Core.lua
+Locale.lua
+Locale_enUS.lua
+BugReport.lua
+Themes.lua
+Kit.lua
+Geometry.lua
+WindowScale.lua
+Widgets.lua
+MinimapButton.lua
+Notifications.lua
+UI.lua
+Book.lua
+Welcome.lua
+WhatsNew.lua
+Sound.lua
+PlayerMenu.lua

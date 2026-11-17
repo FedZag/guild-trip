@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: Guild Trip | Questdaten
+## Notes: Quest-Datenbank für Guild Trip (Questgeber, Abgabe, Ziele) – aus pfQuest (MIT)
+## Author: Guild Trip
+## X-License: GPL-3.0-or-later (Daten: MIT, pfQuest)
+## Version: 0.6.6-alpha
+## Dependencies: ONE_Core
+
+Data.lua
+Names_deDE.lua
+Names_enUS.lua

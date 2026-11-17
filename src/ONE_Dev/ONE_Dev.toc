@@ -1,0 +1,22 @@
+## Interface: 16001
+## Title: Guild Trip | Entwickler
+## Notes: Nur für die Entwicklung: Testbefehle und Auslese-Werkzeuge. Nicht für Spieler, nicht im CurseForge-Paket.
+## Author: Guild Trip
+## X-License: GPL-3.0-or-later
+## Version: 0.6.6-alpha
+## Dependencies: ONE_Core
+## OptionalDeps: ONE_Guild, ONE_Nav, ONE_Dungeons, ONE_Crafting, ONE_Classes
+## SavedVariables: GuildTripDevDB
+
+Dev.lua
+Native.lua
+ClassSpells.lua
+SpellScan.lua
+NavDiag.lua
+DungeonDiag.lua
+CraftDiag.lua
+DevShare.lua
+QuestCheck.lua
+EntranceCheck.lua
+LootCheck.lua
+Commands.lua

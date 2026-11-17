@@ -1,0 +1,25 @@
+## Interface: 16001
+## Title: Guild Trip | Klasse
+## Notes: Klassen-Ratgeber: Kampfreihenfolge, Talente und Ausrüstung für deine Stufe
+## Author: Guild Trip
+## X-License: GPL-3.0-or-later
+## Version: 0.6.6-alpha
+## Dependencies: ONE_Core
+
+Locale_enUS.lua
+Data.lua
+DataClasses.lua
+Player.lua
+Bars.lua
+Ranks.lua
+Share.lua
+Buffs.lua
+Talents.lua
+TrainerSpellPack.lua
+Trainer.lua
+LootPack.lua
+Loot.lua
+Gear.lua
+Weapons.lua
+Page.lua
+Init.lua

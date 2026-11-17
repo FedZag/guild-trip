@@ -1,0 +1,15 @@
+## Interface: 16001
+## Title: Guild Trip | Berufe
+## Notes: Rezepte der Gilde suchen und Handwerker anfragen
+## Author: Guild Trip
+## X-License: GPL-3.0-or-later
+## Version: 0.6.6-alpha
+## Dependencies: ONE_Core
+
+Locale_enUS.lua
+Recipes.lua
+TrainerPack.lua
+Trainers.lua
+Share.lua
+Page.lua
+Init.lua

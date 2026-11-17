@@ -1,0 +1,17 @@
+## Interface: 16001
+## Title: Guild Trip | Gilde & Kalender
+## Notes: Gilden- und Kalender-Modul für Guild Trip
+## Author: Guild Trip
+## X-License: GPL-3.0-or-later
+## Version: 0.6.6-alpha
+## Dependencies: ONE_Core
+
+Locale_enUS.lua
+Calendar.lua
+Guild.lua
+Roster.lua
+Presence.lua
+Pins.lua
+Reminders.lua
+UI.lua
+Init.lua

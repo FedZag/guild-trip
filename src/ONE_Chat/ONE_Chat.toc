@@ -1,0 +1,18 @@
+## Interface: 16001
+## Title: Guild Trip | Chat
+## Notes: Freiwilliger Chat wie ein Messenger: Reiter, Flüstergespräche, festes Ziel je Gespräch
+## Author: Guild Trip
+## X-License: GPL-3.0-or-later
+## Version: 0.6.6-alpha
+## Dependencies: ONE_Core
+## OptionalDeps: ONE_Guild, ONE_Nav
+
+Locale_enUS.lua
+Chat.lua
+ChatUI.lua
+TabEditor.lua
+Settings.lua
+Launcher.lua
+Hider.lua
+LootWindow.lua
+Init.lua
