@@ -404,6 +404,7 @@ function P:Plan(ctx)
         if s.kind == "dungeon" then s.idsSet = {} for _, id in ipairs(s.ids) do s.idsSet[id] = true end end
     end
     local order, pos, minutes, xpSum = {}, here, 0, 0
+    local fieldXP, fieldMin = 0, 0 -- ohne Dungeon-Quests (fuer den Vergleich mit Monster hauen)
     local prefer = ctx.prefer
     local zone = me.mapID
     local switch = ctx.zoneBlocks == false and 0 or P.ZONE_SWITCH
@@ -425,7 +426,7 @@ function P:Plan(ctx)
         best.used = true
         best.walk = bwalk
         bm = bwalk
-        local before = minutes
+        local before, xpBefore = minutes, xpSum
         order[#order + 1] = best
         minutes = minutes + bm
         if best.w then pos = best.w zone = best.w[4] or zone end
@@ -446,6 +447,10 @@ function P:Plan(ctx)
         end
         -- echte Zeit dieses Halts (die Wechsel-Strafe zaehlt nicht mit)
         best.cost = minutes - before
+        best.gain = xpSum - xpBefore
+        if not (best.kind == "dungeon" or (best.id and info[best.id] and info[best.id].dungeon)) then
+            fieldXP, fieldMin = fieldXP + (xpSum - xpBefore), fieldMin + best.cost
+        end
     end
     local left = {}
     for _, s in ipairs(stops) do if not s.used then left[#left + 1] = s end end
@@ -458,9 +463,10 @@ function P:Plan(ctx)
         else
             local w = s.w
             steps[#steps + 1] = {kind = s.kind, nr = s.nr, key = s.key, ids = s.ids, mapID = w and w[4], x = w and w[5], y = w and w[6],
-                walk = s.walk, actions = s.kind == "dungeon" and {} or {{kind = s.kind, id = s.id}}, stopKey = P.StopKey(s), cost = 0}
+                walk = s.walk, actions = s.kind == "dungeon" and {} or {{kind = s.kind, id = s.id}}, stopKey = P.StopKey(s), cost = 0, gain = 0}
         end
         steps[#steps].cost = steps[#steps].cost + (s.cost or 0)
+        steps[#steps].gain = steps[#steps].gain + (s.gain or 0)
     end
     -- Gebietsbloecke fuer die Anzeige: {mapID, first, last, steps, minutes}
     local blocks = {}
@@ -472,6 +478,7 @@ function P:Plan(ctx)
             blocks[#blocks + 1] = b
         end
         b.last, b.steps, b.minutes = i, b.steps + 1, b.minutes + (st.cost or 0)
+        b.xp = (b.xp or 0) + (st.gain or 0)
         st.block = #blocks
     end
     -- Ausgelassen (nur mit Grund, sortiert nach EP)
@@ -481,6 +488,7 @@ function P:Plan(ctx)
     end
     table.sort(skipped, function(a, b) if a.totalXP ~= b.totalXP then return a.totalXP > b.totalXP end return a.id < b.id end)
     return {steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left,
+        fieldXP = fieldXP, fieldMinutes = fieldMin,
         grind = grind, factor = factor, level = L}
 end
 

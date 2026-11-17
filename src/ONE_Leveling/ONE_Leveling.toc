@@ -10,6 +10,7 @@
 Locale_enUS.lua
 Rewards.lua
 Planner.lua
+Grind.lua
 Guide.lua
 Page.lua
 Tracker.lua

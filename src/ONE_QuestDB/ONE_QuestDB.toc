@@ -10,3 +10,6 @@ Data.lua
 Services.lua
 Names_deDE.lua
 Names_enUS.lua
+Mobs.lua
+MobNames_deDE.lua
+MobNames_enUS.lua

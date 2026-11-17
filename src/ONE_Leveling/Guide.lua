@@ -216,6 +216,67 @@ function G.ZoneName(mapID)
     return info and info.name or ""
 end
 
+-- ===== Monster hauen (Grind.lua) – Hinweis, aendert den Plan nicht =====
+function G:Grind(plan)
+    plan = plan or self.plan
+    local Gr = lev.Grind
+    if not (Gr and plan) then return nil end
+    if self.grindPlan ~= plan then
+        local ok, advice = pcall(Gr.Advice, Gr, self:Context(), plan)
+        self.grind, self.grindPlan = ok and advice or nil, plan
+    end
+    return self.grind
+end
+
+-- Lager als "Schritt" fuer Navi und Liste
+function G.CampStep(c)
+    return {kind = "grind", camp = c, mapID = c.mapID, x = c.x, y = c.y, actions = {}, stopKey = "g:" .. c.npc .. ":" .. c.mapID}
+end
+
+function G.CampText(c)
+    local lvl = c.min == c.max and tostring(c.min) or (c.min .. "–" .. c.max)
+    return T("%s (Stufe %s) · %s %d/%d", c.name, lvl, G.ZoneName(c.mapID), math.floor(c.x * 100 + .5), math.floor(c.y * 100 + .5))
+end
+
+-- Listeneintraege: Ueberschrift + bis zu drei Lager
+function G:GrindItems(advice, always)
+    local out = {}
+    if not advice or #advice.camps == 0 or not (advice.worth or always) then return out end
+    local head
+    if advice.reason == "empty" then head = T("MONSTER HAUEN – GERADE KEINE PASSENDEN QUESTS")
+    elseif advice.worth then head = T("MONSTER HAUEN LOHNT SICH GERADE")
+    else head = T("MONSTER IN DER NÄHE – DEIN PLAN IST SCHNELLER (~%d EP/MIN)", math.floor((advice.planEPM or 0) + .5)) end
+    out[#out + 1] = {key = "gh", header = true, text = head}
+    for _, c in ipairs(advice.camps) do
+        out[#out + 1] = {key = "g" .. c.npc .. ":" .. c.mapID, camp = c, step = G.CampStep(c), dim = not advice.worth,
+            text = G.CampText(c), tags = "|cff40ff40" .. T("~%d EP/Min", math.floor(c.epm + .5)) .. "|r"}
+    end
+    return out
+end
+
+-- Warum dieses Lager? Zeilen {{links, rechts}}, Urteil
+function G:CampWhy(c, advice)
+    local P = lev.Planner
+    local plan = self.plan
+    local L = plan and plan.level or 1
+    local avg = (c.min + c.max) / 2
+    local xp = P.MobXP(L, math.floor(avg + .5))
+    local secs = lev.Grind.KillSeconds(L, avg, c.count)
+    local rows = {
+        {T("EP je Gegner (für Stufe %d)", L), tostring(math.floor(xp + .5))},
+        {T("Zeit je Gegner (Kampf + Laufen)"), T("~%d s", math.floor(secs + .5))},
+        {T("Gegner im Lager"), tostring(c.count)},
+        {T("EP pro Minute"), tostring(math.floor(c.epm + .5))},
+        {T("Weg dorthin"), T("~%d min", math.max(1, math.floor(c.travel + .5)))},
+    }
+    if advice and advice.planEPM then rows[#rows + 1] = {T("dein Plan gerade (dieses Gebiet)"), T("~%d EP/Min", math.floor(advice.planEPM + .5))} end
+    local verdict
+    if advice and advice.reason == "empty" then verdict = T("Gerade keine passenden Quests – hier geht es am schnellsten weiter.")
+    elseif advice and advice.worth then verdict = T("Schneller als dein Plan: zwischendurch hier farmen bringt mehr EP pro Minute.")
+    else verdict = T("Dein Plan ist gerade schneller – farmen nur, wenn du Lust drauf hast.") end
+    return rows, verdict
+end
+
 -- ===== Gebietsuebersicht (Ansicht "Gebiete") – nur Anzeige =====
 function G:Zones(plan)
     plan = plan or self.plan
@@ -320,7 +381,9 @@ function G:Navi(step, quiet)
     if not (step and step.mapID) then ONE:Print(T("Für diesen Schritt kennt Guild Trip keinen Ort.")) return false end
     local nav = ONE.modules and ONE.modules.nav
     if not (nav and nav.PointTo) then return false end
-    local label = step.kind == "dungeon" and (G.Catalog(step.key) or {}).name or G.Title(step.actions[1].id)
+    local label = step.kind == "dungeon" and (G.Catalog(step.key) or {}).name
+        or step.kind == "grind" and step.camp and T("Monster hauen: %s", step.camp.name)
+        or G.Title(step.actions[1].id)
     local ok = nav:PointTo(T(label or ""), step.mapID, step.x, step.y, quiet and {quiet = true} or nil)
     local arrow = Nav() and Nav().Arrow
     if ok and arrow then self.autoKey, self.autoLabel = step.stopKey, arrow.target end
