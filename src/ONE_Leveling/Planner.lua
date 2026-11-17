@@ -484,6 +484,87 @@ function P:Plan(ctx)
         grind = grind, factor = factor, level = L}
 end
 
+-- ===== Gebietsuebersicht (0.7.0) – NUR Anzeige, aendert den Plan nicht =====
+-- Je Gebiet (Karte des Questgebers): wie viele Quests fuer dich es gibt, wie viele erledigt sind,
+-- und fuer jede offene: im Plan / im Log / ausgelassen (mit Grund) / gesperrt / spaeter.
+-- Rueckgabe: {{mapID, total, done, plan, open, locked, low, quests = {{id, status, level, minLevel}}}, …}
+-- status: "log" | "plan" | "skip" | "later" | "locked"
+local STATUS_ORDER = {log = 1, plan = 2, skip = 3, later = 4, locked = 5}
+function P:Zones(ctx, plan)
+    local Q = P.Data()
+    if not (Q and plan) then return {} end
+    local me = ctx.me
+    local L = me.level or 1
+    local done = ctx.done or function() return false end
+    local inLog = ctx.inLog or function() return false end
+    local grey = P.GreyBelow(L)
+    local zones, byMap = {}, {}
+    for id, e in pairs(Q.q) do
+        -- nur, was fuer Volk/Klasse ueberhaupt in Frage kommt
+        local race, class = e[3], e[4]
+        local ok = true
+        if race > 0 and race < 255 then
+            local mine = me.race or P.FACTION_MASK[me.faction]
+            if mine and Band(race, mine) == 0 then ok = false end
+        end
+        if class > 0 and me.class and Band(class, me.class) == 0 then ok = false end
+        local sortClass = P.CLASS_SORT[e[14] or 0]
+        if sortClass and me.class and sortClass ~= me.class then ok = false end
+        local giver = e[6] and e[6][1] or (e[7] and e[7][1])
+        local mapID = ok and giver and P.NodePoint(Q, giver, nil)
+        if mapID then
+            local z = byMap[mapID]
+            if not z then
+                z = {mapID = mapID, total = 0, done = 0, plan = 0, open = 0, locked = 0, low = 0, quests = {}}
+                byMap[mapID] = z
+                zones[#zones + 1] = z
+            end
+            z.total = z.total + 1
+            if done(id) then
+                z.done = z.done + 1
+            else
+                local qlvl = e[1] > 0 and e[1] or L
+                local status
+                if inLog(id) then status = "log"
+                elseif plan.chosen[id] then status = "plan"
+                elseif plan.info[id] and plan.info[id].skip then status = "skip"
+                elseif qlvl <= grey and qlvl > 0 then z.low = z.low + 1
+                elseif not Fits(id, e, me, done, inLog) then status = "locked"
+                elseif (e[2] or 0) > L then status = "locked"
+                else status = "later" end
+                -- weit ueber deiner Stufe: nicht auflisten (sonst ist die Liste endlos)
+                if (status == "locked" or status == "later") and math.max(e[2] or 0, qlvl - 2) > L + 5 then status = nil end
+                if status then
+                    if status == "plan" or status == "log" then z.plan = z.plan + 1
+                    elseif status == "locked" then z.locked = z.locked + 1
+                    else z.open = z.open + 1 end
+                    z.quests[#z.quests + 1] = {id = id, status = status, level = qlvl, minLevel = e[2] or 0}
+                end
+            end
+        end
+    end
+    -- Gebiete ohne offene Quests fuer dich weglassen; aktuelles Gebiet zuerst, dann mit Plan, dann mit offenen
+    local out = {}
+    for _, z in ipairs(zones) do
+        if z.plan + z.open > 0 or (z.mapID == me.mapID and #z.quests > 0) then
+            table.sort(z.quests, function(a, b)
+                if a.status ~= b.status then return STATUS_ORDER[a.status] < STATUS_ORDER[b.status] end
+                if a.level ~= b.level then return a.level < b.level end
+                return a.id < b.id
+            end)
+            out[#out + 1] = z
+        end
+    end
+    table.sort(out, function(a, b)
+        local ha, hb = a.mapID == me.mapID, b.mapID == me.mapID
+        if ha ~= hb then return ha end
+        if a.plan ~= b.plan then return a.plan > b.plan end
+        if a.open ~= b.open then return a.open > b.open end
+        return a.mapID < b.mapID
+    end)
+    return out
+end
+
 function P.StopKey(s)
     if s.kind == "dungeon" then return "d:" .. tostring(s.key) end
     return s.kind .. ":" .. tostring(s.id)

@@ -84,6 +84,28 @@ for _, tempo in ipairs({"need", "all"}) do
     assert(count == #zoned.steps and math.abs(mins - zoned.minutes) < .01, "Bloecke decken den Plan ab")
 end
 ctx.tempo = "need"
+-- 0.7.0 Gebietsuebersicht: nur Anzeige – Plan unveraendert, aktuelles Gebiet zuerst, Plan-Quests als "plan"
+do
+    local pl = P:Plan(ctx)
+    local before = {}
+    for id, why in pairs(pl.chosen) do before[id] = why end
+    local zones = P:Zones(ctx, pl)
+    assert(#zones > 0 and zones[1].mapID == 1436, "Westfall zuerst")
+    for id, why in pairs(before) do assert(pl.chosen[id] == why) end
+    local seen = {}
+    for _, z in ipairs(zones) do
+        assert(z.done <= z.total)
+        for _, q in ipairs(z.quests) do
+            seen[q.id] = q.status
+            if q.status == "plan" then assert(pl.chosen[q.id], "plan " .. q.id) end
+            if q.status == "skip" then assert(not pl.chosen[q.id] and pl.info[q.id].skip) end
+            assert(not done[q.id], "erledigt nicht in der Liste")
+        end
+    end
+    for id in pairs(pl.chosen) do
+        if seen[id] then assert(seen[id] == "plan", "im Plan: " .. id .. " " .. seen[id]) end
+    end
+end
 if os.getenv("SHOW") then
     ctx.tempo = "need"
     plan = P:Plan(ctx)

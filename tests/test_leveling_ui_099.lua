@@ -191,8 +191,8 @@ ONE.ns.nav.Quests = {Build = function(_, panel, embedded) logBuilt = embedded re
 ONE.UI.SetContext = function(_, id, text) ctx = {id, text} end
 local tab = lev.Page:BuildTab(Stub())
 assert(logBuilt == true, "Questlog ohne eigene Kopfzeile eingebettet")
-assert(#lev.Page.VIEWS == 3, "keine Ansicht Einstellungen mehr")
-for _, v in ipairs({"guide", "skipped", "log"}) do
+assert(#lev.Page.VIEWS == 4 and lev.Page.VIEWS[2][1] == "zones", "Plan | Gebiete | Ausgelassen | Questlog")
+for _, v in ipairs({"guide", "zones", "skipped", "log"}) do
     G:DB().view = v
     tab()
     assert(ctx[1] == "leveling", v)

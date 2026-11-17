@@ -216,6 +216,58 @@ function G.ZoneName(mapID)
     return info and info.name or ""
 end
 
+-- ===== Gebietsuebersicht (Ansicht "Gebiete") – nur Anzeige =====
+function G:Zones(plan)
+    plan = plan or self.plan
+    if not plan then return {} end
+    if self.zonesPlan ~= plan then
+        local ok, zones = pcall(P.Zones, P, self:Context(), plan)
+        self.zones, self.zonesPlan = ok and zones or {}, plan
+    end
+    return self.zones
+end
+
+-- aufgeklappt? Vorgabe: aktuelles Gebiet (erstes in der Liste)
+function G.ZoneOpen(state, mapID)
+    if state.zoneOpen and state.zoneOpen[mapID] ~= nil then return state.zoneOpen[mapID] end
+    return state.firstZone == mapID
+end
+
+G.ZONE_STATUS = {
+    log = {"im Log", "66ccff"}, plan = {"im Plan", "40ff40"}, skip = {"ausgelassen", "9d9d9d"},
+}
+function G.ZoneStatus(q)
+    local d = G.ZONE_STATUS[q.status]
+    if d then return "|cff" .. d[2] .. T(d[1]) .. "|r" end
+    if q.status == "locked" then
+        if q.minLevel > ((G.plan and G.plan.level) or 0) then return "|cffff7f3f" .. T("ab Stufe %d", q.minLevel) .. "|r" end
+        return "|cffff7f3f" .. T("Vorquest fehlt") .. "|r"
+    end
+    return "|cffbbbbbb" .. T("später (Stufe %d)", q.level) .. "|r"
+end
+
+function G:ZoneItems(plan, state)
+    local out = {}
+    local zones = self:Zones(plan)
+    state.firstZone = zones[1] and zones[1].mapID
+    for _, z in ipairs(zones) do
+        local open = G.ZoneOpen(state, z.mapID)
+        local parts = {T("%d/%d erledigt", z.done, z.total)}
+        if z.plan > 0 then parts[#parts + 1] = T("%d im Plan", z.plan) end
+        if z.open > 0 then parts[#parts + 1] = T("%d offen", z.open) end
+        if z.locked > 0 then parts[#parts + 1] = T("%d gesperrt", z.locked) end
+        out[#out + 1] = {key = "z" .. z.mapID, header = true, zone = z.mapID,
+            text = (open and "− " or "+ ") .. G.ZoneName(z.mapID):upper() .. "  |cff9d9d9d· " .. table.concat(parts, " · ") .. "|r"}
+        if open then
+            for _, q in ipairs(z.quests) do
+                out[#out + 1] = {key = "zq" .. q.id, qid = q.id, dim = q.status ~= "plan" and q.status ~= "log",
+                    text = "[" .. q.level .. "] " .. G.Title(q.id), tags = G.ZoneStatus(q)}
+            end
+        end
+    end
+    return out
+end
+
 -- Ueberschrift eines Gebietsblocks: "WESTFALL · 12 Schritte · ~40 Min."
 function G.BlockTitle(plan, step)
     local name = G.ZoneName(step.mapID):upper()
