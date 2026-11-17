@@ -165,4 +165,34 @@ N:SetEnabled(true)
 assert(#N.shown == 3 and f.alpha == 1)
 f.scripts.OnDragStop(f)
 assert(ONE.db.classGuide.nearbyPos.x == 70 and ONE.db.classGuide.nearbyPos.y == 400)
+
+-- 10) Ein Klick: Buff sitzt -> Spieler raus; Fehlschlag -> bleibt; Buff verloren -> wieder da
+Reset()
+assert(Names(N:Update()) == "Bob,Gildi,Fremder")
+N:OnSent("player", "Fremder", "cast-1", 1244)
+assert(Names(N:Update()) == "Bob,Gildi,Fremder", "nur abgeschickt = noch drin")
+N:OnSucceeded("player", "cast-1")
+assert(Names(N:Update()) == "Bob,Gildi", "gebufft = raus (auch bevor der Buff sichtbar ist)")
+N:OnSent("player", "Bob-Realm", "cast-2", 1245) -- Zauber scheitert: kein SUCCEEDED
+assert(Names(N:Update()) == "Bob,Gildi", "Fehlschlag = bleibt")
+N:OnSent("player", "Gildi", "cast-3", 2061) -- fremder Zauber (keiner meiner Buffs) zaehlt nicht
+N:OnSucceeded("player", "cast-3")
+assert(Names(N:Update()) == "Bob,Gildi")
+-- nach der Wartezeit: Buff fehlt wieder (z. B. gestorben) -> zurueck
+GetTime = function() return 1020 end
+assert(Names(N:Update()) == "Bob,Gildi,Fremder", "Buff verloren = wieder da")
+-- mit Buff bleibt er draussen
+N:OnSent("player", "Fremder", "cast-4", 1244)
+N:OnSucceeded("player", "cast-4")
+UNITS.nameplate1.auras = {{name = "Machtwort: Seelenstärke", expirationTime = 2800}}
+UNITS.target.auras = UNITS.nameplate1.auras
+GetTime = function() return 1040 end
+assert(Names(N:Update()) == "Bob,Gildi")
+-- nur per Name bekannt (Buffs unbekannt): bleibt 30 Minuten draussen
+UNITS.mouseover = {name = "Wanderer", class = "MAGE", level = 40, range = true, auras = {}}
+N:Remember("mouseover") UNITS.mouseover = nil
+N:OnSent("player", "Wanderer", "cast-5", 1245) N:OnSucceeded("player", "cast-5")
+GetTime = function() return 1060 end
+assert(Names(N:Update()) == "Bob,Gildi", "Wanderer raus")
+GetTime = function() return 1000 end
 print("OK test_nearby_103")

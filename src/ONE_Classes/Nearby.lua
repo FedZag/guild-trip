@@ -11,9 +11,13 @@ local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select(
 --    Rechtsklick = zweiter, Umschalt+Linksklick = dritter. Blizzard-Knopf
 --    (SecureActionButtonTemplate) – erlaubt, weil du selbst klickst.
 --  * Der Rang passt zur Stufe des Ziels (sonst "Ziel ist zu niedrig").
+--  * Ein Klick reicht: sobald der Buff WIRKLICH sitzt (Zauber erfolgreich),
+--    verschwindet der Spieler aus der Liste (30 Minuten; verliert er den
+--    Buff vorher, z. B. durch Tod, kommt er wieder). Klappt der Zauber nicht
+--    (Reichweite, Sicht), bleibt er drin.
 --  * Nur ausserhalb des Kampfes; im Kampf blendet Blizzards Zustandssteuerung
 --    das Fenster sicher aus. Alt + Ziehen verschiebt es.
-local Nearby = {rows = 8, rowH = 22, width = 230, keep = 30, soon = 60}
+local Nearby = {rows = 8, rowH = 22, width = 230, keep = 30, soon = 60, doneFor = 1800, grace = 10}
 classes.Nearby = Nearby
 
 -- Buffs, die man anderen geben kann. ranks = {Zauber, benoetigte Stufe}
@@ -186,11 +190,11 @@ function Nearby:Scan(offers)
             out[#out + 1] = e
         end
     end
-    -- Was fehlt jedem?
+    -- Was fehlt jedem? Wer gerade von dir gebufft wurde, ist raus.
     local keep = {}
     for _, e in ipairs(out) do
         e.missing = self:MissingFor(e, offers)
-        if #e.missing > 0 then keep[#keep + 1] = e end
+        if #e.missing > 0 and not self:IsDone(e, offers) then keep[#keep + 1] = e end
     end
     local order = {group = 1, guild = 2, friend = 3}
     table.sort(keep, function(a, b)
@@ -226,6 +230,50 @@ function Nearby:MissingFor(e, offers)
     for i, m in ipairs(list) do m.pos = i end
     table.sort(list, function(a, b) if a.score ~= b.score then return a.score < b.score end return a.pos < b.pos end)
     return list
+end
+
+-- ===== Erledigt (von dir gebufft) =====
+local function Short(name) return type(name) == "string" and (name:gsub("%-.*", "")) or nil end
+
+-- Zauber abgeschickt: Ziel merken (castGUID -> Name + Buff).
+function Nearby:OnSent(unit, target, castGUID, spellID)
+    if unit ~= "player" or type(target) ~= "string" or IsSecret(target) or target == "" or not castGUID then return end
+    local spell = classes.Player.SpellInfo(spellID)
+    for _, o in ipairs(self.myOffers or {}) do
+        if o.name == spell then
+            self.sent = self.sent or {}
+            self.sent[castGUID] = {name = Short(target), buff = o.name}
+            return
+        end
+    end
+end
+
+-- Zauber erfolgreich: Spieler ist erledigt und faellt aus der Liste.
+function Nearby:OnSucceeded(unit, castGUID)
+    local s = unit == "player" and self.sent and self.sent[castGUID]
+    if not s then return end
+    self.sent[castGUID] = nil
+    self:MarkDone(s.name, s.buff)
+end
+
+function Nearby:MarkDone(name, buff)
+    if not name or name == Short(U("UnitName", "player")) then return end
+    self.done = self.done or {}
+    self.done[name] = {at = Now(), buff = buff}
+end
+
+-- Erledigt = in den letzten 30 Minuten von dir gebufft. Kennt man seine Buffs
+-- und fehlt deiner wieder (nach kurzer Wartezeit), kommt er zurueck.
+function Nearby:IsDone(e, offers)
+    local d = self.done and self.done[Short(e.name)]
+    if not d then return false end
+    local age = Now() - d.at
+    if age > self.doneFor then self.done[Short(e.name)] = nil return false end
+    if age < self.grace or not e.auras then return true end
+    for _, m in ipairs(e.missing) do
+        if m.offer.name == d.buff then self.done[Short(e.name)] = nil return false end
+    end
+    return true
 end
 
 -- ===== Knoepfe =====
@@ -303,6 +351,7 @@ local function NewRow(parent, width, height)
                 if not CLICKS[i] then break end
                 GameTooltip:AddLine(T(CLICKS[i]) .. ": " .. SpellText(m.spell, m.offer.name), 1, .82, 0)
             end
+            GameTooltip:AddLine(T("Nach dem Buff verschwindet er aus der Liste."), .7, .7, .7)
             if not e.unit then GameTooltip:AddLine(T("Nur per Name bekannt – zielt kurz an und wieder zurück."), .7, .7, .7) end
             if e.range == nil and e.unit then GameTooltip:AddLine(T("Reichweite unbekannt"), .7, .7, .7) end
             GameTooltip:AddLine(T("Alt + Ziehen: verschieben"), .5, .5, .5)
@@ -391,12 +440,18 @@ end
 function Nearby:Initialize()
     local events = CreateFrame("Frame")
     for _, ev in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "SPELLS_CHANGED", "GROUP_ROSTER_UPDATE",
-        "PLAYER_TARGET_CHANGED", "NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED", "UPDATE_MOUSEOVER_UNIT", "UNIT_AURA"}) do
+        "PLAYER_TARGET_CHANGED", "NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED", "UPDATE_MOUSEOVER_UNIT", "UNIT_AURA",
+        "UNIT_SPELLCAST_SENT", "UNIT_SPELLCAST_SUCCEEDED"}) do
         pcall(events.RegisterEvent, events, ev)
     end
     local pending = false
-    events:SetScript("OnEvent", function(_, event)
+    events:SetScript("OnEvent", function(_, event, a, b, c, d)
         if event == "UPDATE_MOUSEOVER_UNIT" then Nearby:Remember("mouseover") end
+        if event == "UNIT_SPELLCAST_SENT" then Nearby:OnSent(a, b, c, d) return end
+        if event == "UNIT_SPELLCAST_SUCCEEDED" then
+            if a ~= "player" then return end
+            Nearby:OnSucceeded(a, b)
+        end
         if pending or InCombat() then if InCombat() then Nearby.dirty = true end return end
         pending = true
         local function Go() pending = false Nearby:Update() end
