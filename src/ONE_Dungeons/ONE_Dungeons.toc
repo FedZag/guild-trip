@@ -3,7 +3,7 @@
 ## Notes: Dungeons mit Quests, Vorquests, Klassenquests und gildeninternem Gruppenfinder
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later
-## Version: 0.6.9-alpha
+## Version: 0.7.0-alpha
 ## Dependencies: ONE_Core
 ## OptionalDeps: ONE_Nav
 
@@ -21,5 +21,6 @@ Groups.lua
 TripsPlanner.lua
 TripsPage.lua
 Passport.lua
+Recap.lua
 PassPage.lua
 Init.lua

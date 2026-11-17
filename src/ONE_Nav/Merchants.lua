@@ -203,6 +203,8 @@ function M:List(filter)
 end
 -- Händler aus ONE_QuestDB, einmal je Fraktion umgewandelt: ["c<npc>"] = {name, mapID, x, y, cats}
 M.dbCache = {}
+-- Hauptstaedte der anderen Fraktion: neutrale Haendler dort (z. B. Winterhauch-Goblins) erreicht man nicht
+M.ENEMY_CAPITALS = {Alliance = {[1454] = true, [1456] = true, [1458] = true}, Horde = {[1453] = true, [1455] = true, [1457] = true}}
 function M.FromQuestDB(faction)
     if M.dbCache[faction] then return M.dbCache[faction] end
     local d = rawget(_G, "GuildTripQuestDB")
@@ -211,7 +213,8 @@ function M.FromQuestDB(faction)
         local names = d.svcNames or d.names or {}
         local want = faction == "Alliance" and 1 or faction == "Horde" and 2 or 0
         for id, v in pairs(d.vendors) do
-            if names[id] and (v[4] == 3 or v[4] == want) then
+            local enemy = M.ENEMY_CAPITALS[faction] or {}
+            if names[id] and (v[4] == 3 or v[4] == want) and not enemy[v[1]] then
                 local cats = {}
                 for c in tostring(v[5] or ""):gmatch("%S+") do cats[c] = true end
                 out["c" .. id] = {name = names[id], mapID = v[1], x = v[2] / 1000, y = v[3] / 1000, cats = cats}

@@ -313,7 +313,10 @@ function Gear:OnTooltip(tooltip)
     local itemID = tonumber(link:match("item:(%d+)"))
     local src = itemID and classes.Loot and (not ONE.FeatureOn or ONE:FeatureOn("classes.loot")) and classes.Loot:SourceText(itemID)
     if src then tooltip:AddLine("|cffbbbbbb" .. src .. "|r", 1, 1, 1, true) end
-    if line or src then tooltip:Show() end
+    -- Wer in der Gruppe braucht es? (LootNeed)
+    local need = itemID and classes.LootNeed and classes.LootNeed:TooltipLine(itemID)
+    if need then tooltip:AddLine(need, 1, 1, 1, true) end
+    if line or src or need then tooltip:Show() end
 end
 
 function Gear:Initialize()

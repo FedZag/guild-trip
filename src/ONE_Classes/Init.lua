@@ -8,6 +8,12 @@ if ONE.RegisterFeature then
     ONE:RegisterFeature("classes.buffs", {module = "classes", section = "Leisten", order = 20, label = "Buff-Erinnerung über den Leisten",
         tooltip = "Zeigt außerhalb des Kampfes über deinen Leisten, welche Buffs fehlen oder bald auslaufen – Buffs von anderen Spielern zählen mit. Klick auf ein Symbol wirkt den Buff. Alt + Ziehen verschiebt die Zeile.",
         get = function() return classes.Buffs:Enabled() end, set = function(on) classes.Buffs:SetEnabled(on) end})
+    ONE:RegisterFeature("classes.nearby", {module = "classes", section = "Leisten", order = 22, label = "Spieler in der Nähe buffen",
+        tooltip = "Kleines Fenster mit allen Spielern in Reichweite, denen einer deiner Buffs fehlt – Gruppe, Gilde, Freunde und Fremde. Ein Klick auf einen Namen wirkt den Buff im passenden Rang für die Stufe – sobald er sitzt, verschwindet der Spieler aus der Liste (Rechtsklick / Umschalt + Linksklick: weitere Buffs). Nur außerhalb des Kampfes.",
+        get = function() return classes.Nearby:Enabled() end, set = function(on) classes.Nearby:SetEnabled(on) end})
+    ONE:RegisterFeature("classes.nearbyAuto", {module = "classes", section = "Leisten", order = 23, label = "… alle Spieler in der Nähe automatisch erkennen",
+        tooltip = "Jeder, der an dir vorbeiläuft, kommt in die Liste. Dafür schaltet Guild Trip die freundlichen Namensplaketten ein (bis 40 m), macht sie aber unsichtbar und nicht anklickbar. Abschalten stellt deine alten Einstellungen wieder her.",
+        get = function() return classes.Nearby:AutoEnabled() end, set = function(on) classes.Nearby:SetAuto(on) end})
     ONE:RegisterFeature("classes.autoRank", {module = "classes", section = "Leisten", order = 21, label = "Leisten automatisch aktuell halten",
         tooltip = "Neue Ränge tauscht Guild Trip auf deinen Leisten aus. Neu gelernte Zauber aus dem Vorschlag legt es auf ihren freien Platz (sobald du einmal „Leisten einrichten“ benutzt hast). Makros und absichtlich niedrige Ränge bleiben unverändert. Im Kampf erst danach.",
         get = function() return classes.Ranks:Enabled() end, set = function(on) classes.Ranks:SetEnabled(on) end})
@@ -17,6 +23,8 @@ if ONE.RegisterFeature then
         tooltip = "Zeile im Gegenstands-Tooltip: besser oder schlechter für deinen Spielstil als das, was du trägst."})
     ONE:RegisterFeature("classes.loot", {module = "classes", section = "Ratgeber", order = 12, label = "Beute merken (Fundorte)",
         tooltip = "Merkt sich beim Plündern, welcher Gegner welche Ausrüstung fallen lässt, und zeigt den Fundort im Tooltip."})
+    ONE:RegisterFeature("classes.lootNeed", {module = "classes", section = "Ratgeber", order = 14, label = "Wer braucht die Beute? (Gruppe)",
+        tooltip = "Fällt in der Gruppe Ausrüstung, rechnet jeder mit Guild Trip aus, ob sie für ihn besser ist. Ein kleines Fenster und der Tooltip zeigen: „Bob (+12 %), Gildi (Platz frei)“ – so geht die Beute an den, der sie wirklich braucht."})
     ONE:RegisterFeature("classes.trainer", {module = "classes", section = "Ratgeber", order = 13, label = "Ratgeber beim Klassenlehrer",
         tooltip = "Kleines Fenster beim Klassenlehrer: was sich zu lernen lohnt.",
         get = function() return not (ONE.db.classGuide and ONE.db.classGuide.trainerAdvice == false) end,
@@ -29,9 +37,11 @@ ONE:RegisterModule("classes", {
         classes.Page:Register()
         classes.Share:Initialize()
         classes.Buffs:Initialize()
+        classes.Nearby:Initialize()
         classes.Talents:Initialize()
         classes.Trainer:Initialize()
         if classes.Gear then classes.Gear:Initialize() end
+        if classes.LootNeed then classes.LootNeed:Initialize() end
         if classes.Loot then classes.Loot:Initialize() end
         local function RefreshIfVisible()
             local ui = ONE.UI

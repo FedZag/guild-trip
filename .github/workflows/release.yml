@@ -1,5 +1,7 @@
 # Neue Version: Tag "v<version>" pushen (z. B. v0.6.7-alpha) -> testen, bauen, auf CurseForge hochladen,
 # GitHub-Release mit dem Paket anlegen. Braucht das Secret CF_API_TOKEN und die Variable CF_PROJECT_ID.
+# Steht die Version schon in .github/curseforge-uploads.txt (z. B. von Hand hochgeladen), wird der
+# CurseForge-Upload uebersprungen – Tag und GitHub-Release entstehen trotzdem.
 name: Release
 
 on:

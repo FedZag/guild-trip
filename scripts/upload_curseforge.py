@@ -12,6 +12,11 @@
 * Abhaengigkeiten (Shortest Path Forever) stehen auf CurseForge als "Default Relations".
 --dry-run: alles pruefen und anzeigen, nichts senden (kein Schluessel noetig).
 --check: nur Schluessel und Spielversion bei CurseForge pruefen (nichts hochladen).
+--force: auch hochladen, wenn die Version schon in .github/curseforge-uploads.txt steht.
+Schon hochgeladene Versionen stehen in .github/curseforge-uploads.txt (eine Zeile je Version:
+"<version> <datei-id> <datum> <wie>"). Steht die Version dort, wird NICHT nochmal hochgeladen –
+die Upload-Schnittstelle von CurseForge kann keine vorhandenen Dateien auflisten, darum fuehren wir
+die Liste selbst. Ein Upload von Hand traegt sich dort ein (danach committen).
 Der Schluessel steht nur in der Umgebung (GitHub-Secret), nie im Code oder im Log.
 """
 import json
@@ -24,6 +29,25 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 API = 'https://wow.curseforge.com/api'
+UPLOADS = ROOT / '.github' / 'curseforge-uploads.txt'
+
+
+def already_uploaded(ver):
+    """Datei-ID, wenn die Version schon hochgeladen wurde, sonst None."""
+    if not UPLOADS.is_file():
+        return None
+    for line in UPLOADS.read_text(encoding='utf-8').splitlines():
+        parts = line.split()
+        if parts and not line.startswith('#') and parts[0] == ver:
+            return parts[1] if len(parts) > 1 else '?'
+    return None
+
+
+def remember_upload(ver, file_id, how):
+    import datetime
+    line = f'{ver} {file_id} {datetime.date.today().isoformat()} {how}\n'
+    with UPLOADS.open('a', encoding='utf-8') as f:
+        f.write(line)
 
 
 def fail(msg):
@@ -92,6 +116,11 @@ def main():
         print(f'Verbindung ok, Spielversion {wanted} = ID {game_version_id(token, wanted)}, Projekt {os.environ.get("CF_PROJECT_ID")}')
         return
     ver = version()
+    done = already_uploaded(ver)
+    if done and '--force' not in sys.argv[1:]:
+        print(f'Guild Trip {ver} ist schon auf CurseForge (Datei-ID {done}, siehe {UPLOADS.relative_to(ROOT)}) – '
+              'nichts hochgeladen. Mit --force trotzdem hochladen.')
+        return
     zip_path = ROOT / 'dist' / f'GuildTrip_{ver}_CurseForge.zip'
     if not zip_path.is_file():
         fail(f'{zip_path.relative_to(ROOT)} fehlt – erst bauen')
@@ -113,6 +142,10 @@ def main():
     body, ctype = multipart({'metadata': json.dumps(metadata)}, 'file', zip_path)
     result = request(f'{API}/projects/{project}/upload-file', token, data=body, headers={'Content-Type': ctype})
     print(f'Hochgeladen: Datei-ID {result.get("id")}')
+    # In GitHub Actions bleibt die Datei nicht erhalten (kein Commit) – dort reicht der Tag als Merker.
+    if not os.environ.get('GITHUB_ACTIONS'):
+        remember_upload(ver, result.get('id'), 'von Hand')
+        print(f'Eingetragen in {UPLOADS.relative_to(ROOT)} – bitte committen.')
 
 
 if __name__ == '__main__':

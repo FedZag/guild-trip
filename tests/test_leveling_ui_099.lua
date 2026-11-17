@@ -24,6 +24,8 @@ for id, e in pairs((function() assert(loadfile(root .. "/ONE_QuestDB/Data.lua"))
     if e[1] > 0 and e[1] < 10 then done[id] = true end
 end
 assert(loadfile(root .. "/ONE_QuestDB/Names_deDE.lua"))()
+assert(loadfile(root .. "/ONE_QuestDB/Mobs.lua"))()
+assert(loadfile(root .. "/ONE_QuestDB/MobNames_deDE.lua"))()
 C_QuestLog = {IsQuestFlaggedCompleted = function(id) return done[id] end,
     GetLogIndexForQuestID = function(id) return log[id] end, IsComplete = function() return false end}
 UnitLevel = function() return 15 end
@@ -52,7 +54,7 @@ ONE.Widgets = {Button = function() return Stub() end, NaviArrow = function() ret
 ONE.Kit = {List = function(_, _, opts) local l = {box = Stub(), opts = opts} function l:SetItems(items) self.items = items end lists[#lists + 1] = l return l end}
 ONE.UI = {Refresh = function() end}
 local lev = {}
-for _, f in ipairs({"Rewards", "Planner", "Guide", "Page", "Tracker", "Settings", "AutoQuest", "Init"}) do assert(loadfile(root .. "/ONE_Leveling/" .. f .. ".lua"))("ONE_Leveling", lev) end
+for _, f in ipairs({"Rewards", "Planner", "Grind", "Guide", "Page", "Tracker", "Settings", "AutoQuest", "Init"}) do assert(loadfile(root .. "/ONE_Leveling/" .. f .. ".lua"))("ONE_Leveling", lev) end
 assert(ONE.modules.leveling and ONE.modules.leveling:OwnsQuestTab())
 ONE.modules.leveling.Initialize()
 local G, Tr = lev.Guide, lev.Tracker
@@ -165,7 +167,20 @@ local mode = "guide"
 local refresh = lev.Page:Build(Stub(), 726, 437, function() return mode end)
 refresh()
 local items = lists[#lists].items
-assert(items[1].header and items[2].step and items[2].current, "Gebiet als Kopf, dann aktueller Schritt")
+-- 0.7.0: lohnt sich Monster hauen, steht der Hinweis oben (Kopf + Lager), danach Gebiet + aktueller Schritt
+local advice = G:Grind(plan)
+local first = 1
+if advice and advice.worth then
+    assert(items[1].header and items[1].text:find("MONSTER") and items[2].camp and items[2].step.kind == "grind", "Farm-Hinweis oben")
+    first = 2 + #advice.camps
+end
+assert(items[first].header and items[first + 1].step and items[first + 1].current, "Gebiet als Kopf, dann aktueller Schritt")
+-- Navi zum Lager
+if advice and advice.camps[1] then
+    pointed = nil
+    G:Navi(G.CampStep(advice.camps[1]))
+    assert(pointed and pointed[1]:find("Monster hauen") and pointed[2] == advice.camps[1].mapID, "Navi zum Lager")
+end
 -- Warum? fuer die Todesminen-Quest
 local rows, verdict = G:Why(166)
 assert(#rows >= 2 and verdict:find("Todesminen"), verdict)
@@ -191,8 +206,8 @@ ONE.ns.nav.Quests = {Build = function(_, panel, embedded) logBuilt = embedded re
 ONE.UI.SetContext = function(_, id, text) ctx = {id, text} end
 local tab = lev.Page:BuildTab(Stub())
 assert(logBuilt == true, "Questlog ohne eigene Kopfzeile eingebettet")
-assert(#lev.Page.VIEWS == 3, "keine Ansicht Einstellungen mehr")
-for _, v in ipairs({"guide", "skipped", "log"}) do
+assert(#lev.Page.VIEWS == 4 and lev.Page.VIEWS[2][1] == "zones", "Plan | Gebiete | Ausgelassen | Questlog")
+for _, v in ipairs({"guide", "zones", "skipped", "log"}) do
     G:DB().view = v
     tab()
     assert(ctx[1] == "leveling", v)

@@ -274,6 +274,15 @@ function Tr:Rows(plan, budget)
                 rows[#rows + 1] = {text = (o.done and "|cff808080" or "") .. o.text .. (o.done and "|r" or ""), kind = "obj"}
             end
         end
+    else
+        -- keine passenden Quests: Monster hauen (bestes Lager)
+        local advice = G:Grind(plan)
+        local c = advice and advice.camps[1]
+        if c then
+            rows[#rows + 1] = {text = T("JETZT"), kind = "label"}
+            rows[#rows + 1] = {text = T("Monster hauen: %s", c.name), kind = "now", nav = {step = G.CampStep(c)}}
+            rows[#rows + 1] = {text = G.CampText(c) .. "  ·  " .. T("~%d EP/Min", math.floor(c.epm + .5)), kind = "who"}
+        end
     end
     -- Reihenfolge je Quest im Plan (erster Schritt, in dem sie vorkommt) + Schritt dazu
     local order, firstStep = {}, {}

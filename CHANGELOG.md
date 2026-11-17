@@ -4,6 +4,42 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.7.0-alpha (gebaut 17.11.2026)
+
+```
+## 0.7.0-alpha
+
+**English**
+- New: Buff players nearby. A small window lists every player in range who is missing one of your buffs – group, guild, friends and everyone else walking past (Guild Trip turns on friendly nameplates invisibly for this). One click on a name casts the buff in the right rank for their level; once it lands, they drop off the list. Paladins give one fitting blessing per player. Out of combat only (Options › Class).
+- New: Quest partners nearby. When a guild member near you has the same open quests, a small window offers Invite, Navi and Whisper.
+- New: Who needs the loot? When gear drops in your group, everyone with Guild Trip rates it for themselves – a window and the tooltip show "Bob (+30 %), Gildi (empty slot)".
+- New: Help call. /trip sos [text] or your own key: guild members on your continent see the distance and "On my way!" with a Navi arrow to you.
+- New: Guild request board. /trip auftrag: small requests ("Need 10 linen cloth"), "I'll help" and "Done"; requests also show under "Coming up".
+- New: Dungeon recap after every dungeon – time (personal best in the guild passport), group, bosses, deaths and loot; optionally one line to guild chat.
+- Quest guide: finishes one zone before moving on (same quests, better order); zone headings with steps and minutes; new "Zones" view with every quest per zone and its status (overview only).
+- Quest mobs: the tooltip shows which quest you need a mob for and how far along you and your group/guild are; an icon on the nameplate marks quest mobs. Mob camps for your open quests on map and minimap – click one for a grind loop from camp to camp.
+- Grinding advice: only when it really pays off – important quests in your zone come first, the next level has to unlock something (new trainer spells, new quests, a dungeon) and grinding has to get you there at least 25 % faster. The hint says what the level brings.
+- Alliance fully supported: Alliance racials on your bars; neutral vendors/trainers in enemy capitals are no longer offered.
+- Fixed: the loot window attributed loot to the wrong player.
+- Mob data (levels, camps) from QuestieDB (with permission).
+
+**Deutsch**
+- Neu: Spieler in der Nähe buffen. Ein kleines Fenster zeigt alle Spieler in Reichweite, denen einer deiner Buffs fehlt – Gruppe, Gilde, Freunde und alle, die vorbeilaufen (Guild Trip schaltet dafür unsichtbar die freundlichen Namensplaketten ein). Ein Klick auf den Namen wirkt den Buff im passenden Rang für die Stufe; sitzt er, verschwindet der Spieler aus der Liste. Paladine vergeben je Spieler einen passenden Segen. Nur außerhalb des Kampfes (Optionen › Klasse).
+- Neu: Questpartner in der Nähe. Hat ein Gildenmitglied in deiner Nähe dieselben offenen Quests, kommt ein Fenster mit Einladen, Navi und Flüstern.
+- Neu: Wer braucht die Beute? Fällt in der Gruppe Ausrüstung, bewertet jeder mit Guild Trip sie für sich – Fenster und Tooltip zeigen „Bob (+30 %), Gildi (Platz frei)“.
+- Neu: Hilferuf. /trip sos [Text] oder eigene Taste: Gildenmitglieder auf deinem Kontinent sehen die Entfernung und „Ich komme!“ mit Navi zu dir.
+- Neu: Auftragsbrett der Gilde. /trip auftrag: kleine Gesuche („Brauche 10 Leinenstoff“), „Ich helfe“ und „Erledigt“; Aufträge stehen auch unter „Was steht an“.
+- Neu: Dungeon-Rückblick nach jedem Dungeon – Dauer (Bestzeit im Gildenpass), Gruppe, Bosse, Tode und Beute; auf Wunsch eine Zeile in den Gildenchat.
+- Quest-Führung: erst ein Gebiet fertig, dann das nächste (gleiche Quests, bessere Reihenfolge); Gebietsüberschriften mit Schritten und Minuten; neue Ansicht „Gebiete“ mit allen Quests je Gebiet und ihrem Stand (nur Übersicht).
+- Questgegner: Der Tooltip zeigt, für welche Quest du einen Gegner brauchst und wie weit du und Gruppe/Gilde seid; ein Symbol an der Namensplakette markiert Questgegner. Lager der Gegner deiner offenen Quests auf Karte und Minimap – Klick startet eine Farm-Runde von Lager zu Lager.
+- Monster hauen: nur noch, wenn es sich wirklich lohnt – wichtige Quests im Gebiet gehen vor, die nächste Stufe muss etwas freischalten (neue Lehrer-Zauber, neue Quests, ein Dungeon) und Farmen muss mindestens 25 % schneller dorthin bringen. Der Hinweis nennt, was die Stufe bringt.
+- Allianz voll unterstützt: Allianz-Volksfähigkeiten auf den Leisten; neutrale Händler/Lehrer in feindlichen Hauptstädten werden nicht mehr angeboten.
+- Behoben: Das Beute-Fenster hat Beute dem falschen Spieler zugeordnet.
+- Gegnerdaten (Stufen, Lager) aus QuestieDB (mit Erlaubnis).
+```
+
+---
+
 ## 0.6.9-alpha (gebaut 17.11.2026)
 
 ```

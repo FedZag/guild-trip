@@ -64,6 +64,59 @@ local n1 = 0 for _ in pairs(plan.chosen) do n1 = n1 + 1 end
 ctx.tempo = "all"
 local n2 = 0 for _ in pairs(P:Plan(ctx).chosen) do n2 = n2 + 1 end
 assert(n2 > n1, "gruendlich > noetigste " .. n1 .. "/" .. n2)
+-- 0.7.0 Gebietsbloecke: gleiche Auswahl, nur Reihenfolge; weniger Gebietswechsel; Bloecke stimmen
+for _, tempo in ipairs({"need", "all"}) do
+    ctx.tempo = tempo
+    ctx.zoneBlocks = false
+    local flat = P:Plan(ctx)
+    ctx.zoneBlocks = nil
+    local zoned = P:Plan(ctx)
+    for id, why in pairs(flat.chosen) do assert(zoned.chosen[id] == why, "Auswahl gleich " .. id) end
+    for id in pairs(zoned.chosen) do assert(flat.chosen[id], "keine Zusatzquest " .. id) end
+    local function Switches(pl) local n, last = 0 for _, st in ipairs(pl.steps) do if st.mapID and st.mapID ~= last then n, last = n + 1, st.mapID end end return n end
+    assert(Switches(zoned) <= Switches(flat), tempo .. ": Wechsel " .. Switches(zoned) .. " > " .. Switches(flat))
+    local count, mins = 0, 0
+    for i, b in ipairs(zoned.blocks) do
+        assert(b.first <= b.last and b.steps == b.last - b.first + 1)
+        if i > 1 then assert(b.first == zoned.blocks[i - 1].last + 1) end
+        count, mins = count + b.steps, mins + b.minutes
+    end
+    assert(count == #zoned.steps and math.abs(mins - zoned.minutes) < .01, "Bloecke decken den Plan ab")
+end
+ctx.tempo = "need"
+-- 0.7.0 Gebietsuebersicht: nur Anzeige – Plan unveraendert, aktuelles Gebiet zuerst, Plan-Quests als "plan"
+do
+    local pl = P:Plan(ctx)
+    local before = {}
+    for id, why in pairs(pl.chosen) do before[id] = why end
+    local zones = P:Zones(ctx, pl)
+    assert(#zones > 0 and zones[1].mapID == 1436, "Westfall zuerst")
+    for id, why in pairs(before) do assert(pl.chosen[id] == why) end
+    local seen = {}
+    for _, z in ipairs(zones) do
+        assert(z.done <= z.total)
+        for _, q in ipairs(z.quests) do
+            seen[q.id] = q.status
+            if q.status == "plan" then assert(pl.chosen[q.id], "plan " .. q.id) end
+            if q.status == "skip" then assert(not pl.chosen[q.id] and pl.info[q.id].skip) end
+            assert(not done[q.id], "erledigt nicht in der Liste")
+        end
+    end
+    for id in pairs(pl.chosen) do
+        if seen[id] then assert(seen[id] == "plan", "im Plan: " .. id .. " " .. seen[id]) end
+    end
+end
+-- 0.7.0 Was schaltet Stufe 16 frei? Quests mit Mindeststufe 16, passend (Allianz, Schurke)
+do
+    local ids = P.UnlockedQuests(ctx, 16)
+    assert(#ids > 0, "Stufe 16 schaltet Quests frei")
+    for _, id in ipairs(ids) do
+        local e = Q.q[id]
+        assert(e[2] == 16 and not done[id])
+        assert(e[3] == 0 or P.Band(e[3], 1) > 0, "fuer Menschen: " .. id)
+    end
+    assert(#P.UnlockedQuests(ctx, 99) == 0)
+end
 if os.getenv("SHOW") then
     ctx.tempo = "need"
     plan = P:Plan(ctx)

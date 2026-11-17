@@ -47,7 +47,14 @@ function Page:Build(parent, W, H, getMode)
             end
             if Selected(item) or (item.current and not state.sel) then row.selection:Show() else row.selection:Hide() end
         end,
-        onClick = function(_, item) if not item.header then state.sel = item ONE.UI:Refresh() end end,
+        onClick = function(_, item)
+            -- Gebietsuebersicht: Ueberschrift klappt auf/zu
+            if item.header and item.zone then
+                state.zoneOpen = state.zoneOpen or {}
+                state.zoneOpen[item.zone] = not G.ZoneOpen(state, item.zone)
+                ONE.UI:Refresh()
+            elseif not item.header then state.sel = item ONE.UI:Refresh() end
+        end,
     })
     local empty = Text(parent, "GameFontHighlight", 8, -70, leftW - 16, "soft")
     if empty.SetWordWrap then empty:SetWordWrap(true) end
@@ -84,17 +91,25 @@ function Page:Build(parent, W, H, getMode)
 
     local function Items(plan, mode)
         local out = {}
+        if mode == "zones" then
+            -- oben: Monster hauen, wenn es schneller zur naechsten Stufe bringt; dann die Gebiete
+            local out = G:GrindItems(G:Grind(plan))
+            for _, it in ipairs(G:ZoneItems(plan, state)) do out[#out + 1] = it end
+            return out
+        end
         if mode == "skipped" then
             for _, o in ipairs(plan.skipped) do
                 out[#out + 1] = {key = "s" .. o.id, qid = o.id, dim = true, text = G.Title(o.id) .. "  |cff9d9d9d" .. (lev.Planner.SkipText(o, plan, T) or "") .. "|r"}
             end
             return out
         end
+        -- Plan: lohnt sich Monster hauen gerade mehr, steht das oben (nur ein Hinweis)
+        out = G:GrindItems(G:Grind(plan))
         local lastMap
         for i, s in ipairs(plan.steps) do
             if s.mapID and s.mapID ~= lastMap then
                 lastMap = s.mapID
-                out[#out + 1] = {key = "h" .. i, header = true, text = G.ZoneName(s.mapID):upper()}
+                out[#out + 1] = {key = "h" .. i, header = true, text = G.BlockTitle(plan, s)}
             end
             local first = s.kind == "dungeon" and s.ids[1] or s.actions[1].id
             out[#out + 1] = {key = s.stopKey, step = s, qid = first, current = i == 1, text = G:StepText(s), tags = G:StepTags(s)}
@@ -124,14 +139,32 @@ function Page:Build(parent, W, H, getMode)
         local items = Items(plan, mode)
         list:SetItems(items)
         if #items == 0 then
-            empty:SetText(mode == "skipped" and T("Nichts ausgelassen.") or T("Gerade nichts zu tun – alle passenden Quests sind erledigt. Monster hauen oder ein Gebiet weiter."))
+            empty:SetText(mode == "skipped" and T("Nichts ausgelassen.") or mode == "zones" and T("Keine offenen Quests in deiner Nähe.") or T("Gerade nichts zu tun – alle passenden Quests sind erledigt. Monster hauen oder ein Gebiet weiter."))
             empty:Show()
         else empty:Hide() end
         -- Auswahl halten, sonst der aktuelle Schritt
         local pick
-        for _, it in ipairs(items) do if not it.header and ((state.sel and it.key == state.sel.key) or (not pick and not state.sel)) then pick = it end end
+        for _, it in ipairs(items) do if not it.header and state.sel and it.key == state.sel.key then pick = it end end
+        -- ohne Auswahl: der aktuelle Schritt (nicht der Farm-Hinweis darueber)
+        if not pick and not state.sel then for _, it in ipairs(items) do if it.current then pick = it break end end end
         if not pick then for _, it in ipairs(items) do if not it.header then pick = it break end end end
         state.sel, state.step, state.qid = pick, pick and pick.step, pick and pick.qid
+        -- Lager zum Monster hauen: eigene Erklaerung
+        if pick and pick.camp then
+            card:Show()
+            local lines, why = G:CampWhy(pick.camp, G:Grind(plan))
+            title:SetText(pick.camp.name)
+            sub:SetText(G.CampText(pick.camp))
+            for i, r in ipairs(rows) do
+                local l = lines[i]
+                r[1]:SetText(l and l[1] or "") r[2]:SetText(l and l[2] or "")
+            end
+            verdict:SetText(why)
+            valueText:SetText(T("Pfeil = Navi zum Lager."))
+            go:Enable() toggle:Hide() group:Hide()
+            return
+        end
+        toggle:Show()
         if not (pick and pick.qid) then card:Hide() return end
         card:Show()
         local lines, why, values, o = G:Why(pick.qid)
@@ -152,10 +185,11 @@ function Page:Build(parent, W, H, getMode)
 end
 
 -- ===== Reiter "Leveln" =====
-Page.VIEWS = {{"guide", "Plan"}, {"skipped", "Ausgelassen"}, {"log", "Questlog"}}
+Page.VIEWS = {{"guide", "Plan"}, {"zones", "Gebiete"}, {"skipped", "Ausgelassen"}, {"log", "Questlog"}}
 Page.SUBTITLE = {
     guide = "Nur die Quests, die sich lohnen – Dungeon-, Klassen- und Vorquests immer.",
     skipped = "Was die Führung auslässt und warum.",
+    zones = "Alle Quests je Gebiet – nur zur Übersicht, der Plan bleibt die schnellste Route.",
     log = "Deine Quests mit Fortschritt – „Navi“ zeigt die Richtung zum Ziel.",
 }
 
@@ -188,7 +222,7 @@ function Page:BuildTab(panel)
         return box
     end
     local guideBox = Box(-36)
-    local guide = self:Build(guideBox, W, H - 36, function() return Mode() == "skipped" and "skipped" or "guide" end)
+    local guide = self:Build(guideBox, W, H - 36, function() local m = Mode() return (m == "skipped" or m == "zones") and m or "guide" end)
     local logBox = Box(0)
     local nav = ONE.ns and ONE.ns.nav
     local log = nav and nav.Quests and nav.Quests:Build(logBox, true)
@@ -198,11 +232,11 @@ function Page:BuildTab(panel)
             if b.LockHighlight then if k == mode then b:LockHighlight() else b:UnlockHighlight() end end
         end
         if sub and sub.SetText then sub:SetText(T(Page.SUBTITLE[mode] or "")) end
-        guideBox:SetShown(mode == "guide" or mode == "skipped")
+        guideBox:SetShown(mode == "guide" or mode == "skipped" or mode == "zones")
         logBox:SetShown(mode == "log")
         if mode == "log" then if log then log() end
         else guide() end
-        local name = ({guide = "Plan", skipped = "Ausgelassen", log = "Questlog"})[mode]
+        local name = ({guide = "Plan", zones = "Gebiete", skipped = "Ausgelassen", log = "Questlog"})[mode]
         if ONE.UI.SetContext then ONE.UI:SetContext("leveling", T(name)) end
     end
 end

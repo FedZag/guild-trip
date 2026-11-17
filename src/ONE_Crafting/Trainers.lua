@@ -277,7 +277,10 @@ function Trainers.FromQuestDB(faction)
         local want = faction == "Alliance" and 1 or 2
         for id, t in pairs(d.trainers) do
             local fac, name = t[6], names[id]
-            if name and (fac == 3 or fac == want) then
+            -- neutrale Lehrer in der Hauptstadt der anderen Fraktion erreicht man nicht
+            local enemy = faction == "Alliance" and (t[3] == 1454 or t[3] == 1456 or t[3] == 1458)
+                or faction ~= "Alliance" and (t[3] == 1453 or t[3] == 1455 or t[3] == 1457)
+            if name and (fac == 3 or fac == want) and not enemy then
                 list[#list + 1] = {npc = name, kind = t[1], what = t[2], map = t[3], x = t[4] / 1000, y = t[5] / 1000,
                     faction = faction, confirmed = true, db = true, npcID = id}
             end
