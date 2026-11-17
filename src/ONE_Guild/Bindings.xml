@@ -1,0 +1,3 @@
+<Bindings>
+    <Binding name="GUILDTRIPHELP_CALL" header="GUILDTRIPHELP" category="ADDONS">GuildTripHelp_Call()</Binding>
+</Bindings>

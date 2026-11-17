@@ -15,6 +15,8 @@ if ONE.RegisterFeature then
         tooltip = "Kleines Feld auf der Weltkarte, um Gildenmitglieder zu finden und das Navi zu starten."})
     ONE:RegisterFeature("guild.mapPins", {module = "guild", label = "Gildenmitglieder auf der Weltkarte",
         tooltip = "Punkte für Mitglieder, die ihre Position teilen."})
+    ONE:RegisterFeature("guild.help", {module = "guild", label = "Hilferufe der Gilde zeigen",
+        tooltip = "Ruft jemand aus der Gilde um Hilfe (/trip hilfe oder eigene Taste), kommt ein Fenster mit Entfernung und „Ich komme!“ (Navi zu ihm). Nur auf demselben Kontinent."})
 end
 
 ONE:RegisterModule("guild", {
@@ -41,6 +43,7 @@ ONE:RegisterModule("guild", {
         guild.Presence:Initialize()
         guild.Pins:Initialize()
         guild.Reminders:Initialize()
+        guild.Help:Initialize()
         -- Namens-Menue: "Navi zu …", wenn die Person ihre Position teilt
         if ONE.PlayerMenu then
             ONE.PlayerMenu:Register({id = "navi", order = 5,

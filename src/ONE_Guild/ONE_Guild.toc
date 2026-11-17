@@ -13,5 +13,6 @@ Roster.lua
 Presence.lua
 Pins.lua
 Reminders.lua
+Help.lua
 UI.lua
 Init.lua
