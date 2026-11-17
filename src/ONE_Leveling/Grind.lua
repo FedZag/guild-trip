@@ -6,7 +6,7 @@
 --  * "Lohnt sich": schneller als dein Plan (EP pro Minute des Plans), oder der Plan ist leer.
 --    Der Plan selbst wird dadurch NICHT veraendert – es ist ein Hinweis.
 local _, lev = ...
-local Gr = {SESSION = 30, MAX_ABOVE = 2, MIN_CAMP = 5, BETTER = 1.1, TOP = 3}
+local Gr = {SESSION = 30, MAX_ABOVE = 2, MIN_CAMP = 5, BETTER = 1.25, TOP = 3} -- BETTER: Farmen muss 25 % schneller sein
 lev.Grind = Gr
 
 local function P() return lev.Planner end
