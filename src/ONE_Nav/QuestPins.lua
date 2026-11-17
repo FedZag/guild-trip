@@ -50,6 +50,8 @@ function P:Points(viewed)
         if (not loc or loc.edge) and nav.QuestDB and nav.QuestDB:Available() then loc = nav.QuestDB:Location(q, here) or loc end
         if loc then out[#out + 1] = {q = q, mapID = loc.mapID, x = loc.x, y = loc.y, from = loc.from} end
     end
+    -- 0.7.0: Lager der Questgegner (kleine Ringe, Klick = Farm-Runde)
+    if nav.Camps then for _, p in ipairs(nav.Camps:Points(Q:Log())) do out[#out + 1] = p end end
     if self:ShowGivers() then
         local maps = {}
         if here then maps[#maps + 1] = here end
@@ -108,6 +110,14 @@ local function Tooltip(pin)
         GameTooltip:AddLine(T("Klick: Navi starten"), .6, .8, 1)
         return GameTooltip:Show()
     end
+    if p.camp then
+        GameTooltip:SetText(p.camp.name, 1, .82, 0)
+        GameTooltip:AddLine(T("Lager mit %d Gegnern – für „%s“", p.camp.count, p.q.title), 1, 1, 1, true)
+        local progress = nav.Quests:Progress(p.q)
+        if progress ~= "" then GameTooltip:AddLine(progress, .8, .8, .8, true) end
+        GameTooltip:AddLine(T("Klick: Farm-Runde über alle Lager starten"), .6, .8, 1)
+        return GameTooltip:Show()
+    end
     GameTooltip:SetText(p.q.title, 1, .82, 0)
     if p.q.complete then GameTooltip:AddLine(T("fertig – abgeben"), .4, 1, .4)
     else
@@ -122,6 +132,7 @@ end
 local function NewPin(parent, size)
     local pin = CreateFrame("Frame", nil, parent)
     pin:SetSize(size, size)
+    pin.baseSize = size
     pin:EnableMouse(true)
     pin.icon = pin:CreateTexture(nil, "ARTWORK")
     pin.icon:SetAllPoints()
@@ -131,6 +142,7 @@ local function NewPin(parent, size)
         if button == "LeftButton" and self.point then
             local navi = ONE.modules and ONE.modules.nav
             local p = self.point
+            if p.camp and nav.Camps then nav.Camps:StartRound(p.q) return end
             local label = p.giver and (p.giver.name ~= "" and p.giver.name or T("Questgeber")) or p.q.title
             if navi and navi.PointTo then navi:PointTo(label, p.mapID, p.x, p.y) end
         end
@@ -141,6 +153,14 @@ local function Style(pin, point)
     pin.point = point
     pin.icon:SetTexture(TEX .. (point.giver and "QuestAvailable.tga" or point.q.complete and "QuestDone.tga" or "QuestGoal.tga"))
     pin:SetAlpha(point.from and .65 or 1)
+    -- Lager: kleiner, rotbraun – damit sie sich vom Zielring abheben
+    if pin.icon.SetVertexColor then
+        if point.camp then pin.icon:SetVertexColor(1, .45, .3) else pin.icon:SetVertexColor(1, 1, 1) end
+    end
+    if pin.baseSize then
+        local s = point.camp and math.floor(pin.baseSize * .7 + .5) or pin.baseSize
+        pin:SetSize(s, s)
+    end
 end
 
 -- ===== Weltkarte =====

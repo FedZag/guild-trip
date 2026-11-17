@@ -19,6 +19,7 @@ Pack.lua
 QuestShare.lua
 Partners.lua
 MobInfo.lua
+Camps.lua
 QuestGivers.lua
 QuestPins.lua
 RouteDots.lua

@@ -240,3 +240,13 @@ EN["Questgegner im Tooltip und an der Namensplakette"] = "Quest mobs in tooltip 
 EN["Zeigt im Tooltip eines Gegners, für welche Quest du ihn brauchst und wie weit du bist – dazu Gruppe und Gilde („Bob 7/10“). Ein kleines Symbol an der Namensplakette markiert Questgegner (gelb: du, blau: nur andere)."] =
     "Shows in a mob's tooltip which quest you need it for and how far along you are – plus group and guild (\"Bob 7/10\"). A small icon on the nameplate marks quest mobs (yellow: you, blue: only others)."
 EN["fertig"] = EN["fertig"] or "done"
+
+-- Lager + Farm-Runde (0.7.0)
+EN["Fundorte der Questgegner (Lager) + Farm-Runde"] = "Quest mob locations (camps) + grind loop"
+EN["Kleine rotbraune Ringe auf Karte und Minimap zeigen, wo die Gegner für deine offenen Quests stehen. Klick auf einen Ring: der Pfeil führt von Lager zu Lager, bis die Quest fertig ist."] =
+    "Small red-brown rings on map and minimap show where the mobs for your open quests are. Click a ring: the arrow leads from camp to camp until the quest is done."
+EN["%s (%d/%d)"] = "%s (%d/%d)"
+EN["Farm-Runde für „%s“: %d Lager – der Pfeil führt von Lager zu Lager."] = "Grind loop for \"%s\": %d camps – the arrow leads from camp to camp."
+EN["„%s“ ist fertig – Farm-Runde beendet."] = "\"%s\" is done – grind loop ended."
+EN["Lager mit %d Gegnern – für „%s“"] = "Camp with %d mobs – for \"%s\""
+EN["Klick: Farm-Runde über alle Lager starten"] = "Click: start a grind loop over all camps"
