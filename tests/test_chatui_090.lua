@@ -113,16 +113,28 @@ d.save.click()
 local tab
 for _, t in ipairs(Chat:Tabs()) do if t.label == "Handwerk" then tab = t end end
 assert(tab and tab.kinds.trade and tab.send == "guild" and UI.current == tab.id)
--- 8) Zahnrad: Chat-Einstellungen im Fenster (Schalter und Schriftgroesse)
+-- 8) Zahnrad: springt in Optionen › Chat (0.6.9: kein eigenes Einstellungsfenster mehr)
+local registered, opened = {}, nil
+ONE.UI = {AddSetting = function(_, o) registered[#registered + 1] = o return true end,
+    OpenOptions = function(_, cat) opened = cat return true end}
+assert(UI:RegisterSettings())
 assert(UI.gear and UI.gear.scripts.OnClick, "Zahnrad im Fenster")
 UI.gear.scripts.OnClick(UI.gear)
-local sd = UI.settings
-assert(sd and sd.shown and #sd.checks == #UI.settingChecks)
-local guildBox
-for _, b in ipairs(sd.checks) do if b.o.label == "Ton bei Gildennachrichten" then guildBox = b end end
-assert(guildBox and guildBox.o.get() == false)
-guildBox.o.set(true)
+assert(opened == "chat" and not UI.settings, "Zahnrad oeffnet Optionen › Chat")
+local checks, drops, guildBox = 0, 0, nil
+for _, o in ipairs(registered) do
+    assert(o.category == "chat" and o.module == "chat")
+    if o.kind == "dropdown" then drops = drops + 1 elseif o.kind ~= "text" then checks = checks + 1 end
+    if o.label == "Ton bei Gildennachrichten" then guildBox = o end
+end
+assert(checks == #UI.settingChecks and drops == #UI.settingDrops, "alle Chat-Schalter angemeldet")
+assert(guildBox and guildBox.get() == false and guildBox.section == "Verhalten & Töne")
+guildBox.set(true)
 assert(Chat:Settings().guildSound == true)
+ONE.UI = nil
+local sd = {drops = {}}
+for _, o in ipairs(registered) do if o.kind == "dropdown" then sd.drops[o.id:gsub("^chat%.", "")] = {o = o} end end
+sd.font = sd.drops.fontSize
 assert(UI.SettingOn("whisperHere"), "Fluestern hier: Standard an")
 sd.font.o.set(18)
 assert(Chat:Settings().fontSize == 18)
@@ -141,7 +153,6 @@ do
     sd.drops.spacing.o.set(4)
     assert(UI.log.spacing == 4)
     sd.drops.idleAlpha.o.set(.35)
-    sd:Hide() -- solange die Einstellungen offen sind, bleibt der Chat sichtbar
     local tick = UI.frame.scripts.OnUpdate
     assert(tick, "Ausblenden laeuft")
     for _ = 1, 40 do tick(UI.frame, .25) end
@@ -168,8 +179,11 @@ do
     c2.Chat:OnEvent("CHAT_MSG_GUILD", "Hallo", "Rexxar", "", "", "", "", 0, 0, "", 0, 1, "")
     c2.UI:Render()
     assert(c2.UI.log.lines[1] ~= "TINTE" and c2.UI.log.lines[1]:find("Hallo"), "keine Tinte auf dunklem Grund")
-    c2.UI:OpenSettings()
-    assert(c2.UI.settings.hint and c2.UI.settings.hint.text:find("ElvUI"), "Hinweis im Zahnrad")
+    local hint
+    ONE.UI = {AddSetting = function(_, o) if o.id == "chatOther" then hint = o end return true end}
+    c2.UI:RegisterSettings()
+    assert(hint and hint.visible() and hint.label():find("ElvUI"), "Hinweis in Optionen › Chat")
+    ONE.UI = nil
     C_AddOns, ONE.Book = nil, nil
 end
 -- 10) Chat-Knopf: Zaehler nur fuer Fluestern, Klick oeffnet/schliesst, abschaltbar

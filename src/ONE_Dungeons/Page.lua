@@ -79,6 +79,19 @@ function Page:Build(panel)
     check:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -56)
     if check.SetChecked then check:SetChecked(store.suitableOnly) end
     local checkLabel = Text(panel, "GameFontHighlight", 26, -61, leftW - 26, "text")
+    -- 0.6.8 Blizzard-Aussehen: Auswahl mit Zaehlern statt Haekchen (Fuer deine Stufe, Alle,
+    -- Stufenbereiche, mit offenen Quests); im Buch bleibt das Haekchen
+    local book = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
+    local category
+    if not book and ONE.Kit and ONE.Kit.Dropdown then
+        check:Hide() checkLabel:Hide()
+        if not store.category then store.category = store.suitableOnly and "level" or "all" end
+        category = ONE.Kit:Dropdown(panel, {point = "TOPLEFT", x = 0, y = -56, width = leftW,
+            options = function() return Page:CategoryOptions() end,
+            get = function() return store.category end,
+            set = function(v) store.category = v end,
+            onChange = function() Page:Refresh() end})
+    end
     local dungeonList
     dungeonList = ONE.Kit:List(panel, {x = 0, y = -86, width = leftW, height = H - 86, rowHeight = 24,
         columns = {
@@ -130,6 +143,34 @@ function Page:Build(panel)
     card:SetPoint("TOPLEFT", panel, "TOPLEFT", rightX, 0)
     card:SetSize(rightW, H)
     if ONE.Themes then ONE.Themes:RegisterPanel(card) end
+    -- 0.6.8 Blizzard-Aussehen: gezeichnete Karte als Kopfbild (scripts/build_maps.py), links
+    -- abgedunkelt, damit Titel und Angaben lesbar bleiben; je Dungeon fest eine von vier Landschaften
+    local banner
+    if not book then
+        banner = card:CreateTexture(nil, "BACKGROUND", nil, 2)
+        banner:SetPoint("TOPLEFT", card, "TOPLEFT", 3, -3)
+        banner:SetPoint("TOPRIGHT", card, "TOPRIGHT", -3, -3)
+        banner:SetHeight(88)
+        -- Bild 4:1, Flaeche ca. 4,8:1 -> oben/unten etwas abschneiden statt verzerren
+        local frac = math.min(1, (4 * 88) / math.max(1, rightW - 6))
+        banner:SetTexCoord(0, 1, (1 - frac) / 2, 1 - (1 - frac) / 2)
+        local shade = card:CreateTexture(nil, "BACKGROUND", nil, 3)
+        shade:SetPoint("TOPLEFT", banner, "TOPLEFT", 0, 0)
+        shade:SetPoint("BOTTOMRIGHT", banner, "BOTTOMRIGHT", 0, 0)
+        shade:SetColorTexture(1, 1, 1, 1)
+        local dark, clear = {0, 0, 0, .86}, {0, 0, 0, .05}
+        local done = type(CreateColor) == "function" and shade.SetGradient
+            and pcall(shade.SetGradient, shade, "HORIZONTAL", CreateColor(unpack(dark)), CreateColor(unpack(clear)))
+        if not done and shade.SetGradientAlpha then
+            done = pcall(shade.SetGradientAlpha, shade, "HORIZONTAL", 0, 0, 0, .86, 0, 0, 0, .05)
+        end
+        if not done then shade:SetColorTexture(0, 0, 0, .55) end
+        local edge = card:CreateTexture(nil, "BORDER", nil, 2)
+        edge:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, 0)
+        edge:SetPoint("TOPRIGHT", banner, "BOTTOMRIGHT", 0, 0)
+        edge:SetHeight(1)
+        edge:SetColorTexture(.79, .64, .29, .6)
+    end
     local inner = rightW - 32
     local title = Text(card, "GameFontNormalHuge", 16, -14, inner - 32, "accent")
     if title.SetWordWrap then title:SetWordWrap(false) end
@@ -303,8 +344,11 @@ function Page:Build(panel)
         local query = string.lower(search.GetText and search:GetText() or "")
         local all = M:Dungeons()
         local items = {}
+        self.lastAll = all
+        if category and category.Refresh then category:Refresh() end
         for _, d in ipairs(all) do
-            local okLevel = not store.suitableOnly or d.suitable
+            local okLevel
+            if category then okLevel = Page.InCategory(d, store.category) else okLevel = not store.suitableOnly or d.suitable end
             local hay = string.lower(d.name .. " " .. (d.en or ""))
             if okLevel and (query == "" or hay:find(query, 1, true)) then items[#items + 1] = d end
         end
@@ -327,6 +371,7 @@ function Page:Build(panel)
             return
         end
         title:SetText(d.name)
+        if banner then banner:SetTexture("Interface\\AddOns\\ONE_Dungeons\\Textures\\Map" .. Page.MapVariant(d.key)) end
         sub:SetText(((d.en and d.en ~= d.name) and ("|cff9d9d9d" .. d.en .. "|r   ·   ") or "")
             .. Hex(d.color) .. "Stufe " .. d.min .. "–" .. d.max .. "|r"
             .. (d.hasData and ("   ·   " .. d.done .. "/" .. #d.quests .. " erledigt") or ""))
@@ -393,6 +438,42 @@ function Page:Build(panel)
 end
 
 function Page:Refresh() if self.refresh then self.refresh() end end
+
+-- Kartenbild je Dungeon: fest (aus dem Schluessel), eine von vier Landschaften
+function Page.MapVariant(key)
+    local h = 0
+    for i = 1, #(key or "") do h = (h * 31 + key:byte(i)) % 9973 end
+    return h % 4 + 1
+end
+-- Auswahl links: Kategorien mit Zaehlern
+local BANDS = {{10, 19}, {20, 29}, {30, 39}, {40, 49}, {50, 60}}
+function Page.InCategory(d, cat)
+    if cat == "all" or cat == nil then return true end
+    if cat == "level" then return d.suitable end
+    if cat == "open" then return d.hasData and (d.open or 0) > 0 end
+    local lo = tonumber(cat)
+    if lo then
+        for _, b in ipairs(BANDS) do if b[1] == lo then return d.min >= b[1] and d.min <= b[2] end end
+    end
+    return false
+end
+function Page:CategoryOptions()
+    local all = self.lastAll or (dungeons.Model and dungeons.Model:Dungeons()) or {}
+    local function Count(cat)
+        local n = 0
+        for _, d in ipairs(all) do if Page.InCategory(d, cat) then n = n + 1 end end
+        return n
+    end
+    local level = dungeons.Model and dungeons.Model:PlayerLevel() or 0
+    local out = {{value = "level", text = T("Für deine Stufe (%d) · %d", level, Count("level"))},
+        {value = "all", text = T("Alle Dungeons · %d", Count("all"))},
+        {value = "open", text = T("Mit offenen Quests · %d", Count("open"))}}
+    for _, b in ipairs(BANDS) do
+        local n = Count(tostring(b[1]))
+        if n > 0 then out[#out + 1] = {value = tostring(b[1]), text = T("Stufe %d–%d · %d", b[1], b[2], n)} end
+    end
+    return out
+end
 
 function Page:ClassName(class, text)
     local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
@@ -514,6 +595,14 @@ function Page:BuildCombined(panel)
     local bG = ONE.Widgets:Button(panel, "Gruppen", bw, 24, "TOPLEFT", bw + 4, -2, function() Page:ShowView("groups") end)
     local bT = ONE.Widgets:Button(panel, "Ausflüge", span - 2 * (bw + 4), 24, "TOPLEFT", 2 * (bw + 4), -2, function() Page:ShowView("trips") end)
     self.combined = {dv = dv, gv = gv, tv = tv, refreshD = refreshD, refreshG = refreshG, refreshT = refreshT, bD = bD, bG = bG, bT = bT}
+    -- 0.6.8: Reisepass als vierte Ansicht (nur Blizzard-Aussehen; im Buch bleibt alles wie es war)
+    if dungeons.PassPage and not (ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()) and ONE.UI.sidebar then
+        local pv = CreateFrame("Frame", nil, panel)
+        pv:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
+        pv:SetSize(W, H)
+        self.combined.pv = pv
+        self.combined.refreshP = dungeons.PassPage:Build(pv)
+    end
     -- 0.6.8: mit Symbolleiste stehen die drei Ansichten oben in der Kopfzeile
     if ONE.UI.SetViews and ONE.UI:SetViews("dungeons", self:HeaderViews(), "dungeons") then
         ONE.UI:RetireButtons(bD, bG, bT)
@@ -526,7 +615,8 @@ function Page:HeaderViews(nG, nT)
     local function Go(key) Page:ShowView(key) end
     return {{key = "dungeons", label = T("Dungeons"), onClick = Go},
         {key = "groups", label = (nG or 0) > 0 and T("Gruppen (%d)", nG) or T("Gruppen"), onClick = Go},
-        {key = "trips", label = (nT or 0) > 0 and T("Ausflüge (%d)", nT) or T("Ausflüge"), onClick = Go}}
+        {key = "trips", label = (nT or 0) > 0 and T("Ausflüge (%d)", nT) or T("Ausflüge"), onClick = Go},
+        self.combined and self.combined.pv and {key = "pass", label = T("Reisepass"), onClick = Go} or nil}
 end
 
 function Page:ShowView(view)
@@ -542,9 +632,9 @@ function Page:RefreshCombined()
     c.bG:SetText(n > 0 and T("Gruppen (%d)", n) or T("Gruppen"))
     local nt = dungeons.Trips and #dungeons.Trips:List() or 0
     c.bT:SetText(nt > 0 and T("Ausflüge (%d)", nt) or T("Ausflüge"))
-    local view = (self.view == "groups" or self.view == "trips") and self.view or "dungeons"
+    local view = (self.view == "groups" or self.view == "trips" or (self.view == "pass" and c.pv)) and self.view or "dungeons"
     if self.headerViews then ONE.UI:SetViews("dungeons", self:HeaderViews(n, nt), view) end
-    local frames = {dungeons = c.dv, groups = c.gv, trips = c.tv}
+    local frames = {dungeons = c.dv, groups = c.gv, trips = c.tv, pass = c.pv}
     local buttons = {dungeons = c.bD, groups = c.bG, trips = c.bT}
     for key, f in pairs(frames) do if key == view then f:Show() else f:Hide() end end
     for key, b in pairs(buttons) do
@@ -553,6 +643,7 @@ function Page:RefreshCombined()
     end
     if view == "groups" then if c.refreshG then c.refreshG() end
     elseif view == "trips" then if c.refreshT then c.refreshT() end
+    elseif view == "pass" then if c.refreshP then c.refreshP() end
     elseif c.refreshD then c.refreshD() end
 end
 
@@ -573,19 +664,16 @@ function Page:Register()
             return out
         end)
     end
-    -- Gruppenfinder-Einstellungen in Optionen › Spielhilfen
-    if ONE.UI.AddOption and dungeons.Share then
+    -- Gruppenfinder: Rolle in Optionen › Dungeons (Hinweise = Funktion "dungeons.notify")
+    if ONE.UI.AddSetting and dungeons.Share then
         local S = dungeons.Share
         local function Changed() if dungeons.Groups and dungeons.Groups.Refresh then dungeons.Groups:Refresh() end end
-        ONE.UI:AddOption({id = "groupRole", section = "Gruppen", kind = "dropdown", width = 220,
+        ONE.UI:AddSetting({id = "groupRole", category = "dungeons", section = "Gruppen", order = 20, kind = "dropdown", width = 200,
+            label = "Deine Rolle",
             options = function()
-                return {{value = "T", text = T("Rolle: %s", S:RoleName("T"))}, {value = "H", text = T("Rolle: %s", S:RoleName("H"))},
-                    {value = "D", text = T("Rolle: %s", S:RoleName("D"))}}
+                return {{value = "T", text = S:RoleName("T")}, {value = "H", text = S:RoleName("H")}, {value = "D", text = S:RoleName("D")}}
             end,
             get = function() return S:Settings().role or "D" end, set = function(v) S:Settings().role = v Changed() end})
-        ONE.UI:AddOption({id = "groupNotify", section = "Gruppen", label = "Hinweise bei passenden Gesuchen",
-            tooltip = "Im Chat und mit „!“ an der Minimap melden, wenn ein Gesuch zu dir passt.",
-            get = function() return S:Settings().notify end, set = function(on) S:Settings().notify = on Changed() end})
     end
     if ONE.UI.AddShareOption then
         ONE.UI:AddShareOption({id = "dungeons", module = "dungeons", order = 20, label = "Dungeon-Fortschritt teilen",

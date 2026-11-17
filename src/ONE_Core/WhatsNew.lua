@@ -10,6 +10,13 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.6.9-alpha"] = {
+        "Neu: Quest-Führung für Twinks (Reiter „Leveln“) – nur Quests, die sich lohnen; Dungeon-, Klassen- und Vorquests immer",
+        "Kasten „Quest-Führung“ unter der Minimap: Jetzt, Noch annehmen, Deine Quests – größer ziehen für mehr Schritte",
+        "Alle Einstellungen an einem Ort: Optionen mit Bereichen je Modul",
+        "Wahlweise: Quests automatisch annehmen/abgeben, reparieren, Schrott verkaufen (alles standardmäßig aus)",
+        "Navi-Pfeil dreht sich fließend; 188 fehlende Begleit- und Erkundungsquests ergänzt",
+    },
     ["0.6.8-alpha"] = {
         "Neuer Fensteraufbau im Blizzard-Stil: Bereiche links mit Goldsymbolen, Ansichten immer oben rechts",
         "Guild-Trip-Chat im Blizzard-Rahmen; Weg im Navi wahlweise als Fußspuren (Optionen › Spielhilfen › Navi)",

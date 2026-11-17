@@ -148,7 +148,7 @@ function UI:Build()
     else
         ONE.Widgets:CloseButton(f, "TOPRIGHT", -4, -4, function() UI:Hide() end)
     end
-    -- Zahnrad: Chat-Einstellungen (Settings.lua)
+    -- Zahnrad: Optionen › Chat (Settings.lua)
     local gear = CreateFrame("Button", nil, f)
     gear:SetSize(18, 18)
     gear:SetPoint("TOPRIGHT", f, "TOPRIGHT", -36, modern and -3 or -9)
@@ -460,7 +460,7 @@ function UI:FadeStep(frame, elapsed)
     local s = Chat:Settings()
     local idle = tonumber(s.idleAlpha) or 1
     local busy = (frame.IsMouseOver and frame:IsMouseOver()) or (self.input and self.input.HasFocus and self.input:HasFocus())
-        or (self.settings and self.settings.IsShown and self.settings:IsShown())
+        or (ONE.UI and ONE.UI.frame and ONE.UI.frame.IsShown and ONE.UI.frame:IsShown() and ONE.UI.activeTab == "options" and ONE.UI.optionsCategory == "chat")
     if busy then frame.__fadeWait = 0 else frame.__fadeWait = (frame.__fadeWait or 0) + elapsed end
     local target = (busy or frame.__fadeWait < 4) and 1 or idle
     local now = frame.GetAlpha and frame:GetAlpha() or 1

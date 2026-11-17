@@ -5,17 +5,19 @@ ONE.ns = ONE.ns or {}
 ONE.ns.classes = classes
 
 if ONE.RegisterFeature then
-    ONE:RegisterFeature("classes.buffs", {module = "classes", label = "Buff-Erinnerung über den Leisten",
+    ONE:RegisterFeature("classes.buffs", {module = "classes", section = "Leisten", order = 20, label = "Buff-Erinnerung über den Leisten",
+        tooltip = "Zeigt außerhalb des Kampfes über deinen Leisten, welche Buffs fehlen oder bald auslaufen – Buffs von anderen Spielern zählen mit. Klick auf ein Symbol wirkt den Buff. Alt + Ziehen verschiebt die Zeile.",
         get = function() return classes.Buffs:Enabled() end, set = function(on) classes.Buffs:SetEnabled(on) end})
-    ONE:RegisterFeature("classes.autoRank", {module = "classes", label = "Leisten automatisch aktuell halten",
+    ONE:RegisterFeature("classes.autoRank", {module = "classes", section = "Leisten", order = 21, label = "Leisten automatisch aktuell halten",
+        tooltip = "Neue Ränge tauscht Guild Trip auf deinen Leisten aus. Neu gelernte Zauber aus dem Vorschlag legt es auf ihren freien Platz (sobald du einmal „Leisten einrichten“ benutzt hast). Makros und absichtlich niedrige Ränge bleiben unverändert. Im Kampf erst danach.",
         get = function() return classes.Ranks:Enabled() end, set = function(on) classes.Ranks:SetEnabled(on) end})
-    ONE:RegisterFeature("classes.talentHint", {module = "classes", label = "Hinweis bei freiem Talentpunkt",
+    ONE:RegisterFeature("classes.talentHint", {module = "classes", section = "Talente", order = 31, label = "Hinweis bei freiem Talentpunkt",
         tooltip = "Chatzeile und „!“ an der Minimap, wenn ein Talentpunkt frei ist."})
-    ONE:RegisterFeature("classes.gear", {module = "classes", label = "Ausrüstung bewerten (Tooltip)",
+    ONE:RegisterFeature("classes.gear", {module = "classes", section = "Ratgeber", order = 11, label = "Ausrüstung bewerten (Tooltip)",
         tooltip = "Zeile im Gegenstands-Tooltip: besser oder schlechter für deinen Spielstil als das, was du trägst."})
-    ONE:RegisterFeature("classes.loot", {module = "classes", label = "Beute merken (Fundorte)",
+    ONE:RegisterFeature("classes.loot", {module = "classes", section = "Ratgeber", order = 12, label = "Beute merken (Fundorte)",
         tooltip = "Merkt sich beim Plündern, welcher Gegner welche Ausrüstung fallen lässt, und zeigt den Fundort im Tooltip."})
-    ONE:RegisterFeature("classes.trainer", {module = "classes", label = "Ratgeber beim Klassenlehrer",
+    ONE:RegisterFeature("classes.trainer", {module = "classes", section = "Ratgeber", order = 13, label = "Ratgeber beim Klassenlehrer",
         tooltip = "Kleines Fenster beim Klassenlehrer: was sich zu lernen lohnt.",
         get = function() return not (ONE.db.classGuide and ONE.db.classGuide.trainerAdvice == false) end,
         set = function(on) ONE.db.classGuide = type(ONE.db.classGuide) == "table" and ONE.db.classGuide or {} ONE.db.classGuide.trainerAdvice = on and true or false end})

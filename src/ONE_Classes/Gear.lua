@@ -2,7 +2,7 @@
 -- Bewertet einen Gegenstand nach der Werte-Rangfolge deiner Ausrichtung (build.stats,
 -- z. B. Schatten: Willenskraft › Intelligenz › Ausdauer) und vergleicht ihn mit dem, was
 -- du im gleichen Platz traegst. Eine Zeile unten im Tooltip, sonst nichts.
--- Nur Spieldaten (GetItemStats), keine Datenbank. Abschaltbar (Optionen › Module).
+-- Nur Spieldaten (GetItemStats), keine Datenbank. Abschaltbar (Optionen › Klasse).
 local _, classes = ...
 local ONE = _G.ProjectONE
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
@@ -197,7 +197,7 @@ function Gear:Judge(link, p, def, build)
     local verdict, diff = Verdict(oldScore)
     local baseVerdict = Verdict(oldBase)
     local hasEnchant = oldBase and oldScore and math.abs(oldScore - oldBase) > .01
-    return {verdict = verdict, diff = diff, spec = spec, hasEnchant = hasEnchant,
+    return {verdict = verdict, diff = diff, old = oldScore, spec = spec, hasEnchant = hasEnchant,
         reasons = Gear.Reasons(newStats, oldStats or {}, w), rank = Gear.Ranks(build),
         -- nur wegen der Verzauberung schlechter: ohne sie waere das neue Teil besser/gleich
         enchantFlip = hasEnchant and verdict == "worse" and baseVerdict ~= "worse"}
@@ -272,6 +272,28 @@ function Gear:Line(r)
     if r.verdict == "new" then return "|cff40ff40" .. T("Guild Trip: passt zu dir – der Platz ist noch frei") .. "|r" end
     if r.verdict == "cannot" then return "|cff9d9d9d" .. T("Guild Trip: %s kann deine Klasse nicht tragen", T(r.armor or "")) .. "|r" end
     return "|cffbbbbbb" .. T("Guild Trip: etwa gleich gut für dich") .. spec .. "|r"
+end
+
+-- Quest-Fuehrung (ONE_Leveling): Verbesserung in Prozent fuer einen Gegenstand (nil = unbekannt/kein Upgrade).
+-- Noch nicht geladene Gegenstaende werden beim Server angefragt; beim naechsten Planen sind sie da.
+function Gear:UpgradePercent(itemID)
+    if type(itemID) ~= "number" then return nil end
+    local fn = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+    local _, _, _, equipLoc = Call(fn, itemID)
+    if not (equipLoc and Gear.SLOTS[equipLoc]) then return nil end
+    if C_Item and C_Item.IsItemDataCachedByID and not Call(C_Item.IsItemDataCachedByID, itemID) then
+        Call(C_Item.RequestLoadItemDataByID, itemID)
+        return nil
+    end
+    local store = ONE.db and ONE.db.classGuide or {}
+    local p = classes.Player:Read(store.spec)
+    local def = classes.Data.classes[p.classFile or ""]
+    if not def then return nil end
+    local r = self:Judge("item:" .. itemID, p, def, classes.Data:Build(def, p.spec, p.situation))
+    if not r then return nil end
+    if r.verdict == "new" then return 100 end
+    if r.verdict ~= "better" then return 0 end
+    return math.floor((r.diff or 0) / math.max(1, r.old or 0) * 100 + .5)
 end
 
 function Gear:OnTooltip(tooltip)

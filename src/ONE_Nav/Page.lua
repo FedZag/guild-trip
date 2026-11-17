@@ -283,7 +283,7 @@ function Page:Build(panel)
     local emptyTitle = empty:Text("", "body", "text")
     local emptyHint = empty:Text("", "small", "soft", 3)
 
-    -- Pfeil-Einstellungen stehen in Optionen › Spielhilfen (Page:Register)
+    -- Pfeil-Einstellungen stehen in Optionen › Navi (Page:Register)
 
     return function()
         local arrow = nav.Arrow
@@ -364,28 +364,29 @@ end
 function Page:Register()
     if not (ONE.UI and ONE.UI.AddTab and ONE.Kit) then return false end
     ONE.Kit:RegisterTile("navi", {title = "NAVI", order = 30, build = NaviTile})
-    if ONE.UI.AddOption then
-        local opt = function(o) o.section = "Navi" ONE.UI:AddOption(o) end
-        opt({id = "navStyle", kind = "dropdown", width = 220,
+    -- Optionen › Navi (die Funktionen "nav.*" aus Init.lua stehen dort mit)
+    if ONE.UI.AddSetting then
+        local opt = function(o) o.category = "nav" ONE.UI:AddSetting(o) end
+        opt({id = "navStyle", section = "Pfeil", order = 10, kind = "dropdown", width = 200, label = "Aussehen des Pfeils",
             options = function()
-                return {{value = "one", text = "Pfeil: Guild Trip (gold)"}, {value = "blizzard", text = "Pfeil: Blizzard"}}
+                return {{value = "one", text = "Guild Trip (gold)"}, {value = "blizzard", text = "Blizzard"}}
             end,
             get = function() return nav.Arrow:Settings().style == "blizzard" and "blizzard" or "one" end,
             set = function(v) nav.Arrow:Create() nav.Arrow:SetStyle(v) end})
         -- Weg auf Minimap/Weltkarte: goldene Punkte (Standard) oder Fussspuren
-        opt({id = "navRouteStyle", kind = "dropdown", width = 220,
+        opt({id = "navRouteStyle", section = "Weg", order = 22, kind = "dropdown", width = 200, label = "Weg zeigen als",
             options = function()
-                return {{value = "dots", text = "Weg: goldene Punkte"}, {value = "feet", text = "Weg: Fußspuren"}}
+                return {{value = "dots", text = "Goldene Punkte"}, {value = "feet", text = "Fußspuren"}}
             end,
             get = function() return nav.RouteDots and nav.RouteDots:Style() or "dots" end,
             set = function(v) if nav.RouteDots then nav.RouteDots:SetStyle(v) end end})
-        opt({id = "navLock", label = "Festsetzen", tooltip = "Der Pfeil lässt sich dann nicht mehr verschieben.",
+        opt({id = "navLock", section = "Pfeil", order = 11, label = "Festsetzen", tooltip = "Der Pfeil lässt sich dann nicht mehr verschieben.",
             get = function() return nav.Arrow:Settings().locked end,
             set = function(on) nav.Arrow:Create() nav.Arrow:SetLocked(on) end})
-        opt({id = "navPlayer", label = "Goldener Spielerpfeil",
+        opt({id = "navPlayer", section = "Pfeil", order = 12, label = "Goldener Spielerpfeil",
             tooltip = "Ersetzt dein Spieler-Symbol auf der Minimap durch den goldenen Guild-Trip-Pfeil. Die große Karte behält ihren eigenen Pfeil.",
             get = function() return nav.PlayerArrow:Enabled() end, set = function(on) nav.PlayerArrow:SetEnabled(on) end})
-        opt({id = "navReset", kind = "button", label = "Pfeil über die Figur setzen",
+        opt({id = "navReset", section = "Pfeil", order = 13, kind = "button", label = "Pfeil über die Figur setzen",
             onClick = function() nav.Arrow:Create() nav.Arrow:ResetPosition() end})
     end
     return ONE.UI:AddTab("nav", T("Navi"), function(panel) return self:Build(panel) end)

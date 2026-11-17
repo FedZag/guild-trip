@@ -185,14 +185,17 @@ local function Text(parent, font, x, y, width, role, text)
     return fs
 end
 
-function Q:Build(panel)
+-- embedded = {top = y}: als Ansicht "Questlog" im Reiter "Leveln" (ONE_Leveling) – ohne eigene Kopfzeile
+function Q:Build(panel, embedded)
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local L, R
     if ONE.Book and ONE.Book.Spread then L, R = ONE.Book:Spread() end
     local leftW = L and L.width or 380
     local rightX, rightW = R and R.x or (leftW + 14), R and R.width or (W - leftW - 14)
     local state = {}
-    ONE.Widgets:PageHeader(panel, T("Quests"), T("Deine Quests mit Fortschritt – „Navi“ zeigt die Richtung zum Ziel."), L and L.width or W)
+    if not embedded then
+        ONE.Widgets:PageHeader(panel, T("Quests"), T("Deine Quests mit Fortschritt – „Navi“ zeigt die Richtung zum Ziel."), L and L.width or W)
+    end
     local list = ONE.Kit:List(panel, {x = 0, y = -62, width = leftW, height = H - 62, rowHeight = 24,
         columns = {
             {key = "title", title = "QUEST", width = leftW - 24 - 6 - 40 - 44 - 16 - 8, indent = 4},
@@ -307,7 +310,11 @@ function Q:Register()
         local now = type(GetTime) == "function" and GetTime() or 0
         if now - last < 1 then return end
         last = now
-        if ONE.UI.frame and ONE.UI.frame:IsShown() and ONE.UI.activeTab == "quests" then ONE.UI:Refresh() end
+        local tab = ONE.UI.activeTab
+        if ONE.UI.frame and ONE.UI.frame:IsShown() and (tab == "quests" or tab == "leveling") then ONE.UI:Refresh() end
     end
+    -- Quest-Fuehrung an: der Questlog ist dort eine Ansicht (Reiter "Leveln"), kein eigener Reiter
+    local lev = ONE.modules and ONE.modules.leveling
+    if lev and lev.OwnsQuestTab and lev:OwnsQuestTab() then return true end
     return ONE.UI:AddTab("quests", T("Quests"), function(panel) return self:Build(panel) end)
 end

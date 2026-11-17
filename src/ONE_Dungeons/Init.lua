@@ -7,13 +7,13 @@ ONE.ns = ONE.ns or {}
 ONE.ns.dungeons = dungeons
 
 if ONE.RegisterFeature then
-    ONE:RegisterFeature("dungeons.notify", {module = "dungeons", label = "Hinweise bei Gruppengesuchen",
+    ONE:RegisterFeature("dungeons.notify", {module = "dungeons", section = "Gruppen", order = 21, label = "Hinweise bei Gruppengesuchen",
         tooltip = "Chatzeile und „!“ an der Minimap, wenn jemand aus der Gilde eine passende Gruppe sucht.",
         get = function() return dungeons.Share:Settings().notify end,
         set = function(on) dungeons.Share:Settings().notify = on and true or false end})
-    ONE:RegisterFeature("dungeons.entrances", {module = "dungeons", label = "Dungeon-Eingänge merken",
+    ONE:RegisterFeature("dungeons.entrances", {module = "dungeons", section = "Dungeons", order = 10, label = "Dungeon-Eingänge merken",
         tooltip = "Merkt sich beim Betreten eines Dungeons den Eingang für „Zum Eingang“."})
-    ONE:RegisterFeature("dungeons.tripReminders", {module = "dungeons", label = "Erinnerung an Gildenausflüge",
+    ONE:RegisterFeature("dungeons.tripReminders", {module = "dungeons", category = "reminders", section = "Gildenausflüge", order = 40, label = "Erinnerung an Gildenausflüge",
         tooltip = "15 Minuten vor einem Ausflug, zu dem du dich angemeldet hast, eine Meldung; zum Start zeigt das Navi den Weg zum Treffpunkt."})
 end
 

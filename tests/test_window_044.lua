@@ -80,7 +80,8 @@ assert(ONE.started and ONE.UI.activeTab=="home")
 assert(ONE.db.theme.selected=="native", "Altes Design muss zu native migrieren")
 assert(not ONE.UI.views.themes, "Designauswahl entfaellt im nativen Look")
 assert(ONE.UI.sidebarButtons.home and ONE.UI.frame.Tabs and #ONE.UI.frame.Tabs>=2, "Reiter unten fehlen")
-assert(ONE.UI.views.modules and not ONE.UI.tabs.modules, "Module sind eine Unterseite der Optionen")
+-- 0.6.9: alle Einstellungen in Optionen (Bereiche links), keine Unterseiten mehr
+assert(not ONE.UI.views.modules and not ONE.UI.tabs.modules and ONE.UI.tabs.options, "Module stehen in den Optionen")
 assert(ONE.UI.inset, "Eingelassene Innenflaeche fehlt")
 -- 0.6.8: Blizzard-Aussehen mit Symbolleiste links, breiteres Fenster, Inhaltsflaeche bleibt 726x437
 assert(ONE.UI.frame._SetSize[1]==858 and ONE.UI.frame._SetSize[2]==533)
@@ -100,8 +101,9 @@ local function Click(label, idx)
  end
  error("Button fehlt: "..label)
 end
--- Menueklaenge in den Optionen statt eigener Designseite
-ONE.UI:Navigate("options")
+-- Menueklaenge in den Optionen statt eigener Designseite (0.6.9: Bereich Darstellung)
+ONE.UI:OpenOptions("look")
+assert(ONE.UI.activeTab=="options" and ONE.UI.optionsCategory=="look")
 -- 0.4.9d: Haekchen statt AN/AUS-Knoepfe
 local function CheckByLabel(text)
  for _,e in ipairs(elements) do
@@ -109,8 +111,11 @@ local function CheckByLabel(text)
  end
  error("Haekchen fehlt: "..text)
 end
+local function Visible(e) while e do if e.visible==false then return false end e=e.parent end return true end
 local soundBefore=ONE.db.theme.uiSounds
 local clicks=CheckByLabel("Menüklänge")
+assert(Visible(clicks),"Menüklänge im Bereich Darstellung sichtbar")
+ONE.UI:OpenOptions("general")
 clicks.GetChecked=function() return not soundBefore end
 clicks.scripts.OnClick(clicks)
 assert(ONE.db.theme.uiSounds==not soundBefore)
@@ -121,7 +126,16 @@ assert(ONE.db.toastEnabled==false)
 toastBox.GetChecked=function() return true end
 toastBox.scripts.OnClick(toastBox)
 assert(ONE.db.toastEnabled==true)
-for _,label in ipairs({"Kalender-Erinnerungen","Ton bei Benachrichtigungen","Tagesübersicht beim Login","Hoher Kontrast"}) do CheckByLabel(label) end
+for _,label in ipairs({"Ton bei Benachrichtigungen","Tagesüberblick beim Einloggen","Hinweisfenster anzeigen"}) do assert(Visible(CheckByLabel(label)),label) end
+assert(not Visible(clicks),"anderer Bereich: Menüklänge ausgeblendet")
+-- jeden Schalter nur einmal (frueher doppelt: Menueklaenge, Tagesueberblick, Kalender-Erinnerungen)
+for _,label in ipairs({"Menüklänge","Tagesüberblick beim Einloggen"}) do
+ local n=0
+ for _,e in ipairs(elements) do if e.kind=="CheckButton" and e.label and e.label.text==label then n=n+1 end end
+ assert(n==1,"doppelt: "..label)
+end
+ONE.UI:OpenOptions("look")
+assert(Visible(CheckByLabel("Hoher Kontrast")))
 for _,e in ipairs(elements) do assert(not (e.kind=="Button" and type(e.text)=="string" and e.text:find(": AN$")), "kein AN/AUS-Knopf mehr: "..tostring(e.text)) end
 assert(ONE.UI.themeStatus.text:find("v",1,true),"Versionsanzeige fehlt")
 assert(ONE.db.soundEnabled==false)
@@ -142,7 +156,9 @@ do
  assert(side and side.bar.visible~=false and side.label.text=="Gilde", "Gilde in der Leiste markiert")
  assert(ONE.UI.sidebarButtons.home.__oneSide.bar.visible==false, "Startseite nicht markiert")
  ONE.UI:Navigate("modules")
- assert(ONE.UI.sidebarButtons.options.__oneSide.bar.visible~=false, "Module markiert Optionen")
+ assert(ONE.UI.activeTab=="options" and ONE.UI.optionsCategory=="general", "alte Unterseite Module leitet in Optionen")
+ assert(ONE.UI.sidebarButtons.options.__oneSide.bar.visible~=false, "Optionen markiert")
+ assert(ONE.UI.contextLabel.text=="Allgemein", "Bereich in der Kopfzeile")
  ONE.UI:SetContext("calendar","November 2026")
  ONE.UI:Navigate("calendar")
  assert(ONE.UI.contextLabel.text=="November 2026", "Zusatzangabe in der Kopfzeile")
@@ -269,26 +285,24 @@ do
  assert(head.shown,"Startseite zeigt den Buchtitel")
  ONE.Book=oldBook
 end
--- 15.11.2026: zu volle Seiten blaettern (Module): "Seite 1 von N", Rest auf Seite 2
+-- 0.6.9: lange Bereiche scrollen statt blaettern; Bereichsliste links, Module mit Hauptschalter
 do
- for i=1,40 do ONE:RegisterFeature("core.blaettertest"..i,{label="Blaettertest "..i}) end
- ONE.UI:Navigate("modules")
- ONE.UI:Refresh()
- local pageLabel,last
- for _,e in ipairs(elements) do
-  if type(e.text)=="string" and e.text:find("^Seite 1 von %d") then pageLabel=e end
-  if e.text=="Blaettertest 40" then last=e end
- end
- assert(pageLabel and pageLabel.visible,"Seitenanzeige sichtbar")
- local box
- for _,e in ipairs(elements) do if e.kind=="CheckButton" and e.label==last then box=e end end
- assert(box and box.visible==false,"letzter Eintrag liegt auf einer spaeteren Seite")
- -- weiterblaettern: jetzt sichtbar
- local nextBtn
- for _,e in ipairs(elements) do if e.kind=="Button" and e.text=="›" and e.parent==box.parent then nextBtn=e end end
- assert(nextBtn,"Weiter-Knopf")
- for _=1,5 do if box.visible then break end nextBtn.scripts.OnClick(nextBtn) end
- assert(box.visible,"nach dem Blaettern sichtbar")
+ for i=1,40 do ONE:RegisterFeature("core.scrolltest"..i,{label="Scrolltest "..i}) end
+ ONE.UI:OpenOptions("general")
+ local last
+ for _,e in ipairs(elements) do if e.kind=="CheckButton" and e.label and e.label.text=="Scrolltest 40" then last=e end end
+ assert(last and Visible(last),"alle Eintraege im Bereich (scrollbar)")
+ assert(ONE.UI.optionsChild._SetHeight[1]>40*26,"Scrollflaeche waechst mit")
+ ONE:RegisterModule("demo",{title="Demo"})
+ ONE.UI:OpenOptions("demo")
+ local master=CheckByLabel("Modul „Demo“ eingeschaltet")
+ assert(Visible(master),"Modul-Hauptschalter oben im Bereich")
+ -- Bereichsknoepfe links: Klick wechselt
+ local btn
+ for _,e in ipairs(elements) do if e.categoryId=="sharing" then btn=e end end
+ assert(btn,"Bereich Teilen in der Liste")
+ btn.scripts.OnClick(btn)
+ assert(ONE.UI.optionsCategory=="sharing" and not Visible(master))
 end
 print("OK: 0.5.0 - Fenstertitel Guild Trip mit Gildenname")
 print("OK: 0.4.4a - natives Fenster, Reiter, Migration, Optionen, Guild, Navigation, Kacheln und Buttons")

@@ -55,7 +55,8 @@ ONE:RegisterModule("chat", {
         if chat.Hider then chat.Hider:Initialize() end
         if chat.Loot then chat.Loot:Initialize() end
 
-        -- Einstellungen stehen im Chatfenster (Zahnrad) – unter Spielhilfen lief die Seite ueber
+        -- Einstellungen: Optionen › Chat (Zahnrad im Chatfenster springt dorthin)
+        UI:RegisterSettings()
         if s.openOnLogin and C_Timer and C_Timer.After then C_Timer.After(2, function() UI:Show() end) end
     end,
     -- Fuer andere Module: Gespraech mit einer Person oeffnen

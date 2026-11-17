@@ -174,3 +174,15 @@ assert(real.length > 1900 and real.length < 2800, "Länge plausibel: " .. real.l
 local kal = assert(R:Find(1, 1677.59, -4315.71, -441.8, -2596.08), "Weg Orgrimmar -> Wegekreuz")
 assert(kal.length > 2500 and kal.length < 5500, "Länge plausibel: " .. kal.length)
 print("OK test_routes_096")
+-- Pfeil dreht fliessend: weich zum Zielwinkel, kuerzester Weg ueber +-pi, Start springt sofort
+do
+    local Sm = A.Smooth
+    assert(Sm(nil, 1, .016) == 1 and Sm(0, 1, nil) == 1, "ohne Vorwert sofort")
+    local a = Sm(0, 1, .016, 14)
+    assert(a > 0 and a < 1, "ein Bild: ein Stueck naeher")
+    local b = Sm(3.0, -3.0, .016, 14)
+    assert(b > 3.0 or b < -3.0 + 1e-9, "ueber pi, nicht quer zurueck")
+    local c = 0
+    for _ = 1, 60 do c = Sm(c, 1, .016, 14) end
+    assert(math.abs(c - 1) < .01, "nach einer Sekunde angekommen")
+end

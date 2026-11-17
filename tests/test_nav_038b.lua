@@ -184,6 +184,9 @@ assert(arrow.tip.text:find("keine Wegführung", 1, true), "Ehrlichkeitszeile feh
 assert(arrow.arrow.shown and near(arrow.arrow.rotation, 0), "Ziel im Norden, Blick Nord -> Pfeil nach oben")
 facing = math.pi / 2
 arrow.frame.scripts.OnUpdate(arrow.frame, .05)
+-- seit 0.6.9 dreht der Pfeil fliessend: nach einem Bild ein Stueck, nach ~1 s am Ziel
+assert(arrow.arrow.rotation < 0 and arrow.arrow.rotation > -math.pi / 2, "fliessend, nicht gesprungen")
+for _ = 1, 30 do arrow.frame.scripts.OnUpdate(arrow.frame, .05) end
 assert(near(arrow.arrow.rotation, -math.pi / 2), "Blick nach Westen -> Pfeil nach rechts")
 facing = 0
 -- Ziel bewegt sich: Aktualisierung nach 1 s

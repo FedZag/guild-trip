@@ -15,6 +15,9 @@ local ONE = {db = {}}
 _G.ProjectONE = ONE
 for _, f in ipairs({"Data", "Names_deDE", "Names_enUS"}) do assert(loadfile(root .. "/ONE_QuestDB/" .. f .. ".lua"))() end
 assert(GuildTripQuestDB.titles[4641] == "Euer Platz in der Welt", "deutsche Titel geladen")
+-- Begleit-/Erkundungsquests (Questie specialFlags 2) sind dabei, Feiertagsquests nicht (Fehler bis 17.11.2026)
+assert(GuildTripQuestDB.q[155] and GuildTripQuestDB.q[62] and GuildTripQuestDB.q[28], "Begleit-/Erkundungsquests fehlen")
+for id, e in pairs(GuildTripQuestDB.q) do assert(e[14] ~= -366 and e[14] ~= -364 and e[14] ~= -369, "Feiertagsquest " .. id) end
 local nav = {}
 assert(loadfile(root .. "/ONE_Nav/QuestDB.lua"))("ONE_Nav", nav)
 local Q = nav.QuestDB

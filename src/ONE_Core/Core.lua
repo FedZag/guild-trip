@@ -4,7 +4,7 @@ local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select(
 
 -- Andere AddOns haben eigene Namespace-Tabellen. Die Bruecke ist nur das Core-API.
 _G.ProjectONE = ONE
-ONE.version = "0.6.8-alpha"
+ONE.version = "0.6.9-alpha"
 ONE.modules = {}
 ONE.moduleOrder = {}
 ONE.slashCommands = {}
@@ -55,7 +55,7 @@ function ONE:IsEnabled(id)
     return self.db and self.db.modules[id] ~= false
 end
 
--- Einzelfunktionen der Module, je mit Haekchen unter Optionen › Module.
+-- Einzelfunktionen der Module, je mit Haekchen in Optionen (Bereich des Moduls, Kern unter Allgemein).
 -- def = {module, label, tooltip, reload (wirkt erst nach Neuladen), get, set}
 -- Ohne get/set merkt sich der Kern den Schalter in ProjectONEDB.features (Standard: an).
 ONE.features, ONE.featureOrder = {}, {}
@@ -156,6 +156,7 @@ function ONE:Initialize()
     if self.MinimapButton then self.MinimapButton:Initialize() end
     self.Welcome:Initialize()
     if self.WhatsNew then self.WhatsNew:Initialize() end
+    if self.Vendor then self.Vendor:Initialize() end
 
     SLASH_PROJECTONE1 = "/trip"
     SLASH_PROJECTONE2 = "/one" -- alter Befehl bleibt fuer bisherige Tester

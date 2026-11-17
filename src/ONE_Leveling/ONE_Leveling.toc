@@ -1,0 +1,18 @@
+## Interface: 16001
+## Title: Guild Trip | Quest-Führung
+## Notes: Leveling-Assistent: nur die Quests, die sich lohnen – Dungeon-, Klassen- und Vorquests immer
+## Author: Guild Trip
+## X-License: GPL-3.0-or-later (Daten: QuestieDB GPLv3 mit Erlaubnis, cmangos classic-db GPL-3.0)
+## Version: 0.6.9-alpha
+## Dependencies: ONE_Core
+## OptionalDeps: ONE_QuestDB, ONE_Nav, ONE_Routes, ONE_Classes, ONE_Dungeons
+
+Locale_enUS.lua
+Rewards.lua
+Planner.lua
+Guide.lua
+Page.lua
+Tracker.lua
+Settings.lua
+AutoQuest.lua
+Init.lua

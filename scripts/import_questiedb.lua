@@ -175,12 +175,16 @@ local ids = {}
 for id in pairs(quests) do ids[#ids + 1] = id end
 table.sort(ids)
 local TRIGGER = 9000000
+-- Questarten (zoneOrSort < 0) der Feiertage und Weltereignisse (Classic QuestSort)
+local HOLIDAY = {[-22] = true, [-41] = true, [-364] = true, [-365] = true, [-366] = true, [-368] = true, [-369] = true,
+    [-370] = true, [-374] = true, [-375] = true, [-376] = true, [-1001] = true, [-1002] = true, [-1003] = true, [-1005] = true}
 for _, id in ipairs(ids) do
     local d = quests[id]
-    local special = d[24] or 0
     local starts = Unique(Starters(d[2]))
-    -- Feiertage/Ereignisse (Flag 2) und Quests ohne Geber (nur Gegenstand) auslassen
-    if special % 4 >= 2 or #starts == 0 then
+    -- Feiertage/Weltereignisse (an der Questart erkannt) und Quests ohne Geber (nur Gegenstand) auslassen.
+    -- NICHT specialFlags 2: das heisst bei Questie "wird durch ein Ereignis abgeschlossen" (Begleit- und
+    -- Erkundungsquests wie 155 "Die Bruderschaft der Defias") – bis 17.11.2026 fielen so 188 normale Quests weg.
+    if HOLIDAY[d[17] or 0] or #starts == 0 then
         skipped = skipped + 1
     else
         local givers = {}

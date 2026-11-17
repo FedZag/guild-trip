@@ -493,7 +493,7 @@ function UI:BuildCalendar(panel)
         bookR and bookR.x or (W - inset - 2 * FBW - 8), FOOT, function()
         local dm = ONE.modules and ONE.modules.dungeons
         if dm and dm.PlanTrip then dm:PlanTrip()
-        else ONE:Print(T("Termine planst du mit dem Modul Dungeons (Optionen › Module).")) end
+        else ONE:Print(T("Termine planst du mit dem Modul Dungeons (Optionen › Dungeons).")) end
     end)
     local refreshButton
     if bookL then
@@ -1136,11 +1136,15 @@ function UI:BuildGuildMembers(panel)
     end
 end
 
-function UI:BuildReminderSettings(panel)
-    ONE.Widgets:PageHeader(panel,"Kalender-Erinnerungszeiten",
-        T("Wähle bis zu acht Zeitpunkte (0 = Terminbeginn, maximal 1440 Minuten)."),ONE.UI.Layout.width)
-
-    local feedback = Label(panel, "", "GameFontHighlightSmall", 0, -372, ONE.UI.Layout.width)
+-- Erinnerungszeiten: Baustein in Optionen › Erinnerungen (0.6.9, frueher eigene Unterseite)
+function UI:BuildReminderSettings(panel, W)
+    W = W or 520
+    -- schmal (Buch-Aussehen, 286 breit): Schnellauswahl und "Standard" je in eigener Zeile
+    local narrow = W < 420
+    local d1 = narrow and -24 or 0
+    local d2 = d1 + (narrow and -30 or 0)
+    Label(panel, T("Wähle bis zu acht Zeitpunkte (0 = Terminbeginn, maximal 1440 Minuten)."), "GameFontHighlightSmall", 4, -2, W - 8)
+    local feedback = Label(panel, "", "GameFontHighlightSmall", 4, narrow and (-124 + d2 - 8 * 30 - 26) or -298, W - 8)
     local refreshView
     local function AddValue(value)
         local success, err = guild.Reminders:AddThreshold(value)
@@ -1149,18 +1153,18 @@ function UI:BuildReminderSettings(panel)
         return success
     end
 
-    Label(panel, "Schnellauswahl:", "GameFontNormal", 0, -67, 150)
-    local quickCols=ONE.Geometry:Columns(540,{1,1,1,1,1},10,132)
+    Label(panel, T("Schnellauswahl:"), "GameFontHighlight", 4, -30, 110)
+    local quickCols = narrow and ONE.Geometry:Columns(W, {1, 1, 1, 1, 1}, 4, 0) or ONE.Geometry:Columns(W - 116, {1, 1, 1, 1, 1}, 6, 116)
     for i, minutes in ipairs({60, 30, 15, 5, 0}) do
-        Button(panel, tostring(minutes) .. " Min.",quickCols[i].width,quickCols[i].x,-61,function()
+        Button(panel, tostring(minutes) .. (narrow and "" or " Min."), quickCols[i].width, quickCols[i].x, -24 + d1 + (narrow and -22 or 0), function()
             AddValue(minutes)
         end)
     end
 
-    Label(panel, T("Eigene Minuten:"), "GameFontNormal", 0, -110, 135)
+    Label(panel, T("Eigene Minuten:"), "GameFontHighlight", 4, -66 + d1, 110)
     local entry = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
-    entry:SetSize(105, 26)
-    entry:SetPoint("TOPLEFT", 143, -104)
+    entry:SetSize(70, 26)
+    entry:SetPoint("TOPLEFT", 122, -60 + d1)
     entry:SetAutoFocus(false)
     entry:SetNumeric(true)
     entry:SetMaxLetters(4)
@@ -1178,19 +1182,19 @@ function UI:BuildReminderSettings(panel)
     end
     entry:SetScript("OnEnterPressed", ApplyEntry)
     entry:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    Button(panel, T("Hinzufügen"), 128, 264, -103, ApplyEntry)
-    Button(panel, T("Standard wiederherstellen"), 218, 438, -103, function()
+    Button(panel, T("Hinzufügen"), narrow and W - 200 or 110, 200, -59 + d1, ApplyEntry)
+    Button(panel, T("Standard wiederherstellen"), narrow and W or math.max(150, W - 318), narrow and 0 or 316, narrow and -89 + d1 or -59, function()
         guild.Reminders:ResetThresholds()
         feedback:SetText(T("Standardzeiten (60, 15, 5, 0) wiederhergestellt."))
         refreshView()
     end)
 
-    Label(panel, T("Aktive Erinnerungen (anklicken zum Entfernen):"), "GameFontNormal", 0, -149, 670)
+    Label(panel, T("Aktive Erinnerungen (anklicken zum Entfernen):"), "GameFontHighlight", 4, -102 + d2, W - 8)
     local rows = {}
-    local thresholdCols=ONE.UI.Layout:Columns({1,1})
+    local thresholdCols = narrow and {{x = 0, width = W}, {x = 0, width = W}} or ONE.Geometry:Columns(W, {1, 1}, 10)
     for i = 1, 8 do
-        local col=thresholdCols[(i-1)%2+1]
-        rows[i] = Button(panel,"",col.width,col.x,-174-math.floor((i-1)/2)*40,function()
+        local col = thresholdCols[(i - 1) % 2 + 1]
+        rows[i] = Button(panel, "", col.width, col.x, -124 + d2 - (narrow and (i - 1) * 30 or math.floor((i - 1) / 2) * 36), function()
             local active = guild.Reminders:GetThresholds()
             local value = active[i]
             if value ~= nil then
@@ -1200,7 +1204,7 @@ function UI:BuildReminderSettings(panel)
             end
         end)
     end
-    local summary = Label(panel, "", "GameFontHighlightSmall", 0, -341, ONE.UI.Layout.width)
+    local summary = Label(panel, "", "GameFontHighlightSmall", 4, narrow and -124 + d2 - 8 * 30 - 4 or -276, W - 8)
     refreshView = function()
         local values = guild.Reminders:GetThresholds()
         for i, button in ipairs(rows) do
@@ -1214,9 +1218,9 @@ function UI:BuildReminderSettings(panel)
             end
         end
         summary:SetText(#values == 0 and T("Keine Zeiten ausgewählt: Es werden keine Kalendererinnerungen gesendet.")
-            or ("Aktiv: " .. #values .. " von 8 möglichen Erinnerungszeiten."))
+            or T("Aktiv: %d von 8 möglichen Erinnerungszeiten.", #values))
     end
-    return refreshView
+    return refreshView, narrow and (124 - d2 + 8 * 30 + 50) or 318
 end
 
 -- Kachel fuer die ONE-Startseite: Gildenname, wer online ist, wer live teilt.
@@ -1293,6 +1297,9 @@ function UI:RegisterTabs()
     ONE.UI:AddTab("guild", T("Gilde"), function(panel) return self:BuildGuild(panel) end)
     ONE.UI:AddTab("calendar", T("Kalender"), function(panel) return self:BuildCalendar(panel) end)
     ONE.UI:RegisterView("guild-members", function(panel) return self:BuildGuildMembers(panel) end)
-    ONE.UI:RegisterView("guild-reminder-settings", function(panel) return self:BuildReminderSettings(panel) end)
-    ONE.UI:AddOptionsLink("guild-reminders", T("Erinnerungszeiten einstellen"), "guild-reminder-settings")
+    if ONE.UI.AddSetting then
+        ONE.UI:AddSetting({id = "reminderTimes", category = "reminders", section = "Gildentermine", kind = "custom", order = 11,
+            module = "guild", visible = function() return ONE.db.remindersEnabled and true or false end,
+            build = function(row, w) return self:BuildReminderSettings(row, w) end})
+    end
 end

@@ -214,3 +214,9 @@ EN["Tipp: Mit dem kostenlosen Addon „Shortest Path Forever“ führt dich das 
 -- 0.6.8: Weg als Fussspuren
 EN["Weg: goldene Punkte"] = "Route: golden dots"
 EN["Weg: Fußspuren"] = "Route: footprints"
+EN["Aussehen des Pfeils"] = "Arrow look"
+EN["Guild Trip (gold)"] = "Guild Trip (gold)"
+EN["Weg zeigen als"] = "Show route as"
+EN["Goldene Punkte"] = "Golden dots"
+EN["Fußspuren"] = "Footprints"
+EN["Pfeil"] = "Arrow"

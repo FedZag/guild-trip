@@ -5,7 +5,9 @@ local _, nav = ...
 local ONE = _G.ProjectONE
 -- Uebersetzung (ONE.T); ohne Sprachmodul bleibt der deutsche Text.
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
-local Arrow = {active = false, rotateEvery = .04, refreshEvery = 1, staleAfter = 20, keepLost = 300}
+-- rotateEvery 0 = jedes Bild; smoothRate: wie schnell der gezeigte Winkel dem Zielwinkel folgt (je Sekunde),
+-- damit der Pfeil fliessend dreht statt in Stufen zu springen (Nutzer 17.11.2026: "hakelig").
+local Arrow = {active = false, rotateEvery = 0, refreshEvery = 1, staleAfter = 20, keepLost = 300, smoothRate = 14}
 nav.Arrow = Arrow
 
 local TEXTURE = "Interface\\AddOns\\ONE_Nav\\Textures\\Arrow.tga"
@@ -504,17 +506,17 @@ function Arrow:Refresh()
     self:CheckArrival(advice, dist)
 end
 
-function Arrow:Rotate()
+function Arrow:Rotate(elapsed)
     local s = self.state
     if not (s and s.player and s.target and s.player.continent == s.target.continent)
         or (s.advice and s.advice.kind == "arrived") then
-        self.arrow:Hide()
+        self.arrow:Hide() self.shownAngle = nil
         return
     end
     local facing = nav.Travel.Facing()
     local pc, px, py = nav.Travel.PlayerWorld()
     if not facing or not pc then
-        self.arrow:Hide()
+        self.arrow:Hide() self.shownAngle = nil
         return
     end
     s.player.x, s.player.y = px, py
@@ -524,8 +526,22 @@ function Arrow:Rotate()
         if p then s.target.x, s.target.y = p.x, p.y end
     end
     local angle = nav.Travel.ArrowAngle(px, py, s.target.x, s.target.y, facing)
-    if self.arrow.SetRotation then self.arrow:SetRotation(angle) end
+    self.shownAngle = Arrow.Smooth(self.shownAngle, angle, elapsed, self.smoothRate)
+    if self.arrow.SetRotation then self.arrow:SetRotation(self.shownAngle) end
     self.arrow:Show()
+end
+
+-- Gezeigten Winkel weich zum Ziel fuehren (kuerzester Weg ueber +-pi); ohne elapsed (Start) sofort springen
+function Arrow.Smooth(shown, target, elapsed, rate)
+    if not shown or not elapsed or elapsed <= 0 or elapsed > .5 then return target end
+    local tau = math.pi * 2
+    local d = (target - shown) % tau
+    if d > math.pi then d = d - tau end
+    local k = 1 - math.exp(-(rate or 14) * elapsed)
+    local a = shown + d * k
+    a = a % tau
+    if a > math.pi then a = a - tau end
+    return a
 end
 
 function Arrow:OnUpdate(elapsed)
@@ -538,7 +554,8 @@ function Arrow:OnUpdate(elapsed)
         if not self.active then return end
     end
     if self.rotateElapsed >= self.rotateEvery then
+        local dt = self.rotateElapsed
         self.rotateElapsed = 0
-        self:Rotate()
+        self:Rotate(dt)
     end
 end

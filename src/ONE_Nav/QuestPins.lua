@@ -3,7 +3,7 @@
 -- der Zone, Randpunkte zeigen nur die Richtung), sonst der Ort eines Gildenmitglieds.
 -- Goldring mit Punkt = Zielgebiet, Goldring mit Haken = fertig, zurueck zum Questgeber.
 -- Goldring mit "!" = Questgeber mit neuer Quest fuer mich (gesammelt, QuestGivers.lua).
--- Klick auf ein Symbol startet das Navi. Alles abschaltbar (Optionen › Spielhilfen › Navi).
+-- Klick auf ein Symbol startet das Navi. Alles abschaltbar (Optionen › Navi).
 local _, nav = ...
 local ONE = _G.ProjectONE
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
@@ -32,7 +32,9 @@ end
 -- Questgeber anzeigen? Mit Questie nicht (Questie zeigt eigene "!")
 function P:ShowGivers()
     local G = nav.QuestGivers
-    return self:Settings().givers and G and not G:QuestieLoaded() or false
+    -- ein Schalter fuer Sammeln und Zeigen: Funktion "nav.givers" (frueher doppelt)
+    local on = not ONE.FeatureOn or ONE:FeatureOn("nav.givers")
+    return on and G and not G:QuestieLoaded() or false
 end
 
 -- Alle Symbole: {q, mapID, x, y, from} bzw. Questgeber {giver, mapID, x, y}
@@ -233,19 +235,7 @@ function P:Refresh()
 end
 
 function P:Initialize()
-    if ONE.UI and ONE.UI.AddOption then
-        ONE.UI:AddOption({id = "navQuestMap", section = "Navi", kind = "check", label = "Quest-Symbole auf der Weltkarte",
-            tooltip = "Zeigt die Zielgebiete deiner Quests auf der Weltkarte (Ring mit Punkt) und wo du fertige Quests abgibst (Ring mit Haken). Klick startet das Navi.",
-            get = function() return P:Settings().map end,
-            set = function(on) P:Settings().map = on and true or false P:Refresh() end})
-        ONE.UI:AddOption({id = "navQuestMinimap", section = "Navi", kind = "check", label = "Quest-Symbole auf der Minimap",
-            get = function() return P:Settings().minimap end,
-            set = function(on) P:Settings().minimap = on and true or false P:Refresh() end})
-        ONE.UI:AddOption({id = "navQuestGivers", section = "Navi", kind = "check", label = "Questgeber (!) anzeigen",
-            tooltip = "Guild Trip merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt.",
-            get = function() return P:Settings().givers end,
-            set = function(on) P:Settings().givers = on and true or false P:Refresh() end})
-    end
+    -- Schalter: Funktionen "nav.questMap", "nav.questMinimap", "nav.givers" (Optionen › Navi)
     if not CreateFrame then return false end
     local frame = CreateFrame("Frame")
     for _, e in ipairs({"QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_REMOVED", "ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD"}) do

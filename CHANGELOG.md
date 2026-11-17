@@ -4,6 +4,40 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.6.9-alpha (gebaut 17.11.2026)
+
+```
+## 0.6.9-alpha
+
+**English**
+- New: Quest guide (levelling assistant) for twinks who want to reach 60 as fast as possible. New "Levelling" tab (replaces "Quests"; your quest log is a view there) with Plan | Skipped | Quest log. The plan shows a step-by-step plan (accept, do, turn in) with a Navi arrow per step. Always included: dungeon quests with all their prerequisite chains, class quests and important prerequisites. Everything else only if it gives more XP per minute than just grinding mobs (travel time from the Guild Trip road network, mob XP included, nearby quests bundled) or a real benefit: an upgrade for your class, a bigger bag, a lot of gold.
+- "Why this quest?": XP, time, XP per minute compared to grinding and the reward, for every step. "Skipped" lists every left-out quest with its reason; "Skip it" / "Do it anyway" per quest.
+- Three paces: Bare essentials (default), Balanced, Thorough. Elite and group quests show "Find group" (group finder).
+- "Quest guide" box under the minimap: the next steps as a list (drag the bottom right corner to make it bigger – the bigger, the more steps; text size adjustable) with objective progress and a Navi arrow; movable, can be turned off, optionally text only without a frame. Optionally replaces the WoW quest tracker. Layout: NOW (the one step to do, large), TO PICK UP (new quests with their NPC – fills the space when you drag the box bigger), YOUR QUESTS (every quest in your log once, with progress; finished ones in green with whom to turn in to, unplanned ones greyed with the reason in the tooltip). Click a line to navigate there.
+- All settings in one place: Options now has a list of sections on the left (General, Display, Reminders, Sharing, then one per module: Guild, Dungeons, Professions, Class, Levelling, Navi, Chat) and the settings of the chosen section on the right, with headings and scrolling. Every switch exists exactly once (several were doubled before). Gears jump straight to their section – e.g. the gear on the quest guide box opens Options › Levelling, the gear in the chat opens Options › Chat. Each module's on/off switch sits at the top of its section.
+- Quest guide steps now name the NPC ("Accept X – at Name"), and the Navi arrow moves on to the next step by itself while you use the guide (can be turned off).
+- Navi arrow turns smoothly now instead of in small jumps.
+- Auto quests: planned quests are accepted and finished quests from your log turned in automatically (follow-ups included). With several rewards you always choose yourself. Hold Shift to do it yourself for that conversation. Escort quests and reputation/donation NPCs are never automated. Optionally also accept quests outside the guide. Off by default – turn it on under Options › Levelling.
+- Vendors: repair automatically (optionally from guild funds first) and sell grey junk – Shift when opening the vendor skips it once. Off by default (Options › General › Vendors).
+- Reward data from QuestieDB (with permission) and cmangos classic-db (GPL), item details from the game's own item table.
+- Fixed: 188 escort and exploration quests were missing from the quest data (e.g. "The Defias Brotherhood" escort, "The Fargodeep Mine", the druid "Trial of the Lake") – they now show up everywhere (quest givers, map, guide). Holiday quests are left out properly instead.
+
+**Deutsch**
+- Neu: Quest-Führung (Leveling-Assistent) für Twinks, die so schnell wie möglich auf 60 wollen. Neuer Reiter „Leveln“ (ersetzt „Quests“; dein Questlog ist dort eine Ansicht) mit Plan | Ausgelassen | Questlog. Der Plan zeigt einen Plan Schritt für Schritt (annehmen, erledigen, abgeben) mit Navi-Pfeil. Immer dabei: Dungeon-Quests mit allen Vorquest-Ketten, Klassenquests und wichtige Vorquests. Alles andere nur, wenn es mehr EP pro Minute bringt als Monster hauen (Laufzeit aus dem Guild-Trip-Wegenetz, Gegner-EP eingerechnet, nahe Quests gebündelt) oder echten Mehrwert: Upgrade für deine Klasse, größere Tasche, viel Gold.
+- „Warum diese Quest?“: EP, Zeit, EP pro Minute im Vergleich zum Monsterhauen und die Belohnung zu jedem Schritt. „Ausgelassen“ zeigt jede weggelassene Quest mit Grund; „Nicht machen“ / „Doch machen“ je Quest.
+- Drei Tempo-Stufen: Nur das Nötigste (Standard), Ausgewogen, Gründlich. Elite-/Gruppenquests mit „Gruppe suchen“ (Gruppenfinder).
+- Kasten „Quest-Führung“ unter der Minimap: die nächsten Schritte als Liste (unten rechts größer ziehen – je größer, desto mehr Schritte; Schriftgröße einstellbar) mit Zielfortschritt und Navi-Pfeil; verschiebbar, abschaltbar, wahlweise nur Text ohne Rahmen. Ersetzt auf Wunsch die WoW-Questliste. Aufteilung: JETZT (der eine Schritt, groß), NOCH ANNEHMEN (neue Quests mit NPC – füllt den Platz beim Größerziehen), DEINE QUESTS (jede Quest aus dem Log einmal mit Fortschritt; fertige grün mit Abgabe-NPC, nicht eingeplante grau mit Grund im Tooltip). Klick auf eine Zeile = Navi dorthin.
+- Alle Einstellungen an einem Ort: Die Optionen haben links eine Liste der Bereiche (Allgemein, Darstellung, Erinnerungen, Teilen, dann je Modul: Gilde, Dungeons, Berufe, Klasse, Leveln, Navi, Chat) und rechts die Einstellungen des gewählten Bereichs mit Zwischenüberschriften und zum Scrollen. Jeden Schalter gibt es genau einmal (einige standen vorher doppelt da). Zahnräder springen direkt in ihren Bereich – z. B. das Zahnrad am Kasten der Quest-Führung öffnet Optionen › Leveln, das Zahnrad im Chat Optionen › Chat. Der An/Aus-Schalter eines Moduls steht oben in seinem Bereich.
+- Die Schritte der Quest-Führung nennen jetzt den NPC („X annehmen – bei Name“), und der Navi-Pfeil springt von selbst zum nächsten Schritt, solange du die Führung benutzt (abschaltbar).
+- Der Navi-Pfeil dreht sich jetzt fließend statt in kleinen Sprüngen.
+- Automatische Quests: Eingeplante Quests werden angenommen und fertige Quests aus deinem Log abgegeben (Folgequests inklusive). Bei mehreren Belohnungen wählst du immer selbst. Shift gedrückt halten = in diesem Gespräch selbst machen. Begleitquests und Ruf-/Spenden-NPCs nie automatisch. Wahlweise auch Quests außerhalb der Führung annehmen. Standardmäßig aus – einschalten unter Optionen › Leveln.
+- Händler: automatisch reparieren (wahlweise zuerst aus dem Gildengeld) und grauen Schrott verkaufen – Shift beim Öffnen des Händlers überspringt es einmal. Standardmäßig aus (Optionen › Allgemein › Händler).
+- Belohnungsdaten aus QuestieDB (mit Erlaubnis) und cmangos classic-db (GPL), Gegenstandsangaben aus der Spieltabelle.
+- Behoben: 188 Begleit- und Erkundungsquests fehlten in den Questdaten (z. B. die Begleitquest „Die Bruderschaft der Defias“, „Die Mine von Fargodeep“, die Druidenquest „Prüfung des Sees“) – jetzt überall dabei (Questgeber, Karte, Führung). Feiertagsquests werden dafür richtig aussortiert.
+```
+
+---
+
 ## 0.6.8-alpha (gebaut 17.11.2026)
 
 ```
@@ -15,6 +49,8 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 - No more doubled page titles – the space goes to the content (larger picture on the start page, longer guild and member lists).
 - Guild Trip chat in the Blizzard look: real Blizzard frame with title, channels with our own gold icons and gold edge, unread counts as red pills (Trade muted), whispers with a shield in class colour, online dot and class/level/zone. Large header with a short summary (e.g. "12 of 40 online"); when whispering also Navi and Invite. Messages with grey time, coloured channel name and names in class colours; mentions of your name are highlighted in gold. New "Send" button. The loot window got the same frame, with item icons and who/when below.
 - New option (Options › Assists › Navi): show the route as footprints instead of golden dots – left and right in turn, pointing the way, lighting up step by step on the minimap (calm on the world map). The dots stay the default.
+- Dungeons: a hand-drawn map (our own drawing: coast, mountains, forest or steppe with a red route and compass) heads the selected dungeon. On the left, a selection with counts replaces the checkbox: for your level, all, with open quests, level ranges.
+- New guild passport (Dungeons › Passport): every dungeon you enter and every guild trip you joined gives a stamp with date, runs and how many came along. Free fields suggest dungeons that fit your level and show the next trip. With "Share progress" your guild sees your passport and you see theirs.
 - The book look stays exactly as it was (main window and chat).
 - Quest database now comes from QuestieDB's Forever data (with kind permission of the Questie team): about 4,900 quests instead of 3,500, including new Forever quests, Forever-accurate positions and stricter prerequisites (all required quests, mutually exclusive quests, maximum level).
 - Navi › Trainers and Vendors now list every trainer (class, profession, weapon master) and every vendor in the world with exact positions – no longer only the ones you or your guild have visited. Vendors show what they sell and whether they repair.
@@ -26,6 +62,8 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 - Keine doppelten Seitentitel mehr – der Platz geht an den Inhalt (größeres Bild auf der Startseite, längere Gilden- und Mitgliederliste).
 - Guild-Trip-Chat im Blizzard-Aussehen: echter Blizzard-Rahmen mit Titel, Kanäle mit eigenen Goldsymbolen und goldener Kante, Ungelesenes als rote Zahl (Handel gedämpft), Flüstern mit Wappenschild in Klassenfarbe, Online-Punkt und Klasse/Stufe/Gebiet. Große Kopfzeile mit kurzer Angabe (z. B. „12 von 40 online“), beim Flüstern zusätzlich Navi und Einladen. Nachrichten mit grauer Uhrzeit, farbigem Kanalnamen und Namen in Klassenfarbe; wer dich erwähnt, wird golden hervorgehoben. Neuer „Senden“-Knopf. Das Beute-Fenster hat denselben Rahmen, mit Gegenstandssymbol und darunter wer/wann.
 - Neue Einstellung (Optionen › Spielhilfen › Navi): den Weg als Fußspuren statt goldener Punkte zeigen – links und rechts im Wechsel, in Laufrichtung, auf der Minimap Schritt für Schritt aufleuchtend (auf der Weltkarte ruhig). Standard bleiben die Punkte.
+- Dungeons: Über dem gewählten Dungeon steht eine gezeichnete Landkarte (eigene Zeichnung: Küste, Berge, Wald oder Steppe mit roter Route und Kompassrose). Links ersetzt eine Auswahl mit Zählern das Häkchen: für deine Stufe, alle, mit offenen Quests, Stufenbereiche.
+- Neu: Gilden-Reisepass (Dungeons › Reisepass): Jeder Dungeon, den du betrittst, und jeder Gildenausflug, zu dem du zugesagt hast, gibt einen Stempel mit Datum, Anzahl Läufe und wie viele dabei waren. Freie Felder schlagen passende Dungeons vor und zeigen den nächsten Ausflug. Mit „Fortschritt teilen“ sieht die Gilde deinen Pass – und du ihre.
 - Das Buch-Aussehen bleibt genau wie bisher (Hauptfenster und Chat).
 - Die Questdatenbank kommt jetzt aus den Forever-Daten von QuestieDB (mit freundlicher Erlaubnis des Questie-Teams): rund 4.900 statt 3.500 Quests, inklusive neuer Forever-Quests, Forever-genaue Positionen und genauere Vorquest-Prüfung (alle nötigen Quests, sich ausschließende Quests, Höchststufe).
 - Navi › Lehrer und Händler zeigen jetzt alle Lehrer (Klasse, Beruf, Waffenmeister) und alle Händler der Welt mit genauer Position – nicht mehr nur die, bei denen du oder deine Gilde schon wart. Händler zeigen, was sie verkaufen und ob sie reparieren.

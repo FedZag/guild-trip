@@ -426,7 +426,7 @@ def worn_tab(preview=None):
     rng = old
 
 
-TAB_ICONS = ['home', 'guild', 'calendar', 'dungeons', 'crafting', 'classes', 'quests', 'nav', 'options', 'book']
+TAB_ICONS = ['home', 'guild', 'calendar', 'dungeons', 'crafting', 'classes', 'quests', 'nav', 'options', 'book', 'leveling']
 
 
 def tab_icons(preview=None):
@@ -469,6 +469,8 @@ def tab_icons(preview=None):
                 ang = t * np.pi / 4
                 d.line([cx + 10 * k * np.cos(ang), cy + 10 * k * np.sin(ang), cx + 20 * k * np.cos(ang), cy + 20 * k * np.sin(ang)], fill=col, width=int(7 * k))
             E(-14, -14, 14, 14); E(-4, -4, 4, 4, fill=True)
+        elif name == 'leveling':   # Leveln: zwei Winkel nach oben unter einem Balken (Stufenaufstieg)
+            L(-14, -21, 14, -21); L(-17, 2, 0, -14, 17, 2); L(-17, 19, 0, 3, 17, 19)
         else:   # book
             R(-18, -14, 0, 16); R(0, -14, 18, 16); L(0, -14, 0, 16)
     for i, name in enumerate(TAB_ICONS):

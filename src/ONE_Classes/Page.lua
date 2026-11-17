@@ -126,7 +126,7 @@ function Page:Build(panel)
     content:SetSize(W, H)
     self.content = content
 
-    -- Ausrichtung, Situation, Buff-Erinnerung und Talent-Automatik: Optionen › Spielhilfen
+    -- Situation, Buff-Erinnerung und Talent-Automatik: Optionen › Klasse
 
 
 
@@ -152,7 +152,7 @@ function Page:Build(panel)
     -- Druide: Katzen- und Baerenleiste (nur sichtbar, wenn der Bauplan Gestalten hat)
     self.viewForms = ONE.Widgets:Button(content, "Gestalten", 88, 24, "TOPRIGHT", -196, -6, function()
         Store().view = "forms" Page:Refresh() end)
-    -- Spielstil waehlen (gleiche Einstellung wie Optionen › Spielhilfen); Vor-/Nachteile
+    -- Spielstil waehlen (nur hier, nicht doppelt in den Optionen); Vor-/Nachteile
     -- erscheinen nur beim Drueberfahren ueber einen Eintrag
     self.specPick = ONE.Kit:Dropdown(content, {point = "TOPRIGHT", x = -4, y = -6, width = 186,
         options = function() return Page:SpecOptions() end,
@@ -879,16 +879,11 @@ function Page:Register()
             get = function() return classes.Share:IsEnabled() end, set = function(on) classes.Share:SetEnabled(on) end,
             visible = function() return classes.Share:DevOnline() ~= nil or classes.Share:IsEnabled() end})
     end
-    if ONE.UI.AddOption then
-        local function Def()
-            local file = UnitClass and select(2, UnitClass("player"))
-            return classes.Data.classes[file or ""]
-        end
+    -- Optionen › Klasse (Spielstil waehlt man auf der Klassen-Seite; Buffs/Leisten sind Funktionen in Init.lua)
+    if ONE.UI.AddSetting then
         local function Changed() if Page.content then Page:Refresh() end end
-        ONE.UI:AddOption({id = "classSpec", section = "Klasse", kind = "dropdown", width = 240,
-            options = function() return Page:SpecOptions() end,
-            get = function() return Store().spec end, set = function(v) Store().spec = v Changed() end})
-        ONE.UI:AddOption({id = "classSituation", section = "Klasse", kind = "dropdown", width = 240,
+        ONE.UI:AddSetting({id = "classSituation", category = "classes", section = "Ratgeber", order = 10, kind = "dropdown", width = 220,
+            label = "Situation",
             options = function()
                 local auto = classes.Player:DetectSituation()
                 local out = {{value = nil, text = T("Automatisch (%s)", T(classes.Data.situationNames[auto]))}}
@@ -896,15 +891,9 @@ function Page:Register()
                 return out
             end,
             get = function() return Store().situation end, set = function(v) Store().situation = v Changed() end})
-        ONE.UI:AddOption({id = "classBuffs", section = "Klasse", label = "Buff-Erinnerung über den Leisten",
-            tooltip = "Zeigt außerhalb des Kampfes über deinen Leisten, welche Buffs fehlen oder bald auslaufen – Buffs von anderen Spielern zählen mit. Klick auf ein Symbol wirkt den Buff. Alt + Ziehen verschiebt die Zeile.",
-            get = function() return classes.Buffs:Enabled() end, set = function(on) classes.Buffs:SetEnabled(on) end})
-        ONE.UI:AddOption({id = "classTalentAuto", section = "Klasse", label = "Talente automatisch nach Plan setzen",
+        ONE.UI:AddSetting({id = "classTalentAuto", category = "classes", section = "Talente", order = 30, label = "Talente automatisch nach Plan setzen",
             tooltip = "Setzt freie Talentpunkte selbst nach dem Plan, einen nach dem anderen (außerhalb des Kampfes). Zurücksetzen kostet beim Lehrer Gold – deshalb standardmäßig aus.",
             get = function() return classes.Talents:AutoEnabled() end, set = function(on) classes.Talents:SetAutoEnabled(on) Changed() end})
-        ONE.UI:AddOption({id = "autoRank", section = "Klasse", label = "Leisten automatisch aktuell halten",
-            tooltip = "Neue Ränge tauscht Guild Trip auf deinen Leisten aus. Neu gelernte Zauber aus dem Vorschlag legt es auf ihren freien Platz (sobald du einmal „Leisten einrichten“ benutzt hast). Makros und absichtlich niedrige Ränge bleiben unverändert. Im Kampf erst danach.",
-            get = function() return classes.Ranks:Enabled() end, set = function(on) classes.Ranks:SetEnabled(on) end})
     end
     return ONE.UI:AddTab("classes", "Klasse", function(panel) return self:Build(panel) end)
 end

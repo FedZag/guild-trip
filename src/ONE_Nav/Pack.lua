@@ -271,6 +271,14 @@ nav.Pack = {
             x = 0.516,
             y = 0.309,
         },
+        c3464 = {
+            faction = "Horde",
+            mapID = 1413,
+            name = "Gazrog",
+            quests = {[869] = {title = "Raptorendiebe"}},
+            x = 0.52,
+            y = 0.303,
+        },
         c3521 = {
             faction = "Horde",
             mapID = 1413,

@@ -8,7 +8,8 @@ function guild:OnCalendarScanned()
 end
 
 if ONE.RegisterFeature then
-    ONE:RegisterFeature("guild.reminders", {module = "guild", label = "Erinnerungen an Gildentermine",
+    ONE:RegisterFeature("guild.reminders", {module = "guild", category = "reminders", section = "Gildentermine", order = 10,
+        label = "Erinnerungen an Gildentermine",
         get = function() return ONE.db.remindersEnabled and true or false end, set = function(on) ONE.db.remindersEnabled = on end})
     ONE:RegisterFeature("guild.mapSearch", {module = "guild", label = "Gildensuche auf der Weltkarte",
         tooltip = "Kleines Feld auf der Weltkarte, um Gildenmitglieder zu finden und das Navi zu starten."})

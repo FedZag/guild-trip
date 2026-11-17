@@ -1,5 +1,5 @@
--- Guild Trip Chat: Einstellungen im Chatfenster (Zahnrad oben rechts), wie bei einem Messenger.
--- Frueher unter Optionen › Spielhilfen – dort lief die Seite im Buch ueber (15.11.2026).
+-- Guild Trip Chat: Einstellungen in Optionen › Chat (0.6.9, alle Einstellungen zentral, Nutzer 17.11.2026).
+-- Das Zahnrad im Chatfenster springt direkt dorthin; ein eigenes Einstellungsfenster gibt es nicht mehr.
 local _, chat = ...
 local ONE = _G.ProjectONE
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
@@ -12,7 +12,7 @@ UI.settingChecks = {
     {"launcher", "Chat-Knopf am WoW-Chat", "Kleine Sprechblase oben am WoW-Chat mit Zähler für ungelesene Flüsternachrichten. Umschalt+Ziehen verschiebt sie.",
         function() if chat.Launcher then chat.Launcher:Update() end end, 1},
     {"hideBlizzard", "WoW-Chat durch diesen ersetzen", "Blendet das WoW-Chatfenster aus; Enter und / öffnen dann dieses Fenster. Nicht angezeigt werden dabei u. a. Beute, Erfahrung und das Kampflog. Jederzeit zurück: Haken raus oder /trip wowchat. Gesperrt bei ElvUI & Co.",
-        function() if chat.Hider then chat.Hider:Apply() end if UI.settings then for _, b in ipairs(UI.settings.checks) do if b.Refresh then b:Refresh() end end end end, 1},
+        function() if chat.Hider then chat.Hider:Apply() end end, 1},
     {"whisperHere", "Flüstern im Guild-Trip-Chat öffnen", "„Flüstern“ im Namens-Menü öffnet das Gespräch im Guild-Trip-Chat statt im WoW-Chat.", nil, 1},
     {"blink", "Neue Nachrichten blinken", "Gespräche mit ungelesenen Nachrichten blinken; bei Flüstern blinkt auch das WoW-Symbol in der Taskleiste.", function() UI:Refresh() end, 1},
     {"whisperSound", "Ton bei Flüsternachrichten", "Nur, wenn das Gespräch gerade nicht offen ist.", nil, 1},
@@ -63,84 +63,41 @@ function UI:SetFontSize(size)
     end
 end
 
-local COL_W, ROW = 300, 26
-function UI:OpenSettings()
-    local d = self.settings
-    if not d then
-        d = CreateFrame("Frame", "GuildTripChatSettings", UIParent, "BackdropTemplate")
-        -- Hinweis oben, wenn ElvUI & Co. laufen (doppelte Toene, Ausblenden gesperrt)
-        local other = Chat.OtherChatAddon()
-        local top = other and 92 or 58
-        local count = {0, 0}
-        for _, c in ipairs(self.settingChecks) do count[c[5] or 1] = count[c[5] or 1] + 1 end
-        local rows = math.max(count[1], count[2] + #self.settingDrops * 32 / ROW)
-        d:SetSize(COL_W * 2 + 30, top + rows * ROW + 24)
-        d:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
-        d:SetFrameStrata("DIALOG")
-        d:SetToplevel(true)
-        d:EnableMouse(true)
-        d:SetMovable(true)
-        d:RegisterForDrag("LeftButton")
-        d:SetScript("OnDragStart", function(f) f:StartMoving() end)
-        d:SetScript("OnDragStop", function(f) f:StopMovingOrSizing() end)
-        local bg = d:CreateTexture(nil, "BACKGROUND", nil, -7)
-        bg:SetPoint("TOPLEFT", d, "TOPLEFT", 4, -4)
-        bg:SetPoint("BOTTOMRIGHT", d, "BOTTOMRIGHT", -4, 4)
-        bg:SetColorTexture(.04, .05, .07, .96)
-        local title = d:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        title:SetPoint("TOPLEFT", d, "TOPLEFT", 16, -12)
-        title:SetText(T("Chat-Einstellungen"))
-        ONE.Widgets:CloseButton(d, "TOPRIGHT", -4, -4, function() d:Hide() end)
-        if other then
-            local hint = d:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-            hint:SetPoint("TOPLEFT", d, "TOPLEFT", 18, -34)
-            hint:SetWidth(COL_W * 2 - 10)
-            hint:SetJustifyH("LEFT")
-            if hint.SetWordWrap then hint:SetWordWrap(true) end
-            hint:SetText("|cffffd100" .. T("%s erkannt:", other) .. "|r " .. T("Töne ggf. dort oder hier abschalten, sonst klingt es doppelt. „WoW-Chat ausblenden“ bleibt gesperrt."))
-            d.hint = hint
-        end
-        -- Spaltenkoepfe
-        for col, label in ipairs({T("Verhalten & Töne"), T("Aussehen")}) do
-            local h = d:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            h:SetPoint("TOPLEFT", d, "TOPLEFT", 18 + (col - 1) * (COL_W + 10), -top + 22)
-            h:SetText(label)
-            if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(h, "accent") end
-        end
-        d.checks = {}
-        local y = {-top, -top}
-        for i, c in ipairs(self.settingChecks) do
-            local key, after, col = c[1], c[4], c[5] or 1
-            d.checks[i] = ONE.Kit:Check(d, {point = "TOPLEFT", x = 14 + (col - 1) * (COL_W + 10), y = y[col], label = c[2], tooltip = c[3] and T(c[3]),
-                get = function() return UI.SettingOn(key) end,
-                set = function(on) UI.SetSetting(key, on) end,
-                onChange = function() if after then after() end end})
-            y[col] = y[col] - ROW
-        end
-        d.drops = {}
-        local x2 = 14 + COL_W + 10
-        for i, o in ipairs(self.settingDrops) do
-            local key, values, after = o[1], o[3], o[4]
-            local yy = y[2] - 6 - (i - 1) * 32
-            local fl = d:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-            fl:SetPoint("TOPLEFT", d, "TOPLEFT", x2 + 4, yy - 6)
-            fl:SetText(T(o[2]))
-            d.drops[key] = ONE.Kit:Dropdown(d, {point = "TOPLEFT", x = x2 + 110, y = yy, width = 160,
-                options = function()
-                    local out = {}
-                    for _, v in ipairs(values()) do out[#out + 1] = {value = v[1], text = v[2]} end
-                    return out
-                end,
-                get = function() return Chat:Settings()[key] end,
-                set = function(v) Chat:Settings()[key] = v if after then after(v) end end, onChange = function() end})
-        end
-        d.font = d.drops.fontSize
-        ONE.Themes:RegisterWindow(d, bg, title)
-        if ONE.Themes.StyleTree then ONE.Themes:StyleTree(d) end
-        if UISpecialFrames then table.insert(UISpecialFrames, "GuildTripChatSettings") end
-        self.settings = d
+-- In Optionen › Chat anmelden: Spalte 1 = "Verhalten & Töne", Spalte 2 = "Aussehen"
+local SECTION = {"Verhalten & Töne", "Aussehen"}
+function UI:RegisterSettings()
+    local O = ONE.UI
+    if not (O and O.AddSetting) then return false end
+    local function Add(o) o.category, o.module = "chat", "chat" O:AddSetting(o) end
+    -- Hinweis, wenn ElvUI & Co. laufen (doppelte Toene, Ausblenden gesperrt)
+    Add({id = "chatOther", kind = "text", order = 1,
+        visible = function() return Chat.OtherChatAddon() ~= nil end,
+        label = function()
+            local other = Chat.OtherChatAddon()
+            return other and ("|cffffd100" .. T("%s erkannt:", other) .. "|r " .. T("Töne ggf. dort oder hier abschalten, sonst klingt es doppelt. „WoW-Chat ausblenden“ bleibt gesperrt.")) or ""
+        end})
+    for i, c in ipairs(self.settingChecks) do
+        local key, after, col = c[1], c[4], c[5] or 1
+        Add({id = "chat." .. key, section = SECTION[col], order = col * 100 + i, label = c[2], tooltip = c[3],
+            get = function() return UI.SettingOn(key) end,
+            set = function(on) UI.SetSetting(key, on) end,
+            onChange = after})
     end
-    for _, box in ipairs(d.checks) do if box.Refresh then box:Refresh() end end
-    for _, dd in pairs(d.drops) do if dd.Refresh then dd:Refresh() end end
-    d:Show()
+    for i, o in ipairs(self.settingDrops) do
+        local key, values, after = o[1], o[3], o[4]
+        Add({id = "chat." .. key, section = SECTION[2], order = 150 + i, kind = "dropdown", label = o[2], width = 180,
+            options = function()
+                local out = {}
+                for _, v in ipairs(values()) do out[#out + 1] = {value = v[1], text = v[2]} end
+                return out
+            end,
+            get = function() return Chat:Settings()[key] end,
+            set = function(v) Chat:Settings()[key] = v if after then after(v) end end})
+    end
+    return true
+end
+
+-- Zahnrad im Chatfenster: Optionen › Chat
+function UI:OpenSettings()
+    if ONE.UI and ONE.UI.OpenOptions then ONE.UI:OpenOptions("chat") end
 end

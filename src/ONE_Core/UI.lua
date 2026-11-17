@@ -2,7 +2,7 @@ local _, ONE = ...
 -- Uebersetzung (ONE.T); ohne Sprachmodul bleibt der deutsche Text.
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 local UI = { tabs={}, views={}, order={}, history={}, forwardHistory={},
-    backHandlers={}, optionsLinks={}, sidebarButtons={}, shareOptions={}, feeds={}, options={} }
+    backHandlers={}, sidebarButtons={}, shareOptions={}, feeds={} }
 ONE.UI=UI
 
 -- Das feste Fenster ist 1010 UI-Einheiten breit. Der Inhalt liegt zwischen
@@ -23,7 +23,7 @@ function Layout:Actions(card,weights)
     return ONE.Geometry:Actions(card,weights)
 end
 
-local NAV_ORDER={home=1,guild=2,calendar=3,dungeons=4,groups=5,crafting=6,classes=7,quests=7.5,nav=8,options=9}
+local NAV_ORDER={home=1,guild=2,calendar=3,dungeons=4,groups=5,crafting=6,classes=7,quests=7.5,leveling=7.5,nav=8,options=9}
 -- 0.4.4 nativer Look: Blizzard-Fenster (PortraitFrameTemplate) mit eingelassener
 -- Innenflaeche und Reitern unten wie im Charakterfenster. Die Inhaltsflaeche
 -- bleibt 726x437, damit alle Seiten unveraendert hineinpassen.
@@ -37,14 +37,13 @@ local NATIVE_WINDOW={width=858,height=533,insetX=96,insetRight=12,insetTop=60,in
     contentX=108,contentY=72,sideX=10,sideWidth=80,navHeight=44,navGap=2}
 UI.NATIVE_WINDOW=NATIVE_WINDOW
 -- Unterseiten markieren in der Leiste ihren Hauptbereich
-local VIEW_PARENT={modules="options",assists="options",sharing="options",themes="options",
-    ["guild-reminder-settings"]="options",["guild-members"]="guild",today="home"}
+local VIEW_PARENT={["guild-members"]="guild",today="home"}
 UI.VIEW_PARENT=VIEW_PARENT
 local function BookActive() return ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() end
 local ICONS="Interface\\AddOns\\ONE_Core\\Textures\\Book\\TabIcons"
-local ICON_INDEX={home=0,guild=1,calendar=2,dungeons=3,groups=3,crafting=4,classes=5,quests=6,nav=7,options=8}
+local ICON_INDEX={home=0,guild=1,calendar=2,dungeons=3,groups=3,crafting=4,classes=5,quests=6,nav=7,options=8,leveling=10}
 local NAV_LABEL={home="Startseite",guild="Gilde",calendar="Kalender",today="Heute",
-    dungeons=T("Dungeons"),groups=T("Gruppen"),crafting=T("Berufe"),classes=T("Klasse"),quests=T("Quests"),nav=T("Navi"),modules=T("Module"),options=T("Optionen"),themes=T("Farben & Klänge")}
+    dungeons=T("Dungeons"),groups=T("Gruppen"),crafting=T("Berufe"),classes=T("Klasse"),quests=T("Quests"),leveling=T("Leveln"),nav=T("Navi"),options=T("Optionen")}
 
 local function Label(parent,content,font,x,y,width,roleOverride)
     local obj=parent:CreateFontString(nil,"OVERLAY",font or "GameFontNormal")
@@ -202,14 +201,6 @@ function UI:RegisterView(id,builder)
     if ONE.Book then ONE.Book:PanelAdded(self) end
     return true
 end
-function UI:AddOptionsLink(id,title,viewId)
-    if type(id)~="string" or type(title)~="string" or type(viewId)~="string" then return false end
-    for _,link in ipairs(self.optionsLinks) do if link.id==id then return false end end
-    if #self.optionsLinks>=4 then return false end
-    self.optionsLinks[#self.optionsLinks+1]={id=id,title=title,viewId=viewId}
-    self:Refresh()
-    return true
-end
 -- Alles, was an die Gilde geteilt wird, als Haekchen gesammelt unter
 -- Optionen -> "Teilen". Module melden ihre Schalter hier an:
 -- {id, label, tooltip, get, set, order, visible}
@@ -218,14 +209,6 @@ function UI:AddShareOption(opts)
     for _,o in ipairs(self.shareOptions) do if o.id==opts.id then return false end end
     self.shareOptions[#self.shareOptions+1]=opts
     table.sort(self.shareOptions,function(a,b) return (a.order or 50)<(b.order or 50) end)
-    return true
-end
--- Einstellungen aus Modulen fuer Optionen › Spielhilfen, nach Abschnitt (section) gruppiert
--- opts = {id, section, kind="check"|"dropdown"|"button", label, tooltip, get, set, options, onClick, width}
-function UI:AddOption(opts)
-    if type(opts)~="table" or type(opts.id)~="string" or type(opts.get)~="function" or type(opts.set)~="function" then return false end
-    for _,o in ipairs(self.options) do if o.id==opts.id then return false end end
-    self.options[#self.options+1]=opts
     return true
 end
 -- "Was steht an": Module liefern kurze Eintraege fuer die Gilde-Seite.
@@ -395,14 +378,6 @@ function UI:UpdateViews()
     if not self.sidebar then return end
     self.viewButtons=self.viewButtons or {}
     local set=self.viewSets and (self.viewSets[self.activeTab] or self.viewSets[VIEW_PARENT[self.activeTab] or ""])
-    if not set and (self.activeTab=="options" or VIEW_PARENT[self.activeTab]=="options") then
-        -- Optionen: Unterseiten der Module als Ansichten
-        local items={{key="options",label="Allgemein"}}
-        local SHORT={["Module verwalten"]="Module",["Erinnerungszeiten einstellen"]="Erinnerungen"}
-        for _,link in ipairs(self.optionsLinks) do items[#items+1]={key=link.viewId,label=SHORT[link.title] or link.title} end
-        for _,it in ipairs(items) do it.onClick=function(key) self:Navigate(key) end end
-        set={items=items}
-    end
     local items=set and set.items or {}
     -- Ansichten, die eigene Seiten sind, folgen der offenen Seite
     if set then for _,it in ipairs(items) do if it.key==self.activeTab then set.active=it.key end end end
@@ -606,154 +581,6 @@ local function TermineTile(card,body)
     end
 end
 
--- ===== Blaettern (Nutzer-Wunsch 15.11.2026) =====
--- Wird eine Seite zu voll, geht es im selben Reiter auf einer neuen Seite weiter:
--- unten rechts "‹  Seite 1 von 2  ›". Elemente melden sich mit ihrer Seitennummer an.
-function UI:Pager(panel,x,y,width)
-    local p={page=1,count=1,items={}}
-    p.prev=ONE.Widgets:Button(panel,"‹",28,22,"TOPLEFT",x,y,function() p:Go(p.page-1) end)
-    p.next=ONE.Widgets:Button(panel,"›",28,22,"TOPLEFT",x+width-28,y,function() p:Go(p.page+1) end)
-    p.label=Label(panel,"","GameFontHighlightSmall",x+34,y-5,width-68,"soft")
-    if p.label.SetJustifyH then p.label:SetJustifyH("CENTER") end
-    function p:Reset() self.items,self.count={},1 end
-    function p:Add(widget,page)
-        self.items[#self.items+1]={w=widget,page=page or 1}
-        if (page or 1)>self.count then self.count=page end
-    end
-    function p:Go(n)
-        self.page=math.max(1,math.min(self.count,n or self.page))
-        for _,it in ipairs(self.items) do
-            if it.page==self.page then it.w:Show() else it.w:Hide() end
-        end
-        local many=self.count>1
-        for _,w in ipairs({self.prev,self.next,self.label}) do if many then w:Show() else w:Hide() end end
-        self.label:SetText(T("Seite %d von %d",self.page,self.count))
-        if self.prev.SetEnabled then self.prev:SetEnabled(self.page>1) end
-        if self.next.SetEnabled then self.next:SetEnabled(self.page<self.count) end
-        if ONE.Sound and many and self.turned then ONE.Sound:Play("page") end
-        self.turned=true
-    end
-    return p
-end
-
-local function BuildModules(panel)
-    -- Haekchen-Liste: je Modul ein Haekchen, darunter eingerueckt seine Funktionen.
-    -- Zwei Spalten (im Buch = zwei Seiten). Modul aus = nach dem Neuladen gar nicht gestartet.
-    local W=UI.Layout.width
-    local L,R
-    if ONE.Book then L,R=ONE.Book:Spread() end
-    local cols={{x=L and L.x or 0,w=L and L.width or math.floor(W/2)-10},{x=R and R.x or math.floor(W/2)+10,w=R and R.width or math.floor(W/2)-10}}
-    ONE.Widgets:PageHeader(panel,T("Module & Funktionen"),
-        T("Haken weg = aus. Ein Modul aus schaltet auch alle seine Funktionen ab."),L and L.width or W)
-    local status=Label(panel,"","GameFontHighlightSmall",cols[2].x,-372,cols[2].w,"soft")
-    local pager=UI:Pager(panel,cols[2].x,-400,cols[2].w)
-    if status.SetWordWrap then status:SetWordWrap(true) end
-    local boxes={}
-    local reloadNeeded=false
-    local coreHead=Label(panel,T("Guild Trip (Grundfunktionen)"),"GameFontNormal",0,0,cols[1].w,"accent")
-    local function Box(key,opts)
-        local b=boxes[key]
-        if not b then
-            b=ONE.Kit:Check(panel,opts)
-            boxes[key]=b
-        end
-        return b
-    end
-    return function()
-        local y,col,top,maxY,page=-64,1,-64,-360,1
-        local used={}
-        pager:Reset()
-        pager:Add(coreHead,1)
-        -- naechste Spalte, nach der rechten eine neue Seite
-        local function NextColumn()
-            if col==1 then col,y=2,top else col,y,page=1,top,page+1 end
-        end
-        local function Place(b,indent)
-            if y<maxY then NextColumn() end
-            pager:Add(b,page)
-            b:ClearAllPoints()
-            b:SetPoint("TOPLEFT",panel,"TOPLEFT",cols[col].x+indent,y)
-            if b.label and b.label.SetWidth then b.label:SetWidth(cols[col].w-indent-34) end
-            -- linksbuendig direkt neben dem Haekchen (mit fester Breite sonst mittig)
-            if b.label and b.label.SetJustifyH then b.label:SetJustifyH("LEFT") end
-            -- Module als goldene Ueberschrift, Funktionen in normaler Schrift
-            if b.label and b.label.SetFontObject then
-                pcall(b.label.SetFontObject,b.label,indent>0 and "GameFontHighlight" or "GameFontNormal")
-                if indent==0 and b.label.SetTextColor then b.label:SetTextColor(1,.82,0) end
-            end
-            b:Show()
-            y=y-(indent>0 and 21 or 26)
-        end
-        -- Kern-Funktionen (ohne Modul) zuerst
-        coreHead:ClearAllPoints() coreHead:SetPoint("TOPLEFT",panel,"TOPLEFT",cols[1].x+4,y-4)
-        y=y-24
-        for _,fid in ipairs(ONE.featureOrder) do
-            local f=ONE.features[fid]
-            if not f.module then
-                local fb=Box("f:"..fid,{label=T(f.label),tooltip=f.tooltip and T(f.tooltip),
-                    get=function() return ONE:FeatureOn(fid) end,
-                    set=function(on) ONE:SetFeature(fid,on) if f.reload then reloadNeeded=true end end})
-                fb:Refresh() Place(fb,22) used["f:"..fid]=true
-            end
-        end
-        y=y-6
-        for _,id in ipairs(ONE.moduleOrder) do
-            local def=ONE.modules[id]
-            local feats={}
-            for _,fid in ipairs(ONE.featureOrder) do if ONE.features[fid].module==id then feats[#feats+1]=fid end end
-            -- Modul und seine Funktionen moeglichst in einer Spalte halten
-            if y-28-#feats*24<maxY and y<top then NextColumn() end
-            local mb=Box("m:"..id,{label=T(def.title or id),
-                tooltip=T("Ganzes Modul an oder aus. Wirkt nach dem Neuladen."),
-                get=function() return ONE:IsEnabled(id) end,
-                set=function(on) ONE.db.modules[id]=on and true or false reloadNeeded=true end})
-            mb:Refresh() Place(mb,0) used["m:"..id]=true
-            for _,fid in ipairs(feats) do
-                local f=ONE.features[fid]
-                local fb=Box("f:"..fid,{label=T(f.label),tooltip=f.tooltip and T(f.tooltip),
-                    get=function() return ONE:FeatureOn(fid) end,
-                    set=function(on) ONE:SetFeature(fid,on) if f.reload then reloadNeeded=true end end})
-                fb:Refresh()
-                if fb.SetEnabled then fb:SetEnabled(ONE:IsEnabled(id)) end
-                Place(fb,22) used["f:"..fid]=true
-            end
-        end
-        for key,b in pairs(boxes) do if not used[key] then b:Hide() end end
-        pager:Go(pager.page)
-        status:SetText(reloadNeeded and ("|cffff8060"..T("Änderung wirkt nach dem Neuladen (/reload).").."|r")
-            or (#ONE.moduleOrder==0 and T("Der Kern von Guild Trip funktioniert auch ohne weitere Module.") or ""))
-        if reloadNeeded and not UI.moduleReloadAsked then UI.moduleReloadAsked=true UI:AskReload("modules") end
-    end
-end
-
--- Optionen im Blizzard-Stil: drei Karten, Haekchen statt AN/AUS-Knoepfen,
--- Schieberegler fuer Groessen, Links zu Unterseiten unten.
-local function CheckBox(parent,x,y,label,tooltip,onClick)
-    local ok,box=pcall(CreateFrame,"CheckButton",nil,parent,"UICheckButtonTemplate")
-    if not ok or not box then box=CreateFrame("CheckButton",nil,parent) end
-    box:SetSize(26,26)
-    box:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y)
-    local text=parent:CreateFontString(nil,"OVERLAY","GameFontHighlight")
-    text:SetPoint("LEFT",box,"RIGHT",4,0)
-    text:SetText(T(label))
-    if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(text,"text") end
-    box.label=text
-    box:SetScript("OnClick",function(self)
-        onClick(self.GetChecked and self:GetChecked() and true or false)
-        ONE.UI:Refresh()
-    end)
-    if tooltip then
-        box:SetScript("OnEnter",function(self)
-            if not GameTooltip then return end
-            GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
-            GameTooltip:SetText(T(label))
-            GameTooltip:AddLine(T(tooltip),1,1,1,true)
-            GameTooltip:Show()
-        end)
-        box:SetScript("OnLeave",function() if GameTooltip then GameTooltip:Hide() end end)
-    end
-    return box
-end
 local function OptionSlider(parent,x,y,width)
     local ok,slider=pcall(CreateFrame,"Slider",nil,parent,"OptionsSliderTemplate")
     if not ok or not slider then
@@ -776,12 +603,6 @@ local function OptionSlider(parent,x,y,width)
     end
     return slider
 end
-local function OptionCard(parent,x,y,w,h,title)
-    local card=Panel(parent,x,y,w,h)
-    local label=Label(card,title,"GameFontNormalSmall",16,-14,w-32)
-    if ONE.Themes and ONE.Themes.PanelTitle then ONE.Themes:PanelTitle(card,label) end
-    return card
-end
 
 -- Sprachwechsel greift erst nach dem Neuladen der Oberflaeche (alle Texte
 -- werden beim Aufbau gesetzt). Blizzard-Dialog mit Rueckfrage.
@@ -799,227 +620,452 @@ function UI:AskReload(look)
     StaticPopup_Show("GUILDTRIP_RELOAD")
 end
 
+-- ===== Optionen: ALLE Einstellungen an einem Ort (0.6.9, Nutzer-OK 17.11.2026) =====
+-- Links die Bereiche (wie Blizzards Einstellungen), rechts die Einstellungen des Bereichs
+-- mit Zwischenueberschriften (scrollbar). Module melden ihre Bedienelemente hier an und
+-- haben selbst keine Einstellungsfenster mehr; jeden Schalter gibt es genau einmal.
+--   UI:AddCategory(id, {title=, order=})
+--   UI:AddSetting{id=, category=, section=, kind="check"|"dropdown"|"button"|"radio"|"text"|"custom",
+--       label=, tooltip=, note=, get=, set=, options=, onClick=, width=, indent=, order=,
+--       module=, visible=function, enabled=function, onChange=, build=function(row, width) -> refresh, height}
+--   UI:OpenOptions(categoryId)   -- Zahnraeder der Module springen direkt in ihren Bereich
+-- Einzelfunktionen (ONE:RegisterFeature) erscheinen als Haken im Bereich ihres Moduls
+-- (Kern-Funktionen unter "Allgemein"; def.category/def.section/def.indent/def.order lenken um).
+-- Teilen-Schalter (UI:AddShareOption) stehen gesammelt unter "Teilen".
+UI.categories={}
+UI.settingList={}
+local CORE_CATEGORIES={
+    {id="general",title="Allgemein",order=1},
+    {id="look",title="Darstellung",order=2},
+    {id="reminders",title="Erinnerungen",order=3},
+    {id="sharing",title="Teilen",order=4},
+}
+-- Module: Name im Bereich (kurz, wie die Leiste) und Reihenfolge
+local MODULE_CATEGORY={guild={"Gilde",10},dungeons={"Dungeons",20},crafting={"Berufe",30},
+    classes={"Klasse",40},leveling={"Leveln",50},nav={"Navi",60},chat={"Chat",70}}
+UI.MODULE_CATEGORY=MODULE_CATEGORY
+for _,c in ipairs(CORE_CATEGORIES) do UI.categories[c.id]={id=c.id,title=c.title,order=c.order,core=true} end
+
+function UI:AddCategory(id,def)
+    if type(id)~="string" or type(def)~="table" then return false end
+    local c=self.categories[id] or {id=id}
+    c.title=def.title or c.title or id
+    c.order=def.order or c.order or 80
+    c.module=def.module or c.module
+    self.categories[id]=c
+    return true
+end
+function UI:AddSetting(opts)
+    if type(opts)~="table" or type(opts.id)~="string" or type(opts.category)~="string" then return false end
+    local kind=opts.kind or "check"
+    if (kind=="check" or kind=="dropdown" or kind=="radio") and (type(opts.get)~="function" or type(opts.set)~="function") then return false end
+    if kind=="custom" and type(opts.build)~="function" then return false end
+    for _,o in ipairs(self.settingList) do if o.id==opts.id then return false end end
+    opts.kind=kind
+    opts.seq=#self.settingList+1
+    self.settingList[#self.settingList+1]=opts
+    return true
+end
+-- Frueher Optionen › Spielhilfen; bleibt als Weiterleitung fuer aeltere Aufrufe
+local LEGACY_SECTION={Navi="nav",Klasse="classes",Gruppen="dungeons"}
+function UI:AddOption(opts)
+    if type(opts)~="table" or type(opts.id)~="string" then return false end
+    opts.category=opts.category or LEGACY_SECTION[opts.section or ""] or "general"
+    if LEGACY_SECTION[opts.section or ""] then opts.section=nil end
+    return self:AddSetting(opts)
+end
+
+-- Bereiche in Reihenfolge: Kern-Bereiche, dann je geladenem Modul einer
+function UI:CategoryList()
+    local list,seen={},{}
+    for id,c in pairs(self.categories) do list[#list+1]=c seen[id]=true end
+    for _,mid in ipairs(ONE.moduleOrder or {}) do
+        if not seen[mid] then
+            local def=ONE.modules[mid] or {}
+            local m=MODULE_CATEGORY[mid]
+            local c={id=mid,title=m and m[1] or def.title or mid,order=m and m[2] or 80,module=mid}
+            self.categories[mid]=c
+            list[#list+1]=c
+        else
+            self.categories[mid].module=mid
+        end
+    end
+    table.sort(list,function(a,b) if a.order~=b.order then return a.order<b.order end return a.id<b.id end)
+    return list
+end
+
+local function ModuleOn(mid) return not mid or not ONE.IsEnabled or ONE:IsEnabled(mid) end
+-- Alles, was im Bereich steht: Modul-Hauptschalter, Einstellungen, Funktionen, Teilen
+function UI:CategoryEntries(cat)
+    local out={}
+    self:PlaceFeatures()
+    local c=self.categories[cat]
+    if c and c.module and ONE.modules then
+        local title=c.title
+        out[#out+1]={id="m:"..c.module,kind="check",order=-100,seq=0,master=true,
+            label=T("Modul „%s“ eingeschaltet",T((ONE.modules[c.module] or {}).title or title)),
+            tooltip=T("Ganzes Modul an oder aus. Wirkt nach dem Neuladen."),
+            get=function() return ONE:IsEnabled(c.module) end,
+            set=function(on) ONE.db.modules[c.module]=on and true or false UI.moduleReload=true UI:AskReload("modules") end}
+        if not ONE:IsEnabled(c.module) then
+            out[#out+1]={id="m:"..c.module..":off",kind="text",order=-99,seq=0,
+                label=T("Das Modul ist aus. Nach dem Einschalten und Neuladen stehen hier seine Einstellungen.")}
+            return out
+        end
+    end
+    for _,o in ipairs(self.settingList) do
+        if o.category==cat and ModuleOn(o.module) then out[#out+1]=o end
+    end
+    for i,fid in ipairs(ONE.featureOrder or {}) do
+        local f=ONE.features and ONE.features[fid]
+        if not f then break end
+        local fcat=f.category or f.module or "general"
+        if fcat==cat and ModuleOn(f.module) then
+            f.__entry=f.__entry or {id="f:"..fid,kind="check",label=f.label,tooltip=f.tooltip,
+                section=f.section or (f.module and "Funktionen" or "Weiteres"),indent=f.indent,order=f.order or 60,seq=1000+i,
+                get=function() return ONE:FeatureOn(fid) end,
+                set=function(on) ONE:SetFeature(fid,on) if f.reload then UI.moduleReload=true UI:AskReload("modules") end end}
+            out[#out+1]=f.__entry
+        end
+    end
+    if cat=="sharing" then
+        for i,s in ipairs(self.shareOptions) do
+            if ModuleOn(s.module) then
+                s.__entry=s.__entry or {id="s:"..s.id,kind="check",label=s.label,note=s.tooltip,
+                    order=s.order or 50,seq=2000+i,get=s.get,set=s.set,visible=s.visible}
+                out[#out+1]=s.__entry
+            end
+        end
+    end
+    -- Abschnitte in der Reihenfolge ihres ersten Eintrags, darin nach order
+    local first={}
+    for _,o in ipairs(out) do
+        local key=o.section or ""
+        local rank=(o.order or 50)*10000+(o.seq or 0)
+        if not first[key] or rank<first[key] then first[key]=rank end
+    end
+    table.sort(out,function(a,b)
+        local sa,sb=first[a.section or ""],first[b.section or ""]
+        if sa~=sb then return sa<sb end
+        local oa,ob=a.order or 50,b.order or 50
+        if oa~=ob then return oa<ob end
+        return (a.seq or 0)<(b.seq or 0)
+    end)
+    return out
+end
+
+function UI:OpenOptions(cat)
+    if type(cat)=="string" then
+        self:CategoryList()
+        if self.categories[cat] then self.optionsCategory=cat end
+    end
+    if self.frame and self.frame.Show and not self.frame:IsShown() then self.frame:Show() end
+    self:Navigate("options")
+    self:Refresh()
+    return true
+end
+
+-- Ein Bedienelement in eigener Zeile (Frame), damit Ein-/Ausblenden und Verschieben einfach bleiben
+local ROW_H={check=26,dropdown=34,button=32,text=20}
+local function BuildRow(child,o,W)
+    local row=CreateFrame("Frame",nil,child)
+    row:SetSize(W,ROW_H[o.kind] or 26)
+    local x=(o.indent or 0)*22
+    local function Changed() if o.onChange then o.onChange() end UI:Refresh() end
+    if o.kind=="check" then
+        row.box=ONE.Kit:Check(row,{point="TOPLEFT",x=x,y=0,label=o.label,tooltip=o.tooltip,get=o.get,set=o.set,onChange=Changed})
+        -- lange Beschriftungen umbrechen (Buch: nur 286 breit)
+        if row.box.label and row.box.label.SetWidth then
+            row.box.label:SetWidth(W-x-34)
+            if row.box.label.SetJustifyH then row.box.label:SetJustifyH("LEFT") end
+            if row.box.label.SetWordWrap then row.box.label:SetWordWrap(true) end
+        end
+        if o.master and row.box.label and row.box.label.SetFontObject then
+            pcall(row.box.label.SetFontObject,row.box.label,"GameFontNormal")
+            if row.box.label.SetTextColor then row.box.label:SetTextColor(1,.82,0) end
+        end
+        if o.note then
+            row.note=Label(row,o.note,"GameFontHighlightSmall",x+30,-24,W-x-40,"soft")
+            if row.note.SetWordWrap then row.note:SetWordWrap(true) end
+        end
+        row.refresh=function()
+            row.box:Refresh()
+            if row.box.SetEnabled then row.box:SetEnabled(not o.enabled or o.enabled() and true or false) end
+        end
+    elseif o.kind=="dropdown" then
+        local dx,dy=x,-2
+        if o.label then
+            -- schmal (Buch): Auswahl unter die Beschriftung
+            local narrow=W-x<460
+            row.label=Label(row,o.label,"GameFontHighlight",x+4,-7,narrow and W-x-8 or 200,"text")
+            if narrow then dx,dy,row.height=x+4,-26,60 else dx=x+210 end
+        end
+        row.dd=ONE.Kit:Dropdown(row,{point="TOPLEFT",x=dx,y=dy,width=math.min(o.width or 240,W-dx),tooltip=o.tooltip and T(o.tooltip),
+            options=o.options,get=o.get,set=o.set,onChange=Changed})
+        row.refresh=function() if row.dd.Refresh then row.dd:Refresh() end end
+    elseif o.kind=="button" then
+        row.button=ONE.Widgets:Button(row,T(o.label),o.width or 220,24,"TOPLEFT",x+2,-2,function() if o.onClick then o.onClick() end UI:Refresh() end)
+        if o.tooltip and row.button.HookScript then
+            row.button:HookScript("OnEnter",function(self)
+                if not GameTooltip then return end
+                GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
+                GameTooltip:AddLine(T(o.tooltip),1,1,1,true)
+                GameTooltip:Show()
+            end)
+            row.button:HookScript("OnLeave",function() if GameTooltip then GameTooltip:Hide() end end)
+        end
+    elseif o.kind=="radio" then
+        row.checks={}
+        local list=o.options()
+        for i,opt in ipairs(list) do
+            row.checks[i]=ONE.Kit:Check(row,{point="TOPLEFT",x=x,y=-(i-1)*26,label=opt.text,tooltip=opt.tooltip,
+                get=function() return o.get()==opt.value end,
+                set=function() o.set(opt.value) end,onChange=Changed})
+        end
+        row.height=#list*26
+        row.refresh=function() for _,b in ipairs(row.checks) do b:Refresh() end end
+    elseif o.kind=="text" then
+        row.text=Label(row,"","GameFontHighlightSmall",x+4,-2,W-x-12,"soft")
+        if row.text.SetWordWrap then row.text:SetWordWrap(true) end
+        row.refresh=function()
+            local t=type(o.label)=="function" and o.label() or o.label or ""
+            row.text:SetText(T(t))
+        end
+    elseif o.kind=="custom" then
+        local refresh,height=o.build(row,W-x)
+        row.refresh=refresh
+        row.height=height or o.height
+    end
+    return row
+end
+local function StringHeight(fs,fallback)
+    local sh=fs and fs.GetStringHeight and fs:GetStringHeight()
+    if type(sh)~="number" or sh<=0 then sh=fallback end
+    return sh
+end
+local function RowHeight(row,o)
+    if row.height then return row.height end
+    local h=ROW_H[o.kind] or 26
+    if o.kind=="text" then return StringHeight(row.text,14)+8 end
+    if o.kind=="check" then
+        -- umgebrochene Beschriftung: Zeile waechst mit
+        local lh=StringHeight(row.box.label,12)
+        if lh>16 then h=lh+12 end
+        if row.note then
+            row.note:ClearAllPoints()
+            row.note:SetPoint("TOPLEFT",row,"TOPLEFT",(o.indent or 0)*22+30,-h+2)
+            h=h+StringHeight(row.note,14)+8
+        end
+    end
+    return h
+end
+
 local function BuildOptions(panel)
     local W=UI.Layout.width
-    ONE.Widgets:PageHeader(panel,T("Einstellungen"),
-        T("Benachrichtigungen funktionieren nur, während WoW läuft."),W)
-    local cols=UI.Layout:Columns({1,1})
-    local cardH=250
-
-    -- Benachrichtigungen
-    -- Buch: links Benachrichtigungen + Verzeichnis der Unterseiten, rechts die ganze
-    -- Darstellung (inkl. Sprache und Aussehen) ueber die volle Seitenhoehe
-    local bookL,bookR=nil,nil
-    if ONE.Book and ONE.Book.Spread then bookL,bookR=ONE.Book:Spread() end
-    local notes=OptionCard(panel,cols[1].x,-62,cols[1].width,bookL and 190 or cardH,"BENACHRICHTIGUNGEN")
-    local reminders=CheckBox(notes,14,-36,"Kalender-Erinnerungen",
-        T("Erinnert dich vor Gildenterminen (Zeiten unter „Erinnerungszeiten“)."),
-        function(v) ONE.db.remindersEnabled=v end)
-    local sound=CheckBox(notes,14,-66,T("Ton bei Benachrichtigungen"),nil,
-        function(v) ONE.db.soundEnabled=v end)
-    local welcome=CheckBox(notes,14,-96,T("Tagesübersicht beim Login"),
-        T("Zeigt beim Einloggen die Termine des Tages."),
-        function(v) ONE.db.loginSummaryEnabled=v end)
-    local toast=CheckBox(notes,14,-126,T("Hinweisfenster anzeigen"),
-        T("Ein kleines Fenster zusätzlich zur Chatzeile."),
-        function(v) ONE.db.toastEnabled=v ONE.Notifications:SettingsChanged() end)
-    ONE.Widgets:Button(notes,T("Benachrichtigung testen"),200,24,"TOPLEFT",16,-158,function()
-        ONE:Notify(T("Guild Trip: Dies ist eine Testbenachrichtigung."), { source = T("Guild Trip Test") })
-    end)
-
-    -- Darstellung
-    local look=OptionCard(panel,cols[2].x,-62,cols[2].width,bookL and 375 or cardH,"DARSTELLUNG")
-    local inner=cols[2].width-32
-    Label(look,T("Fenstergröße"),"GameFontHighlight",16,-38,inner-60,"text")
-    local scaleValue=Label(look,"","GameFontHighlight",16+inner-60,-38,60,"text")
-    if scaleValue.SetJustifyH then scaleValue:SetJustifyH("RIGHT") end
-    local slider=OptionSlider(look,16,-60,inner)
-    slider:SetValueStep(.05)
-    ONE.WindowScale:AttachControls(slider,scaleValue)
-    Label(look,T("Schriftgröße"),"GameFontHighlight",16,-92,inner-60,"text")
-    local fontValue=Label(look,"","GameFontHighlight",16+inner-60,-92,60,"text")
-    if fontValue.SetJustifyH then fontValue:SetJustifyH("RIGHT") end
-    local fontSlider=OptionSlider(look,16,-114,inner)
-    local scales=ONE.Kit and ONE.Kit.scales or {1}
-    fontSlider:SetMinMaxValues(1,#scales)
-    fontSlider:SetValueStep(1)
-    fontSlider:SetScript("OnValueChanged",function(_,value)
-        local index=math.floor((value or 1)+.5)
-        local scale=scales[index]
-        if ONE.Kit and scale and math.abs(ONE.Kit.Settings().fontScale-scale)>.001 then ONE.Kit:SetFontScale(scale) end
-    end)
-    local contrast=CheckBox(look,14,-144,T("Hoher Kontrast"),
-        T("Nebentexte werden so hell wie normaler Text."),
-        function() if ONE.Kit then ONE.Kit:ToggleContrast() end end)
-    local clicks=CheckBox(look,14,-174,T("Menüklänge"),
-        T("Leise Klicks beim Wechseln der Guild-Trip-Seiten."),
-        function(v) ONE.db.theme.uiSounds=v end)
-    ONE.Widgets:Button(look,T("Fenstergröße zurücksetzen"),200,24,"TOPLEFT",16,-214,function()
-        ONE.WindowScale:Reset()
-    end)
-
-    -- Weitere Einstellungen (Unterseiten der Module)
-    local moreY,moreH=-62-cardH-12,437-62-cardH-12
-    if bookL then moreY,moreH=-62-190-12,437-62-190-12 end
-    local headerViews=UI.sidebar~=nil
-    if headerViews then moreH=moreH+(panel.__oneLifted or 0) end
-    local more=OptionCard(panel,0,moreY,bookL and bookL.width or W,moreH,
-        bookL and "WEITERE SEITEN" or (headerViews and "SPRACHE & AUSSEHEN" or "WEITERE EINSTELLUNGEN"))
-    local langCard=more
-    if bookL then
-        langCard=look
-        Label(look,"Sprache / Language","GameFontHighlight",16,-252,cols[2].width-32,"text")
-    else
-        -- Sprache: Automatisch (Spielsprache) / Deutsch / English – wirkt nach Neuladen
-        -- Beschriftung direkt ueber dem Auswahlfeld (rechts), damit sie nicht hinter den Knoepfen liegt
-        Label(more,"Sprache / Language","GameFontNormal",W-226,-16,210,"accent")
+    local H=ONE.Geometry.tokens.contentHeight or 437
+    local L,R
+    if ONE.Book and ONE.Book.Spread then L,R=ONE.Book:Spread() end
+    -- Buch: links die Bereiche, rechts die Einstellungen; sonst Liste 150 breit links
+    local listX,listW=L and L.x or 0,L and math.min(L.width,220) or 150
+    local paneX=R and R.x or listW+10
+    local paneW=R and R.width or W-listW-10
+    local top=0
+    if L then
+        Label(panel,T("Optionen"),"GameFontNormalLarge",listX,-4,L.width,"accent")
+        top=-34
     end
-    ONE.Kit:Dropdown(langCard,{point=bookL and "TOPLEFT" or "TOPRIGHT",x=bookL and 16 or -16,y=bookL and -272 or -36,width=bookL and 240 or 210,
+    local list=L and CreateFrame("Frame",nil,panel) or Panel(panel,listX,top,listW,H+top)
+    if L then list:SetPoint("TOPLEFT",panel,"TOPLEFT",listX,top) list:SetSize(listW,H+top) end
+    local pane=R and CreateFrame("Frame",nil,panel) or Panel(panel,paneX,0,paneW,H)
+    if R then pane:SetPoint("TOPLEFT",panel,"TOPLEFT",paneX,0) pane:SetSize(paneW,H) end
+    -- rechts scrollbar (Mausrad); die Leiste der Vorlage sitzt rechts innen
+    local innerW=paneW-44
+    local ok,scroll=pcall(CreateFrame,"ScrollFrame",nil,pane,"UIPanelScrollFrameTemplate")
+    if not ok or not scroll then scroll=CreateFrame("ScrollFrame",nil,pane) end
+    scroll:SetPoint("TOPLEFT",pane,"TOPLEFT",12,-10)
+    scroll:SetSize(innerW,H-20)
+    if scroll.EnableMouseWheel and not scroll.ScrollBar then
+        scroll:EnableMouseWheel(true)
+        scroll:SetScript("OnMouseWheel",function(self,delta)
+            local cur=self.GetVerticalScroll and self:GetVerticalScroll() or 0
+            local max=self.GetVerticalScrollRange and self:GetVerticalScrollRange() or 0
+            self:SetVerticalScroll(math.max(0,math.min(max,cur-delta*40)))
+        end)
+    end
+    local child=CreateFrame("Frame",nil,scroll)
+    child:SetSize(innerW,10)
+    scroll:SetScrollChild(child)
+    UI.optionsScroll,UI.optionsChild=scroll,child
+    local catButtons,rows,heads={},{},{}
+    local shownCat
+    local function CatButton(i)
+        local b=catButtons[i]
+        if b then return b end
+        b=CreateFrame("Button",nil,list)
+        b:SetSize(listW-8,22)
+        local sel=b:CreateTexture(nil,"BACKGROUND")
+        sel:SetAllPoints(b)
+        sel:SetColorTexture(1,.82,0,.15)
+        local hover=b:CreateTexture(nil,"HIGHLIGHT")
+        hover:SetAllPoints(b)
+        hover:SetColorTexture(1,1,1,.07)
+        local text=b:CreateFontString(nil,"OVERLAY","GameFontNormal")
+        text:SetPoint("LEFT",b,"LEFT",10,0)
+        text:SetJustifyH("LEFT")
+        if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(text,"accent") end
+        b.caption,b.sel=text,sel
+        b.SetText=function(_,t) text:SetText(t) end
+        b.GetText=function() return text:GetText() end
+        catButtons[i]=b
+        return b
+    end
+    local function Head(key,title)
+        local h=heads[key]
+        if not h then
+            h=Label(child,title,"GameFontNormal",2,0,innerW-4,"accent")
+            heads[key]=h
+        end
+        return h
+    end
+    local function Layout(cat)
+        local y=0
+        local used={}
+        local lastSection
+        for _,o in ipairs(UI:CategoryEntries(cat)) do
+            if not o.visible or o.visible() then
+                local sec=o.section or ""
+                if sec~=lastSection then
+                    lastSection=sec
+                    if sec~="" then
+                        if y<0 then y=y-10 end
+                        local h=Head(cat.."|"..sec,T(sec))
+                        h:ClearAllPoints() h:SetPoint("TOPLEFT",child,"TOPLEFT",2,y) h:Show()
+                        used[h]=true
+                        y=y-22
+                    end
+                end
+                local row=rows[o.id]
+                if not row then row=BuildRow(child,o,innerW) rows[o.id]=row end
+                if row.refresh then row.refresh() end
+                row:ClearAllPoints()
+                row:SetPoint("TOPLEFT",child,"TOPLEFT",0,y)
+                row:Show()
+                used[row]=true
+                y=y-RowHeight(row,o)
+                if o.master then y=y-6 end
+            end
+        end
+        for _,row in pairs(rows) do if not used[row] then row:Hide() end end
+        for _,h in pairs(heads) do if not used[h] then h:Hide() end end
+        child:SetHeight(math.max(10,-y+10))
+        if shownCat~=cat then
+            shownCat=cat
+            if scroll.SetVerticalScroll then scroll:SetVerticalScroll(0) end
+            if scroll.UpdateScrollChildRect then scroll:UpdateScrollChildRect() end
+        end
+    end
+    return function()
+        local cats=UI:CategoryList()
+        local cat=UI.optionsCategory
+        if not (cat and UI.categories[cat]) then cat="general" UI.optionsCategory=cat end
+        local y,title=-6,""
+        for i,c in ipairs(cats) do
+            local b=CatButton(i)
+            if i>1 and c.core~=cats[i-1].core then y=y-10 end
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT",list,"TOPLEFT",4,y)
+            b:SetText(T(c.title))
+            b.categoryId=c.id
+            b:SetScript("OnClick",function()
+                UI.optionsCategory=c.id
+                UI:Refresh()
+            end)
+            if c.id==cat then b.sel:Show() if b.caption.SetTextColor then b.caption:SetTextColor(1,1,1) end
+            else b.sel:Hide() if b.caption.SetTextColor then b.caption:SetTextColor(1,.82,0) end end
+            b:Show()
+            y=y-24
+            if c.id==cat then title=c.title end
+        end
+        for i=#cats+1,#catButtons do catButtons[i]:Hide() end
+        UI:SetContext("options",T(title))
+        Layout(cat)
+    end
+end
+
+-- Kern-Einstellungen (Allgemein, Darstellung)
+local function RegisterCoreSettings()
+    local function Set(cat,section,o) o.category,o.section=cat,section UI:AddSetting(o) end
+    -- Allgemein › Hinweise
+    Set("general","Hinweise",{id="toast",label="Hinweisfenster anzeigen",order=10,
+        tooltip="Ein kleines Fenster zusätzlich zur Chatzeile.",
+        get=function() return ONE.db.toastEnabled end,
+        set=function(v) ONE.db.toastEnabled=v ONE.Notifications:SettingsChanged() end})
+    Set("general","Hinweise",{id="noticeSound",label="Ton bei Benachrichtigungen",order=11,
+        get=function() return ONE.db.soundEnabled end,set=function(v) ONE.db.soundEnabled=v end})
+    Set("general","Hinweise",{id="noticeTest",kind="button",label="Benachrichtigung testen",order=19,
+        onClick=function() ONE:Notify(T("Guild Trip: Dies ist eine Testbenachrichtigung."),{source=T("Guild Trip Test")}) end})
+    Set("general",nil,{id="noticeHint",kind="text",order=1,
+        label="Benachrichtigungen funktionieren nur, während WoW läuft."})
+    -- Darstellung
+    Set("look","Fenster",{id="windowScale",kind="custom",order=10,build=function(row,w)
+        local sw=math.min(w-80,300)
+        Label(row,T("Fenstergröße"),"GameFontHighlight",4,-2,sw-60,"text")
+        local value=Label(row,"","GameFontHighlight",sw-56,-2,60,"text")
+        if value.SetJustifyH then value:SetJustifyH("RIGHT") end
+        local slider=OptionSlider(row,4,-22,sw)
+        slider:SetValueStep(.05)
+        ONE.WindowScale:AttachControls(slider,value)
+        return nil,48
+    end})
+    Set("look","Fenster",{id="windowReset",kind="button",label="Fenstergröße zurücksetzen",order=11,
+        onClick=function() ONE.WindowScale:Reset() end})
+    local scales=ONE.Kit and ONE.Kit.scales or {1}
+    Set("look","Schrift",{id="fontScale",kind="custom",order=20,build=function(row,w)
+        local sw=math.min(w-80,300)
+        Label(row,T("Schriftgröße"),"GameFontHighlight",4,-2,sw-60,"text")
+        local value=Label(row,"","GameFontHighlight",sw-56,-2,60,"text")
+        if value.SetJustifyH then value:SetJustifyH("RIGHT") end
+        local slider=OptionSlider(row,4,-22,sw)
+        slider:SetMinMaxValues(1,#scales)
+        slider:SetValueStep(1)
+        slider:SetScript("OnValueChanged",function(_,v)
+            local scale=scales[math.floor((v or 1)+.5)]
+            if ONE.Kit and scale and math.abs(ONE.Kit.Settings().fontScale-scale)>.001 then ONE.Kit:SetFontScale(scale) end
+        end)
+        return function()
+            if not ONE.Kit then return end
+            local kit=ONE.Kit.Settings()
+            value:SetText(math.floor(kit.fontScale*100+.5).." %")
+            for i,s in ipairs(scales) do if math.abs(s-kit.fontScale)<.001 and slider.SetValue then slider:SetValue(i) end end
+        end,48
+    end})
+    Set("look","Schrift",{id="contrast",label="Hoher Kontrast",order=21,
+        tooltip="Nebentexte werden so hell wie normaler Text.",
+        get=function() return ONE.Kit and ONE.Kit.Settings().contrast=="high" end,
+        set=function() if ONE.Kit then ONE.Kit:ToggleContrast() end end})
+    Set("look","Sprache und Aussehen",{id="language",kind="dropdown",label="Sprache / Language",order=30,width=220,
         options=function() return {{value=nil,text="Automatisch (Spielsprache)"},{value="de",text="Deutsch"},{value="en",text="English"}} end,
-        get=function() return ONE.db.language end,
-        set=function(v) ONE.db.language=v end,
+        get=function() return ONE.db.language end,set=function(v) ONE.db.language=v end,
         onChange=function() UI:AskReload() end})
-    -- Aussehen: Blizzard oder "Altes Buch" (Probe)
-    local lookChoice=ONE.Kit:Dropdown(langCard,{point=bookL and "TOPLEFT" or "TOPRIGHT",x=bookL and 16 or -16,y=bookL and -312 or -72,width=bookL and 240 or 210,
-        options=function() return {{value="native",text=T("Aussehen: Blizzard")},{value="book",text=T("Aussehen: Altes Buch (Probe)")}} end,
+    Set("look","Sprache und Aussehen",{id="lookChoice",kind="dropdown",label="Aussehen",order=31,width=220,
+        options=function() return {{value="native",text=T("Blizzard")},{value="book",text=T("Altes Buch (Probe)")}} end,
         get=function() return ONE.db.theme and ONE.db.theme.selected=="book" and "book" or "native" end,
         set=function(v) if ONE.Book then ONE.Book:SetEnabled(v=="book") end end})
-    local links={}
-    for i=1,4 do
-        -- Buch: Verzeichnis, eine Zeile je Unterseite, linksbuendig
-        local lw=bookL and 260 or 230
-        local lx=bookL and 16 or 16+((i-1)%2)*(lw+16)
-        local ly=bookL and (-36-(i-1)*28) or (-40-math.floor((i-1)/2)*32)
-        links[i]=ONE.Widgets:Button(more,"",lw,24,"TOPLEFT",lx,ly,function()
-            local action=ONE.UI.optionsLinks[i]
-            if action then ONE.UI:OpenLink(action.viewId) end
-        end)
-        if links[i].AlignLeft then links[i]:AlignLeft() end
-        links[i]:Hide()
-    end
-    return function()
-        local function Set(box,value) if box.SetChecked then box:SetChecked(value and true or false) end end
-        Set(reminders,ONE.db.remindersEnabled)
-        Set(sound,ONE.db.soundEnabled)
-        Set(welcome,ONE.db.loginSummaryEnabled)
-        Set(toast,ONE.db.toastEnabled)
-        Set(clicks,ONE.db.theme and ONE.db.theme.uiSounds)
-        if lookChoice.Refresh then lookChoice:Refresh() end
-        if ONE.Kit then
-            local kit=ONE.Kit.Settings()
-            Set(contrast,kit.contrast=="high")
-            fontValue:SetText(math.floor(kit.fontScale*100+.5).." %")
-            for i,scale in ipairs(scales) do
-                if math.abs(scale-kit.fontScale)<.001 and fontSlider.SetValue then fontSlider:SetValue(i) end
-            end
-        end
-        for i,button in ipairs(links) do
-            local action=ONE.UI.optionsLinks[i]
-            -- mit Symbolleiste stehen die Unterseiten oben als Ansichten
-            if action and not headerViews then button:SetText((bookL and "›  " or "")..T(action.title)) button:Show() else button:Hide() end
-        end
-    end
 end
-
--- Unterseite "Teilen": ein Haekchen je Modul, darunter kurz, was geteilt wird
--- Unterseite "Spielhilfen": Einstellungen der Module (Klasse, Navi ...), je Abschnitt
--- eine Karte; im Buch links/rechts. Neue Optionen erscheinen beim naechsten Aktualisieren.
-local function BuildAssists(panel)
-    local W=UI.Layout.width
-    ONE.Widgets:PageHeader(panel,T("Spielhilfen"),T("Einstellungen für Klassen-Ratgeber und Navi."),W)
-    local cols=UI.Layout:Columns({1,1})
-    local widgets,count={},0
-    local empty=Label(panel,T("Keine Module mit Einstellungen aktiv."),"GameFontHighlightSmall",0,-80,W,"soft")
-    local H={check=28,dropdown=36,button=32}
-    -- zu voll? weiterblaettern (unten rechts)
-    local pager=UI:Pager(panel,cols[2].x,-400,cols[2].width)
-    local BOTTOM=-388
-    -- Abschnitte werden auf einmal aufgebaut (Hoehe aus den Eintraegen) und in die
-    -- jeweils kuerzere Spalte gelegt; kommen spaeter Optionen dazu, wird neu aufgebaut.
-    local function Build()
-        local order,groups={},{}
-        for _,o in ipairs(UI.options) do
-            local name=o.section or "Module"
-            if not groups[name] then groups[name]={} order[#order+1]=name end
-            table.insert(groups[name],o)
-        end
-        local cursor,page={-70,-70},1
-        pager:Reset()
-        for _,name in ipairs(order) do
-            local list=groups[name]
-            local height=48
-            for _,o in ipairs(list) do height=height+H[o.kind or "check"] end
-            local c=(cursor[1]>=cursor[2]) and 1 or 2
-            -- passt nicht mehr: andere Spalte, sonst neue Seite
-            if cursor[c]-height<BOTTOM then c=(c==1) and 2 or 1 end
-            if cursor[c]-height<BOTTOM and (cursor[1]<-70 or cursor[2]<-70) then page,cursor,c=page+1,{-70,-70},1 end
-            local col=cols[c]
-            local card=OptionCard(panel,col.x,cursor[c],col.width,height,name)
-            pager:Add(card,page)
-            cursor[c]=cursor[c]-height-12
-            local y=-40
-            for _,o in ipairs(list) do
-                local kind=o.kind or "check"
-                local w
-                if kind=="dropdown" then
-                    w=ONE.Kit:Dropdown(card,{point="TOPLEFT",x=16,y=y,width=o.width or 220,tooltip=o.tooltip and T(o.tooltip),
-                        options=o.options,get=o.get,set=o.set,onChange=function() end})
-                elseif kind=="button" then
-                    w=ONE.Widgets:Button(card,o.label,220,24,"TOPLEFT",16,y-2,o.onClick)
-                else
-                    w=ONE.Kit:Check(card,{point="TOPLEFT",x=14,y=y,label=o.label,tooltip=o.tooltip,
-                        get=o.get,set=o.set,onChange=function() end})
-                end
-                y=y-H[kind]
-                widgets[#widgets+1]=w
-            end
-        end
-        count=#UI.options
-    end
-    return function()
-        if count==0 and #UI.options>0 then Build() end
-        for _,w in ipairs(widgets) do if w.Refresh then w:Refresh() end end
-        pager:Go(pager.page)
-        if count>0 then empty:Hide() else empty:Show() end
-    end
-end
-
-local function BuildSharing(panel)
-    local W=UI.Layout.width
-    ONE.Widgets:PageHeader(panel,T("Teilen"),
-        T("Hier schaltest du alles an oder aus, was Guild Trip mit deiner Gilde teilt. Ohne Häkchen wird nichts gesendet."),W)
-    if ONE.Book and ONE.Book.Spread and ONE.Book:Spread() then W=ONE.Book.left.width end
-    local card=Panel(panel,0,-70,W,360)
-    local rows={}
-    local empty=Label(card,T("Keine Module mit Teilen-Funktion aktiv."),"GameFontHighlightSmall",16,-16,W-32,"soft")
-    return function()
-        local y=-14
-        local shown=0
-        for _,opt in ipairs(UI.shareOptions) do
-            local row=rows[opt.id]
-            if not row then
-                row={}
-                row.box=ONE.Kit:Check(card,{point="TOPLEFT",x=12,y=0,label=opt.label,
-                    get=opt.get,set=opt.set,onChange=function() UI:Refresh() end})
-                row.note=Label(card,"","GameFontHighlightSmall",42,0,W-60,"soft")
-                rows[opt.id]=row
-            end
-            local visible=(not opt.module or ONE:IsEnabled(opt.module)) and (not opt.visible or opt.visible())
-            if visible then
-                row.box:ClearAllPoints() row.box:SetPoint("TOPLEFT",card,"TOPLEFT",12,y)
-                row.note:ClearAllPoints() row.note:SetPoint("TOPLEFT",card,"TOPLEFT",42,y-24)
-                row.note:SetText(opt.tooltip and T(opt.tooltip) or "")
-                row.box:Refresh() row.box:Show() row.note:Show()
-                -- Hoehe nach Text (frueher fest 62 – lange Beschreibungen liefen aus dem Fenster)
-                local h=row.note.GetStringHeight and row.note:GetStringHeight() or 0
-                if type(h)~="number" or h<=0 then h=26 end
-                y=y-24-h-12
-                shown=shown+1
-            else
-                row.box:Hide() row.note:Hide()
-            end
-        end
-        if shown==0 then empty:Show() else empty:Hide() end
+-- Kern-Funktionen in ihre Bereiche lenken (stehen in Core.lua/Vendor.lua/Book.lua)
+local CORE_FEATURE_PLACE={
+    ["core.loginSummary"]={"general","Hinweise",12},
+    ["core.sounds"]={"look","Klänge",40},
+    ["core.agedInk"]={"look","Sprache und Aussehen",35},
+    ["core.autoRepair"]={"general","Händler",30},
+    ["core.autoRepairGuild"]={"general","Händler",31,1},
+    ["core.sellJunk"]={"general","Händler",32},
+}
+UI.CORE_FEATURE_PLACE=CORE_FEATURE_PLACE
+function UI:PlaceFeatures()
+    for fid,p in pairs(CORE_FEATURE_PLACE) do
+        local f=ONE.features and ONE.features[fid]
+        if f and not f.category then f.category,f.section,f.order,f.indent=p[1],p[2],p[3],p[4] end
     end
 end
 
@@ -1138,13 +1184,11 @@ function UI:Initialize()
         ONE.Kit:RegisterTile("termine",{title="TERMINE",order=10,build=TermineTile})
     end
     self:AddTab("home",T("Startseite"),BuildHome)
-    -- Module als Unterseite der Optionen (spart einen Reiter)
-    self:RegisterView("modules",BuildModules)
-    self:AddOptionsLink("modules",T("Module verwalten"),"modules")
-    self:RegisterView("assists",BuildAssists)
-    self:RegisterView("sharing",BuildSharing)
-    self:AddOptionsLink("sharing",T("Teilen"),"sharing")
-    self:AddOptionsLink("assists",T("Spielhilfen"),"assists")
+    -- Alle Einstellungen in Optionen (Bereiche links); fruehere Unterseiten leiten dorthin
+    RegisterCoreSettings()
+    for old,cat in pairs({modules="general",assists="general",sharing="sharing",["guild-reminder-settings"]="reminders"}) do
+        self:AddAlias(old,"options",function() UI.optionsCategory=cat end)
+    end
     self:AddTab("options",T("Optionen"),BuildOptions)
     self:SelectTab("home")
     self:UpdateBackButton()

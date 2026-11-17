@@ -64,17 +64,14 @@ local guild = {
 assert(loadfile(path .. "/src/ONE_Guild/Reminders.lua"))("ONE_Guild", guild)
 assert(loadfile(path .. "/src/ONE_Guild/UI.lua"))("ONE_Guild", guild)
 guild.UI:RegisterTabs()
-assert(ONE.UI.views["guild-reminder-settings"])
--- 0.4.9: zweiter Link "Module verwalten" kommt aus dem Core
-assert(#ONE.UI.optionsLinks == 4) -- Module, Teilen, Spielhilfen, Erinnerungszeiten
--- 0.6.1: Optionen -> Teilen sammelt alle Teilen-Schalter
-assert(ONE.UI.views.sharing, "Seite Teilen fehlt")
+-- 0.6.9: Erinnerungszeiten stehen in Optionen › Erinnerungen, Teilen-Schalter unter Optionen › Teilen
+assert(not ONE.UI.views["guild-reminder-settings"])
 local hasPosition = false
 for _, o in ipairs(ONE.UI.shareOptions) do if o.id == "position" then hasPosition = true end end
 assert(hasPosition, "Schalter Position fehlt unter Teilen")
-local hasReminder = false
-for _, link in ipairs(ONE.UI.optionsLinks) do if link.title == "Erinnerungszeiten einstellen" then hasReminder = true end end
-assert(hasReminder)
+local hasTimes = false
+for _, o in ipairs(ONE.UI.settingList) do if o.id == "reminderTimes" and o.category == "reminders" then hasTimes = true end end
+assert(hasTimes, "Erinnerungszeiten fehlen in Optionen › Erinnerungen")
 
 local function ButtonByLabel(label)
     for _, element in ipairs(elements) do
@@ -88,9 +85,15 @@ local function Click(label)
     button.scripts.OnClick(button)
 end
 ONE.UI:Navigate("options")
--- 0.6.8: mit Symbolleiste steht die Unterseite oben als Ansicht "Erinnerungen"
-Click(ONE.UI.sidebar and "Erinnerungen" or "Erinnerungszeiten einstellen")
-assert(ONE.UI.activeTab == "guild-reminder-settings")
+-- Bereich "Erinnerungen" in der Liste links anklicken
+local catButton
+for _, element in ipairs(elements) do if element.categoryId == "reminders" then catButton = element end end
+assert(catButton, "Bereich Erinnerungen fehlt")
+catButton.scripts.OnClick(catButton)
+assert(ONE.UI.activeTab == "options" and ONE.UI.optionsCategory == "reminders")
+-- alte Unterseite leitet hierher
+ONE.UI:Navigate("guild-reminder-settings")
+assert(ONE.UI.activeTab == "options" and ONE.UI.optionsCategory == "reminders")
 local R = guild.Reminders
 Click("30 Min.")
 local found = false
@@ -115,5 +118,5 @@ assert(#R:GetThresholds() == 4)
 assert(R:GetThresholds()[1] == 60)
 assert(ONE.UI:CanGoBack())
 assert(ONE.UI:GoBack())
-assert(ONE.UI.activeTab == "options")
+assert(ONE.UI.activeTab ~= "options")
 print("OK: UI-Links, Eingabe, Schnellauswahl, Entfernen, Standard, Zurück-Navigation")

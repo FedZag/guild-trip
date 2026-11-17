@@ -145,7 +145,11 @@ function proto:SetColorTexture(r, g, b, a) self.colorTex = {r, g, b, a or 1} sel
 function proto:SetVertexColor(r, g, b, a) self.vertex = {r, g, b, a or 1} end
 function proto:GetVertexColor() local c = self.vertex or {1,1,1,1} return c[1], c[2], c[3], c[4] end
 function proto:SetTexCoord(...) self.coords = {...} end
-function proto:SetGradient() end
+function proto:SetGradient(orient, c1, c2)
+    if type(c1) == "table" and type(c2) == "table" then
+        self.grad = {orient, {c1.r or 0, c1.g or 0, c1.b or 0, c1.a or 1}, {c2.r or 0, c2.g or 0, c2.b or 0, c2.a or 1}}
+    end
+end
 function proto:SetDrawLayer(l, sub) self.layer, self.sub = l, sub end
 function proto:GetDrawLayer() return self.layer or "ARTWORK", self.sub or 0 end
 function proto:SetFrameLevel(l) self.level = l end
@@ -519,7 +523,9 @@ end})
 
 -- ===== Gespeicherte Daten (erfunden) =====
 ProjectONEDB = {theme = {selected = "native", uiSounds = false}, soundEnabled = false, minimap = {hidden = true},
-    seenVersion = "0.6.7-alpha", loginSummaryEnabled = false, toastEnabled = false}
+    seenVersion = "0.6.7-alpha", loginSummaryEnabled = false, toastEnabled = false,
+    dungeons = {pass = {Testheld = {d = {wc = {first = 1763000000, last = 1763300000, runs = 2}, rfc = {first = 1762500000, runs = 1},
+        dm = {first = 1763350000, runs = 1}}, t = {{id = "x", title = "Brachland-Treffen", time = 1763200000, count = 8}}}}}}
 if mode == "book" then ProjectONEDB.theme.selected = "book" ProjectONEDB.theme.book = true end
 
 -- ===== Addons laden =====
@@ -591,7 +597,7 @@ local function Dump(frame)
             if o.layer == "HIGHLIGHT" then return end
             if not o.tex and not o.colorTex and not o.atlas then return end
             e.tex = type(o.tex) == "string" and o.tex or (type(o.tex) == "number" and tostring(o.tex)) or nil e.atlas = Str(o.atlas)
-            e.col = Color(o.colorTex) e.v = Color(o.vertex) e.a = o.alpha ~= 1 and o.alpha or nil
+            e.col = Color(o.colorTex) e.v = Color(o.vertex) if o.grad then e.grad = {o.grad[1], Color(o.grad[2]), Color(o.grad[3])} end e.a = o.alpha ~= 1 and o.alpha or nil
             e.l = LAYERS[o.layer or "ARTWORK"] or 3
             if o.coords then local c = {} for i, v in ipairs(o.coords) do if type(v) == "number" then c[i] = Num(v) end end e.tc = c end
         else
@@ -694,6 +700,12 @@ local frame = ONE.UI.frame
 frame:ClearAllPoints() frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 frame:Show()
 for _, id in ipairs(wanted) do
+  local mod, sub = id:match("^(%w+):(%w+)$")
+  if mod and namespaces["ONE_" .. mod:sub(1, 1):upper() .. mod:sub(2)] then
+      local ns = namespaces["ONE_" .. mod:sub(1, 1):upper() .. mod:sub(2)]
+      if ns.Page then ns.Page.view = sub end
+      id = mod
+  end
   if id == "chat" then DumpChat() else
     local ok, e = pcall(function() ONE.UI:Navigate(id) ONE.UI:Refresh() end)
     if not ok then errors[#errors+1] = "Seite " .. id .. ": " .. tostring(e) end

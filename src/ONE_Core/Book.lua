@@ -52,7 +52,7 @@ Book.soft = {.36, .25, .14}
 -- Buch und Schrift sollen wirken, als waeren sie tausende Jahre alt – trotzdem lesbar:
 -- verblasstes Sepia statt frischem Schwarz, ein feiner brauner Hof (ausgelaufene Tinte)
 -- und ein halbdurchsichtiges Abrieb-Bild ueber den Seiten (Textures/Book/Wear.tga,
--- scripts/build_book.py --wear). Schalter: Optionen › Module › "Gealterte Tinte".
+-- scripts/build_book.py --wear). Schalter: Optionen › Darstellung › "Gealterte Tinte".
 Book.wearArt = "Interface\\AddOns\\ONE_Core\\Textures\\Book\\Wear.tga"
 Book.agedInk = {.26, .16, .07}
 Book.agedSoft = {.42, .31, .19}
@@ -285,7 +285,7 @@ end
 Book.tabArt = "Interface\\AddOns\\ONE_Core\\Textures\\Book\\TabWorn.tga"
 Book.tabIcons = "Interface\\AddOns\\ONE_Core\\Textures\\Book\\TabIcons.tga"
 Book.tabIconIndex = {home = 0, guild = 1, calendar = 2, dungeons = 3, groups = 3, crafting = 4, classes = 5,
-    quests = 6, nav = 7, options = 8}
+    quests = 6, nav = 7, options = 8, leveling = 10}
 Book.tab = {width = 46, active = 56, hover = 160, height = 40, gap = 10, top = -64, out = -6}
 
 -- WoWs Reiter-Logik setzt Schrift/Farbe (normal, Maus, ausgewaehlt) und Breite immer

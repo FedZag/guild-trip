@@ -144,6 +144,14 @@ local check
 for _, r in ipairs(made) do if r.kind == "CheckButton" and r.point and r.point[5] == -56 then check = r end end
 check.checked = false
 check.scripts.OnClick(check)
+-- 0.6.8: im Blizzard-Aussehen ersetzt eine Auswahl mit Zaehlern das Haekchen
+if M:Store().category then
+    assert(d.Page.InCategory({suitable = false, min = 15}, "level") == false and d.Page.InCategory({min = 24}, "20"), "Kategorien")
+    local opts = d.Page:CategoryOptions()
+    assert(#opts >= 3 and opts[2].value == "all", "Auswahl mit Zaehlern")
+    M:Store().category = "all"
+    d.Page:Refresh()
+end
 local shown = 0
 for _, r in ipairs(rows) do if r.shown and r.item then shown = shown + 1 end end
 assert(shown == #rows, "ohne Filter ist die Liste voll")

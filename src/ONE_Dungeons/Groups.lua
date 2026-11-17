@@ -48,7 +48,7 @@ function Groups:Build(panel)
     -- Einstellungen rechts oben: zwei Haekchen (an/aus) und die Rolle als Dropdown
     local function Changed() Groups:Refresh() end
     -- "Fortschritt teilen" steht in Optionen › Teilen
-    -- Hinweise und Rolle: Optionen › Spielhilfen (Groups:Register)
+    -- Hinweise und Rolle: Optionen › Dungeons (Page:Register, Init.lua)
 
     -- Buch: Liste auf der linken Seite (Rolle/Alter im Tooltip der Detailkarte), Karte rechts
     local cols = bookL and {

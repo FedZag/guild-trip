@@ -24,8 +24,11 @@ local ONE = {db = {}, modules = {}}
 _G.ProjectONE = ONE
 local tabs = {}
 ONE.UI = {AddTab = function(_, id, title, builder) tabs[id] = {title = title, refresh = builder(Region("Frame"))} return true end,
-    -- Ausrichtung/Situation stehen seit 0.6.1 in Optionen › Spielhilfen
-    AddOption = function(_, o) if o.id == "classSpec" then ONE.dd = o elseif o.id == "classSituation" then ONE.sit = o end return true end}
+    -- 0.6.9: Situation in Optionen › Klasse; Ausrichtung nur noch auf der Seite (nicht doppelt)
+    AddSetting = function(_, o)
+        assert(o.id ~= "classSpec", "Spielstil nicht doppelt in den Optionen")
+        if o.id == "classSituation" then assert(o.category == "classes") ONE.sit = o end
+        return true end}
 ONE.Kit = {List = function(_, parent, opts)
         assert(parent, "Liste ohne Elternfenster")
         local l = Region("Frame", parent)

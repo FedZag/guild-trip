@@ -135,6 +135,11 @@ def render_page(page, scale, book=False):
             continue
         if k == "Texture":
             a = it.get("a")
+            if it.get("grad"):
+                g = it["grad"]
+                deg = "90deg" if g[0] == "HORIZONTAL" else "0deg"
+                parts.append('<div class="e" style="%sbackground:linear-gradient(%s,%s,%s)"></div>' % (st, deg, rgba(g[1]), rgba(g[2])))
+                continue
             if it.get("col"):
                 col = it["col"]
                 if it.get("v"):

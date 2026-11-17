@@ -103,7 +103,7 @@ function Loot:Render()
             if parchment and ONE.Book and ONE.Book.InkCodes then link = ONE.Book.InkCodes(link) end
             local stamp = type(date) == "function" and ("|cff8a8a8a" .. date("%H:%M", e.time) .. "|r  ") or ""
             if parchment and ONE.Book and ONE.Book.InkCodes then stamp = ONE.Book.InkCodes(stamp) end
-            local line = stamp .. link .. (e.count > 1 and (" x" .. e.count) or "") .. "  →  |Hplayer:" .. e.who .. ":0|h" .. name .. "|h"
+            local line = stamp .. link .. (e.count > 1 and (" x" .. e.count) or "") .. "  –  |Hplayer:" .. e.who .. ":0|h" .. name .. "|h"
             if self.modern then
                 local id = tonumber(tostring(link):match("item:(%d+)"))
                 local icon = id and C_Item and type(C_Item.GetItemIconByID) == "function" and select(2, pcall(C_Item.GetItemIconByID, id))

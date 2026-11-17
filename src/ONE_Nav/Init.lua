@@ -40,31 +40,32 @@ local function Navi(rest)
     end
 end
 
--- Einzelfunktionen (Optionen › Module)
+-- Einzelfunktionen (Optionen › Navi)
 if ONE.RegisterFeature then
-    ONE:RegisterFeature("nav.quests", {module = "nav", label = "Quest-Seite (Reiter Quests)", reload = true,
+    ONE:RegisterFeature("nav.quests", {module = "nav", section = "Quests", order = 30, label = "Quest-Seite (Reiter Quests)", reload = true,
         tooltip = "Eigener Reiter mit deinen Quests, Fortschritt und Navi. Wirkt nach dem Neuladen."})
-    ONE:RegisterFeature("nav.questMap", {module = "nav", label = "Quest-Symbole auf der Weltkarte",
+    ONE:RegisterFeature("nav.questMap", {module = "nav", section = "Quests", order = 31, label = "Quest-Symbole auf der Weltkarte",
+        tooltip = "Zeigt die Zielgebiete deiner Quests auf der Weltkarte (Ring mit Punkt) und wo du fertige Quests abgibst (Ring mit Haken). Klick startet das Navi.",
         get = function() return nav.QuestPins:Settings().map end,
         set = function(on) nav.QuestPins:Settings().map = on and true or false nav.QuestPins:Refresh() end})
-    ONE:RegisterFeature("nav.questMinimap", {module = "nav", label = "Quest-Symbole auf der Minimap",
+    ONE:RegisterFeature("nav.questMinimap", {module = "nav", section = "Quests", order = 32, label = "Quest-Symbole auf der Minimap",
         get = function() return nav.QuestPins:Settings().minimap end,
         set = function(on) nav.QuestPins:Settings().minimap = on and true or false nav.QuestPins:Refresh() end})
-    ONE:RegisterFeature("nav.givers", {module = "nav", label = "Questgeber (!) sammeln und zeigen",
-        tooltip = "Merkt sich NPCs, die Quests anbieten, und zeigt ein „!“ auf Karte und Minimap."})
-    ONE:RegisterFeature("nav.routes", {module = "nav", label = "Wegführung über das Guild-Trip-Wegenetz",
+    ONE:RegisterFeature("nav.givers", {module = "nav", section = "Quests", order = 33, label = "Questgeber (!) sammeln und zeigen",
+        tooltip = "Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."})
+    ONE:RegisterFeature("nav.routes", {module = "nav", section = "Weg", order = 20, label = "Wegführung über das Guild-Trip-Wegenetz",
         tooltip = "Der Pfeil folgt vorab berechneten Laufwegen (Straßen, Brücken, Pässe) zwischen Questgebern, Lehrern, Händlern und Flugmeistern – ohne Zusatz-Addon. Ist Shortest Path Forever installiert, führt weiter dieses."})
-    ONE:RegisterFeature("nav.routeDots", {module = "nav", label = "Weg als Punkte auf Minimap und Weltkarte",
+    ONE:RegisterFeature("nav.routeDots", {module = "nav", section = "Weg", order = 21, label = "Weg als Punkte auf Minimap und Weltkarte",
         tooltip = "Folgt der Pfeil dem Wegenetz, zeigen goldene Punkte den Weg auf Minimap und Weltkarte, ein Ring die nächste Abbiegung."})
-    ONE:RegisterFeature("nav.routeWaypoint", {module = "nav", label = "Nächste Abbiegung als WoW-Wegpunkt",
+    ONE:RegisterFeature("nav.routeWaypoint", {module = "nav", section = "Weg", order = 23, label = "Nächste Abbiegung als WoW-Wegpunkt",
         tooltip = "Setzt die nächste Abbiegung als WoW-Wegpunkt – so siehst du sie auch in der Spielwelt. Einen eigenen Wegpunkt von dir überschreibt Guild Trip nicht."})
-    ONE:RegisterFeature("nav.spf", {module = "nav", label = "Wegführung über Shortest Path Forever (wenn installiert)",
+    ONE:RegisterFeature("nav.spf", {module = "nav", section = "Weg", order = 24, label = "Wegführung über Shortest Path Forever (wenn installiert)",
         tooltip = "Ist das kostenlose Addon Shortest Path Forever installiert, übernimmt es die Wegführung: echte Wege, Flugrouten, Schiffe und die Route auf den Karten. Ohne es zeigt der Guild-Trip-Pfeil die Richtung."})
-    ONE:RegisterFeature("nav.trackerNavi", {module = "nav", label = "Klick auf ? oder … in der Zielverfolgung startet das Navi",
+    ONE:RegisterFeature("nav.trackerNavi", {module = "nav", section = "Quests", order = 34, label = "Klick auf ? oder … in der Zielverfolgung startet das Navi",
         tooltip = "Klickst du in der Quest-Zielverfolgung auf das Fragezeichen oder die drei Punkte, zeigt der Pfeil zur Quest (Ziel bzw. Abgabe)."})
-    ONE:RegisterFeature("nav.corpse", {module = "nav", label = "Nach dem Tod: Pfeil zur Leiche",
+    ONE:RegisterFeature("nav.corpse", {module = "nav", section = "Pfeil", order = 14, label = "Nach dem Tod: Pfeil zur Leiche",
         tooltip = "Als Geist zeigt der Pfeil zu deiner Leiche; danach geht es zum vorherigen Ziel weiter. Aus, solange Polestar läuft (eigener Pfeil)."})
-    ONE:RegisterFeature("nav.merchants", {module = "nav", label = "Händler-Verzeichnis",
+    ONE:RegisterFeature("nav.merchants", {module = "nav", section = "Händler", order = 40, label = "Händler-Verzeichnis",
         tooltip = "Merkt sich Händler, die du öffnest, und zeigt sie in der Navi unter „Händler“."})
 end
 
