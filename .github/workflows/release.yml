@@ -1,0 +1,54 @@
+# Neue Version: Tag "v<version>" pushen (z. B. v0.6.7-alpha) -> testen, bauen, auf CurseForge hochladen,
+# GitHub-Release mit dem Paket anlegen. Braucht das Secret CF_API_TOKEN und die Variable CF_PROJECT_ID.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lua 5.1 installieren
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lua5.1
+
+      - name: Tag passt zur Version im Addon
+        run: |
+          ver=$(grep -oP 'ONE\.version = "\K[^"]+' src/ONE_Core/Core.lua)
+          test "v$ver" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME passt nicht zu Version $ver"; exit 1; }
+          echo "VERSION=$ver" >> "$GITHUB_ENV"
+
+      - name: Tests
+        run: bash scripts/check.sh
+
+      - name: Paket bauen
+        run: python3 -I scripts/build_release_windows.py --curseforge
+
+      - name: Auf CurseForge hochladen
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_PROJECT_ID: ${{ vars.CF_PROJECT_ID }}
+          CF_GAME_VERSION: ${{ vars.CF_GAME_VERSION || '1.60.1' }}
+          CF_GAME_VERSION_TYPE: ${{ vars.CF_GAME_VERSION_TYPE }}
+          CF_RELEASE_TYPE: ${{ vars.CF_RELEASE_TYPE || 'release' }}
+        run: python3 -I scripts/upload_curseforge.py
+
+      - name: GitHub-Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -I - <<'PY' > notes.md
+          import re, os
+          ver = os.environ['VERSION']
+          text = open('CHANGELOG.md', encoding='utf-8').read()
+          head = re.search(r'^## ' + re.escape(ver) + r'\b.*$', text, re.M)
+          block = re.search(r'```[a-z]*\n(.*?)```', text[head.end():], re.S)
+          print(block.group(1).strip())
+          PY
+          gh release create "$GITHUB_REF_NAME" "dist/GuildTrip_${VERSION}_CurseForge.zip" --title "Guild Trip $VERSION" --notes-file notes.md
