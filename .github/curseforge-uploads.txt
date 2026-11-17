@@ -1,0 +1,4 @@
+# Schon auf CurseForge hochgeladene Versionen (scripts/upload_curseforge.py liest diese Liste).
+# Steht eine Version hier, laedt das Skript sie nicht nochmal hoch – auch nicht beim Release-Tag.
+# Format: <version> <datei-id> <datum> <wie>
+0.7.0-alpha 9674147 2026-11-17 von Hand (Claude Code, Tag-Push war gesperrt)
