@@ -21,6 +21,7 @@ Trainer.lua
 LootPack.lua
 Loot.lua
 Gear.lua
+LootNeed.lua
 Weapons.lua
 Page.lua
 Init.lua

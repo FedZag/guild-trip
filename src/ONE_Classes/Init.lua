@@ -23,6 +23,8 @@ if ONE.RegisterFeature then
         tooltip = "Zeile im Gegenstands-Tooltip: besser oder schlechter für deinen Spielstil als das, was du trägst."})
     ONE:RegisterFeature("classes.loot", {module = "classes", section = "Ratgeber", order = 12, label = "Beute merken (Fundorte)",
         tooltip = "Merkt sich beim Plündern, welcher Gegner welche Ausrüstung fallen lässt, und zeigt den Fundort im Tooltip."})
+    ONE:RegisterFeature("classes.lootNeed", {module = "classes", section = "Ratgeber", order = 14, label = "Wer braucht die Beute? (Gruppe)",
+        tooltip = "Fällt in der Gruppe Ausrüstung, rechnet jeder mit Guild Trip aus, ob sie für ihn besser ist. Ein kleines Fenster und der Tooltip zeigen: „Bob (+12 %), Gildi (Platz frei)“ – so geht die Beute an den, der sie wirklich braucht."})
     ONE:RegisterFeature("classes.trainer", {module = "classes", section = "Ratgeber", order = 13, label = "Ratgeber beim Klassenlehrer",
         tooltip = "Kleines Fenster beim Klassenlehrer: was sich zu lernen lohnt.",
         get = function() return not (ONE.db.classGuide and ONE.db.classGuide.trainerAdvice == false) end,
@@ -39,6 +41,7 @@ ONE:RegisterModule("classes", {
         classes.Talents:Initialize()
         classes.Trainer:Initialize()
         if classes.Gear then classes.Gear:Initialize() end
+        if classes.LootNeed then classes.LootNeed:Initialize() end
         if classes.Loot then classes.Loot:Initialize() end
         local function RefreshIfVisible()
             local ui = ONE.UI
