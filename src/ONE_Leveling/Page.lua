@@ -92,8 +92,8 @@ function Page:Build(parent, W, H, getMode)
     local function Items(plan, mode)
         local out = {}
         if mode == "zones" then
-            -- oben: Monster in der Naehe (immer, mit Vergleich zum Plan), dann die Gebiete
-            local out = G:GrindItems(G:Grind(plan), true)
+            -- oben: Monster hauen, wenn es schneller zur naechsten Stufe bringt; dann die Gebiete
+            local out = G:GrindItems(G:Grind(plan))
             for _, it in ipairs(G:ZoneItems(plan, state)) do out[#out + 1] = it end
             return out
         end
@@ -104,7 +104,7 @@ function Page:Build(parent, W, H, getMode)
             return out
         end
         -- Plan: lohnt sich Monster hauen gerade mehr, steht das oben (nur ein Hinweis)
-        out = G:GrindItems(G:Grind(plan), false)
+        out = G:GrindItems(G:Grind(plan))
         local lastMap
         for i, s in ipairs(plan.steps) do
             if s.mapID and s.mapID ~= lastMap then

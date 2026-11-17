@@ -86,17 +86,50 @@ function Gr.PlanEPM(plan)
     return xp / minutes
 end
 
--- Empfehlung: {worth = true|false, camps = {…}, planEPM, reason = "empty"|"faster"|nil}
-function Gr:Advice(ctx, plan)
-    local camps = self:Camps(ctx)
-    local top = {}
-    for i = 1, math.min(self.TOP, #camps) do top[i] = camps[i] end
-    local planEPM = Gr.PlanEPM(plan)
-    local best = top[1]
-    local worth, reason = false, nil
-    if best then
-        if not planEPM then worth, reason = true, "empty"
-        elseif best.score > planEPM * self.BETTER then worth, reason = true, "faster" end
+-- Minuten bis zur naechsten Stufe NUR mit Quests aus dem Plan (Schritte in Plan-Reihenfolge,
+-- echte Zeit und EP je Schritt). nil = der Plan reicht nicht bis zur naechsten Stufe.
+function Gr.QuestMinutes(plan, need)
+    if not (plan and need and need > 0) then return nil end
+    local xp, minutes = 0, 0
+    for _, st in ipairs(plan.steps or {}) do
+        xp, minutes = xp + (st.gain or 0), minutes + (st.cost or 0)
+        if xp >= need then return minutes end
     end
-    return {worth = worth, reason = reason, camps = top, planEPM = planEPM}
+    return nil
+end
+
+-- Minuten bis zur naechsten Stufe NUR mit Monster hauen in diesem Lager (Weg + Kaempfen)
+function Gr.FarmMinutes(camp, need)
+    if not (camp and need and need > 0 and camp.epm > 0) then return nil end
+    return camp.travel + need / camp.epm
+end
+
+-- Empfehlung (Nutzer 17.11.2026: "Monster nur, wenn es fuer den Stufenaufstieg schneller ist als Quests"):
+-- Vergleich Zeit bis zur naechsten Stufe – nur Quests (Plan) gegen nur Monster hauen (je Lager).
+--   worth  = mindestens ein Lager bringt dich spuerbar schneller zur naechsten Stufe
+--   reason = "empty" (keine passenden Quests) | "noLevel" (Plan reicht nicht bis zur Stufe) | "faster"
+--   camps  = nur die Lager, die schneller sind (beste zuerst), je mit .minutes (bis zur Stufe)
+-- ctx.xpNeed = fehlende EP bis zur naechsten Stufe. Ohne diese Angabe: Vergleich der EP pro Minute.
+function Gr:Advice(ctx, plan)
+    local all = self:Camps(ctx)
+    local need = ctx.xpNeed
+    local planEPM = Gr.PlanEPM(plan)
+    local questMin = Gr.QuestMinutes(plan, need)
+    local empty = not plan or #(plan.steps or {}) == 0
+    local out, reason = {}, nil
+    for _, c in ipairs(all) do
+        local faster
+        if need and need > 0 then
+            c.minutes = Gr.FarmMinutes(c, need)
+            faster = empty or not questMin or (c.minutes and c.minutes * self.BETTER < questMin)
+        else
+            faster = empty or not planEPM or c.score > planEPM * self.BETTER
+        end
+        if faster then out[#out + 1] = c end
+    end
+    if need and need > 0 then table.sort(out, function(a, b) return a.minutes < b.minutes end) end
+    local top = {}
+    for i = 1, math.min(self.TOP, #out) do top[i] = out[i] end
+    if #top > 0 then reason = empty and "empty" or (need and not questMin) and "noLevel" or "faster" end
+    return {worth = #top > 0, reason = reason, camps = top, planEPM = planEPM, questMinutes = questMin, need = need}
 end

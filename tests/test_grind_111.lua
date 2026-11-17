@@ -53,6 +53,33 @@ assert(a.worth and a.reason == "faster" and a.planEPM == 10)
 -- Dungeon-Halt zaehlt nicht zum Plan-Tempo
 local pl = {steps = {{kind = "turnin", gain = 600, cost = 2}, {kind = "dungeon", gain = 0, cost = 45}}, blocks = {{first = 1, last = 2}}, xp = 600, minutes = 47}
 assert(Gr.PlanEPM(pl) == 300)
+-- 2b) Regel (Nutzer): Monster nur, wenn es schneller zur naechsten Stufe bringt als die Quests
+local best = Gr:Camps(ctx)[1]
+ctx.xpNeed = 3000
+local farmMin = Gr.FarmMinutes(best, 3000)
+assert(math.abs(farmMin - (best.travel + 3000 / best.epm)) < .001)
+-- Quests: 3 Schritte, Stufe nach dem zweiten erreicht
+local function Steps(list)
+    local steps = {}
+    for i, g in ipairs(list) do steps[i] = {kind = "turnin", gain = g[1], cost = g[2]} end
+    return {steps = steps, blocks = {{first = 1, last = #steps}}}
+end
+local fast = Steps({{2000, 3}, {1500, 4}, {500, 1}})          -- Stufe in 7 Min.
+assert(Gr.QuestMinutes(fast, 3000) == 7)
+a = Gr:Advice(ctx, fast)
+assert(not a.worth and #a.camps == 0 and a.questMinutes == 7, "Quests schneller: kein Farm-Hinweis")
+local slow = Steps({{500, 20}, {500, 20}, {2500, 30}})        -- Stufe erst nach 70 Min.
+a = Gr:Advice(ctx, slow)
+assert(a.worth and a.reason == "faster" and a.questMinutes == 70 and a.camps[1].minutes < 70 / Gr.BETTER, "Farmen schneller")
+for i = 2, #a.camps do assert(a.camps[i].minutes >= a.camps[i - 1].minutes, "schnellstes Lager zuerst") end
+-- Plan reicht nicht bis zur Stufe
+a = Gr:Advice(ctx, Steps({{500, 5}}))
+assert(a.worth and a.reason == "noLevel" and a.questMinutes == nil)
+-- knapp: nur 5 % schneller ist nicht "spuerbar"
+local same = Steps({{3000, farmMin * 1.05}})
+assert(not Gr:Advice(ctx, same).worth, "knapp schneller reicht nicht")
+ctx.xpNeed = nil
+
 -- 3) Ohne Gegnerdaten: nichts, kein Fehler
 local m = GuildTripQuestDB.m
 GuildTripQuestDB.m = nil

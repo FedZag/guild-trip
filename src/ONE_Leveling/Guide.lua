@@ -104,6 +104,8 @@ function G:Context()
             if e then return {e.mapID, e.x, e.y} end
         end,
         prefer = self.plan and self.plan.steps[1] and self.plan.steps[1].stopKey,
+        -- fehlende EP bis zur naechsten Stufe (fuer "Monster hauen oder Quests?")
+        xpNeed = (Try(UnitXPMax, "player") or 0) - (Try(UnitXP, "player") or 0),
     }
 end
 
@@ -238,18 +240,22 @@ function G.CampText(c)
     return T("%s (Stufe %s) · %s %d/%d", c.name, lvl, G.ZoneName(c.mapID), math.floor(c.x * 100 + .5), math.floor(c.y * 100 + .5))
 end
 
--- Listeneintraege: Ueberschrift + bis zu drei Lager
-function G:GrindItems(advice, always)
+-- Listeneintraege: Ueberschrift + bis zu drei Lager – NUR wenn Monster hauen schneller zur
+-- naechsten Stufe bringt als die Quests (Nutzer 17.11.2026)
+function G:GrindItems(advice)
     local out = {}
-    if not advice or #advice.camps == 0 or not (advice.worth or always) then return out end
+    if not (advice and advice.worth) then return out end
     local head
     if advice.reason == "empty" then head = T("MONSTER HAUEN – GERADE KEINE PASSENDEN QUESTS")
-    elseif advice.worth then head = T("MONSTER HAUEN LOHNT SICH GERADE")
-    else head = T("MONSTER IN DER NÄHE – DEIN PLAN IST SCHNELLER (~%d EP/MIN)", math.floor((advice.planEPM or 0) + .5)) end
+    elseif advice.reason == "noLevel" then head = T("MONSTER HAUEN – DIE QUESTS REICHEN NICHT BIS ZUR NÄCHSTEN STUFE")
+    elseif advice.questMinutes then head = T("MONSTER HAUEN IST SCHNELLER: NÄCHSTE STUFE IN ~%d STATT ~%d MIN.",
+        math.max(1, math.floor(advice.camps[1].minutes + .5)), math.floor(advice.questMinutes + .5))
+    else head = T("MONSTER HAUEN LOHNT SICH GERADE") end
     out[#out + 1] = {key = "gh", header = true, text = head}
     for _, c in ipairs(advice.camps) do
-        out[#out + 1] = {key = "g" .. c.npc .. ":" .. c.mapID, camp = c, step = G.CampStep(c), dim = not advice.worth,
-            text = G.CampText(c), tags = "|cff40ff40" .. T("~%d EP/Min", math.floor(c.epm + .5)) .. "|r"}
+        local tag = c.minutes and T("Stufe in ~%d Min.", math.max(1, math.floor(c.minutes + .5))) or T("~%d EP/Min", math.floor(c.epm + .5))
+        out[#out + 1] = {key = "g" .. c.npc .. ":" .. c.mapID, camp = c, step = G.CampStep(c),
+            text = G.CampText(c), tags = "|cff40ff40" .. tag .. "|r"}
     end
     return out
 end
@@ -265,15 +271,19 @@ function G:CampWhy(c, advice)
     local rows = {
         {T("EP je Gegner (für Stufe %d)", L), tostring(math.floor(xp + .5))},
         {T("Zeit je Gegner (Kampf + Laufen)"), T("~%d s", math.floor(secs + .5))},
-        {T("Gegner im Lager"), tostring(c.count)},
         {T("EP pro Minute"), tostring(math.floor(c.epm + .5))},
         {T("Weg dorthin"), T("~%d min", math.max(1, math.floor(c.travel + .5)))},
     }
-    if advice and advice.planEPM then rows[#rows + 1] = {T("dein Plan gerade (dieses Gebiet)"), T("~%d EP/Min", math.floor(advice.planEPM + .5))} end
+    if c.minutes then rows[#rows + 1] = {T("nächste Stufe durch Farmen"), T("~%d min", math.max(1, math.floor(c.minutes + .5)))} end
+    if advice and advice.questMinutes then
+        rows[#rows + 1] = {T("nächste Stufe mit Quests"), T("~%d min", math.floor(advice.questMinutes + .5))}
+    elseif advice and advice.reason == "noLevel" then
+        rows[#rows + 1] = {T("nächste Stufe mit Quests"), T("reicht nicht")}
+    end
     local verdict
     if advice and advice.reason == "empty" then verdict = T("Gerade keine passenden Quests – hier geht es am schnellsten weiter.")
-    elseif advice and advice.worth then verdict = T("Schneller als dein Plan: zwischendurch hier farmen bringt mehr EP pro Minute.")
-    else verdict = T("Dein Plan ist gerade schneller – farmen nur, wenn du Lust drauf hast.") end
+    elseif advice and advice.reason == "noLevel" then verdict = T("Die Quests im Plan reichen nicht bis zur nächsten Stufe – hier holst du den Rest am schnellsten.")
+    else verdict = T("Hier kommst du schneller zur nächsten Stufe als mit den Quests. Danach geht es mit dem Plan weiter.") end
     return rows, verdict
 end
 
