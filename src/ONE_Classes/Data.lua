@@ -248,15 +248,20 @@ function Data:Build(def, spec, situation)
     return merged
 end
 
--- Volksfaehigkeiten (Horde, Auslese 14.11.2026). Aktive bekommen auf jeder
--- Leiste den festen Platz 12 – nur wenn man sie hat (Volk wird so von selbst
--- erkannt). Je Volk hoechstens eine pro Leiste.
+-- Volksfaehigkeiten. Horde: Auslese 14.11.2026 (Forever-Nummern). Allianz (0.7.0): Classic-Nummern –
+-- erkannt wird ueber den Namen des Zaubers, eine neue Forever-Nummer mit gleichem Namen passt also auch.
+-- Aktive bekommen auf jeder Leiste den festen Platz 12 – nur wenn man sie hat (Volk wird so von
+-- selbst erkannt). Je Volk hoechstens eine pro Leiste.
 --   Leiste 1: Staerkephase · Leiste 2: Notfall · Leiste 3: Hilfe
 Data.racePos = 12
 Data.raceSlots = {
     [1] = {{20554, 20572}, "Volk"},                   -- Troll Berserker, Orc Kochendes Blut
-    [2] = {{7744, 1299026, 20549, 1259416}, "Volk"},  -- Untoter Wille, Orc Fluch brechen, Tauren Kriegsdonner, Windformer Luftwandeln
-    [3] = {{20577, 1260270, 1259686, 20552}, "Volk"}, -- Untoter Kannibalismus, Troll Rasche Regeneration, Windformer Himmelssicht, Tauren Gruener Daumen
+    -- Untoter Wille, Orc Fluch brechen, Tauren Kriegsdonner, Windformer Luftwandeln,
+    -- Zwerg Steingestalt, Gnom Entfesselungskuenstler, Mensch Wille zum Ueberleben
+    [2] = {{7744, 1299026, 20549, 1259416, 20594, 20589, 59752}, "Volk"},
+    -- Untoter Kannibalismus, Troll Rasche Regeneration, Windformer Himmelssicht, Tauren Gruener Daumen,
+    -- Nachtelf Schattenhaftigkeit, Mensch Wahrnehmung
+    [3] = {{20577, 1260270, 1259686, 20552, 20580, 20600}, "Volk"},
 }
 -- Passive Volksfaehigkeiten als Tipp. Erkannt am aktiven Volkszauber
 -- (passive stehen nicht in der Liste bekannter Zauber).
