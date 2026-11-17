@@ -21,5 +21,6 @@ Groups.lua
 TripsPlanner.lua
 TripsPage.lua
 Passport.lua
+Recap.lua
 PassPage.lua
 Init.lua

@@ -18,7 +18,7 @@ local function Settings() return Chat:Settings() end
 local function Pattern(fmt)
     if type(fmt) ~= "string" then return nil end
     local p = fmt:gsub("([%^%$%(%)%.%[%]%*%+%-%?])", "%%%1")
-    p = p:gsub("%%%%s", "(.+)"):gsub("%%%%d", "(%%d+)")
+    p = p:gsub("%%s", "(.+)"):gsub("%%d", "(%%d+)")
     return "^" .. p .. "$"
 end
 local function Patterns()
