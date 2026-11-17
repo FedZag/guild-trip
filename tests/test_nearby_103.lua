@@ -195,4 +195,36 @@ N:OnSent("player", "Wanderer", "cast-5", 1245) N:OnSucceeded("player", "cast-5")
 GetTime = function() return 1060 end
 assert(Names(N:Update()) == "Bob,Gildi", "Wanderer raus")
 GetTime = function() return 1000 end
+
+-- 11) Automatisch erkennen: Plaketten an (unsichtbar, durchklickbar), alte Werte zurueck
+local cvars = {nameplateShowFriends = "0", nameplateMaxDistance = "20"}
+C_CVar = {GetCVar = function(k) return cvars[k] end, SetCVar = function(k, v) cvars[k] = v end}
+local plates, clickThrough = {}, nil
+C_NamePlate = {
+    GetNamePlateForUnit = function(u) return plates[u] end,
+    SetNamePlateFriendlyClickThrough = function(on) clickThrough = on end,
+}
+plates.nameplate1 = {UnitFrame = Region("Frame")}
+plates.nameplate5 = {UnitFrame = Region("Frame")} -- Feind: bleibt sichtbar
+N.autoOn = nil
+N.done, N.seen = nil, nil
+ONE.db.classGuide.nearbyCVars = nil
+N:Update()
+assert(cvars.nameplateShowFriends == "1" and cvars.nameplateMaxDistance == "40", "Plaketten an, 40 m")
+assert(clickThrough == true and plates.nameplate1.UnitFrame.alpha == 0 and plates.nameplate5.UnitFrame.alpha == 1, "unsichtbar")
+assert(ONE.db.classGuide.nearbyCVars.friends == "0" and ONE.db.classGuide.nearbyCVars.dist == "20")
+N:Update() -- zweites Mal: alte Werte nicht ueberschreiben
+assert(ONE.db.classGuide.nearbyCVars.friends == "0")
+N:SetAuto(false)
+assert(cvars.nameplateShowFriends == "0" and cvars.nameplateMaxDistance == "20" and clickThrough == false
+    and plates.nameplate1.UnitFrame.alpha == 1 and ONE.db.classGuide.nearbyCVars == nil, "alles zurueck")
+assert(Names(N:Update()) == "Bob,Gildi", "Liste bleibt trotzdem")
+-- Plaketten hattest du schon an: bleiben sichtbar
+cvars.nameplateShowFriends = "1"
+N:SetAuto(true)
+assert(cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 1 and clickThrough == false)
+-- Modul aus: zurueckstellen
+N:SetEnabled(false)
+assert(cvars.nameplateMaxDistance == "20" and cvars.nameplateShowFriends == "1" and ONE.db.classGuide.nearbyCVars == nil)
+N:SetEnabled(true)
 print("OK test_nearby_103")

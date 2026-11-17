@@ -130,8 +130,11 @@ EN["Buffs fehlen"] = "Buffs missing"
 
 -- Spieler in der Naehe buffen
 EN["Spieler in der Nähe buffen"] = "Buff players nearby"
-EN["Kleines Fenster mit allen Spielern in Reichweite, denen einer deiner Buffs fehlt – Gruppe, Gilde, Freunde und Fremde. Ein Klick auf einen Namen wirkt den Buff im passenden Rang für die Stufe – sobald er sitzt, verschwindet der Spieler aus der Liste (Rechtsklick / Umschalt + Linksklick: weitere Buffs). Fremde erscheinen mit freundlichen Namensplaketten (Umschalt + V) oder wenn du sie mit der Maus berührst. Nur außerhalb des Kampfes."] =
-    "Small window with every player in range who is missing one of your buffs – group, guild, friends and strangers. One click on a name casts the buff in the right rank for their level – once it lands, the player drops off the list (right-click / Shift + left-click: more buffs). Strangers show up with friendly nameplates (Shift + V) or when you mouse over them. Out of combat only."
+EN["Kleines Fenster mit allen Spielern in Reichweite, denen einer deiner Buffs fehlt – Gruppe, Gilde, Freunde und Fremde. Ein Klick auf einen Namen wirkt den Buff im passenden Rang für die Stufe – sobald er sitzt, verschwindet der Spieler aus der Liste (Rechtsklick / Umschalt + Linksklick: weitere Buffs). Nur außerhalb des Kampfes."] =
+    "Small window with every player in range who is missing one of your buffs – group, guild, friends and strangers. One click on a name casts the buff in the right rank for their level – once it lands, the player drops off the list (right-click / Shift + left-click: more buffs). Out of combat only."
+EN["… alle Spieler in der Nähe automatisch erkennen"] = "… detect every player nearby automatically"
+EN["Jeder, der an dir vorbeiläuft, kommt in die Liste. Dafür schaltet Guild Trip die freundlichen Namensplaketten ein (bis 40 m), macht sie aber unsichtbar und nicht anklickbar. Abschalten stellt deine alten Einstellungen wieder her."] =
+    "Everyone who walks past you lands on the list. For this Guild Trip turns on friendly nameplates (up to 40 yards) but makes them invisible and click-through. Turning it off restores your previous settings."
 EN["Buffen in der Nähe (%d)"] = "Buff nearby (%d)"
 EN["Linksklick"] = "Left-click"
 EN["Rechtsklick"] = "Right-click"

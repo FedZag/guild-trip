@@ -6,7 +6,11 @@ local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select(
 -- Buffen in der Naehe (0.7.0): kleines Fenster mit allen Spielern in Reichweite,
 -- denen einer DEINER Buffs fehlt – Gruppe, Gilde, Freunde und Fremde.
 --  * Woher die Spieler kommen: Gruppe/Schlachtzug, dein Ziel, freundliche
---    Namensplaketten (Umschalt+V) und wen du kurz mit der Maus beruehrt hast.
+--    Namensplaketten und wen du kurz mit der Maus beruehrt hast.
+--  * Automatisch erkennen (Standard): Guild Trip schaltet die freundlichen
+--    Namensplaketten ein (Reichweite 40 m), macht sie aber unsichtbar und
+--    nicht anklickbar – so landet JEDER, der an dir vorbeilaeuft, in der
+--    Liste. Abschalten stellt deine alten Einstellungen wieder her.
 --  * Klick auf eine Zeile wirkt den Buff: Linksklick = erster Buff,
 --    Rechtsklick = zweiter, Umschalt+Linksklick = dritter. Blizzard-Knopf
 --    (SecureActionButtonTemplate) – erlaubt, weil du selbst klickst.
@@ -68,6 +72,63 @@ function Nearby:Enabled() return Store().buffNearby ~= false end
 function Nearby:SetEnabled(on)
     Store().buffNearby = on and true or false
     self:Update()
+end
+function Nearby:AutoEnabled() return Store().nearbyAuto ~= false end
+function Nearby:SetAuto(on)
+    Store().nearbyAuto = on and true or false
+    self:Update()
+end
+
+-- ===== Automatisch erkennen: unsichtbare freundliche Namensplaketten =====
+local function GetCV(name)
+    local cv = rawget(_G, "C_CVar")
+    local v = cv and Call(cv.GetCVar, name)
+    if v == nil then v = Call(rawget(_G, "GetCVar"), name) end
+    return v ~= nil and tostring(v) or nil
+end
+local function SetCV(name, value)
+    local cv = rawget(_G, "C_CVar")
+    if cv and type(cv.SetCVar) == "function" then return Call(cv.SetCVar, name, value) end
+    return Call(rawget(_G, "SetCVar"), name, value)
+end
+Nearby.range = 40
+
+-- Plaketten an/aus je nach Zustand; alte Werte werden gemerkt und zurueckgestellt.
+function Nearby:ApplyAuto(want)
+    if InCombat() then return end
+    local store = Store()
+    if want then
+        if not store.nearbyCVars then
+            store.nearbyCVars = {friends = GetCV("nameplateShowFriends") or "0", dist = GetCV("nameplateMaxDistance")}
+        end
+        if GetCV("nameplateShowFriends") ~= "1" then SetCV("nameplateShowFriends", "1") end
+        local d = tonumber(GetCV("nameplateMaxDistance") or "")
+        if d and d < self.range then SetCV("nameplateMaxDistance", tostring(self.range)) end
+        -- Hattest du die Plaketten selbst schon an, bleiben sie sichtbar
+        self.hidePlates = store.nearbyCVars.friends ~= "1"
+    else
+        local old = store.nearbyCVars
+        if old then
+            if old.friends then SetCV("nameplateShowFriends", old.friends) end
+            if old.dist then SetCV("nameplateMaxDistance", old.dist) end
+            store.nearbyCVars = nil
+        end
+        self.hidePlates = false
+    end
+    local np = rawget(_G, "C_NamePlate")
+    if np and type(np.SetNamePlateFriendlyClickThrough) == "function" then Call(np.SetNamePlateFriendlyClickThrough, self.hidePlates) end
+    self.autoOn = want
+    for i = 1, 40 do self:StylePlate("nameplate" .. i) end
+end
+
+-- Freundliche Spieler-Plakette unsichtbar (nur wenn wir sie eingeschaltet haben).
+function Nearby:StylePlate(unit)
+    local np = rawget(_G, "C_NamePlate")
+    local plate = np and Call(np.GetNamePlateForUnit, unit)
+    local uf = type(plate) == "table" and plate.UnitFrame
+    if type(uf) ~= "table" or type(uf.SetAlpha) ~= "function" then return end
+    local hide = self.hidePlates and U("UnitIsPlayer", unit) and U("UnitCanAssist", "player", unit)
+    pcall(uf.SetAlpha, uf, hide and 0 or 1)
 end
 
 -- ===== Was kann ich verteilen? =====
@@ -401,7 +462,11 @@ function Nearby:Update()
         local p = classes.Player:Read(Store().spec)
         self.myOffers = self:MyOffers(p)
         list = self:Scan(self.myOffers)
+    else
+        self.myOffers = {}
     end
+    local want = self:Enabled() and self:AutoEnabled() and #self.myOffers > 0
+    if want ~= (self.autoOn or false) then self:ApplyAuto(want) end
     self.shown = list
     if #list == 0 and not self.frame then return list end
     local f = self:Frame()
@@ -448,6 +513,7 @@ function Nearby:Initialize()
     events:SetScript("OnEvent", function(_, event, a, b, c, d)
         if event == "UPDATE_MOUSEOVER_UNIT" then Nearby:Remember("mouseover") end
         if event == "UNIT_SPELLCAST_SENT" then Nearby:OnSent(a, b, c, d) return end
+        if event == "NAME_PLATE_UNIT_ADDED" then Nearby:StylePlate(a) end
         if event == "UNIT_SPELLCAST_SUCCEEDED" then
             if a ~= "player" then return end
             Nearby:OnSucceeded(a, b)
