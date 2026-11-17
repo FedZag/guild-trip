@@ -11,6 +11,7 @@
 * Art: CF_RELEASE_TYPE (release | beta | alpha, Vorgabe release)
 * Abhaengigkeiten (Shortest Path Forever) stehen auf CurseForge als "Default Relations".
 --dry-run: alles pruefen und anzeigen, nichts senden (kein Schluessel noetig).
+--check: nur Schluessel und Spielversion bei CurseForge pruefen (nichts hochladen).
 Der Schluessel steht nur in der Umgebung (GitHub-Secret), nie im Code oder im Log.
 """
 import json
@@ -82,6 +83,14 @@ def multipart(fields, file_field, file_path):
 
 def main():
     dry = '--dry-run' in sys.argv[1:]
+    if '--check' in sys.argv[1:]:
+        # Nur Verbindung + Schluessel + Spielversion pruefen, nichts hochladen
+        token = os.environ.get('CF_API_TOKEN')
+        if not token:
+            fail('CF_API_TOKEN fehlt')
+        wanted = os.environ.get('CF_GAME_VERSION', '1.60.1')
+        print(f'Verbindung ok, Spielversion {wanted} = ID {game_version_id(token, wanted)}, Projekt {os.environ.get("CF_PROJECT_ID")}')
+        return
     ver = version()
     zip_path = ROOT / 'dist' / f'GuildTrip_{ver}_CurseForge.zip'
     if not zip_path.is_file():
