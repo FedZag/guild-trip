@@ -55,8 +55,11 @@ for addon in ADDONS:
             files.extend(fonts)
             files.append(folder / 'Fonts' / 'OFL.txt')
 
-guide = (ROOT / 'docs' / 'ANLEITUNG_WINDOWS.txt').read_text(encoding='utf-8').replace('{VERSION}', version)
-guide_bytes = '﻿'.encode('utf-8') + guide.replace('\r\n', '\n').replace('\n', '\r\n').encode('utf-8')
+# Anleitung nur fuers Tester-ZIP (docs/ liegt nicht im oeffentlichen Projekt, dort wird nur --curseforge gebaut)
+guide_bytes = None
+if not curseforge:
+    guide = (ROOT / 'docs' / 'ANLEITUNG_WINDOWS.txt').read_text(encoding='utf-8').replace('{VERSION}', version)
+    guide_bytes = '﻿'.encode('utf-8') + guide.replace('\r\n', '\n').replace('\n', '\r\n').encode('utf-8')
 
 if target.exists():
     target.unlink()
