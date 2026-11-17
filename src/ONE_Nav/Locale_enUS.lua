@@ -234,3 +234,9 @@ EN["Questpartner"] = "Quest partner"
 EN["Gemeinsame Quests"] = "Quests in common"
 EN["Einladen"] = EN["Einladen"] or "Invite"
 EN["Flüstern"] = EN["Flüstern"] or "Whisper"
+
+-- Questgegner (0.7.0)
+EN["Questgegner im Tooltip und an der Namensplakette"] = "Quest mobs in tooltip and on nameplates"
+EN["Zeigt im Tooltip eines Gegners, für welche Quest du ihn brauchst und wie weit du bist – dazu Gruppe und Gilde („Bob 7/10“). Ein kleines Symbol an der Namensplakette markiert Questgegner (gelb: du, blau: nur andere)."] =
+    "Shows in a mob's tooltip which quest you need it for and how far along you are – plus group and guild (\"Bob 7/10\"). A small icon on the nameplate marks quest mobs (yellow: you, blue: only others)."
+EN["fertig"] = EN["fertig"] or "done"

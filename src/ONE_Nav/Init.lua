@@ -53,6 +53,8 @@ if ONE.RegisterFeature then
         set = function(on) nav.QuestPins:Settings().minimap = on and true or false nav.QuestPins:Refresh() end})
     ONE:RegisterFeature("nav.partners", {module = "nav", section = "Quests", order = 35, label = "Questpartner in der Nähe melden",
         tooltip = "Hat ein Gildenmitglied in deiner Nähe (bis 500 m) dieselben offenen Quests wie du, kommt ein kleines Fenster mit Einladen, Navi und Flüstern. Klappt mit allen, die „Quests teilen“ und ihre Position teilen. Je Person höchstens alle 20 Minuten."})
+    ONE:RegisterFeature("nav.mobInfo", {module = "nav", section = "Quests", order = 36, label = "Questgegner im Tooltip und an der Namensplakette",
+        tooltip = "Zeigt im Tooltip eines Gegners, für welche Quest du ihn brauchst und wie weit du bist – dazu Gruppe und Gilde („Bob 7/10“). Ein kleines Symbol an der Namensplakette markiert Questgegner (gelb: du, blau: nur andere)."})
     ONE:RegisterFeature("nav.givers", {module = "nav", section = "Quests", order = 33, label = "Questgeber (!) sammeln und zeigen",
         tooltip = "Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."})
     ONE:RegisterFeature("nav.routes", {module = "nav", section = "Weg", order = 20, label = "Wegführung über das Guild-Trip-Wegenetz",
@@ -79,6 +81,7 @@ ONE:RegisterModule("nav", {
         if not ONE.FeatureOn or ONE:FeatureOn("nav.quests") then nav.Quests:Register() end
         nav.QuestShare:Initialize()
         nav.Partners:Initialize()
+        nav.MobInfo:Initialize()
         nav.QuestGivers:Initialize()
         nav.QuestPins:Initialize()
         nav.RouteDots:Initialize()
