@@ -1,14 +1,15 @@
 ## Interface: 16001
 ## Title: Guild Trip | Navigation
-## Notes: Richtungspfeil und Reisehinweis zu Gildenmitgliedern (keine Wegführung)
+## Notes: Navi-Pfeil mit Wegführung über das Guild-Trip-Wegenetz, Reisehinweise, Questgeber
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later
-## Version: 0.6.6-alpha
+## Version: 0.6.7-alpha
 ## Dependencies: ONE_Core
-## OptionalDeps: ONE_Guild, ONE_QuestDB
+## OptionalDeps: ONE_Guild, ONE_QuestDB, ONE_Routes
 
 Locale_enUS.lua
 Travel.lua
+Routes.lua
 Flights.lua
 Arrow.lua
 PlayerArrow.lua
@@ -18,6 +19,7 @@ Pack.lua
 QuestShare.lua
 QuestGivers.lua
 QuestPins.lua
+RouteDots.lua
 Merchants.lua
 QuestDB.lua
 Waypoints.lua

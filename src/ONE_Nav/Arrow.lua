@@ -212,7 +212,8 @@ function Arrow:Start(name)
     self.frame:Show()
     self:Refresh()
     self:Rotate()
-    ONE:Print(T("Navi zu %s gestartet. Richtung, keine Wegführung. Beenden: × oder /trip navi aus", ShortName(peer.name)))
+    if self.RoutesOn() and not self.SPF() then ONE:Print(T("Navi zu %s gestartet – der Pfeil folgt dem Weg. Beenden: × oder /trip navi aus", ShortName(peer.name)))
+    else ONE:Print(T("Navi zu %s gestartet. Richtung, keine Wegführung. Beenden: × oder /trip navi aus", ShortName(peer.name))) end
     return true
 end
 
@@ -250,13 +251,15 @@ function Arrow:StartPoint(label, mapID, x, y, opts)
     self:Refresh()
     self:Rotate()
     -- Einmal je Sitzung: Tipp, wie es echte Wegfuehrung gibt (Shortest Path Forever ist auf CurseForge Abhaengigkeit)
-    if not self.delegated and not self.spfHinted and not (opts and opts.quiet) and not rawget(_G, "ShortestPathForever")
+    local routed = not self.delegated and self.RoutesOn()
+    if not self.delegated and not routed and not self.spfHinted and not (opts and opts.quiet) and not rawget(_G, "ShortestPathForever")
         and not (ONE.FeatureOn and not ONE:FeatureOn("nav.spf")) then
         self.spfHinted = true
         ONE:Print(T("Tipp: Mit dem kostenlosen Addon „Shortest Path Forever“ führt dich das Navi über echte Wege, Flugrouten und Schiffe."))
     end
     if not (opts and opts.quiet) then
         if self.delegated then ONE:Print(T("Navi zu %s – Wegführung über Shortest Path Forever.", self.probe.name))
+        elseif routed then ONE:Print(T("Navi zu %s – der Pfeil folgt dem Weg. Beenden: × oder /trip navi aus", self.probe.name))
         else ONE:Print(T("Navi zu %s. Richtung, keine Wegführung. Beenden: × oder /trip navi aus", self.probe.name)) end
     end
     return true
@@ -275,7 +278,8 @@ function Arrow:StartWorld(label, continent, x, y, opts)
     self.frame:Show()
     self:Refresh()
     self:Rotate()
-    ONE:Print(T("Navi zu %s. Richtung, keine Wegführung. Beenden: × oder /trip navi aus", self.probe.name))
+    if self.RoutesOn() then ONE:Print(T("Navi zu %s – der Pfeil folgt dem Weg. Beenden: × oder /trip navi aus", self.probe.name))
+    else ONE:Print(T("Navi zu %s. Richtung, keine Wegführung. Beenden: × oder /trip navi aus", self.probe.name)) end
     return true
 end
 
@@ -315,6 +319,28 @@ function Arrow:DelegateEnded()
     if not (api and type(api.Ended) == "function") then return nil end
     local ok, why = pcall(api.Ended, self.spfOwner)
     if ok and (why == "cleared" or why == "replaced") then return why end
+end
+
+-- ===== Wegenetz (ONE_Routes, vorab berechnete Laufwege, kein Zusatz-Addon) =====
+-- Liefert den naechsten Punkt auf dem Weg zum Ziel (bzw. zum empfohlenen Flugmeister) oder nil (Luftlinie).
+function Arrow.RoutesOn()
+    local Routes = nav.Routes
+    if not (Routes and Routes:Available()) then return false end
+    return not (ONE.FeatureOn and not ONE:FeatureOn("nav.routes"))
+end
+function Arrow:SteerRoute(player, target, advice)
+    if self.delegated or not (player and target) or player.continent ~= target.continent or not self.RoutesOn() then
+        self.route = nil
+        return
+    end
+    local goal = target
+    if advice and advice.kind == "flight" and advice.from and nav.Flights then
+        local node = nav.Flights:Nodes()[advice.from]
+        if node and node.continent == player.continent and node.x and node.y then goal = node end
+    end
+    local p, rest, last = nav.Routes:Steer(self, player.continent, player.x, player.y, goal.x, goal.y, Clock())
+    if not p then return end
+    return {x = p.x, y = p.y, rest = rest, last = last}
 end
 
 -- Hin und zurueck: laeuft gerade ein "richtiges" Ziel und kommt ein Abstecher dazu, merken wir das alte Ziel
@@ -375,6 +401,7 @@ function Arrow:Stop(reason)
     self:CancelDelegate()
     self.active = false
     self.target, self.lastPeer, self.state, self.probe = nil, nil, nil, nil
+    self.route, self.routeTried = nil, nil
     self.arrivedAt, self.resume = nil, nil
     if self.frame then self.frame:Hide() end
     if reason then ONE:Print(reason) end
@@ -438,6 +465,14 @@ function Arrow:Refresh()
             text = leg.distance < 40 and T("Am Abflugort – warte auf Zeppelin oder Schiff.") or T("Etappe 1: %s", T(leg.name)),
             tip = T("Drüben zeigt der Pfeil weiter zum Ziel.")}
     end
+    -- Wegenetz (ONE_Routes): dem vorab berechneten Laufweg folgen – zum Ziel bzw. zum Flugmeister/Abflugort.
+    -- Der Pfeil zeigt dann auf die nächste Abbiegung, die Entfernung ist der Restweg.
+    local steer = self:SteerRoute(player, target, advice)
+    if steer then
+        target = {continent = player.continent, x = steer.x, y = steer.y}
+        advice = {kind = advice.kind, text = advice.text, tip = advice.tip, from = advice.from, to = advice.to,
+            distance = steer.rest, routed = true, final = advice}
+    end
     self.state = {player = player, target = target, advice = advice}
     local where = ""
     local guildModule = ONE.modules.guild
@@ -465,7 +500,7 @@ function Arrow:Refresh()
     if self.resume and self.probe and self.probe.service then
         tip = T("Danach weiter zu %s", self.resume.peer and ShortName(self.resume.peer) or self.resume.name) .. (tip and (" · " .. tip) or "")
     end
-    self.tip:SetText((tip and (tip .. " · ") or "") .. T("Richtung, keine Wegführung"))
+    self.tip:SetText((tip and (tip .. " · ") or "") .. (advice.routed and T("Folge dem Weg") or T("Richtung, keine Wegführung")))
     self:CheckArrival(advice, dist)
 end
 
@@ -483,6 +518,11 @@ function Arrow:Rotate()
         return
     end
     s.player.x, s.player.y = px, py
+    -- Wegenetz: zwischen zwei Refresh-Läufen schon zur nächsten Abbiegung weiterschalten
+    if s.advice and s.advice.routed and self.route and nav.Routes then
+        local p = nav.Routes:Next(self.route, px, py, true)
+        if p then s.target.x, s.target.y = p.x, p.y end
+    end
     local angle = nav.Travel.ArrowAngle(px, py, s.target.x, s.target.y, facing)
     if self.arrow.SetRotation then self.arrow:SetRotation(angle) end
     self.arrow:Show()

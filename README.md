@@ -17,8 +17,9 @@ that sets up your bars, a messenger-style chat and an optional old-book look –
 |---|---|
 | `src/ONE_Core` | Window, themes (Blizzard, old book), options, sounds, name menu, "what's new" |
 | `src/ONE_Guild` | Guild members, calendar, reminders, positions on the map |
-| `src/ONE_Nav` | Navi arrow, quests page, quest givers, waypoints, corpse run, route guidance via [Shortest Path Forever](https://www.curseforge.com/wow/addons/shortest-path-forever) |
+| `src/ONE_Nav` | Navi arrow, quests page, quest givers, waypoints, corpse run, route guidance along the walking network (or via [Shortest Path Forever](https://www.curseforge.com/wow/addons/shortest-path-forever) when installed) |
 | `src/ONE_QuestDB` | Quest database generated from [pfQuest](https://github.com/shagu/pfQuest) (MIT) |
+| `src/ONE_Routes` | Walking network: paths between quest givers, trainers, vendors and flight masters, precomputed with [Shortest Path Forever](https://github.com/cjber/shortest-path-forever) (GPL-3.0-or-later) |
 | `src/ONE_Dungeons` | Dungeon quests, group finder, guild trips |
 | `src/ONE_Crafting` | Recipes and trainers of your guild |
 | `src/ONE_Classes` | Class guide: bars, order of play, talents, gear rating, weapons |

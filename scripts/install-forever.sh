@@ -7,7 +7,7 @@ if [[ "$(basename "$forever")" != "_forever_" || ! -d "$forever/Interface" ]]; t
   echo 'STOP: Der angegebene Ordner ist keine geprüfte _forever_-Installation.' >&2
   exit 2
 fi
-for addon in ONE_Core ONE_Guild ONE_Nav ONE_Dungeons ONE_Crafting ONE_Classes ONE_Chat ONE_QuestDB ONE_Dev; do
+for addon in ONE_Core ONE_Guild ONE_Nav ONE_Dungeons ONE_Crafting ONE_Classes ONE_Chat ONE_QuestDB ONE_Routes ONE_Dev; do
   toc="$project/src/$addon/$addon.toc"
   if [[ ! -f "$toc" ]] || ! grep -qx '## Interface: 16001' "$toc"; then
     echo "STOP: $addon ist nicht für Forever 16001 vorbereitet." >&2
@@ -18,7 +18,7 @@ addons="$forever/Interface/AddOns"
 mkdir -p "$addons"
 backup="$project/backups/forever-guild-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$backup"
-for addon in ONE_Core ONE_Guild ONE_Nav ONE_Dungeons ONE_Crafting ONE_Classes ONE_Chat ONE_QuestDB ONE_Dev; do
+for addon in ONE_Core ONE_Guild ONE_Nav ONE_Dungeons ONE_Crafting ONE_Classes ONE_Chat ONE_QuestDB ONE_Routes ONE_Dev; do
   target="$addons/$addon"
   if [[ -L "$target" ]]; then
     echo "STOP: $target ist ein Symlink. Bitte manuell prüfen." >&2

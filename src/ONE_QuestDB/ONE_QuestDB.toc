@@ -3,7 +3,7 @@
 ## Notes: Quest-Datenbank für Guild Trip (Questgeber, Abgabe, Ziele) – aus pfQuest (MIT)
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later (Daten: MIT, pfQuest)
-## Version: 0.6.6-alpha
+## Version: 0.6.7-alpha
 ## Dependencies: ONE_Core
 
 Data.lua

@@ -10,6 +10,13 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.6.7-alpha"] = {
+        "Echte Wegführung ohne Zusatz-Addon: Der Pfeil folgt Straßen und Pässen, goldene Punkte zeigen den Weg auf Minimap und Weltkarte",
+        "Questdatenbank: „!“ auch bei Questgebern, bei denen du noch nie warst; Klick auf ? oder … in der Zielverfolgung startet das Navi",
+        "Navi: Ankunft mit Ton, „hin und zurück“ bei Händler/Lehrer, Pfeil zur Leiche, eigene Wegpunkte (Umschalt+Klick, /way)",
+        "Guild-Trip-Chat kann den WoW-Chat ersetzen (freiwillig), neues Beute-Fenster (/trip beute)",
+        "Guild Trip ist jetzt freie Software (GNU GPL v3)",
+    },
     ["0.6.6-alpha"] = {
         "Neuer Guild-Trip-Chat (freiwillig): Sprechblase am WoW-Chat, Reiter, Flüstern als eigene Gespräche",
         "Termine und Gildenausflüge planst und beantwortest du komplett in Guild Trip",

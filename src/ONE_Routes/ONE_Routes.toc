@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: Guild Trip | Wegenetz
+## Notes: Vorab berechnete Laufwege für das Guild-Trip-Navi – berechnet mit Shortest Path Forever (GPL)
+## Author: Guild Trip
+## X-License: GPL-3.0-or-later (Wege berechnet mit Shortest Path Forever von cjber, GPL-3.0-or-later)
+## Version: 0.6.7-alpha
+## Dependencies: ONE_Core
+
+Data.lua

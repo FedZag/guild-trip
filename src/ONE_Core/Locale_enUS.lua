@@ -231,3 +231,8 @@ EN["Teilen ist an – danke! Du kannst es jederzeit unter Optionen › Teilen ä
 EN["%d Teilen-Funktionen sind noch aus – Guild Trip ist besser, wenn die Gilde teilt. /trip teilen öffnet die Einstellungen."] = "%d sharing options are still off – Guild Trip is better when the guild shares. /trip teilen opens the settings."
 EN["Neuigkeiten dieser Version zeigen"] = "Show what's new in this version"
 EN["Teilen-Einstellungen öffnen"] = "Open sharing settings"
+EN["Echte Wegführung ohne Zusatz-Addon: Der Pfeil folgt Straßen und Pässen, goldene Punkte zeigen den Weg auf Minimap und Weltkarte"] = "Real route guidance without extra add-ons: the arrow follows roads and passes, golden dots show the way on minimap and world map"
+EN["Questdatenbank: „!“ auch bei Questgebern, bei denen du noch nie warst; Klick auf ? oder … in der Zielverfolgung startet das Navi"] = "Quest database: \"!\" also for quest givers you have never met; click ? or … in the objective tracker to start the navi"
+EN["Navi: Ankunft mit Ton, „hin und zurück“ bei Händler/Lehrer, Pfeil zur Leiche, eigene Wegpunkte (Umschalt+Klick, /way)"] = "Navi: arrival sound, \"there and back\" for vendors/trainers, arrow to your corpse, own waypoints (shift+click, /way)"
+EN["Guild-Trip-Chat kann den WoW-Chat ersetzen (freiwillig), neues Beute-Fenster (/trip beute)"] = "Guild Trip chat can replace the WoW chat (optional), new loot window (/trip beute)"
+EN["Guild Trip ist jetzt freie Software (GNU GPL v3)"] = "Guild Trip is now free software (GNU GPL v3)"

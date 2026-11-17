@@ -39,6 +39,26 @@ local ZONE = {
     [1519] = 1453, [1637] = 1454, [1537] = 1455, [1638] = 1456, [1657] = 1457, [1497] = 1458,
 }
 
+-- Forever hat einige Karten neu vermessen (größerer Ausschnitt). pfQuest-Koordinaten stehen im alten
+-- Classic-Rahmen und werden über Weltkoordinaten in den Forever-Rahmen umgerechnet.
+-- Rahmen in Welt-Yards {minX, maxX, minY, maxY}; Classic = aus 25–79 eindeutigen NPCs (pfQuest gegen
+-- Shortest-Path-Forever-Standorte) zurückgerechnet (17.11.2026, Restfehler < 4 Yards), Forever = UiMapAssignment
+-- Build 1.60.1.70938 (über SPF Data/Zones.lua). Alle anderen Karten stimmen auf ~2 Yards überein.
+local REMAP = {
+    [1412] = {old = {-3695.6, -274.6, -3083.0, 2044.2}, new = {-3835, 267, -3675, 2479}},   -- Mulgore
+    [1423] = {old = {1223.7, 3796.2, -6054.7, -2185.8}, new = {825, 3692, -6558, -2256}},   -- Östliche Pestländer
+    [1433] = {old = {-10014.5, -8579.7, -3740.6, -1571.1}, new = {-10023, -8575, -3852, -1681}}, -- Rotkammgebirge
+    [1453] = {old = {-9178.6, -8278.0, 35.8, 1382.7}, new = {-9154, -7996, -15, 1723}},     -- Sturmwind
+}
+local function Remap(m, x, y)  -- x, y in Prozent (0–100)
+    local r = REMAP[m]
+    if not r then return x, y end
+    local o, n = r.old, r.new
+    local wx = o[2] - y / 100 * (o[2] - o[1])
+    local wy = o[4] - x / 100 * (o[4] - o[3])
+    return (n[4] - wy) / (n[4] - n[3]) * 100, (n[2] - wx) / (n[2] - n[1]) * 100
+end
+
 local quests = Load("quests.lua").quests.data
 local units = Load("units.lua").units.data
 local objects = Load("objects.lua").objects.data
@@ -65,8 +85,9 @@ local function AddNode(nr, limit)
     for _, c in ipairs(src.coords) do
         local m = ZONE[c[3]]
         if m and c[1] and c[2] then
+            local x, y = Remap(m, c[1], c[2])
             byZone[m] = byZone[m] or {}
-            table.insert(byZone[m], {math.floor(c[1] * 10 + .5), math.floor(c[2] * 10 + .5)})
+            table.insert(byZone[m], {math.floor(x * 10 + .5), math.floor(y * 10 + .5)})
             if #byZone[m] > bestN then best, bestN = m, #byZone[m] end
         end
     end

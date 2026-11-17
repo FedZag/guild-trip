@@ -52,6 +52,12 @@ if ONE.RegisterFeature then
         set = function(on) nav.QuestPins:Settings().minimap = on and true or false nav.QuestPins:Refresh() end})
     ONE:RegisterFeature("nav.givers", {module = "nav", label = "Questgeber (!) sammeln und zeigen",
         tooltip = "Merkt sich NPCs, die Quests anbieten, und zeigt ein „!“ auf Karte und Minimap."})
+    ONE:RegisterFeature("nav.routes", {module = "nav", label = "Wegführung über das Guild-Trip-Wegenetz",
+        tooltip = "Der Pfeil folgt vorab berechneten Laufwegen (Straßen, Brücken, Pässe) zwischen Questgebern, Lehrern, Händlern und Flugmeistern – ohne Zusatz-Addon. Ist Shortest Path Forever installiert, führt weiter dieses."})
+    ONE:RegisterFeature("nav.routeDots", {module = "nav", label = "Weg als Punkte auf Minimap und Weltkarte",
+        tooltip = "Folgt der Pfeil dem Wegenetz, zeigen goldene Punkte den Weg auf Minimap und Weltkarte, ein Ring die nächste Abbiegung."})
+    ONE:RegisterFeature("nav.routeWaypoint", {module = "nav", label = "Nächste Abbiegung als WoW-Wegpunkt",
+        tooltip = "Setzt die nächste Abbiegung als WoW-Wegpunkt – so siehst du sie auch in der Spielwelt. Einen eigenen Wegpunkt von dir überschreibt Guild Trip nicht."})
     ONE:RegisterFeature("nav.spf", {module = "nav", label = "Wegführung über Shortest Path Forever (wenn installiert)",
         tooltip = "Ist das kostenlose Addon Shortest Path Forever installiert, übernimmt es die Wegführung: echte Wege, Flugrouten, Schiffe und die Route auf den Karten. Ohne es zeigt der Guild-Trip-Pfeil die Richtung."})
     ONE:RegisterFeature("nav.trackerNavi", {module = "nav", label = "Klick auf ? oder … in der Zielverfolgung startet das Navi",
@@ -71,6 +77,7 @@ ONE:RegisterModule("nav", {
         nav.QuestShare:Initialize()
         nav.QuestGivers:Initialize()
         nav.QuestPins:Initialize()
+        nav.RouteDots:Initialize()
         nav.Merchants:Initialize()
         nav.PlayerArrow:Initialize()
         nav.Waypoints:Initialize()

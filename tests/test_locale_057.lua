@@ -37,7 +37,7 @@ local done = {
     "ONE_Classes/Page.lua", "ONE_Classes/Bars.lua", "ONE_Classes/Ranks.lua", "ONE_Classes/Share.lua", "ONE_Classes/Buffs.lua", "ONE_Classes/Talents.lua", "ONE_Classes/Trainer.lua", "ONE_Classes/Gear.lua", "ONE_Classes/Loot.lua",
     "ONE_Guild/UI.lua", "ONE_Guild/Calendar.lua", "ONE_Guild/Pins.lua", "ONE_Guild/Reminders.lua",
     "ONE_Guild/Roster.lua", "ONE_Guild/Presence.lua", "ONE_Guild/Guild.lua",
-    "ONE_Nav/Arrow.lua", "ONE_Nav/Flights.lua", "ONE_Nav/Page.lua", "ONE_Nav/Travel.lua", "ONE_Nav/Init.lua", "ONE_Nav/Quests.lua", "ONE_Nav/QuestShare.lua", "ONE_Nav/QuestPins.lua", "ONE_Nav/Merchants.lua", "ONE_Nav/Waypoints.lua", "ONE_Nav/QuestDB.lua", "ONE_Nav/QuestGivers.lua",
+    "ONE_Nav/Arrow.lua", "ONE_Nav/Flights.lua", "ONE_Nav/Page.lua", "ONE_Nav/Travel.lua", "ONE_Nav/Init.lua", "ONE_Nav/Quests.lua", "ONE_Nav/QuestShare.lua", "ONE_Nav/QuestPins.lua", "ONE_Nav/Merchants.lua", "ONE_Nav/Waypoints.lua", "ONE_Nav/QuestDB.lua", "ONE_Nav/QuestGivers.lua", "ONE_Nav/Routes.lua", "ONE_Nav/RouteDots.lua",
     "ONE_Dungeons/Page.lua", "ONE_Dungeons/Groups.lua", "ONE_Dungeons/Share.lua", "ONE_Dungeons/Trips.lua", "ONE_Dungeons/TripsPage.lua", "ONE_Dungeons/TripsPlanner.lua", "ONE_Dungeons/Entrances.lua",
     "ONE_Crafting/Page.lua", "ONE_Crafting/Trainers.lua", "ONE_Crafting/Recipes.lua", "ONE_Crafting/Init.lua",
     "ONE_Chat/Chat.lua", "ONE_Chat/ChatUI.lua", "ONE_Chat/TabEditor.lua", "ONE_Chat/Settings.lua", "ONE_Chat/Launcher.lua", "ONE_Chat/Hider.lua", "ONE_Chat/LootWindow.lua", "ONE_Chat/Init.lua",

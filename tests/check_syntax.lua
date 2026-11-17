@@ -1,7 +1,7 @@
 -- Syntax-check only files actually loaded by Project ONE's .toc files.
 local root=arg[1] or 'src'
 local checked=0
-for _,addon in ipairs({'ONE_Core','ONE_Guild','ONE_Nav','ONE_Dungeons','ONE_Crafting','ONE_Chat','ONE_QuestDB'}) do
+for _,addon in ipairs({'ONE_Core','ONE_Guild','ONE_Nav','ONE_Dungeons','ONE_Crafting','ONE_Chat','ONE_QuestDB','ONE_Routes'}) do
     local toc=assert(io.open(root..'/'..addon..'/'..addon..'.toc','r'))
     for line in toc:lines() do
         local name=line:match('^%s*([^#%s][^\r\n]-%.lua)%s*$')

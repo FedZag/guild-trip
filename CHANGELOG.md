@@ -4,7 +4,7 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
-## 0.6.7-alpha (in Sammlung – noch nicht gebaut)
+## 0.6.7-alpha (gebaut 17.11.2026)
 
 ```
 ## 0.6.7-alpha
@@ -12,7 +12,8 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 **English**
 - New "What's new" window after an update (once per version; /trip neu shows it again) – with a clear nudge to turn on sharing: the checkboxes are right there plus "Turn everything on". If sharing is still off at login, a short chat hint reminds you (/trip teilen opens the settings).
 - Guild Trip chat can now replace the WoW chat (optional, chat settings › "Replace the WoW chat with this one"): the WoW chat is hidden, Enter and / open the Guild Trip chat. Not shown there: loot, experience, combat log. Back any time with the checkbox or /trip wowchat. Locked while ElvUI, Prat & co. manage the chat.
-- Route guidance: if the free add-on Shortest Path Forever is installed, Guild Trip hands every navi target to it – real paths, flights, boats and the route drawn on both maps. Without it the Guild Trip arrow keeps showing the direction. Can be turned off in Options › Modules.
+- Real route guidance without any extra add-on: the new "Guild Trip | Walking network" knows precomputed walking paths (roads, bridges, passes) between quest givers, trainers, vendors, flight masters and docks. The arrow now points to the next turn instead of straight through mountains, shows the remaining distance along the path, and golden dots show the way on minimap and world map (the next turn is a ring, also set as WoW waypoint). If a flight is worth it, the arrow first leads you to the flight master. Paths computed with Shortest Path Forever by cjber (GPL) – thanks! If Shortest Path Forever itself is installed, it keeps guiding as before.
+- Quest database: quest givers and objectives in Mulgore, Eastern Plaguelands, Redridge Mountains and Stormwind now sit in the right spot (Forever re-measured these maps).
 - Navi: on arrival the arrow turns green over the last 100 yards and says "Arrived" with a soft sound; fixed targets fade out after a moment.
 - Navi "there and back": heading to a vendor, trainer, weapon master or flight master while another target is active? After your stop the arrow automatically continues to the previous target.
 - Navi after death: as a ghost the arrow leads to your corpse, then back to your previous target (can be turned off in Options › Modules).
@@ -27,7 +28,8 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 **Deutsch**
 - Neues „Neu in dieser Version“-Fenster nach einem Update (einmal je Version; /trip neu zeigt es erneut) – mit deutlichem Hinweis aufs Teilen: die Häkchen stehen gleich dabei, dazu „Alles einschalten“. Ist Teilen beim Einloggen noch aus, erinnert ein kurzer Chat-Hinweis (/trip teilen öffnet die Einstellungen).
 - Der Guild-Trip-Chat kann jetzt den WoW-Chat ersetzen (freiwillig, Chat-Einstellungen › „WoW-Chat durch diesen ersetzen“): Der WoW-Chat wird ausgeblendet, Enter und / öffnen den Guild-Trip-Chat. Dort nicht zu sehen: Beute, Erfahrung, Kampflog. Jederzeit zurück per Haken oder /trip wowchat. Gesperrt, solange ElvUI, Prat & Co. den Chat verwalten.
-- Wegführung: Ist das kostenlose Addon Shortest Path Forever installiert, gibt Guild Trip jedes Navi-Ziel dorthin weiter – echte Wege, Flüge, Schiffe und die Route auf beiden Karten. Ohne es zeigt der Guild-Trip-Pfeil weiter die Richtung. Abschaltbar in Optionen › Module.
+- Echte Wegführung ohne Zusatz-Addon: Das neue „Guild Trip | Wegenetz“ kennt vorab berechnete Laufwege (Straßen, Brücken, Pässe) zwischen Questgebern, Lehrern, Händlern, Flugmeistern und Anlegern. Der Pfeil zeigt jetzt zur nächsten Abbiegung statt quer durchs Gebirge, die Entfernung ist der Restweg, und goldene Punkte zeigen den Weg auf Minimap und Weltkarte (die nächste Abbiegung als Ring, zusätzlich als WoW-Wegpunkt). Lohnt sich ein Flug, führt der Pfeil erst zum Flugmeister. Wege berechnet mit Shortest Path Forever von cjber (GPL) – danke! Ist Shortest Path Forever selbst installiert, führt weiter dieses.
+- Questdatenbank: Questgeber und Ziele in Mulgore, den Östlichen Pestländern, dem Rotkammgebirge und Sturmwind stehen jetzt an der richtigen Stelle (Forever hat diese Karten neu vermessen).
 - Navi: Kurz vor dem Ziel wird der Pfeil grün, bei Ankunft kommt „Angekommen“ mit leisem Ton; feste Ziele blenden sich danach aus.
 - Navi „hin und zurück“: Unterwegs kurz zum Händler, Lehrer, Waffenmeister oder Flugmeister? Danach zeigt der Pfeil von selbst wieder zum vorherigen Ziel.
 - Navi nach dem Tod: Als Geist führt der Pfeil zu deiner Leiche, danach zurück zum vorherigen Ziel (abschaltbar in Optionen › Module).

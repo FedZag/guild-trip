@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / 'src'
-ADDONS = ['ONE_Core', 'ONE_Guild', 'ONE_Nav', 'ONE_Dungeons', 'ONE_Crafting', 'ONE_Classes', 'ONE_Chat', 'ONE_QuestDB']
+ADDONS = ['ONE_Core', 'ONE_Guild', 'ONE_Nav', 'ONE_Dungeons', 'ONE_Crafting', 'ONE_Classes', 'ONE_Chat', 'ONE_QuestDB', 'ONE_Routes']
 
 version = re.search(r'ONE\.version = "([^"]+)"', (SRC / 'ONE_Core' / 'Core.lua').read_text()).group(1)
 args = [a for a in sys.argv[1:] if a != '--curseforge']
