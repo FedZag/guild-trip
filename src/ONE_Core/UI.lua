@@ -445,44 +445,26 @@ function UI:Toggle()
     if self.frame:IsShown() then self.frame:Hide() else self:Show() end
 end
 
--- Freche Sprueche fuer die Startseite (sollen zum Lachen bringen). Einer je Sitzung;
--- passt etwas zur Lage (Geist, nachts, frueh, niedrige Stufe, Hoechststufe, erholt),
--- kommt in jedem zweiten Fall der passende.
-UI.QUIPS={
-    T("Mrglglgl! Die Murlocs haben dich vermisst. Wir nicht so."),
-    T("„Nur noch eine Quest“ ist übrigens keine Zeitangabe."),
-    T("Deine Taschen sind voller grauem Plunder. Wir müssen reden."),
-    T("Die Kobolde lassen ausrichten: Du nix nehmen Kerze!"),
-    T("Die Gilde hat gewettet, ob du heute kommst. Danke, jemand ist jetzt 50 Silber ärmer."),
-    T("Deine Rüstung hat angerufen. Sie möchte repariert werden. Dringend."),
-    T("Die Eber im Brachland haben angeblich Lenden. Gefunden hat sie noch keiner."),
-    T("Häufigste Todesursache in Azeroth: „Ich pull schon mal.“"),
-    T("Leeroy wäre stolz auf dich. Das ist kein Kompliment."),
-    T("Wieder Lust auf 20 Minuten Flugpunkt-Kino?"),
-    T("Der Questgeber steht seit Tagen mit Ausrufezeichen rum und tut so, als wäre nichts."),
-    T("Du riechst nach Gnoll. Wir sagen nichts. Nur das."),
-    T("Na, wieder da, um Azeroth unsicher zu machen? Azeroth hat schon Kissen vor die Tür gelegt."),
-    T("Gute Nachricht: Die Mobs sind wieder da. Schlechte Nachricht: Die Mobs sind wieder da."),
-}
+-- Freche Sprueche (Quips.lua): jeden Tag ein neuer; jeder Charakter hat einen eigenen
+-- Startpunkt in der Liste, so sieht jeder einen anderen und 100 Tage wiederholt sich nichts.
+-- Als Geist gibt es immer den Geist-Spruch.
 function UI:Quip()
-    if self.quip then return self.quip end
-    local hour=tonumber(type(date)=="function" and date("%H") or "") or 12
-    local level=UnitLevel and UnitLevel("player") or 0
-    local rested=type(GetXPExhaustion)=="function" and (GetXPExhaustion() or 0) or 0
-    local cap=(type(GetMaxPlayerLevel)=="function" and GetMaxPlayerLevel()) or 60
-    local ghost=type(UnitIsDeadOrGhost)=="function" and UnitIsDeadOrGhost("player")
-    local pick
-    local roll=math.random and math.random(1,100) or 50
-    if ghost then pick=T("Ein Geist? Na super. Laufweg zur Leiche, deine Lieblingsbeschäftigung.")
-    elseif roll<=50 then
-        if hour<5 then pick=T("Nach Mitternacht? Dein Bett hat eine Vermisstenanzeige aufgegeben.")
-        elseif hour<8 then pick=T("So früh? Selbst die Murlocs haben noch Kissenabdrücke im Gesicht.")
-        elseif (level or 0)>0 and level<10 then pick=T("Stufe %d? Süß. Die Wölfe hier halten dich für einen Snack.",level)
-        elseif (level or 0)>=cap then pick=T("Stufe 60. Jetzt beginnt der ernste Teil: anderen beim Leveln zuschauen und alles besser wissen.")
-        elseif rested>0 then pick=T("Ausgeruht wie ein Gnom nach dem Mittagsschlaf. Die Erholungs-EP brennen dir ein Loch in die Tasche.") end
+    if type(UnitIsDeadOrGhost)=="function" and UnitIsDeadOrGhost("player") and ONE.QUIP_GHOST then return ONE.QUIP_GHOST end
+    local list=ONE.QUIPS
+    if type(list)~="table" or #list==0 then return "" end
+    local now=(type(time)=="function" and time()) or 0
+    -- Tag nach Ortszeit (Wechsel um Mitternacht)
+    local offset=0
+    if type(date)=="function" then
+        local u, l = date("!*t", now), date("*t", now)
+        if type(u)=="table" and type(l)=="table" and type(time)=="function" then
+            l.isdst=false offset=time(l)-time(u)
+        end
     end
-    self.quip=pick or self.QUIPS[math.random and math.random(1,#self.QUIPS) or 1]
-    return self.quip
+    local day=math.floor((now+offset)/86400)
+    local name=UnitName and UnitName("player") or ""
+    local realm=type(GetRealmName)=="function" and GetRealmName() or ""
+    return list[ONE.QuipIndex(day, (name or "").."-"..(realm or ""), #list)]
 end
 
 local function BuildHome(panel)

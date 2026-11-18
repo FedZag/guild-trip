@@ -19,6 +19,7 @@ WindowScale.lua
 Widgets.lua
 MinimapButton.lua
 Notifications.lua
+Quips.lua
 UI.lua
 Book.lua
 Welcome.lua
