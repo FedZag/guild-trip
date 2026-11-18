@@ -253,3 +253,4 @@ EN["Klick: Farm-Runde über alle Lager starten"] = "Click: start a grind loop ov
 EN["Questgeber (!) sammeln und zeigen"] = EN["Questgeber (!) sammeln und zeigen"] or "Collect and show quest givers (!)"
 EN["Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."] =
     "Remembers where you (and, with \"Share quests\", your guild) were offered new quests and shows a \"!\" there – only for quests that fit your level. Off when Questie is installed, because Questie shows its own \"!\"."
+EN["(als Nächstes im Plan)"] = "(next in your plan)"

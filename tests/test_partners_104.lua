@@ -104,4 +104,15 @@ ONE.FeatureOn = function(_, id) return id ~= "nav.partners" end
 assert(P:Check() == nil)
 ONE.FeatureOn = nil
 assert(P:Check() ~= nil)
+-- 7) 0.7.1: auch Quests, die die Quest-Fuehrung als Naechstes vorschlaegt (noch nicht im Log)
+P.told = {}
+peers[1].quests = {[77] = {done = false}}
+ONE.ns = {leveling = {Guide = {Title = function(id) return "Geplant " .. id end,
+    plan = {steps = {{actions = {{kind = "accept", id = 77}}}, {actions = {{kind = "turnin", id = 1}}}}}}}}
+local list7 = P:Candidates()
+assert(#list7 == 1 and list7[1].quests[1].id == 77 and list7[1].quests[1].planned and list7[1].quests[1].title == "Geplant 77")
+-- nur die naechsten Schritte zaehlen
+P.planAhead = 0
+assert(#P:Candidates() == 0)
+ONE.ns = nil
 print("OK test_partners_104")

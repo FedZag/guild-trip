@@ -9,7 +9,7 @@ local _, nav = ...
 local ONE = _G.ProjectONE
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 
-local P = {range = 500, cooldown = 1200, told = {}}
+local P = {range = 500, cooldown = 1200, told = {}, planAhead = 15}
 nav.Partners = P
 
 local function Call(fn, ...)
@@ -41,9 +41,21 @@ end
 function P:Candidates()
     local Q, QS = nav.Quests, nav.QuestShare
     if not (Q and QS) then return {} end
-    local mine = {}
+    local mine, planned = {}, {}
     for _, q in ipairs(Q:Log()) do
         if not q.complete then mine[q.id] = q.title end
+    end
+    -- 0.7.1: auch Quests, die dir die Quest-Fuehrung als Naechstes zum Annehmen vorschlaegt
+    local lev = ONE.ns and ONE.ns.leveling
+    local plan = lev and lev.Guide and lev.Guide.plan
+    for i, st in ipairs(plan and plan.steps or {}) do
+        if i > self.planAhead then break end
+        for _, a in ipairs(st.actions or {}) do
+            if a.kind == "accept" and not mine[a.id] then
+                mine[a.id] = lev.Guide.Title and lev.Guide.Title(a.id) or ("#" .. a.id)
+                planned[a.id] = true
+            end
+        end
     end
     local where = Positions()
     local navi = ONE.modules and ONE.modules.nav
@@ -53,7 +65,7 @@ function P:Candidates()
         if not InMyGroup(name) then
             local shared = {}
             for id, e in pairs(peer.quests or {}) do
-                if mine[id] and not e.done then shared[#shared + 1] = {id = id, title = mine[id]} end
+                if mine[id] and not e.done then shared[#shared + 1] = {id = id, title = mine[id], planned = planned[id]} end
             end
             local pos = where[name]
             local dist = pos and navi and navi.DistanceTo and Call(navi.DistanceTo, navi, pos.mapID, pos.x, pos.y)
@@ -145,7 +157,9 @@ function P:Frame()
         if not (GameTooltip and c) then return end
         GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
         GameTooltip:SetText(T("Gemeinsame Quests"))
-        for _, q in ipairs(c.quests) do if GameTooltip.AddLine then GameTooltip:AddLine(q.title, 1, 1, 1) end end
+        for _, q in ipairs(c.quests) do
+            if GameTooltip.AddLine then GameTooltip:AddLine(q.title .. (q.planned and (" |cff9d9d9d" .. T("(als Nächstes im Plan)") .. "|r") or ""), 1, 1, 1) end
+        end
         GameTooltip:Show()
     end)
     f:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
