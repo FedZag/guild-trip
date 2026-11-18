@@ -12,6 +12,7 @@ Core.lua
 Locale.lua
 Locale_enUS.lua
 BugReport.lua
+Skin.lua
 Themes.lua
 Kit.lua
 Geometry.lua
@@ -20,7 +21,6 @@ Widgets.lua
 MinimapButton.lua
 Notifications.lua
 UI.lua
-Book.lua
 Welcome.lua
 WhatsNew.lua
 Sound.lua

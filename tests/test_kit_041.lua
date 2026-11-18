@@ -19,6 +19,7 @@ local function FontString(blizzard)
     return s
 end
 local ONE = {db = {theme = {selected = "forge", foreverIntroduced = true}}}
+assert(loadfile(root .. "/ONE_Core/Skin.lua"))("ONE_Core", ONE)
 assert(loadfile(root .. "/ONE_Core/Themes.lua"))("ONE_Core", ONE)
 assert(loadfile(root .. "/ONE_Core/Kit.lua"))("ONE_Core", ONE)
 ONE.Themes:Initialize()
@@ -29,17 +30,17 @@ assert(toc:find("Themes.lua\nKit.lua", 1, true), "Kit laedt direkt nach Themes")
 local small = FontString("GameFontHighlightSmall")
 ONE.Themes:RegisterText(small, "soft")
 assert(small.object == fonts.ONEFont_small and small.__oneKitLevel == "small")
-assert(fonts.ONEFont_small.size == 12 and fonts.ONEFont_small.shadow[1] == 1, "12 pt mit Schatten statt 10 pt")
+assert(fonts.ONEFont_small.size == 11.5 and fonts.ONEFont_small.file:find("Inter", 1, true), "Inter 11,5 pt statt Blizzard 10 pt")
 local huge = FontString("GameFontNormalHuge")
 ONE.Themes:RegisterText(huge, "text")
-assert(huge.object == fonts.ONEFont_title and fonts.ONEFont_title.size == 21)
+assert(huge.object == fonts.ONEFont_title and fonts.ONEFont_title.size == 20)
 -- Unbekannte Schrift bleibt unangetastet
 local other = FontString("NumberFontNormal")
 ONE.Themes:RegisterText(other, "text")
 assert(other.object.GetName() == "NumberFontNormal")
 
 -- Schriftgroesse im Kreis 100 -> 110 -> 125 -> 90 -> 100, wirkt auf alle Stufen
-assert(ONE.Kit:CycleFontScale() == 1.1 and math.abs(fonts.ONEFont_small.size - 13.2) < .001)
+assert(ONE.Kit:CycleFontScale() == 1.1 and math.abs(fonts.ONEFont_small.size - 12.65) < .001)
 assert(ONE.Kit:CycleFontScale() == 1.25)
 assert(ONE.Kit:CycleFontScale() == .9)
 assert(ONE.Kit:CycleFontScale() == 1 and ONE.db.kit.fontScale == 1)
@@ -57,5 +58,5 @@ assert(ONE.Kit:ToggleContrast() == "normal")
 assert(math.abs(small.color[1] - forge.soft[1]) < .001)
 
 -- Native Palette: Fliesstext weiss, Nebentext hell (Lesbarkeit)
-assert(forge.text[1] == 1 and forge.soft[1] > .82)
+assert(forge.text[1] > .9 and forge.soft[1] > .7, "Nachtroute: Fliesstext fast weiss, Nebentext hell")
 print("OK: 0.4.1a - Kit: groessere Schriftstufen mit Schatten, Schriftgroesse, Kontrast")

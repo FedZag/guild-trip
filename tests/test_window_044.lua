@@ -69,7 +69,7 @@ SOUNDKIT = {IG_MAINMENU_OPEN=850, IG_MAINMENU_OPTION_CHECKBOX_ON=856,
     IG_MAINMENU_OPTION_CHECKBOX_OFF=857, IG_CHARACTER_INFO_TAB=841, RAID_WARNING=8959}
 PlaySound = function(id, channel) sounds[#sounds+1] = {id=id,channel=channel}; return true end
 local ONE = {}
-for _, file in ipairs({"Core.lua", "Themes.lua", "Kit.lua", "Geometry.lua", "WindowScale.lua", "Widgets.lua", "Notifications.lua", "UI.lua", "Welcome.lua"}) do
+for _, file in ipairs({"Core.lua", "Skin.lua", "Themes.lua", "Kit.lua", "Geometry.lua", "WindowScale.lua", "Widgets.lua", "Notifications.lua", "UI.lua", "Welcome.lua"}) do
     assert(loadfile(path .. "/src/ONE_Core/" .. file))("ONE_Core", ONE)
 end
 ProjectONEDB = {soundEnabled=false, guild={noticeHistory={}},theme={selected="hybrid",uiSounds=true}}
@@ -77,7 +77,7 @@ assert(eventFrame and eventFrame.scripts.OnEvent)
 eventFrame.scripts.OnEvent(eventFrame,"ADDON_LOADED","ONE_Core")
 assert(ONE.started and ONE.UI.activeTab=="home")
 -- 0.4.4: alle frueheren Designs gehen im nativen Blizzard-Look auf
-assert(ONE.db.theme.selected=="native", "Altes Design muss zu native migrieren")
+assert(ONE.db.theme.selected==nil and ONE.Skin:Choice()=="auto", "Alte Designwahl entfaellt, Skin nach Fraktion")
 assert(not ONE.UI.views.themes, "Designauswahl entfaellt im nativen Look")
 assert(ONE.UI.sidebarButtons.home and ONE.UI.frame.Tabs and #ONE.UI.frame.Tabs>=2, "Reiter unten fehlen")
 -- 0.6.9: alle Einstellungen in Optionen (Bereiche links), keine Unterseiten mehr
@@ -195,7 +195,7 @@ for _,e in ipairs(elements) do
  end
 end
 assert(checkedBounds>=7,"Zu wenige Button-Aussenkanten geprueft")
-assert(ONE.Themes:Current().name=="Blizzard")
+assert(ONE.Themes:Current().name=="Nachtroute" or ONE.Themes:Current().name=="Horde" or ONE.Themes:Current().name=="Allianz")
 assert(ONE.Themes:PlaySound("preview",nil,true))
 assert(#sounds>0)
 ONE.UI:Navigate("home")

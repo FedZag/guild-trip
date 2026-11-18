@@ -15,7 +15,7 @@ local LIST_W, ROW_H, HEAD_H, INPUT_H, TOP = 156, 24, 30, 28, 42
 -- 0.6.8: Blizzard-Aussehen wie das Hauptfenster (Rahmen mit Titel, Kanaele mit Goldsymbolen,
 -- Wappenschilde beim Fluestern, grosse Kopfzeile, Senden-Knopf). Buch und schlichter Stil bleiben.
 local TEX = "Interface\\AddOns\\ONE_Chat\\Textures\\"
-local TAB_ICONS = "Interface\\AddOns\\ONE_Core\\Textures\\Book\\TabIcons"
+local TAB_ICONS = "Interface\\AddOns\\ONE_Core\\Textures\\Common\\TabIcons"
 local TAB_ICON = {all = 9, guild = 1, group = 3, trade = 4, near = 7}
 local WHISPER_H, HEADROW_H = 32, 22
 local function Modern() return UI.modern == true end

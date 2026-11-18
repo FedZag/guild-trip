@@ -40,7 +40,7 @@ UI.NATIVE_WINDOW=NATIVE_WINDOW
 local VIEW_PARENT={["guild-members"]="guild",today="home"}
 UI.VIEW_PARENT=VIEW_PARENT
 local function BookActive() return ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() end
-local ICONS="Interface\\AddOns\\ONE_Core\\Textures\\Book\\TabIcons"
+local ICONS="Interface\\AddOns\\ONE_Core\\Textures\\Common\\TabIcons"
 local ICON_INDEX={home=0,guild=1,calendar=2,dungeons=3,groups=3,crafting=4,classes=5,quests=6,nav=7,options=8,leveling=10}
 local NAV_LABEL={home="Startseite",guild="Gilde",calendar="Kalender",today="Heute",
     dungeons=T("Dungeons"),groups=T("Gruppen"),crafting=T("Berufe"),classes=T("Klasse"),quests=T("Quests"),leveling=T("Leveln"),nav=T("Navi"),options=T("Optionen")}

@@ -11,7 +11,7 @@ Guild Trip wird ohne jede Gewährleistung bereitgestellt.
 Fremde Teile behalten ihre eigene Lizenz und sind in THIRD_PARTY.md genannt,
 u. a. ONE_Dungeons/QuestData.lua ("Forever Dungeon Quests" von Sundee, MIT,
 siehe ONE_Dungeons/LICENSE_ForeverDungeonQuests.txt) und die Schrift
-IM FELL English (SIL Open Font License, siehe ONE_Core/Fonts/OFL.txt).
+Inter (SIL Open Font License, siehe ONE_Core/Fonts/OFL.txt).
 
 ENGLISH
 Guild Trip is free software: you can redistribute it and/or modify it under
@@ -24,7 +24,7 @@ or FITNESS FOR A PARTICULAR PURPOSE.
 Third-party parts keep their own licences and are listed in THIRD_PARTY.md,
 among them ONE_Dungeons/QuestData.lua ("Forever Dungeon Quests" by Sundee,
 MIT, see ONE_Dungeons/LICENSE_ForeverDungeonQuests.txt) and the font
-IM FELL English (SIL Open Font License, see ONE_Core/Fonts/OFL.txt).
+Inter (SIL Open Font License, see ONE_Core/Fonts/OFL.txt).
 
 World of Warcraft, Warcraft and Blizzard Entertainment are trademarks or
 registered trademarks of Blizzard Entertainment, Inc. Guild Trip is a fan

@@ -39,7 +39,7 @@ local refreshed = 0
 ONE.UI = {Layout = {width = 726}, Refresh = function() refreshed = refreshed + 1 end,
     RegisterBackHandler = function() end, UpdateBackButton = function() end}
 _G.ProjectONE = ONE
-for _, f in ipairs({"Themes.lua", "Kit.lua", "Geometry.lua", "Widgets.lua"}) do
+for _, f in ipairs({"Skin.lua", "Themes.lua", "Kit.lua", "Geometry.lua", "Widgets.lua"}) do
     assert(loadfile(root .. "/ONE_Core/" .. f))("ONE_Core", ONE)
 end
 ONE.Themes:Initialize()

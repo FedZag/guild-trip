@@ -69,7 +69,7 @@ SOUNDKIT = {IG_MAINMENU_OPEN=850, IG_MAINMENU_OPTION_CHECKBOX_ON=856,
     IG_MAINMENU_OPTION_CHECKBOX_OFF=857, IG_CHARACTER_INFO_TAB=841, RAID_WARNING=8959}
 PlaySound = function(id, channel) sounds[#sounds+1] = {id=id,channel=channel}; return true end
 local ONE = {}
-for _, file in ipairs({"Core.lua", "Themes.lua", "Kit.lua", "Geometry.lua", "WindowScale.lua", "Widgets.lua", "Notifications.lua", "UI.lua", "Welcome.lua", "Vendor.lua"}) do
+for _, file in ipairs({"Core.lua", "Skin.lua", "Themes.lua", "Kit.lua", "Geometry.lua", "WindowScale.lua", "Widgets.lua", "Notifications.lua", "UI.lua", "Welcome.lua", "Vendor.lua"}) do
     assert(loadfile(path .. "/src/ONE_Core/" .. file))("ONE_Core", ONE)
 end
 ProjectONEDB = {soundEnabled=false, guild={noticeHistory={}},theme={selected="hybrid",uiSounds=true}}

@@ -9,12 +9,17 @@ ONE.Kit = Kit
 
 -- Stufen in Punkt bei 100 %. Blizzard-Standard zum Vergleich: Small 10, Normal 12.
 Kit.levels = {
-    title   = {size = 21, outline = ""},
-    heading = {size = 16, outline = ""},
-    body    = {size = 13.5, outline = ""},
+    title   = {size = 20, outline = "", weight = "bold"},
+    heading = {size = 15, outline = "", weight = "bold"},
+    body    = {size = 13, outline = ""},
     label   = {size = 12, outline = ""},
-    small   = {size = 12, outline = ""},
-    button  = {size = 13, outline = ""},
+    small   = {size = 11.5, outline = ""},
+    button  = {size = 12, outline = "", weight = "bold"},
+}
+-- Schrift des Aussehens "Nachtroute": Inter (SIL OFL, scripts/build_fonts.py)
+Kit.fontFiles = {
+    regular = "Interface\\AddOns\\ONE_Core\\Fonts\\Inter-Regular.ttf",
+    bold = "Interface\\AddOns\\ONE_Core\\Fonts\\Inter-SemiBold.ttf",
 }
 Kit.scales = {.9, 1, 1.1, 1.25}
 
@@ -59,16 +64,10 @@ function Kit:ApplyFont(level)
     local font, def = self.fonts[level], self.levels[level]
     if not (font and def and font.SetFont) then return end
     local size = def.size * Settings().fontScale
-    -- Buch-Aussehen: alte Druckschrift, etwas groesser, ohne Schatten (Pergament)
-    if ONE.Book and ONE.Book:IsActive() then
-        font:SetFont(ONE.Book.bodyFont, size * ONE.Book.bodyScale, "")
-        if font.SetShadowOffset then font:SetShadowOffset(0, 0) end
-        if font.SetShadowColor then font:SetShadowColor(0, 0, 0, 0) end
-        return
-    end
-    font:SetFont(BaseFontFile(), size, def.outline)
-    if font.SetShadowOffset then font:SetShadowOffset(1, -1) end
-    if font.SetShadowColor then font:SetShadowColor(0, 0, 0, .95) end
+    local file = Kit.fontFiles[def.weight == "bold" and "bold" or "regular"]
+    if font:SetFont(file, size, def.outline) == false then font:SetFont(BaseFontFile(), size, def.outline) end
+    if font.SetShadowOffset then font:SetShadowOffset(0, -1) end
+    if font.SetShadowColor then font:SetShadowColor(0, 0, 0, .6) end
     -- Grundfarbe Weiss, voll deckend: frisch angelegte Schriftobjekte haben sonst eine
     -- dunkle Grundfarbe, auf die Texte beim Auffrischen zurueckfallen (Blizzard-Aussehen
     -- war dadurch kaum lesbar). Die Rollenfarben setzt Themes:ApplyAll danach neu.
