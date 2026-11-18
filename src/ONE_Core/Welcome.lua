@@ -81,6 +81,12 @@ function Welcome:Initialize()
     ONE.UI:RegisterView("today", function(panel)
         return self:BuildCentralView(panel)
     end)
+    -- Glas: Startseite und Heute als Unterseiten in der mittleren Spalte
+    if ONE.Glass and ONE.Glass:Active() and ONE.UI.SetViews then
+        local go = function(key) ONE.UI:Navigate(key) end
+        ONE.UI:SetViews("home", { { key = "home", label = "Übersicht", onClick = go },
+            { key = "today", label = "Heute", onClick = go } }, "home")
+    end
     local login = CreateFrame("Frame")
     login:RegisterEvent("PLAYER_ENTERING_WORLD")
     login:SetScript("OnEvent", function(_, _, isInitialLogin, isReloadingUi)

@@ -12,6 +12,7 @@ Core.lua
 Locale.lua
 Locale_enUS.lua
 BugReport.lua
+Glass.lua
 Themes.lua
 Kit.lua
 Geometry.lua

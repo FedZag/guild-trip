@@ -25,7 +25,9 @@ end
 
 function Widgets:Button(parent, text, width, height, point, x, y, callback, style)
     assert(parent and width and height, "ONE Button: Elternframe oder Maße fehlen")
-    local button = NativeButton(parent)
+    -- Glas-Look: eigene Pille statt roter Blizzard-Vorlage
+    local glass = ONE.Glass and ONE.Glass:Active()
+    local button = (not glass) and NativeButton(parent) or nil
     local native = button ~= nil
     button = button or CreateFrame("Button", nil, parent)
     button:SetSize(width, height)
@@ -39,6 +41,7 @@ function Widgets:Button(parent, text, width, height, point, x, y, callback, styl
         CreateLabel(button, text, "CENTER", 11, 11)
     end
     if callback then button:SetScript("OnClick", callback) end
+    if glass then ONE.Glass:StyleButton(button, style) end
     return button
 end
 
@@ -129,6 +132,10 @@ function Widgets:IconButton(parent, texturePath, size, point, x, y, callback, va
 end
 
 function Widgets:CloseButton(parent, point, x, y, callback)
+    if ONE.Glass and ONE.Glass:Active() then
+        return self:IconButton(parent, "Interface\\AddOns\\ONE_Core\\Textures\\Common\\CloseGlyph.tga",
+            26, point or "TOPLEFT", x or 0, y or 0, callback, "secondary", 11)
+    end
     local ok, close = pcall(CreateFrame, "Button", nil, parent, "UIPanelCloseButton")
     if ok and close then
         close:SetPoint(point or "TOPLEFT", parent, point or "TOPLEFT", x or 0, y or 0)

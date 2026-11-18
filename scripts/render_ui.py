@@ -151,6 +151,7 @@ def render_page(page, scale, book=False):
             if not uri:
                 continue
             bg = "background-image:url(%s);background-size:100%% 100%%;" % uri
+            msk = "mask-size:100% 100%;-webkit-mask-size:100% 100%;"
             tc = it.get("tc")
             if tc and len(tc) >= 4:
                 l, r, t, b = tc[0], tc[1], tc[2], tc[3]
@@ -160,20 +161,26 @@ def render_page(page, scale, book=False):
                     bw, bh = w / (r - l), h / (b - t)
                     bg = "background-image:url(%s);background-size:%.1fpx %.1fpx;background-position:%.1fpx %.1fpx;" % (
                         uri, bw, bh, -l * bw, -t * bh)
+                    msk = "mask-size:%.1fpx %.1fpx;mask-position:%.1fpx %.1fpx;-webkit-mask-size:%.1fpx %.1fpx;-webkit-mask-position:%.1fpx %.1fpx;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;" % (
+                        bw, bh, -l * bw, -t * bh, bw, bh, -l * bw, -t * bh)
             filt = ""
+            if it.get("v") and it["v"][3] < 1 and it["v"][0] == it["v"][1] == it["v"][2] == 1:
+                a = (a if a is not None else 1) * it["v"][3]
+            elif it.get("v") and it["v"][3] < 1 and it["v"][0] == it["v"][1] == it["v"][2]:
+                it["v"] = [it["v"][0] + .0001, it["v"][1], it["v"][2], it["v"][3]]
             if it.get("v"):
                 v = it["v"]
                 if max(v[:3]) - min(v[:3]) <= .15 and max(v[:3]) < 1 and v[3] == 1:
                     # leichte Toenung eines Bildes (z. B. Buch-Papier): als Helligkeit + etwas Sepia
-                    filt = "filter:brightness(%.2f) sepia(%.2f);" % (sum(v[:3]) / 3, min(.4, (v[0] - v[2]) * 4))
+                    filt = "filter:brightness(%.2f) sepia(%.2f);" % (sum(v[:3]) / 3, max(0, min(.4, (v[0] - v[2]) * 4)))
                 elif v[0] == v[1] == v[2] and v[0] != 1:
                     filt = "filter:brightness(%.2f);" % v[0]
                 elif not (v[0] == v[1] == v[2] == 1):
                     # Einfaerben grob: Helligkeit + Farbton ueber Mischung
                     filt = "filter:drop-shadow(0 0 0 transparent);"
                     bg += "background-color:transparent;"
-                    parts.append('<div class="e tex" style="%s%sopacity:%.2f;-webkit-mask-image:url(%s);mask-image:url(%s);mask-size:100%% 100%%;background:%s"></div>' % (
-                        st, "", (a if a is not None else 1) * v[3], uri, uri, rgba(v[:3] + [1])))
+                    parts.append('<div class="e tex" style="%s%sopacity:%.2f;-webkit-mask-image:url(%s);mask-image:url(%s);%sbackground:%s"></div>' % (
+                        st, "", (a if a is not None else 1) * v[3], uri, uri, msk, rgba(v[:3] + [1])))
                     continue
             parts.append('<div class="e tex" style="%s%s%s%s"></div>' % (
                 st, bg, filt, "opacity:%.2f;" % a if a is not None else ""))
@@ -202,6 +209,10 @@ def render_page(page, scale, book=False):
         if it.get("t") and k in ("Button", "CheckButton") and cls and cls.startswith(("btn", "tab")):
             parts.append('<div class="e fs" style="%sdisplay:flex;align-items:center;justify-content:center;font-size:%.1fpx;color:%s;z-index:%d">%s</div>' % (
                 st, 12 * scale, rgba(GOLD if not it.get("dis") else GREY), it["z"] + 1, wow_text(it["t"])))
+        elif it.get("t") and k == "Button" and not cls:
+            # eigene Knoepfe (Glas): weisse Schrift mittig
+            parts.append('<div class="e fs" style="%sdisplay:flex;align-items:center;justify-content:center;font-size:%.1fpx;color:%s;z-index:%d">%s</div>' % (
+                st, 11 * scale, rgba(WHITE if not it.get("dis") else GREY), it["z"] + 60, wow_text(it["t"])))
     parts.append("</div>")
     return "".join(parts)
 

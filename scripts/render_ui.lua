@@ -527,6 +527,9 @@ ProjectONEDB = {theme = {selected = "native", uiSounds = false}, soundEnabled = 
     dungeons = {pass = {Testheld = {d = {wc = {first = 1763000000, last = 1763300000, runs = 2}, rfc = {first = 1762500000, runs = 1},
         dm = {first = 1763350000, runs = 1}}, t = {{id = "x", title = "Brachland-Treffen", time = 1763200000, count = 8}}}}}}
 if mode == "book" then ProjectONEDB.theme.selected = "book" ProjectONEDB.theme.book = true end
+-- 0.7.1: Glas-Look (Standard) oder Blizzard; SKIN=azeroth|glas|horde|alliance
+ProjectONEDB.theme.look = (mode == "native") and "native" or "glass"
+ProjectONEDB.theme.glass = {skin = os.getenv("SKIN") or "azeroth"}
 
 -- ===== Addons laden =====
 local errors = {}
@@ -569,7 +572,8 @@ end
 
 -- ===== Seiten oeffnen und aufzeichnen =====
 local function Num(v) return math.floor(v * 10 + .5) / 10 end
-local function Color(c) if c then return {Num(c[1] or 1), Num(c[2] or 1), Num(c[3] or 1), Num(c[4] or 1)} end end
+local function Num2(v) return math.floor(v * 100 + .5) / 100 end
+local function Color(c) if c then return {Num2(c[1] or 1), Num2(c[2] or 1), Num2(c[3] or 1), Num2(c[4] or 1)} end end
 local function Visible(o)
     while o do
         if not o.shown then return false end

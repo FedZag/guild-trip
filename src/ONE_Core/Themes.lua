@@ -28,9 +28,15 @@ function Themes:Initialize()
     t.selected="native"
     if type(t.uiSounds)~="boolean" then t.uiSounds=true end
 end
-local function Selected() return "native" end
-function Themes:Get() return self.presets[Selected()] end
-function Themes:Current() return self.presets[Selected()] end
+-- 0.7.1: Glas-Look (Glass.lua) neben dem Blizzard-Look; Glas liefert seine Farben selbst
+local function Glassy() return ONE.Glass and ONE.Glass:Active() end
+Themes.Glassy = Glassy
+local function Selected() return Glassy() and "glass" or "native" end
+function Themes:Get() return self:Current() end
+function Themes:Current()
+    if Glassy() then return ONE.Glass:ThemePreset() end
+    return self.presets.native
+end
 function Themes:IsNative() return Selected()=="native" end
 function Themes:SetActive(id)
     if id~="native" then return false end
@@ -101,14 +107,18 @@ end
 function Themes:RegisterWindow(frame,background,label)
     if not frame then return end
     local entry={frame=frame,background=background,label=label}
-    entry.native=self:ApplyLayout(frame,"SimplePanelTemplate")
-    if not entry.native then entry.edges=Edges(frame,self:Current().border,1) end
+    if Glassy() then
+        entry.glass=ONE.Glass:Surface(frame,"window")
+    else
+        entry.native=self:ApplyLayout(frame,"SimplePanelTemplate")
+    end
+    if not entry.native and not entry.glass then entry.edges=Edges(frame,self:Current().border,1) end
     self.windows[#self.windows+1]=entry
     self:ApplyWindow(entry)
 end
 function Themes:ApplyWindow(entry)
     local p=self:Current()
-    Fill(entry.background,p.background,entry.native and .92 or 1)
+    Fill(entry.background,p.background,entry.glass and 0 or entry.native and .92 or 1)
     if entry.frame.SetBackdropColor then entry.frame:SetBackdropColor(0,0,0,0) end
     if entry.frame.SetBackdropBorderColor then entry.frame:SetBackdropBorderColor(0,0,0,0) end
     if entry.label and entry.label.SetTextColor then entry.label:SetTextColor(p.accent[1],p.accent[2],p.accent[3]) end
@@ -120,15 +130,19 @@ function Themes:RegisterPanel(frame)
     local bg=frame:CreateTexture(nil,"BACKGROUND",nil,-6)
     bg:SetAllPoints(frame)
     local entry={frame=frame,bg=bg}
-    entry.native=self:ApplyLayout(frame,"InsetFrameTemplate")
-    if not entry.native then entry.edges=Edges(frame,self:Current().border,.8) end
+    if Glassy() then
+        entry.glass=ONE.Glass:Surface(frame,"card")
+    else
+        entry.native=self:ApplyLayout(frame,"InsetFrameTemplate")
+    end
+    if not entry.native and not entry.glass then entry.edges=Edges(frame,self:Current().border,.8) end
     self.panels[#self.panels+1]=entry
     self:ApplyPanel(entry)
     return bg
 end
 local NINE={"TopLeftCorner","TopRightCorner","BottomLeftCorner","BottomRightCorner","TopEdge","BottomEdge","LeftEdge","RightEdge","Center"}
 function Themes:ApplyPanel(entry)
-    Fill(entry.bg,{0,0,0},entry.native and .35 or .55)
+    Fill(entry.bg,{0,0,0},entry.glass and 0 or entry.native and .35 or .55)
 end
 
 -- frueher: Buch-Ueberschrift mit Zierlinie; bleibt fuer Module, die sie noch aufrufen

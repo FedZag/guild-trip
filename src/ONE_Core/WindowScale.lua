@@ -32,7 +32,7 @@ end
 function WindowScale:ClampState(scale,x,y,w,h)
     if not Finite(w) or not Finite(h) then w,h=self:ScreenSize() end
     local minScale,maxScale=self:Bounds(w,h)
-    scale=Clamp(Finite(scale) and scale or 1,minScale,maxScale)
+    scale=Clamp(Finite(scale) and scale or (self.DEFAULT or 1),minScale,maxScale)
     x=Finite(x) and x or 0
     y=Finite(y) and y or 0
     local halfW=self.WIDTH*scale/2

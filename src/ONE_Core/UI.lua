@@ -36,6 +36,8 @@ UI.NATIVE_WINDOW=NATIVE_WINDOW
 local VIEW_PARENT={["guild-members"]="guild",today="home"}
 UI.VIEW_PARENT=VIEW_PARENT
 local function BookActive() return false end
+-- 0.7.1: Glas-Look (Glass.lua): drei Spalten, eigene runde Bereichsknoepfe
+local function GlassActive() return ONE.Glass and ONE.Glass:Active() end
 local ICONS="Interface\\AddOns\\ONE_Core\\Textures\\Common\\TabIcons"
 local ICON_INDEX={home=0,guild=1,calendar=2,dungeons=3,groups=3,crafting=4,classes=5,quests=6,nav=7,options=8,leveling=10}
 local NAV_LABEL={home="Startseite",guild="Gilde",calendar="Kalender",today="Heute",
@@ -72,6 +74,11 @@ end
 -- Reiter unten am Fenster, sortiert nach NAV_ORDER.
 -- Knopf der Symbolleiste: Goldsymbol oben, Name darunter, Auswahl mit goldener Kante links
 function UI:SideButton(id,title)
+    if GlassActive() then
+        local idx=ICON_INDEX[id] or 9
+        local col,row=idx%4,math.floor(idx/4)
+        return ONE.Glass:NavButton(self.sidebar,id,T(NAV_LABEL[id] or title),ICONS,{col/4,(col+1)/4,row/4,(row+1)/4})
+    end
     local parent=self.sidebar or self.frame
     local b=CreateFrame("Button","ProjectONEMainWindowTab"..id,parent)
     local W=NATIVE_WINDOW
@@ -107,6 +114,7 @@ function UI:SideButton(id,title)
     return b
 end
 function UI:StyleSideButton(b,selected)
+    if b and b.__oneGlassNav then ONE.Glass:StyleNav(b,selected) return end
     local r=b and b.__oneSide
     if not r then return end
     if selected then r.sel:Show() r.bar:Show() else r.sel:Hide() r.bar:Hide() end
@@ -126,7 +134,11 @@ function UI:RelayoutNavigation()
         local tab=self.sidebarButtons[id]
         if tab.SetID then tab:SetID(i) end
         if tab.ClearAllPoints then tab:ClearAllPoints() end
-        if self.sidebar then
+        if self.sidebar and GlassActive() then
+            local G=ONE.Glass.WINDOW
+            if id=="options" then tab:SetPoint("BOTTOMLEFT",self.sidebar,"BOTTOMLEFT",6,26)
+            else tab:SetPoint("TOPLEFT",self.sidebar,"TOPLEFT",6,-56-row*(G.navH+G.navGap)) row=row+1 end
+        elseif self.sidebar then
             -- Optionen unten in der Leiste, alles andere von oben
             if id=="options" then tab:SetPoint("BOTTOMLEFT",self.sidebar,"BOTTOMLEFT",4,22)
             else tab:SetPoint("TOPLEFT",self.sidebar,"TOPLEFT",4,-6-row*(W.navHeight+W.navGap)) row=row+1 end
@@ -364,6 +376,16 @@ function UI:UpdateViews()
     local items=set and set.items or {}
     -- Ansichten, die eigene Seiten sind, folgen der offenen Seite
     if set then for _,it in ipairs(items) do if it.key==self.activeTab then set.active=it.key end end end
+    if GlassActive() then
+        -- Glas: Unterseiten als Liste in der mittleren Spalte, rechts oben ihr Name
+        local parent=VIEW_PARENT[self.activeTab] or self.activeTab
+        local title=T(NAV_LABEL[parent] or "")
+        local activeLabel
+        if set then for _,it in ipairs(items) do if it.key==set.active then activeLabel=T(it.label) end end end
+        ONE.Glass:ShowViews(self,set,title,self.contexts and self.contexts[self.activeTab])
+        if self.pathLabel then self.pathLabel:SetText(activeLabel or T(NAV_LABEL[self.activeTab] or title)) end
+        return
+    end
     local right=-118
     for i=#items,1,-1 do
         local it=items[i]
@@ -410,6 +432,7 @@ function UI:UpdateContext()
     if not self.contextLabel then return end
     local text=self.contexts and self.contexts[self.activeTab]
     self.contextLabel:SetText(text or "")
+    if GlassActive() and ONE.Glass.colSub then ONE.Glass.colSub:SetText(text or "") end
 end
 function UI:Refresh()
     local active=self.tabs[self.activeTab] or self.views[self.activeTab]
@@ -421,6 +444,7 @@ end
 function UI:Show()
     if not self.frame then return end
     self.frame:Show()
+    if GlassActive() then self:UpdateViews() end
     self:Refresh()
 end
 function UI:Toggle()
@@ -866,6 +890,9 @@ local function BuildOptions(panel)
     local W=UI.Layout.width
     local H=ONE.Geometry.tokens.contentHeight or 437
     local L,R
+    -- Glas: die Bereiche stehen in der mittleren Spalte, rechts nur die Einstellungen
+    local glass=GlassActive()
+    if glass then R={x=0,width=W} end
     -- Buch: links die Bereiche, rechts die Einstellungen; sonst Liste 150 breit links
     local listX,listW=L and L.x or 0,L and math.min(L.width,220) or 150
     local paneX=R and R.x or listW+10
@@ -879,6 +906,10 @@ local function BuildOptions(panel)
     if L then list:SetPoint("TOPLEFT",panel,"TOPLEFT",listX,top) list:SetSize(listW,H+top) end
     local pane=R and CreateFrame("Frame",nil,panel) or Panel(panel,paneX,0,paneW,H)
     if R then pane:SetPoint("TOPLEFT",panel,"TOPLEFT",paneX,0) pane:SetSize(paneW,H) end
+    if glass then
+        list:Hide()
+        ONE.Themes:RegisterPanel(pane)
+    end
     -- rechts scrollbar (Mausrad); die Leiste der Vorlage sitzt rechts innen
     local innerW=paneW-44
     local ok,scroll=pcall(CreateFrame,"ScrollFrame",nil,pane,"UIPanelScrollFrameTemplate")
@@ -988,6 +1019,13 @@ local function BuildOptions(panel)
             if c.id==cat then title=c.title end
         end
         for i=#cats+1,#catButtons do catButtons[i]:Hide() end
+        if glass then
+            local items={}
+            for _,c in ipairs(cats) do
+                items[#items+1]={key=c.id,label=c.title,onClick=function(id) UI.optionsCategory=id UI:Refresh() end}
+            end
+            UI:SetViews("options",items,cat)
+        end
         UI:SetContext("options",T(title))
         Layout(cat)
     end
@@ -1066,10 +1104,18 @@ function UI:PlaceFeatures()
 end
 
 function UI:Initialize()
-    local ok,frame=pcall(CreateFrame,"Frame","ProjectONEMainWindow",UIParent,"PortraitFrameTemplate")
+    local glass=GlassActive()
+    local ok,frame
+    if glass then ok,frame=pcall(CreateFrame,"Frame","ProjectONEMainWindow",UIParent)
+    else ok,frame=pcall(CreateFrame,"Frame","ProjectONEMainWindow",UIParent,"PortraitFrameTemplate") end
     if not ok or not frame then frame=CreateFrame("Frame","ProjectONEMainWindow",UIParent) end
     self.frame=frame
-    if not BookActive() then
+    if glass then
+        for k,v in pairs(ONE.Glass.WINDOW) do WINDOW[k]=v end
+        ONE.WindowScale.WIDTH,ONE.WindowScale.HEIGHT=WINDOW.width,WINDOW.height
+        -- das Glasfenster ist breiter (drei Spalten): ohne gespeicherte Groesse etwas kleiner starten
+        ONE.WindowScale.DEFAULT=.85
+    elseif not BookActive() then
         for k,v in pairs(NATIVE_WINDOW) do WINDOW[k]=v end
         ONE.WindowScale.WIDTH,ONE.WindowScale.HEIGHT=WINDOW.width,WINDOW.height
     end
@@ -1095,6 +1141,7 @@ function UI:Initialize()
     end
     local fallbackTitle
     local function ApplyTitle()
+        if glass then return end
         local text=TitleText()
         if type(frame.SetTitle)=="function" and pcall(frame.SetTitle,frame,text) then return end
         if not fallbackTitle then
@@ -1106,6 +1153,7 @@ function UI:Initialize()
     ApplyTitle()
     if frame.HookScript then frame:HookScript("OnShow",ApplyTitle) end
     self.ApplyTitle=ApplyTitle
+    if glass then return self:InitializeGlass(frame) end
     local logo="Interface\\AddOns\\ONE_Core\\Textures\\Common\\Emblem.tga"
     local portrait=false
     for _,method in ipairs({"SetPortraitToAsset","SetPortraitTextureRaw"}) do
@@ -1175,6 +1223,9 @@ function UI:Initialize()
         self.themeStatus=Label(frame,"","GameFontDisableSmall",WINDOW.width-262,-(WINDOW.height-WINDOW.insetBottom+7),220)
         if self.themeStatus.SetJustifyH then self.themeStatus:SetJustifyH("RIGHT") end
     end
+    self:FinishInitialize(frame)
+end
+function UI:FinishInitialize(frame)
     if UISpecialFrames then table.insert(UISpecialFrames,"ProjectONEMainWindow") end
     if ONE.Kit then
         ONE.Kit:RegisterTile("termine",{title="TERMINE",order=10,build=TermineTile})
@@ -1185,8 +1236,39 @@ function UI:Initialize()
     for old,cat in pairs({modules="general",assists="general",sharing="sharing",["guild-reminder-settings"]="reminders"}) do
         self:AddAlias(old,"options",function() UI.optionsCategory=cat end)
     end
+    if ONE.Glass then ONE.Glass:RegisterSettings(self) end
     self:AddTab("options",T("Optionen"),BuildOptions)
     self:SelectTab("home")
     self:UpdateBackButton()
     frame:Hide()
+end
+-- Glas-Fenster: Rahmen und Spalten aus Glass.lua, Kopfzeile rechts ueber dem Inhalt
+function UI:InitializeGlass(frame)
+    local col1,col2=ONE.Glass:BuildWindow(self,frame)
+    self.sidebar=col1
+    self.viewColumn=col2
+    self.closeButton=ONE.Widgets:CloseButton(frame,"TOPRIGHT",-12,-12,function() frame:Hide() end)
+    self.pathLabel=Label(frame,T("Startseite"),"GameFontNormalLarge",WINDOW.contentX,-24,360)
+    self.pathLabel:SetWidth(0)
+    if self.pathLabel.SetWordWrap then self.pathLabel:SetWordWrap(false) end
+    self.contextLabel=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+    self.contextLabel:SetPoint("BOTTOMLEFT",self.pathLabel,"BOTTOMRIGHT",10,1)
+    self.contextLabel:SetJustifyH("LEFT")
+    if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(self.contextLabel,"soft") end
+    ONE.Glass:PaintTitles()
+    self.backButton=ONE.Widgets:Button(frame,T("Zurück"),90,24,"TOPRIGHT",-48,-14,function() self:GoBack() end)
+    self.forwardButton=ONE.Widgets:Button(frame,T("Weiter"),90,24,"TOPRIGHT",-142,-14,function() self:GoForward() end)
+    self.forwardButton:Hide()
+    self.themeStatus=col1:CreateFontString(nil,"OVERLAY","GameFontDisableSmall")
+    self.themeStatus:SetPoint("BOTTOM",col1,"BOTTOM",0,8)
+    self.themeStatus:SetWidth(WINDOW.col1W-6)
+    self.themeStatus:SetJustifyH("CENTER")
+    if frame.RegisterEvent then
+        pcall(frame.RegisterEvent,frame,"GUILD_ROSTER_UPDATE")
+        frame:SetScript("OnEvent",function() if frame:IsShown() then UI:UpdateViews() end end)
+    end
+    if frame.HookScript then
+        frame:HookScript("OnShow",function() if type(C_GuildInfo)=="table" and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) end end)
+    end
+    self:FinishInitialize(frame)
 end
