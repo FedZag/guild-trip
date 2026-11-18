@@ -522,7 +522,7 @@ setmetatable(_G, {__index = function(t, k)
 end})
 
 -- ===== Gespeicherte Daten (erfunden) =====
-ProjectONEDB = {theme = {selected = "native", uiSounds = false}, soundEnabled = false, minimap = {hidden = true},
+ProjectONEDB = {theme = {skin = os.getenv("SKIN"), uiSounds = false}, soundEnabled = false, minimap = {hidden = true},
     seenVersion = "0.6.7-alpha", loginSummaryEnabled = false, toastEnabled = false,
     dungeons = {pass = {Testheld = {d = {wc = {first = 1763000000, last = 1763300000, runs = 2}, rfc = {first = 1762500000, runs = 1},
         dm = {first = 1763350000, runs = 1}}, t = {{id = "x", title = "Brachland-Treffen", time = 1763200000, count = 8}}}}}}
