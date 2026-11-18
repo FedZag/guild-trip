@@ -215,4 +215,24 @@ end
 assert(logRefreshed == 1 and ctx[2] == "Questlog")
 G:DB().view = "settings" tab() assert(ctx[2] == "Plan", "alte Ansicht Einstellungen -> Plan")
 G:DB().view = "unsinn" tab() assert(ctx[2] == "Plan", "unbekannte Ansicht -> Plan")
+-- 0.7.1: Ausruestung in der Tasche, die erst ab der naechsten Stufe passt, zaehlt als Grund
+C_Container = {GetContainerNumSlots = function(bag) return bag == 0 and 3 or 0 end,
+    GetContainerItemInfo = function(_, slot) return ({{itemID = 501}, {itemID = 502}, {itemID = 503}})[slot] end}
+GetItemInfo = function(id)
+    -- Name, Link, Qualitaet, Stufe, Mindeststufe
+    if id == 501 then return "Stab", "[Stab]", 2, 20, 16 end   -- ab 16, +14 %
+    if id == 502 then return "Ring", "[Ring]", 2, 20, 16 end   -- ab 16, nur +3 %
+    if id == 503 then return "Helm", "[Helm]", 2, 20, 18 end   -- erst ab 18
+end
+ONE.ns.classes = ONE.ns.classes or {}
+local savedGear = ONE.ns.classes.Gear
+ONE.ns.classes.Gear = {UpgradePercent = function(_, id) return ({[501] = 14, [502] = 3, [503] = 30})[id] end}
+local up = G.BagUpgrades(16)
+assert(#up == 1 and up[1].itemID == 501 and up[1].pct == 14, "nur der Stab")
+local u = G:Unlocks(16, 15)
+assert(u.gear[1] and u.gear[1].link == "[Stab]")
+assert(G.UnlockText({spells = {}, quests = {}, dungeons = {}, gear = u.gear}) == "Upgrade [Stab] (+14 %)", G.UnlockText({spells = {}, quests = {}, dungeons = {}, gear = u.gear}))
+assert(lev.Grind.HasUnlock({spells = {}, quests = {}, dungeons = {}, gear = u.gear}))
+ONE.ns.classes.Gear = savedGear
+C_Container, GetItemInfo = nil, nil
 print("OK: Quest-Fuehrung im Spiel")
