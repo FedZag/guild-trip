@@ -222,6 +222,25 @@ local QUALITY = {[0] = {.62, .62, .62}, {1, 1, 1}, {.12, 1, 0}, {0, .44, .87}, {
 Widgets.QUALITY = QUALITY
 local Icon = {}
 Icon.__index = Icon
+-- Macht aus einer Symbol-Textur ein abgerundetes Symbol mit feinem Ring.
+-- Runde Ecken per Maske (wenn der Client Masken kann), sonst nur Blizzard-Rand abschneiden.
+-- -> ring (Neun-Teile, :SetColor), masked
+function Widgets.RoundIcon(frame, tex)
+    local S = ONE.Skin
+    local masked = false
+    if S and frame.CreateMaskTexture and tex.AddMaskTexture then
+        local ok, mask = pcall(frame.CreateMaskTexture, frame)
+        if ok and mask then
+            pcall(mask.SetTexture, mask, S.tex.round, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            mask:SetAllPoints(tex)
+            masked = pcall(tex.AddMaskTexture, tex, mask)
+        end
+    end
+    if tex.SetTexCoord then tex:SetTexCoord(.08, .92, .08, .92) end
+    local ring = S and S:Nine(frame, S.tex.ring, .25, "OVERLAY", 1):Place(4, 1, tex)
+    if ring then ring:SetColor(1, 1, 1, .18) end
+    return ring, masked
+end
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
     local ok, a, b = pcall(fn, ...)
@@ -239,19 +258,7 @@ function Widgets:Icon(parent, size)
     o.glow:Hide()
     o.tex = f:CreateTexture(nil, "ARTWORK")
     o.tex:SetAllPoints(f)
-    -- runde Ecken per Maske (wenn der Client Masken kann), sonst Blizzard-Rand abschneiden
-    local masked = false
-    if S and f.CreateMaskTexture and o.tex.AddMaskTexture then
-        local ok, mask = pcall(f.CreateMaskTexture, f)
-        if ok and mask then
-            pcall(mask.SetTexture, mask, S.tex.round, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-            mask:SetAllPoints(f)
-            masked = pcall(o.tex.AddMaskTexture, o.tex, mask)
-        end
-    end
-    if o.tex.SetTexCoord then o.tex:SetTexCoord(.08, .92, .08, .92) end
-    o.masked = masked
-    o.ring = S and S:Nine(f, S.tex.ring, .25, "OVERLAY", 1):Place(4, 1)
+    o.ring, o.masked = Widgets.RoundIcon(f, o.tex)
     o.badge = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     o.badge:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 2, -1)
     if ONE.Kit then ONE.Kit:Upgrade(o.badge, "small") end

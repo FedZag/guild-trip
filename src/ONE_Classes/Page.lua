@@ -49,11 +49,12 @@ local function NewIcon(parent, size, labelWidth)
     b:SetSize(size, size)
     b.tex = b:CreateTexture(nil, "ARTWORK")
     b.tex:SetAllPoints(b)
-    if b.tex.SetTexCoord then b.tex:SetTexCoord(.07, .93, .07, .93) end
+    -- Aussehen "Nachtroute": abgerundet mit feinem Ring, heller beim Darueberfahren
+    if ONE.Widgets and ONE.Widgets.RoundIcon then b.ring = ONE.Widgets.RoundIcon(b, b.tex)
+    elseif b.tex.SetTexCoord then b.tex:SetTexCoord(.07, .93, .07, .93) end
     local hl = b:CreateTexture(nil, "HIGHLIGHT")
     hl:SetAllPoints(b)
-    if hl.SetTexture then hl:SetTexture("Interface\\Buttons\\ButtonHilight-Square") end
-    if hl.SetBlendMode then hl:SetBlendMode("ADD") end
+    hl:SetColorTexture(1, 1, 1, .12)
     b.key = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
     b.key:SetPoint("TOPLEFT", b, "TOPLEFT", 2, -2)
     b.macro = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
@@ -248,12 +249,18 @@ local TREE = {icon = 32, dx = 46, dy = 46, top = -86, gap = 40}
 local function NewNode(parent)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(TREE.icon, TREE.icon)
-    b.border = b:CreateTexture(nil, "BACKGROUND")
-    b.border:SetPoint("TOPLEFT", b, "TOPLEFT", -2, 2)
-    b.border:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 2, -2)
+    -- Aussehen "Nachtroute": abgerundetes Symbol, Ring zeigt den Stand (gruen = gelernt,
+    -- Akzent mit Leuchten = naechster Punkt laut Plan), dahinter weiches Leuchten
+    b.glow = b:CreateTexture(nil, "BACKGROUND", nil, -7)
+    b.glow:SetPoint("CENTER", b, "CENTER")
+    b.glow:SetSize(TREE.icon * 2.2, TREE.icon * 2.2)
+    if ONE.Skin then b.glow:SetTexture(ONE.Skin.tex.glow) end
+    b.glow:Hide()
     b.tex = b:CreateTexture(nil, "ARTWORK")
     b.tex:SetAllPoints(b)
-    if b.tex.SetTexCoord then b.tex:SetTexCoord(.07, .93, .07, .93) end
+    local ring = ONE.Widgets and ONE.Widgets.RoundIcon and ONE.Widgets.RoundIcon(b, b.tex)
+    if not ring and b.tex.SetTexCoord then b.tex:SetTexCoord(.07, .93, .07, .93) end
+    b.border = {SetColorTexture = function(self, r, g, bl, a) self.color = {r, g, bl, a} if ring then ring:SetColor(r, g, bl, a) end end}
     b.rank = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
     b.rank:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 2, -2)
     b.order = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
@@ -421,9 +428,13 @@ function Page:RefreshTree(p, def, build)
         local locked = t.ranks == 0 and t.canBuy == false
         if node.tex.SetDesaturated then node.tex:SetDesaturated(locked) end
         if node.SetAlpha then node:SetAlpha(locked and .55 or 1) end
-        if t.spell == nextSpell then node.border:SetColorTexture(1, .82, 0, 1)
-        elseif t.ranks > 0 then node.border:SetColorTexture(.25, .85, .25, 1)
-        else node.border:SetColorTexture(.12, .12, .12, 1) end
+        local ar, ag, ab = 1, .82, 0
+        if ONE.Skin then ar, ag, ab = ONE.Skin:Color("accent") end
+        if t.spell == nextSpell then
+            node.border:SetColorTexture(ar, ag, ab, 1)
+            node.glow:SetVertexColor(ar, ag, ab, .5) node.glow:Show()
+        elseif t.ranks > 0 then node.border:SetColorTexture(.42, .85, .6, 1) node.glow:Hide()
+        else node.border:SetColorTexture(1, 1, 1, .15) node.glow:Hide() end
         node.rank:SetText(t.ranks .. "/" .. t.max)
         node.order:SetText(order[t.spell] and ("|cff80ff80" .. order[t.spell] .. "|r") or "")
         node.planText = order[t.spell] and T("Plan: Schritt %d, bis Rang %d", order[t.spell], target[t.spell]) or nil

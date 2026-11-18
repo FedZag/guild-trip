@@ -175,3 +175,6 @@ EN["Dungeon: %s in %s"] = "Dungeon: %s in %s"
 EN["(Bestzeit)"] = "(personal best)"
 EN["%d Bosse, %d Tode"] = "%d bosses, %d deaths"
 EN["%d Quests · %d Stufen · %d Gebiete · %d Dungeons"] = "%d quests · %d levels · %d zones · %d dungeons"
+-- 0.8: Belohnungen als Spiel-Symbole
+EN["Gegenstand %d"] = EN["Gegenstand %d"] or "Item %d"
+EN["Zur Auswahl – du bekommst einen davon."] = "Choice – you get one of these."

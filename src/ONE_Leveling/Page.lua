@@ -77,6 +77,48 @@ function Page:Build(parent, W, H, getMode)
     local valueHead = Text(card, "GameFontNormal", 14, -214, rightW - 28, "accent", "Belohnung")
     local valueText = Text(card, "GameFontHighlightSmall", 14, -232, rightW - 28, "text")
     if valueText.SetWordWrap then valueText:SetWordWrap(true) end
+    -- Belohnungen als echte Spiel-Symbole (feste Belohnung und Auswahl), Tooltip vom Spiel
+    local rewardIcons = {}
+    local REWARD_SIZE, REWARD_MAX = 26, 6
+    if not ONE.Widgets.Icon then REWARD_MAX = 0 end
+    for i = 1, REWARD_MAX do
+        local ic = ONE.Widgets:Icon(card, REWARD_SIZE)
+        ic:SetPoint("TOPLEFT", card, "TOPLEFT", 14 + (i - 1) * (REWARD_SIZE + 8), -236)
+        local f = ic.frame
+        if f.EnableMouse then f:EnableMouse(true) end
+        f:SetScript("OnEnter", function(self)
+            if not (GameTooltip and ic.itemID) then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            if not pcall(GameTooltip.SetItemByID, GameTooltip, ic.itemID) then GameTooltip:SetText(T("Gegenstand %d", ic.itemID)) end
+            if ic.choice then GameTooltip:AddLine(T("Zur Auswahl – du bekommst einen davon."), .7, .8, 1, true) end
+            GameTooltip:Show()
+        end)
+        f:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+        ic:Hide()
+        rewardIcons[i] = ic
+    end
+    local function ShowRewards(qid)
+        local D = _G.GuildTripLeveling
+        local r = D and D.r and D.r[qid]
+        local n = 0
+        for _, part in ipairs({{r and r[4], false}, {r and r[5], true}}) do
+            if type(part[1]) == "table" then
+                for _, item in ipairs(part[1]) do
+                    if n >= REWARD_MAX then break end
+                    n = n + 1
+                    local ic = rewardIcons[n]
+                    ic.itemID, ic.choice = item, part[2]
+                    ic:SetItem(item)
+                    local info = D.i and D.i[item]
+                    if info and info[2] then ic:SetQuality(info[2]) end
+                    ic:Show()
+                end
+            end
+        end
+        for i = n + 1, REWARD_MAX do rewardIcons[i]:Hide() rewardIcons[i].itemID = nil end
+        valueText:ClearAllPoints()
+        valueText:SetPoint("TOPLEFT", card, "TOPLEFT", 14, n > 0 and -270 or -232)
+    end
     local go = ONE.Widgets:NaviArrow(card, 22, "BOTTOMLEFT", 16, 16, function() if state.step then G:Navi(state.step) end end,
         function() return T("Navi zum Schritt"), state.step and G:StepText(state.step, true) or "" end)
     local toggle = ONE.Widgets:Button(card, T("Nicht machen"), 120, 24, "BOTTOMLEFT", 50, 14, function()
@@ -163,6 +205,7 @@ function Page:Build(parent, W, H, getMode)
         verdict:SetText(why or "")
         local hasValue = values and #values > 0
         valueText:SetText(hasValue and table.concat(values, "\n") or T("Nichts Besonderes für dich."))
+        ShowRewards(pick.qid)
         if state.step then go:Enable() else go:Disable() end
         toggle:SetText(o and o.why and T("Nicht machen") or T("Doch machen"))
         if o and o.group then group:Show() else group:Hide() end
