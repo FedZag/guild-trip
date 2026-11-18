@@ -57,6 +57,16 @@ if ONE.RegisterFeature then
         tooltip = "Zeigt die Stufe vor dem Questnamen – „[12] Die Volksmiliz“ – in der Quest-Führung, im Kasten unter der Minimap und in Quest-Links im Chat. Nur deine Anzeige: Was andere im Chat sehen, bleibt unverändert."})
     ONE:RegisterFeature("nav.givers", {module = "nav", section = "Quests", order = 33, label = "Questgeber (!) sammeln und zeigen",
         tooltip = "Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."})
+    ONE:RegisterFeature("nav.giversMinimapAll", {module = "nav", section = "Quests", order = 34,
+        -- Standard aus (Funktionen sind sonst standardmaessig an)
+        get = function() return ONE.db and type(ONE.db.features) == "table" and ONE.db.features["nav.giversMinimapAll"] == true end,
+        set = function(on)
+            if not ONE.db then return end
+            ONE.db.features = type(ONE.db.features) == "table" and ONE.db.features or {}
+            ONE.db.features["nav.giversMinimapAll"] = on and true or false
+        end,
+        label = "Alle Questgeber auf der Minimap",
+        tooltip = "Aus: Auf der Minimap stehen nur die Questgeber, die die Quest-Führung als Nächstes vorschlägt (höchstens 3, die nächsten zuerst). Alle anderen „!“ zeigt die Weltkarte. An: alle passenden Questgeber auch auf der Minimap."})
     ONE:RegisterFeature("nav.routes", {module = "nav", section = "Weg", order = 20, label = "Wegführung über das Guild-Trip-Wegenetz",
         tooltip = "Der Pfeil folgt vorab berechneten Laufwegen (Straßen, Brücken, Pässe) zwischen Questgebern, Lehrern, Händlern und Flugmeistern – ohne Zusatz-Addon. Ist Shortest Path Forever installiert, führt weiter dieses."})
     ONE:RegisterFeature("nav.routeDots", {module = "nav", section = "Weg", order = 21, label = "Weg als Punkte auf Minimap und Weltkarte",

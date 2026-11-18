@@ -211,7 +211,10 @@ function G:Available(maps)
         if g.mapID and (g.faction == nil or g.faction == "?" or g.faction == faction) then
             local quests = {}
             for qk, q in pairs(g.quests or {}) do
-                if self:Fits(qk, q, level, logTitles) then quests[#quests + 1] = q end
+                if self:Fits(qk, q, level, logTitles) then
+                    if q.id == nil and type(qk) == "number" then q.id = qk end
+                    quests[#quests + 1] = q
+                end
             end
             if #quests > 0 then
                 table.sort(quests, function(a, b) return (a.level or 0) < (b.level or 0) end)

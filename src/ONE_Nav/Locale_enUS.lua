@@ -234,3 +234,6 @@ EN["Zeigt die Stufe vor dem Questnamen – „[12] Die Volksmiliz“ – in der 
 EN["Questgeber (!) sammeln und zeigen"] = EN["Questgeber (!) sammeln und zeigen"] or "Collect and show quest givers (!)"
 EN["Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."] =
     "Remembers where you (and, with \"Share quests\", your guild) were offered new quests and shows a \"!\" there – only for quests that fit your level. Off when Questie is installed, because Questie shows its own \"!\"."
+-- 0.7.1: Questgeber auf der Minimap
+EN["Alle Questgeber auf der Minimap"] = "All quest givers on the minimap"
+EN["Aus: Auf der Minimap stehen nur die Questgeber, die die Quest-Führung als Nächstes vorschlägt (höchstens 3, die nächsten zuerst). Alle anderen „!“ zeigt die Weltkarte. An: alle passenden Questgeber auch auf der Minimap."] = "Off: the minimap shows only the quest givers the quest guide suggests next (at most 3, nearest first). The world map shows all other “!”. On: all matching quest givers on the minimap too."

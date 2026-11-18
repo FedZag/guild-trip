@@ -7,6 +7,7 @@ Erzeugt:
   src/ONE_Nav/Textures/QuestGoal.tga             64x64, Quest-Symbol Zielgebiet (Karte/Minimap)
   src/ONE_Nav/Textures/QuestDone.tga             64x64, Quest-Symbol fertig/abgeben
   src/ONE_Nav/Textures/QuestAvailable.tga        64x64, Questgeber mit neuer Quest ("!")
+  src/ONE_Nav/Textures/QuestAvailableSmall.tga   32x32, schlichtes "!" fuer die Minikarte
 Logo: scripts/build_logo.py, Navi-Pfeil: scripts/build_nav_arrow.py.
 Aufruf: python3 scripts/build_textures.py
 """
@@ -154,6 +155,20 @@ def quest_available():
     return out
 
 
+def quest_available_small():
+    """Minikarte (0.7.1): schlichtes goldenes "!" mit dunklem Rand, ohne Ring (weniger Unruhe)."""
+    N = 256
+    im = Image.new('RGBA', (N, N), (0, 0, 0, 0))
+    c = N / 2
+    d = ImageDraw.Draw(im)
+    for grow, col in ((14, DARK + (235,)), (0, GOLD + (255,))):
+        d.polygon([(c - 26 - grow, c - 100 - grow), (c + 26 + grow, c - 100 - grow), (c + 14 + grow, c + 30 + grow), (c - 14 - grow, c + 30 + grow)], fill=col)
+        d.ellipse((c - 22 - grow, c + 50 - grow, c + 22 + grow, c + 94 + grow), fill=col)
+    out = ROOT / 'ONE_Nav' / 'Textures' / 'QuestAvailableSmall.tga'
+    im.resize((32, 32), Image.LANCZOS).save(out)
+    return out
+
+
 if __name__ == '__main__':
-    for path in (hero(), close_glyph(), member_pin(False), member_pin(True), quest_pin(False), quest_pin(True), quest_available()):
+    for path in (hero(), close_glyph(), member_pin(False), member_pin(True), quest_pin(False), quest_pin(True), quest_available(), quest_available_small()):
         print('geschrieben:', path)
