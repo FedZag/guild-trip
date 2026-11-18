@@ -105,7 +105,7 @@ for item, v in src_raw.items():
         m = re.match(r"c(\d+)p(\d+)s(\d+)$", part)
         if m:
             prof = professions[int(m.group(2)) - 1] if 0 < int(m.group(2)) <= len(professions) else "?"
-            src[item].append(("c", prof, int(m.group(3))))
+            src[item].append(("c", prof, int(m.group(3)), int(m.group(1))))
 covered = {s[1] for v in src.values() for s in v if s[0] == "d"}
 print("ForeverLevelingBiS: %d Gegenstaende, Dungeons: %s" % (len(src_raw), ", ".join(sorted(covered))))
 
@@ -167,7 +167,9 @@ def split_rows(body):
     return rows
 
 
-tabs = sql_tables(sqlgz, ["creature", "creature_template", "creature_loot_template", "reference_loot_template", "item_template"])
+tabs = sql_tables(sqlgz, ["creature", "creature_template", "creature_loot_template", "reference_loot_template", "item_template",
+                         "npc_trainer", "npc_trainer_template", "npc_vendor", "npc_vendor_template", "quest_template",
+                         "spell_template"])
 
 
 def rows(t):
@@ -178,15 +180,18 @@ def rows(t):
 
 
 npc_dungeon = {}
+spawns = defaultdict(list)  # Kreatur -> [(map, x, y)] in der offenen Welt
 for r in rows("creature"):
     m = int(r("map"))
     if m in MAPS:
         npc_dungeon[int(r("id"))] = MAPS[m]
-tmpl = {}
+    elif m in (0, 1):
+        spawns[int(r("id"))].append((m, float(r("position_x")), float(r("position_y"))))
+alltmpl = {}
 for r in rows("creature_template"):
-    e = int(r("Entry"))
-    if e in npc_dungeon:
-        tmpl[e] = {"name": r("Name"), "rank": int(r("Rank")), "loot": int(r("LootId"))}
+    alltmpl[int(r("Entry"))] = {"name": r("Name"), "rank": int(r("Rank")), "loot": int(r("LootId")),
+                                "trainer": int(r("TrainerTemplateId")), "vendor": int(r("VendorTemplateId"))}
+tmpl = {e: t for e, t in alltmpl.items() if e in npc_dungeon}
 itemt = {}
 for r in rows("item_template"):
     inv = int(r("InventoryType"))
@@ -249,6 +254,130 @@ for npc, t in tmpl.items():
         added += 1
 print("classic-db: %d Dungeon-Drops ergaenzt" % added)
 
+# ===== Rezepte: woher lernt man den Herstellungszauber? =====
+# ui_map-Rahmen aus forever-db (Welt-Yards je Gebietskarte) fuer Kartenkoordinaten
+import json
+UIMAPS = []
+uimap_path = os.path.join(os.path.dirname(itemdb.rstrip("/")), "..", "forever-db", "data", "ui_map.jsonl")
+uimap_path = os.path.normpath(uimap_path)
+if os.path.exists(uimap_path):
+    for l in open(uimap_path, encoding="utf-8"):
+        u = json.loads(l)
+        if u["ui_map"] not in (1414, 1415, 947):  # Kontinente/Welt nicht
+            UIMAPS.append(u)
+
+
+def to_map(m, x, y):
+    best = None
+    for u in UIMAPS:
+        if u["map"] != m:
+            continue
+        mx = (u["left"] - y) / (u["left"] - u["right"])
+        my = (u["top"] - x) / (u["top"] - u["bottom"])
+        if 0 <= mx <= 1 and 0 <= my <= 1:
+            area = abs((u["left"] - u["right"]) * (u["top"] - u["bottom"]))
+            if not best or area < best[0]:
+                best = (area, u["ui_map"], round(mx, 4), round(my, 4))
+    return best and best[1:]
+
+
+craft_spells = {s[3] for v in src.values() for s in v if s[0] == "c"}
+learn = defaultdict(list)
+places = {}
+
+
+def place(npc):
+    if npc in places or not spawns.get(npc):
+        return npc in places
+    m, x, y = spawns[npc][0]
+    pm = to_map(m, x, y)
+    if pm:
+        places[npc] = pm
+        npcs[npc] = alltmpl.get(npc, {}).get("name", "?")
+    return bool(pm)
+
+
+# Lern-Zauber -> Herstellungszauber (Effekt 36 = Zauber lernen); Lehrer und Rezepte nennen den Lern-Zauber
+teaches = {}
+for r in rows("spell_template"):
+    for k in (1, 2, 3):
+        if int(r("Effect%d" % k)) == 36:
+            t = int(r("EffectTriggerSpell%d" % k))
+            if t in craft_spells:
+                teaches[int(r("Id"))] = t
+
+
+def craft_of(spell):
+    return spell if spell in craft_spells else teaches.get(spell)
+
+
+# Lehrer: direkt (npc_trainer) oder ueber Vorlagen (creature_template.TrainerTemplateId)
+by_template = defaultdict(list)
+for e, t in alltmpl.items():
+    if t["trainer"]:
+        by_template[t["trainer"]].append(e)
+for table, owners in (("npc_trainer", None), ("npc_trainer_template", by_template)):
+    for r in rows(table):
+        spell = craft_of(int(r("spell")))
+        if not spell:
+            continue
+        who = owners.get(int(r("entry")), []) if owners else [int(r("entry"))]
+        for npc in who:
+            if place(npc):
+                learn[spell].append(("t", npc, int(r("reqskillvalue")), int(r("spellcost"))))
+# Rezept-Gegenstaende: lehren einen Herstellungszauber (Ausloeser 6 = beim Benutzen lernen)
+recipe_item = {}
+for r in rows("item_template"):
+    for k in range(1, 6):
+        sp = craft_of(int(r("spellid_%d" % k)))
+        if sp and int(r("spelltrigger_%d" % k)) in (0, 6):
+            recipe_item[int(r("entry"))] = sp
+vendor_by_template = defaultdict(list)
+for e, t in alltmpl.items():
+    if t["vendor"]:
+        vendor_by_template[t["vendor"]].append(e)
+for table, owners in (("npc_vendor", None), ("npc_vendor_template", vendor_by_template)):
+    for r in rows(table):
+        it = int(r("item"))
+        if it not in recipe_item:
+            continue
+        who = owners.get(int(r("entry")), []) if owners else [int(r("entry"))]
+        for npc in who:
+            if place(npc):
+                learn[recipe_item[it]].append(("v", npc, it, int(r("maxcount")) > 0 and 1 or 0))
+# Rezept-Drops (nur nennenswerte Chancen) und Questbelohnungen
+drop_best = {}
+rare = {}
+for e, t in alltmpl.items():
+    if not t["loot"]:
+        continue
+    for it, chance in expand(loot.get(t["loot"], [])):
+        if it in recipe_item and chance > 0:
+            if chance < 0.5:
+                rare[(recipe_item[it], it)] = rare.get((recipe_item[it], it), 0) + 1
+                continue
+            key = (recipe_item[it], it)
+            if key not in drop_best or chance > drop_best[key][1]:
+                drop_best[key] = (e, chance)
+# seltene Weltdrops: viele Gegner, jeder unter 0,5 % -> ohne Ort, nur "seltener Weltdrop"
+for (spell, it), n in rare.items():
+    if (spell, it) not in drop_best:
+        learn[spell].append(("r", it, n))
+for (spell, it), (npc, chance) in drop_best.items():
+    dkey = npc_dungeon.get(npc)
+    if dkey:
+        learn[spell].append(("d", dkey, npc, it, round(chance, 1)))
+        npcs[npc] = alltmpl[npc]["name"]
+    elif place(npc):
+        learn[spell].append(("w", npc, it, round(chance, 1)))
+for r in rows("quest_template"):
+    rewards = [int(r("RewItemId%d" % k)) for k in range(1, 5)] + [int(r("RewChoiceItemId%d" % k)) for k in range(1, 7)]
+    for it in rewards:
+        if it in recipe_item:
+            learn[recipe_item[it]].append(("q", int(r("entry")), it))
+known = sum(1 for sp in craft_spells if learn.get(sp))
+print("Rezepte: %d Herstellungszauber, Herkunft bekannt fuer %d (Lehrer/Haendler/Drop/Quest), Orte: %d" % (len(craft_spells), known, len(places)))
+
 # ===== Ausgabe =====
 out_items = {i: stats[i] for i in src if i in stats}
 missing = [i for i in src if i not in stats]
@@ -259,7 +388,7 @@ lines = [
     "-- Quellen: ForeverLevelingBiS v0.12.0-beta von Thunder (MIT) ueber Polestar_ItemDB (GPL-3.0);",
     "-- Polestar_ItemDB/Items.lua (Classic-Era-Spieltabellen, Fakten); cmangos classic-db (GPL-3.0). Siehe THIRD_PARTY.md.",
     "-- items[g] = \"<platz> <gstufe> <mindeststufe> <qualitaet> <klasse> <unterklasse> [werte]\"",
-    "-- src[g] = {{\"q\", quest} | {\"d\", dungeon, npc, chance% (0 = unbekannt)} | {\"w\", gebiet, npc, chance%} | {\"c\", beruf, fertigkeit}}",
+    "-- src[g] = {{\"q\", quest} | {\"d\", dungeon, npc, chance% (0 = unbekannt)} | {\"w\", gebiet, npc, chance%} | {\"c\", beruf, fertigkeit, zauber}}",
     "GuildTripGear = GuildTripGear or {}",
     "local G = GuildTripGear",
     "G.items = {",
@@ -276,8 +405,38 @@ for i in sorted(out_items):
         elif s[0] in ("d", "w"):
             parts.append("{\"%s\",%s,%d,%s}" % (s[0], lua_str(s[1]), s[2], ("%g" % s[3])))
         else:
-            parts.append("{\"c\",%s,%d}" % (lua_str(s[1]), s[2]))
+            parts.append("{\"c\",%s,%d,%d}" % (lua_str(s[1]), s[2], s[3]))
     lines.append("[%d]={%s}," % (i, ",".join(parts)))
+lines.append("}")
+lines.append("-- learn[zauber] = {{\"t\", lehrer, fertigkeit, preis(kupfer)} | {\"v\", haendler, rezept, begrenzt} |")
+lines.append("--   {\"d\", dungeon, npc, rezept, chance%} | {\"w\", npc, rezept, chance%} | {\"q\", quest, rezept} |")
+lines.append("--   {\"r\", rezept, anzahl gegner} (seltener Weltdrop: viele Gegner, je unter 0,5 %)}")
+lines.append("G.learn = {")
+for sp in sorted(learn):
+    parts = []
+    seen = set()
+    for l in learn[sp]:
+        if l in seen:
+            continue
+        seen.add(l)
+        if l[0] == "t":
+            parts.append("{\"t\",%d,%d,%d}" % l[1:])
+        elif l[0] == "v":
+            parts.append("{\"v\",%d,%d,%d}" % l[1:])
+        elif l[0] == "d":
+            parts.append("{\"d\",%s,%d,%d,%g}" % (lua_str(l[1]), l[2], l[3], l[4]))
+        elif l[0] == "w":
+            parts.append("{\"w\",%d,%d,%g}" % l[1:])
+        elif l[0] == "r":
+            parts.append("{\"r\",%d,%d}" % l[1:])
+        else:
+            parts.append("{\"q\",%d,%d}" % l[1:])
+    lines.append("[%d]={%s}," % (sp, ",".join(parts)))
+lines.append("}")
+lines.append("-- places[npc] = {uiMapID, x, y} (Kartenanteile) fuer Lehrer, Haendler und Rezept-Gegner")
+lines.append("G.places = {")
+for n in sorted(places):
+    lines.append("[%d]={%d,%g,%g}," % ((n,) + places[n]))
 lines.append("}")
 lines.append("G.npcs = {")
 for n in sorted(npcs):
