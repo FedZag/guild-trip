@@ -16,6 +16,7 @@ Trips.lua
 EntrancePack.lua
 EntranceData.lua
 Entrances.lua
+Art.lua
 Page.lua
 Groups.lua
 TripsPlanner.lua
