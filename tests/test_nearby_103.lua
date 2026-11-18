@@ -210,9 +210,9 @@ N.autoOn = nil
 N.done, N.seen = nil, nil
 ONE.db.classGuide.nearbyCVars = nil
 N:Update()
-assert(cvars.nameplateShowFriends == "1" and cvars.nameplateMaxDistance == "40", "Plaketten an, 40 m")
+assert(cvars.nameplateShowFriends == "1" and cvars.nameplateMaxDistance == "20", "Plaketten an, Reichweite unveraendert")
 assert(clickThrough == true and plates.nameplate1.UnitFrame.alpha == 0 and plates.nameplate5.UnitFrame.alpha == 1, "unsichtbar")
-assert(ONE.db.classGuide.nearbyCVars.friends == "0" and ONE.db.classGuide.nearbyCVars.dist == "20")
+assert(ONE.db.classGuide.nearbyCVars.friends == "0" and ONE.db.classGuide.nearbyCVars.dist == nil)
 N:Update() -- zweites Mal: alte Werte nicht ueberschreiben
 assert(ONE.db.classGuide.nearbyCVars.friends == "0")
 N:SetAuto(false)
@@ -257,4 +257,48 @@ local logout = N.events and N.events.scripts and N.events.scripts.OnEvent
 assert(N.autoOn and cvars.nameplateShowFriends == "1")
 N:ApplyAuto(false)
 assert(cvars.nameplateShowFriends == "0" and cvars.nameplateMaxDistance == "20")
+-- 15) 0.7.1: Du schaltest die Plaketten selbst um (Umschalt+V) -> sichtbar, Guild Trip versteckt nichts mehr
+cvars.nameplateShowFriends = "0"
+ONE.db.classGuide.nearbyCVars, ONE.db.classGuide.nearbyAuto = nil, nil
+N.autoOn = nil
+local printed = {}
+ONE.Print = function(_, t) printed[#printed + 1] = t end
+N:Update()
+assert(N.autoOn and N.hidePlates and cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 0)
+-- a) per Ereignis (Umschalt+V schaltet sie "aus")
+cvars.nameplateShowFriends = "0"
+N:UserToggled()
+assert(cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 1 and clickThrough == false, "sichtbar")
+assert(not N.autoOn and ONE.db.classGuide.nearbyAuto == false and ONE.db.classGuide.nearbyCVars == nil and #printed == 1)
+N:Update()
+assert(plates.nameplate1.UnitFrame.alpha == 1 and not N.autoOn, "bleibt sichtbar")
+assert(Names(N:Update()) ~= "", "Liste funktioniert weiter")
+-- b) eigene Aenderungen zaehlen nicht als Umschalten
+ONE.db.classGuide.nearbyAuto = nil
+cvars.nameplateShowFriends = "0"
+N.autoOn = nil
+N:Update()
+assert(N.autoOn and N.hidePlates)
+N.ownChange = true
+assert(N:UserToggled() == false)
+N.ownChange = nil
+-- c) ohne Ereignis: der regelmaessige Abgleich merkt es
+cvars.nameplateShowFriends = "0"
+N:Update()
+assert(not N.autoOn and cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 1, "Abgleich")
+-- 16) Namensplaketten-Addon aktiv: nichts anfassen
+ONE.db.classGuide.nearbyAuto = nil
+ONE.db.classGuide.nearbyCVars = nil
+cvars.nameplateShowFriends = "0"
+N.autoOn = nil
+C_AddOns = {IsAddOnLoaded = function(name) return name == "Plater" end}
+N:Update()
+assert(cvars.nameplateShowFriends == "0" and not N.hidePlates and ONE.db.classGuide.nearbyCVars == nil, "Plater: nichts verstellt")
+C_AddOns = nil
+-- 17) Aus 0.7.0 gemerkte Reichweite wird beim Zurueckstellen noch korrigiert
+ONE.db.classGuide.nearbyCVars = {friends = "0", dist = "20"}
+cvars.nameplateMaxDistance = "40"
+N.autoOn = true
+N:ApplyAuto(false)
+assert(cvars.nameplateMaxDistance == "20" and ONE.db.classGuide.nearbyCVars == nil)
 print("OK test_nearby_103")

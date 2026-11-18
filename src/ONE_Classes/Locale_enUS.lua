@@ -132,8 +132,10 @@ EN["Spieler in der Nähe buffen"] = "Buff players nearby"
 EN["Kleines Fenster mit allen Spielern in Reichweite, denen einer deiner Buffs fehlt – Gruppe, Gilde, Freunde und Fremde. Ein Klick auf einen Namen wirkt den Buff im passenden Rang für die Stufe – sobald er sitzt, verschwindet der Spieler aus der Liste (Rechtsklick / Umschalt + Linksklick: weitere Buffs). Nur außerhalb des Kampfes."] =
     "Small window with every player in range who is missing one of your buffs – group, guild, friends and strangers. One click on a name casts the buff in the right rank for their level – once it lands, the player drops off the list (right-click / Shift + left-click: more buffs). Out of combat only."
 EN["… alle Spieler in der Nähe automatisch erkennen"] = "… detect every player nearby automatically"
-EN["Jeder, der an dir vorbeiläuft, kommt in die Liste. Dafür schaltet Guild Trip die freundlichen Namensplaketten ein (bis 40 m), macht sie aber unsichtbar und nicht anklickbar. Abschalten stellt deine alten Einstellungen wieder her."] =
-    "Everyone who walks past you lands on the list. For this Guild Trip turns on friendly nameplates (up to 40 yards) but makes them invisible and click-through. Turning it off restores your previous settings."
+EN["Addons sehen andere Spieler nur über Namensplaketten – die blauen Namen über den Köpfen bleiben für sie unsichtbar. Darum schaltet Guild Trip die freundlichen Namensplaketten ein und macht sie unsichtbar. Schaltest du sie selbst um (Umschalt + V), werden sie sichtbar und bleiben es. Mit Plater & Co. fasst Guild Trip die Plaketten nicht an."] =
+    "Add-ons only see other players through nameplates – the blue names above heads are invisible to them. So Guild Trip turns on friendly nameplates and makes them invisible. If you toggle them yourself (Shift + V), they become visible and stay that way. With Plater & co. Guild Trip leaves nameplates alone."
+EN["Freundliche Namensplaketten sind jetzt sichtbar – Guild Trip versteckt sie nicht mehr. Die Buff-Liste sieht trotzdem alle Spieler in der Nähe."] =
+    "Friendly nameplates are visible now – Guild Trip no longer hides them. The buff list still sees every player nearby."
 EN["Buffen in der Nähe (%d)"] = "Buff nearby (%d)"
 EN["Linksklick"] = "Left-click"
 EN["Rechtsklick"] = "Right-click"
