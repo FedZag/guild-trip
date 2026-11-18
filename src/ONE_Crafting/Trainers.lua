@@ -199,13 +199,24 @@ function Trainers:CaptureNow()
         if type(line) == "table" and type(line.leftText) == "string" then title = line.leftText end
     end
     local services, rankText = {}, {}
+    -- 0.7.1: angebotene Rezepte mit hergestelltem Gegenstand, Mindestfertigkeit und Preis
+    -- (Forever-eigene Rezepte stehen in keiner offenen Datenbank; so fuellt die Gilde die Luecke)
+    local recipes
     local n = tonumber((Call(GetNumTrainerServices))) or 0
-    for i = 1, math.min(n, 40) do
+    for i = 1, math.min(n, 400) do
         local name, sub, kind = Call(GetTrainerServiceInfo, i)
         if type(name) == "string" and kind ~= "header" then
-            services[#services + 1] = name
+            if #services < 40 then services[#services + 1] = name end
             -- Ausbildungsstufen stehen als Zusatztext am Berufsnamen ("Alchemie" / "Experte")
             if type(sub) == "string" and sub ~= "" then rankText[#rankText + 1] = {name, sub} end
+            local link = Call(GetTrainerServiceItemLink, i)
+            local item = type(link) == "string" and tonumber(link:match("item:(%d+)"))
+            if item then
+                local _, skill = Call(GetTrainerServiceSkillReq, i)
+                recipes = recipes or {}
+                recipes[item] = {skill = tonumber(skill) or 0, cost = tonumber((Call(GetTrainerServiceCost, i))) or 0,
+                    level = tonumber((Call(GetTrainerServiceLevelReq, i))) or 0}
+            end
         end
     end
     local mapID, x, y
@@ -225,7 +236,7 @@ function Trainers:CaptureNow()
     local entry = {npc = npc, title = title, kind = kind, what = what or title, map = mapID,
         x = x and math.floor(x * 1000 + .5) / 1000, y = y and math.floor(y * 1000 + .5) / 1000,
         area = Call(GetZoneText), count = n, seen = crafting.Recipes.Now(), by = crafting.Recipes.Me(), teaches = teaches,
-        faction = Call(UnitFactionGroup, "player"),
+        faction = Call(UnitFactionGroup, "player"), recipes = recipes,
         weapons = kind == "weapon" and Trainers.WeaponsFrom(services) or nil}
     self:Store()[npc] = entry
     return entry
