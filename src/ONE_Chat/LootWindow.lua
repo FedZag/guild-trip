@@ -100,9 +100,7 @@ function Loot:Render()
             local code = chat.Chat.ClassColorCode(e.guid, parchment)
             local name = code and (code .. e.who .. "|r") or e.who
             local link = e.link
-            if parchment and ONE.Book and ONE.Book.InkCodes then link = ONE.Book.InkCodes(link) end
             local stamp = type(date) == "function" and ("|cff8a8a8a" .. date("%H:%M", e.time) .. "|r  ") or ""
-            if parchment and ONE.Book and ONE.Book.InkCodes then stamp = ONE.Book.InkCodes(stamp) end
             local line = stamp .. link .. (e.count > 1 and (" x" .. e.count) or "") .. "  –  |Hplayer:" .. e.who .. ":0|h" .. name .. "|h"
             if self.modern then
                 local id = tonumber(tostring(link):match("item:(%d+)"))
@@ -112,7 +110,6 @@ function Loot:Render()
                 line = tex .. link .. (e.count > 1 and (" x" .. e.count) or "") .. "\n|cff8a8a8a      |Hplayer:" .. e.who .. ":0|h" .. name .. "|h|cff8a8a8a  ·  " .. when .. "|r"
             end
             local r, g, b = 1, 1, 1
-            if parchment and ONE.Book and ONE.Book.Ink then r, g, b = ONE.Book.Ink(1, 1, 1) end
             log:AddMessage(line, r, g, b)
         end
     end
@@ -125,7 +122,7 @@ end
 function Loot:Build()
     if self.frame then return self.frame end
     -- 0.6.8: im Blizzard-Aussehen derselbe Rahmen wie Hauptfenster und Chat
-    local modern = not chat.Chat:Flat() and not (ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive())
+    local modern = not chat.Chat:Flat() and not (false)
     local f
     if modern then
         local ok, fr = pcall(CreateFrame, "Frame", "GuildTripLootWindow", UIParent, "PortraitFrameTemplate")
@@ -253,7 +250,7 @@ end
 
 function Loot:Show()
     local f = self:Build()
-    chat.Chat.parchment = chat.UI.frame and ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() and not chat.UI.flat or false
+    chat.Chat.parchment = chat.UI.frame and false and not chat.UI.flat or false
     self:UpdateQualityButton()
     self:Render()
     f:Show()

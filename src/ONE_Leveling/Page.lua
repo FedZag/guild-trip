@@ -22,7 +22,6 @@ end
 -- parent: Flaeche unter der Kopfzeile der Quest-Seite; mode: "guide" | "skipped"
 function Page:Build(parent, W, H, getMode)
     local L, R
-    if ONE.Book and ONE.Book.Spread then L, R = ONE.Book:Spread() end
     local leftW = L and L.width or 420
     local rightX, rightW = R and R.x or (leftW + 14), R and R.width or (W - leftW - 14)
     local state = {}
@@ -43,7 +42,7 @@ function Page:Build(parent, W, H, getMode)
             if not row.selection then
                 row.selection = row:CreateTexture(nil, "BACKGROUND", nil, 1)
                 row.selection:SetAllPoints(row)
-                if ONE.Book and ONE.Book.Paint then ONE.Book.Paint(row.selection, 1, .82, 0, .14) else row.selection:SetColorTexture(1, .82, 0, .14) end
+                row.selection:SetColorTexture(1, .82, 0, .14)
             end
             if Selected(item) or (item.current and not state.sel) then row.selection:Show() else row.selection:Hide() end
         end,
@@ -183,7 +182,6 @@ Page.SUBTITLE = {
 function Page:BuildTab(panel)
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local L
-    if ONE.Book and ONE.Book.Spread then L = ONE.Book:Spread() end
     local header = {ONE.Widgets:PageHeader(panel, T("Leveln"), T(Page.SUBTITLE.guide), L and L.width or W)}
     local sub = header[2]
     local function Mode()

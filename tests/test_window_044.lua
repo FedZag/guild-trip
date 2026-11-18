@@ -272,19 +272,6 @@ local hasGuild=false
 for _,t in ipairs(Titles()) do if t=="Guild Trip  ·  Die Testgilde" then hasGuild=true end end
 assert(hasGuild, "Titel mit Gildenname fehlt")
 GetGuildInfo=oldGuildInfo
--- 15.11.2026: im Buch steht "Guild Trip · Gildenname" links oben nur auf der Startseite
-do
- local head={shown=true}
- function head:Show() self.shown=true end
- function head:Hide() self.shown=false end
- local oldBook=ONE.Book
- ONE.Book=setmetatable({leftHead=head},{__index=function() return function() end end}) -- sonst alles leer
- ONE.UI:Navigate("calendar")
- assert(not head.shown,"Buchtitel nur auf der Startseite")
- ONE.UI:Navigate("home")
- assert(head.shown,"Startseite zeigt den Buchtitel")
- ONE.Book=oldBook
-end
 -- 0.6.9: lange Bereiche scrollen statt blaettern; Bereichsliste links, Module mit Hauptschalter
 do
  for i=1,40 do ONE:RegisterFeature("core.scrolltest"..i,{label="Scrolltest "..i}) end

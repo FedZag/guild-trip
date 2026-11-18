@@ -9,7 +9,7 @@ local PassPage = {}
 dungeons.PassPage = PassPage
 
 local TEX = "Interface\\AddOns\\ONE_Dungeons\\Textures\\"
-local SHEET = "Interface\\AddOns\\ONE_Core\\Textures\\Book\\Sheet"
+local SHEET = "Interface\\AddOns\\ONE_Core\\Textures\\Common\\Sheet"
 local FELL = "Interface\\AddOns\\ONE_Core\\Fonts\\IMFellEnglish.ttf"
 local INKS = {{.55, .11, .07}, {.16, .21, .45}, {.36, .24, .1}, {.12, .36, .2}}
 local PER_PAGE = 6

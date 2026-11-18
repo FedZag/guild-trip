@@ -23,78 +23,8 @@ local function NativeButton(parent, template)
     if ok and button then return button end
 end
 
--- Aussehen "Altes Buch": statt rotem Knopf ein Tintenlink in Rubrik-Rot mit
--- feiner Unterstreichung; Hauptknoepfe ("primary") bekommen ein Wachssiegel davor.
-local function InkLink(parent, text, width, height, style)
-    local Book = ONE.Book
-    local button = CreateFrame("Button", nil, parent)
-    button:SetSize(width, height)
-    local seal
-    if style == "primary" and width >= 90 then
-        seal = button:CreateTexture(nil, "ARTWORK")
-        seal:SetSize(height + 8, height + 8)
-        seal:SetPoint("LEFT", button, "LEFT", 0, 0)
-        seal:SetTexture(Book.sealArt)
-    end
-    local label = CreateLabel(button, text, "CENTER", seal and (height + 10) or 4, 4)
-    if label.SetFont then pcall(label.SetFont, label, Book.bodyFont, math.max(12, math.min(16, height * .62)), "") end
-    Book.Crisp(label)
-    label.__oneInk, label.__oneOldPrint = true, true
-    local line = button:CreateTexture(nil, "ARTWORK")
-    line:SetHeight(1)
-    line:SetPoint("TOP", label, "CENTER", 0, -(height * .3))
-    local function Width()
-        local w = label.GetStringWidth and label:GetStringWidth() or 0
-        if w <= 0 then w = width * .6 end
-        line:SetWidth(math.min(w, width - 8))
-    end
-    local red = Book.red
-    local locked = false
-    local function Paint(state)
-        if state == "on" and locked then state = "sel" end
-        local c = state == "hover" and {.70, .14, .04} or state == "off" and {.42, .34, .24}
-            or state == "sel" and Book.ink or red
-        line:SetHeight(state == "sel" and 2 or 1)
-        label:SetTextColor(c[1], c[2], c[3])
-        if line.SetColorTexture then line:SetColorTexture(c[1], c[2], c[3], (state == "hover" or state == "sel") and .9 or state == "off" and .25 or .5) end
-        if seal and seal.SetDesaturated then seal:SetDesaturated(state == "off") end
-        Width()
-    end
-    local function Enabled() return not (button.IsEnabled and not button:IsEnabled()) end
-    Paint("on")
-    if button.HookScript then
-        button:HookScript("OnEnter", function() if Enabled() then Paint("hover") end end)
-        button:HookScript("OnLeave", function() Paint(Enabled() and "on" or "off") end)
-        button:HookScript("OnEnable", function() Paint("on") end)
-        button:HookScript("OnDisable", function() Paint("off") end)
-        button:HookScript("OnShow", Width)
-    end
-    if hooksecurefunc then hooksecurefunc(button, "SetText", Width) end
-    -- Umschalter (Reiter auf einer Seite): ausgewaehlt = schwarze Tinte, kraeftig unterstrichen
-    function button:LockHighlight() locked = true Paint("on") end
-    -- Verzeichnis-Zeile: Text und Unterstrich linksbuendig
-    function button:AlignLeft()
-        label:SetJustifyH("LEFT")
-        line:ClearAllPoints()
-        line:SetPoint("TOPLEFT", label, "LEFT", 0, -(height * .3))
-        Width()
-    end
-    function button:UnlockHighlight() locked = false Paint(Enabled() and "on" or "off") end
-    button.__oneInkLink = true
-    if seal and button.HookScript then button:HookScript("OnClick", function() if ONE.Sound then ONE.Sound:Play("seal") end end) end
-    return button
-end
-
 function Widgets:Button(parent, text, width, height, point, x, y, callback, style)
     assert(parent and width and height, "ONE Button: Elternframe oder Maße fehlen")
-    -- forceNative: Knoepfe ausserhalb des Fensters (z. B. auf der Weltkarte) nie als Tintenlink
-    if not Widgets.forceNative and ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() then
-        local link = InkLink(parent, text, width, height, style)
-        link:SetPoint(point or "TOPLEFT", parent, point or "TOPLEFT", x or 0, y or 0)
-        link.__oneStyle, link.__oneNative, link.__oneVariant = true, false, style or "secondary"
-        if callback then link:SetScript("OnClick", callback) end
-        return link
-    end
     local button = NativeButton(parent)
     local native = button ~= nil
     button = button or CreateFrame("Button", nil, parent)
@@ -148,18 +78,6 @@ function Widgets:PageHeader(parent, title, subtitle, width, keepTop)
     end
     -- Buch: Titel nur auf der linken Seite, in Rubrik-Rot; die Unterzeile laeuft
     -- sonst ueber die Falz und steht ohnehin im Tooltip-Wissen der Seite
-    if ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() then
-        heading:SetWidth(ONE.Book.left.width)
-        if heading.SetWordWrap then heading:SetWordWrap(false) end
-        if heading.SetFont then pcall(heading.SetFont,heading,ONE.Book.font,18,"") end
-        ONE.Book.Crisp(heading)
-        heading.__oneInk=true
-        local texts=ONE.Themes and ONE.Themes.texts or {}
-        for i=#texts,1,-1 do if texts[i].font==heading then table.remove(texts,i) end end
-        heading:SetTextColor(ONE.Book.red[1],ONE.Book.red[2],ONE.Book.red[3])
-        description:Hide()
-        description.Show=function() end
-    end
     return heading,description
 end
 
@@ -211,9 +129,6 @@ function Widgets:IconButton(parent, texturePath, size, point, x, y, callback, va
 end
 
 function Widgets:CloseButton(parent, point, x, y, callback)
-    if ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() and ONE.Book.InkClose then
-        return ONE.Book:InkClose(parent, point, (x or 0) + 4, (y or 0) - 4, callback)
-    end
     local ok, close = pcall(CreateFrame, "Button", nil, parent, "UIPanelCloseButton")
     if ok and close then
         close:SetPoint(point or "TOPLEFT", parent, point or "TOPLEFT", x or 0, y or 0)

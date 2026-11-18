@@ -332,9 +332,7 @@ function Pins:CreateMapSearch()
     -- Haengt direkt an der Weltkarte: gleiche Ebene, gleiche Groesse (auch bei verkleinerter
     -- Karte, z. B. OpenMaps), liegt sicher ueber der Kartenflaeche (+500), aber unter
     -- Fenstern anderer Addons in hoeheren Ebenen (frueher FULLSCREEN_DIALOG).
-    -- Eigener dunkler Kasten, unabhaengig vom Aussehen: im Buch-Aussehen stand sonst
-    -- rote Tinte ohne Hintergrund auf der Karte (unlesbar, Meldung 14.11.).
-    ONE.Widgets.forceNative=true
+    -- Eigener dunkler Kasten auf der Karte
     local panel=CreateFrame("Frame",nil,wm)
     panel:SetSize(236,220)
     panel:SetPoint("TOPLEFT",wm,"TOPLEFT",70,-115)
@@ -454,7 +452,6 @@ function Pins:CreateMapSearch()
     end,function(btn) return btn.label end)
     navButton:Hide()
     self.navButton=navButton
-    ONE.Widgets.forceNative=false
     input:SetScript("OnTextChanged",function()
         if self.suppressTextChange then return end
         -- Writing a new query is not an explicit destination choice.

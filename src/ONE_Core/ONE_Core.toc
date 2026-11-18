@@ -21,7 +21,6 @@ MinimapButton.lua
 Notifications.lua
 Quips.lua
 UI.lua
-Book.lua
 Welcome.lua
 WhatsNew.lua
 Sound.lua

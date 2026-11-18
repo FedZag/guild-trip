@@ -13,10 +13,6 @@ UI.Layout = Layout
 
 -- Keine mehrfachen, voneinander abweichenden Spalten-Berechnungen mehr.
 function Layout:Columns(weights)
-    if #weights==2 and ONE.Book and ONE.Book.Spread then
-        local L,R=ONE.Book:Spread()
-        if L then return {{x=L.x,width=L.width},{x=R.x,width=R.width}} end
-    end
     return ONE.Geometry:Columns(self.width,weights,self.gutter)
 end
 function Layout:Actions(card,weights)
@@ -39,8 +35,8 @@ UI.NATIVE_WINDOW=NATIVE_WINDOW
 -- Unterseiten markieren in der Leiste ihren Hauptbereich
 local VIEW_PARENT={["guild-members"]="guild",today="home"}
 UI.VIEW_PARENT=VIEW_PARENT
-local function BookActive() return ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() end
-local ICONS="Interface\\AddOns\\ONE_Core\\Textures\\Book\\TabIcons"
+local function BookActive() return false end
+local ICONS="Interface\\AddOns\\ONE_Core\\Textures\\Common\\TabIcons"
 local ICON_INDEX={home=0,guild=1,calendar=2,dungeons=3,groups=3,crafting=4,classes=5,quests=6,nav=7,options=8,leveling=10}
 local NAV_LABEL={home="Startseite",guild="Gilde",calendar="Kalender",today="Heute",
     dungeons=T("Dungeons"),groups=T("Gruppen"),crafting=T("Berufe"),classes=T("Klasse"),quests=T("Quests"),leveling=T("Leveln"),nav=T("Navi"),options=T("Optionen")}
@@ -135,7 +131,7 @@ function UI:RelayoutNavigation()
             if id=="options" then tab:SetPoint("BOTTOMLEFT",self.sidebar,"BOTTOMLEFT",4,22)
             else tab:SetPoint("TOPLEFT",self.sidebar,"TOPLEFT",4,-6-row*(W.navHeight+W.navGap)) row=row+1 end
         elseif i==1 then tab:SetPoint("TOPLEFT",self.frame,"BOTTOMLEFT",12,2)
-        else tab:SetPoint("LEFT",tabs[i-1],"RIGHT",(ONE.Book and ONE.Book:IsActive()) and 2 or -14,0) end
+        else tab:SetPoint("LEFT",tabs[i-1],"RIGHT",(false) and 2 or -14,0) end
         tabs[i]=tab
         tab.__oneSelected=(id==self.activeTab)
     end
@@ -158,7 +154,6 @@ function UI:SelectNativeTab()
     elseif not selected and type(PanelTemplates_DeselectTab)=="function" then
         for _,tab in ipairs(self.frame.Tabs or {}) do pcall(PanelTemplates_DeselectTab,tab) end
     end
-    if ONE.Book then ONE.Book:UpdateTabs(self) end
 end
 function UI:AddNavButton(id,title)
     if not NAV_ORDER[id] or self.sidebarButtons[id] then return end
@@ -185,7 +180,6 @@ function UI:AddTab(id,title,builder)
     local button=self:AddNavButton(id,title)
     self.tabs[id]={button=button,panel=panel,refresh=builder(panel) or function() end}
     self.order[#self.order+1]=id
-    if ONE.Book then ONE.Book:PanelAdded(self) end
     return true
 end
 function UI:RegisterView(id,builder)
@@ -198,7 +192,6 @@ function UI:RegisterView(id,builder)
     panel.__oneTopPanel=true
     self.views[id]={panel=panel,refresh=builder(panel) or function() end}
     self:AddNavButton(id,id)
-    if ONE.Book then ONE.Book:PanelAdded(self) end
     return true
 end
 -- Alles, was an die Gilde geteilt wird, als Haekchen gesammelt unter
@@ -250,7 +243,6 @@ function UI:UpdateBackButton()
         if can then self.backButton:Show() else self.backButton:Hide() end
     end
     if self.forwardButton then self.forwardButton:SetEnabled(#self.forwardHistory>0) end
-    if ONE.Book then ONE.Book:UpdateBack(self) end
 end
 function UI:GoBack()
     local handler=self.backHandlers[self.activeTab]
@@ -314,18 +306,9 @@ function UI:Navigate(id,origin)
     for key,view in pairs(self.views) do
         if key==id then view.panel:Show() else view.panel:Hide() end
     end
-    if ONE.Book then
-        local entry=self.tabs[id] or self.views[id]
-        if self.__hasNavigated and self.frame:IsShown() then ONE.Book:TurnPage(entry and entry.panel) end
-        if entry and entry.panel then ONE.Book:InkTree(entry.panel,0) end
-    end
     if self.pathLabel then self.pathLabel:SetText(T(NAV_LABEL[id] or (self.sidebar and NAV_LABEL[VIEW_PARENT[id] or ""]) or "")) end
     self:UpdateContext()
     self:UpdateViews()
-    -- Buch: "Guild Trip · Gildenname" links oben nur auf der Startseite (Nutzer-Wunsch 15.11.2026)
-    if ONE.Book and ONE.Book.leftHead then
-        if id=="home" then ONE.Book.leftHead:Show() else ONE.Book.leftHead:Hide() end
-    end
     for key,btn in pairs(self.sidebarButtons) do btn.__oneSelected=(key==id) end
     self:SelectNativeTab()
     self:Show()
@@ -431,7 +414,6 @@ end
 function UI:Refresh()
     local active=self.tabs[self.activeTab] or self.views[self.activeTab]
     if active and active.refresh then active.refresh() end
-    if ONE.Book then ONE.Book:InkPages(self) end
     -- Angabe der tatsaechlich aktiven gespeicherten Farbpalette.
     if self.themeStatus then self.themeStatus:SetText("v" .. ONE.version) end
     if ONE.Themes and self.frame then ONE.Themes:StyleTree(self.frame) end
@@ -469,13 +451,11 @@ end
 
 local function BuildHome(panel)
     -- Buch-Aussehen: eigene Doppelseite (Initiale, Siegel, Inhaltsverzeichnis)
-    if ONE.Book and ONE.Book:Spread() then return ONE.Book:BuildHome(panel) end
     local W=UI.Layout.width
     local cols=UI.Layout:Columns({5,4})
     -- Einheitliche Seiteneinfuehrung; alle Karten liegen innerhalb der 726er Spur.
     -- Buch-Aussehen: Doppelseite – links Begruessung, rechts die Kacheln
     local L,R=nil,nil
-    if ONE.Book then L,R=ONE.Book:Spread() end
     local LW=L and L.width or W
     if not UI:LiftPage(panel) then
         Label(panel,T("Deine Zentrale"),"GameFontNormalLarge",0,-4,LW)
@@ -511,7 +491,6 @@ local function BuildHome(panel)
         if artReady then return end
         art:SetTexture(heroTexture)
         -- im Buch-Aussehen kein dunkles Bild hinter der Tinte
-        if ONE.Book and ONE.Book:IsActive() then art:Hide() end
         art:ClearAllPoints()
         art:SetPoint("TOPLEFT",hero,"TOPLEFT",4,-4)
         art:SetPoint("BOTTOMRIGHT",hero,"BOTTOMRIGHT",-4,4)
@@ -887,7 +866,6 @@ local function BuildOptions(panel)
     local W=UI.Layout.width
     local H=ONE.Geometry.tokens.contentHeight or 437
     local L,R
-    if ONE.Book and ONE.Book.Spread then L,R=ONE.Book:Spread() end
     -- Buch: links die Bereiche, rechts die Einstellungen; sonst Liste 150 breit links
     local listX,listW=L and L.x or 0,L and math.min(L.width,220) or 150
     local paneX=R and R.x or listW+10
@@ -1070,16 +1048,11 @@ local function RegisterCoreSettings()
         options=function() return {{value=nil,text="Automatisch (Spielsprache)"},{value="de",text="Deutsch"},{value="en",text="English"}} end,
         get=function() return ONE.db.language end,set=function(v) ONE.db.language=v end,
         onChange=function() UI:AskReload() end})
-    Set("look","Sprache und Aussehen",{id="lookChoice",kind="dropdown",label="Aussehen",order=31,width=220,
-        options=function() return {{value="native",text=T("Blizzard")},{value="book",text=T("Altes Buch (Probe)")}} end,
-        get=function() return ONE.db.theme and ONE.db.theme.selected=="book" and "book" or "native" end,
-        set=function(v) if ONE.Book then ONE.Book:SetEnabled(v=="book") end end})
 end
 -- Kern-Funktionen in ihre Bereiche lenken (stehen in Core.lua/Vendor.lua/Book.lua)
 local CORE_FEATURE_PLACE={
     ["core.loginSummary"]={"general","Hinweise",12},
     ["core.sounds"]={"look","Klänge",40},
-    ["core.agedInk"]={"look","Sprache und Aussehen",35},
     ["core.autoRepair"]={"general","Händler",30},
     ["core.autoRepairGuild"]={"general","Händler",31,1},
     ["core.sellJunk"]={"general","Händler",32},
@@ -1215,6 +1188,5 @@ function UI:Initialize()
     self:AddTab("options",T("Optionen"),BuildOptions)
     self:SelectTab("home")
     self:UpdateBackButton()
-    if ONE.Book then ONE.Book:Attach(self) end
     frame:Hide()
 end

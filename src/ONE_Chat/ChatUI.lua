@@ -15,38 +15,21 @@ local LIST_W, ROW_H, HEAD_H, INPUT_H, TOP = 156, 24, 30, 28, 42
 -- 0.6.8: Blizzard-Aussehen wie das Hauptfenster (Rahmen mit Titel, Kanaele mit Goldsymbolen,
 -- Wappenschilde beim Fluestern, grosse Kopfzeile, Senden-Knopf). Buch und schlichter Stil bleiben.
 local TEX = "Interface\\AddOns\\ONE_Chat\\Textures\\"
-local TAB_ICONS = "Interface\\AddOns\\ONE_Core\\Textures\\Book\\TabIcons"
+local TAB_ICONS = "Interface\\AddOns\\ONE_Core\\Textures\\Common\\TabIcons"
 local TAB_ICON = {all = 9, guild = 1, group = 3, trade = 4, near = 7}
 local WHISPER_H, HEADROW_H = 32, 22
 local function Modern() return UI.modern == true end
 
--- Buch-Aussehen (Tinte auf Pergament) – nicht im schlichten Aussehen (dunkler Grund)
-local function Book()
-    if UI.flat then return nil end
-    return ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() and ONE.Book or nil
-end
 local function Text(parent, font, role)
     local fs = parent:CreateFontString(nil, "OVERLAY", font)
     fs:SetJustifyH("LEFT")
     if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(fs, role or "text") end
     return fs
 end
--- Farben auf Pergament zu Tinte
-local function Color(r, g, b)
-    local book = Book()
-    if book and book.Ink then return book.Ink(r, g, b) end
-    return r, g, b
-end
-local function Ink(text)
-    local book = Book()
-    if book and book.InkCodes then return book.InkCodes(text) end
-    return text
-end
--- Rubrik-Rot als Farbcode (Alpha "fe": bleibt beim Einfaerben unveraendert)
-local function RedCode()
-    local red = ONE.Book and ONE.Book.red or {.42, .10, .03}
-    return string.format("|cfe%02x%02x%02x", red[1] * 255, red[2] * 255, red[3] * 255)
-end
+local function Color(r, g, b) return r, g, b end
+local function Ink(text) return text end
+-- Hervorhebung (z. B. Ungelesen-Zaehler) in Blizzard-Gold
+local function RedCode() return "|cffffd100" end
 UI.RedCode = RedCode
 
 -- 1-Pixel-Rahmen um ein Fenster/Feld (dunkles Thema); gibt die vier Linien zurueck
@@ -100,7 +83,7 @@ function UI:Build()
     if self.frame then return self.frame end
     local s = Chat:Settings()
     self.flat = Chat:Flat() -- vor allem anderen: entscheidet ueber Tinte/Pergament
-    local modern = not self.flat and not (ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive())
+    local modern = not self.flat and not (false)
     local f
     if modern then
         local ok, fr = pcall(CreateFrame, "Frame", "GuildTripChatWindow", UIParent, "PortraitFrameTemplate")
@@ -312,7 +295,7 @@ function UI:Build()
     box:SetScript("OnTextChanged", Placeholder)
     box:SetScript("OnEditFocusGained", Placeholder)
     box:SetScript("OnEditFocusLost", Placeholder)
-    if not self.flat and not Book() then
+    if not self.flat then
         local inbg = f:CreateTexture(nil, "BACKGROUND", nil, -5)
         inbg:SetPoint("TOPLEFT", box, "TOPLEFT", -2, 1)
         inbg:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 2, -1)
@@ -351,10 +334,9 @@ function UI:Build()
     -- Bereiche klar trennen (17.11.2026): Titelleiste | Seitenleiste | Kopf, Verlauf, Eingabe.
     -- Doppelte Linien (kraeftig + fein) wie in einem Kassenbuch; im Buch Tinte, sonst helles Grau.
     if not self.flat and not modern then
-        local book = Book() ~= nil
         local function Tex(a)
             local t = f:CreateTexture(nil, "ARTWORK")
-            if book then t:SetColorTexture(.30, .18, .06, a) else t:SetColorTexture(1, 1, 1, a * .3) end
+            t:SetColorTexture(1, 1, 1, a * .3)
             return t
         end
         -- waagerecht: von (fromFrame, fromPoint, x1) bis (toFrame, toPoint, x2) auf Hoehe y
@@ -379,20 +361,9 @@ function UI:Build()
         -- ueber der Eingabe
         for _, t in ipairs(HRule(list, "BOTTOMRIGHT", 14, f, "BOTTOMRIGHT", -14, INPUT_H + 14)) do lines[#lines + 1] = t end
         -- Seitenleiste und Eingabezeile leicht abgetoent (im Buch wie verwischte Tinte)
-        if book then
-            local side = f:CreateTexture(nil, "BACKGROUND", nil, -4)
-            side:SetPoint("TOPLEFT", list, "TOPLEFT", -4, 2)
-            side:SetPoint("BOTTOMRIGHT", list, "BOTTOMRIGHT", 3, -4)
-            side:SetColorTexture(.30, .18, .06, .08)
-            local inputZone = f:CreateTexture(nil, "BACKGROUND", nil, -4)
-            inputZone:SetPoint("TOPLEFT", list, "BOTTOMRIGHT", 14, INPUT_H + 10)
-            inputZone:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -14, 8)
-            inputZone:SetColorTexture(.30, .18, .06, .05)
-            lines[#lines + 1], lines[#lines + 2] = side, inputZone
-        end
         self.lines = lines
     end
-    Chat.parchment = Book() ~= nil
+    Chat.parchment = false
     -- Aussehen: schlicht (ElvUI & Co.) oder wie das gewaehlte Thema (Blizzard-Rahmen / Pergament)
     if self.flat then
         UI.FlatSkin(f, background, title)
@@ -401,12 +372,11 @@ function UI:Build()
         if ONE.Themes and ONE.Themes.RegisterPanel then ONE.Themes:RegisterPanel(list) end
         if not modern then ONE.Themes:RegisterWindow(f, background, title) end
         if ONE.Themes.StyleTree then ONE.Themes:StyleTree(f) end
-        if Book() and ONE.Book.StyleEditBox then pcall(ONE.Book.StyleEditBox, ONE.Book, box) end
     end
     -- Schrift: im Buch die alte Druckschrift, sonst die Chatschrift in gewaehlter Groesse
     if log.SetFont then
-        local file = Book() and ONE.Book.bodyFont or (log.GetFont and log:GetFont())
-        if file then pcall(log.SetFont, log, file, Chat:Settings().fontSize + (Book() and 1 or 0), "") end
+        local file = log.GetFont and log:GetFont()
+        if file then pcall(log.SetFont, log, file, Chat:Settings().fontSize, "") end
     end
     f:SetScript("OnSizeChanged", function() UI:LayoutRows() end)
     self.grip = grip
@@ -540,16 +510,6 @@ local function NewRow(list)
         b.pulse = g
     end
     -- Im Buch: Auswahl = rote Schrift mit feiner Linie darunter, Blinken = roter Hauch (statt Gold/Orange)
-    if Book() then
-        local red = ONE.Book.red or {.42, .10, .03}
-        b.sel:ClearAllPoints()
-        b.sel:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 6, 1)
-        b.sel:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -24, 1)
-        b.sel:SetHeight(1)
-        b.sel:SetColorTexture(red[1], red[2], red[3], .75)
-        b.hl:SetColorTexture(.30, .18, .06, .08)
-        b.flash:SetColorTexture(red[1], red[2], red[3], .16)
-    end
     b.dot = b:CreateTexture(nil, "ARTWORK")
     b.dot:SetSize(6, 6)
     b.dot:SetPoint("LEFT", b, "LEFT", 9, 0)
@@ -689,10 +649,10 @@ function UI:LayoutRows()
         b.dot:SetShown(not e.head)
         if not e.head then
             local r, g, bl = Color(DotColor(e))
-            b.dot:SetColorTexture(r, g, bl, Book() and .9 or .95)
+            b.dot:SetColorTexture(r, g, bl, .95)
         end
         if e.head then
-            b.text:SetText((Book() and RedCode() or "|cff9d9d9d") .. e.text .. "|r")
+            b.text:SetText("|cff9d9d9d" .. e.text .. "|r")
             b.sel:Hide()
             b.bar:Hide()
             b.pill:Hide()
@@ -702,10 +662,10 @@ function UI:LayoutRows()
             b.side:SetScript("OnClick", function() if e.add == "tab" then UI:EditTab() else UI:AskWhisper() end end)
         else
             local selected = e.view == self.current
-            b.text:SetText((selected and Book()) and (RedCode() .. e.text .. "|r") or Ink(e.text))
+            b.text:SetText(Ink(e.text))
             if selected then b.sel:Show() else b.sel:Hide() end
-            if selected and not Book() then b.bar:Show() else b.bar:Hide() end
-            if unread > 0 and not Book() then
+            if selected then b.bar:Show() else b.bar:Hide() end
+            if unread > 0 then
                 b.pill:Show()
                 b.badge:SetText("|cffffffff" .. tostring(math.min(unread, 99)) .. "|r")
             else
@@ -949,9 +909,7 @@ function UI:ChooseTarget(owner)
     local list = {}
     for _, t in ipairs(Chat:Tabs()) do if Chat:Target(t.id) then list[#list + 1] = {value = t.id, text = T(t.label)} end end
     for _, w in ipairs(Chat.whispers) do list[#list + 1] = {value = Chat.WhisperView(w.name), text = T("Flüstern: %s", w.name)} end
-    if Book() and ONE.Book.OpenMenu then
-        ONE.Book:OpenMenu(owner, list, self.current, function(v) UI:Show(v) end)
-    elseif MenuUtil and MenuUtil.CreateContextMenu then
+    if MenuUtil and MenuUtil.CreateContextMenu then
         MenuUtil.CreateContextMenu(owner, function(_, root)
             for _, o in ipairs(list) do root:CreateButton(o.text, function() UI:Show(o.value) end) end
         end)

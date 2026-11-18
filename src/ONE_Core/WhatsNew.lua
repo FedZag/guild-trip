@@ -43,7 +43,6 @@ WhatsNew.notes = {
         "Klassen-Seite: Bewaffnung – welche Waffen du kannst und wo du sie lernst",
         "Klick auf einen Charakternamen öffnet ein Menü (Navi, Flüstern, Einladen …)",
         "Ausrüstung bewerten im Tooltip, Klassen-Ratgeber für Krieger, Paladin, Schamane nachgeschärft",
-        "Buch-Aussehen: Daumenregister, gealterte Tinte, Blättern auf vollen Seiten",
     },
 }
 

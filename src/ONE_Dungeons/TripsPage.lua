@@ -3,7 +3,7 @@
 -- Karte: Details und Anmeldungen – oder das Formular "Ausflug planen".
 local _, dungeons = ...
 local ONE = _G.ProjectONE
-local function Paint(tex, r, g, b, a) if ONE.Book and ONE.Book.Paint then return ONE.Book.Paint(tex, r, g, b, a) end tex:SetColorTexture(r, g, b, a) end
+local function Paint(tex, r, g, b, a) tex:SetColorTexture(r, g, b, a) end
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 local TripsPage = {}
 dungeons.TripsPage = TripsPage
@@ -23,17 +23,15 @@ function TripsPage:Build(panel)
     local Tr, S = dungeons.Trips, dungeons.Share
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local state = {form = false, day = 0, minutes = 20 * 60}
-    local bookL, bookR
-    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
 
-    local listW = bookL and bookL.width or W
+    local listW = W
     local cols = {
-        {key = "when", title = "WANN", width = bookL and 96 or 130},
-        {key = "dungeon", title = "ZIEL", width = bookL and (listW - 24 - 6 - 96 - 44) or 220},
+        {key = "when", title = "WANN", width = 130},
+        {key = "dungeon", title = "ZIEL", width = 220},
         {key = "count", title = "DABEI", width = 44, align = "CENTER"},
     }
-    if not bookL then cols[#cols + 1] = {key = "leader", title = "VON", width = W - 24 - 6 - 130 - 220 - 44 - 20} end
-    local listH = bookL and (H - 54 - 8) or (22 * 6 + 22)
+    cols[#cols + 1] = {key = "leader", title = "VON", width = W - 24 - 6 - 130 - 220 - 44 - 20}
+    local listH = (22 * 6 + 22)
     local list = ONE.Kit:List(panel, {x = 0, y = -54, width = listW, height = listH, rowHeight = 22, columns = cols,
         render = function(row, trip, cells)
             local c = Tr:Counts(trip)
@@ -62,12 +60,7 @@ function TripsPage:Build(panel)
     -- Karte
     local cardTop, CW = -54 - listH - 10, W
     local card = CreateFrame("Frame", nil, panel)
-    if bookL then
-        cardTop, CW = -54, bookR.width
-        card:SetPoint("TOPLEFT", panel, "TOPLEFT", bookR.x, cardTop)
-    else
-        card:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, cardTop)
-    end
+    card:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, cardTop)
     card:SetSize(CW, H + cardTop)
     if ONE.Themes then ONE.Themes:RegisterPanel(card) end
     local TW = CW - 32
@@ -115,7 +108,7 @@ function TripsPage:Build(panel)
     prep:SetSize(CW, H + cardTop - 30)
     local prepInfo = Text(prep, "GameFontHighlight", 16, -4, TW, "soft")
     if prepInfo.SetWordWrap then prepInfo:SetWordWrap(true) end
-    local QW = bookL and 110 or 200
+    local QW = 200
     local prepList = ONE.Kit:List(prep, {x = 4, y = -44, width = CW - 8, height = H + cardTop - 30 - 44 - 40, rowHeight = 22,
         columns = {
             {key = "quest", title = "QUEST", width = QW},
