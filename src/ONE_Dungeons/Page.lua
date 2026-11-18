@@ -145,16 +145,18 @@ function Page:Build(panel)
     if ONE.Themes then ONE.Themes:RegisterPanel(card) end
     -- 0.6.8 Blizzard-Aussehen: gezeichnete Karte als Kopfbild (scripts/build_maps.py), links
     -- abgedunkelt, damit Titel und Angaben lesbar bleiben; je Dungeon fest eine von vier Landschaften
-    local banner
+    local banner, bannerLift
     if not book then
         banner = card:CreateTexture(nil, "BACKGROUND", nil, 2)
         banner:SetPoint("TOPLEFT", card, "TOPLEFT", 3, -3)
         banner:SetPoint("TOPRIGHT", card, "TOPRIGHT", -3, -3)
         banner:SetHeight(88)
-        -- Bild 4:1, Flaeche ca. 4,8:1 -> oben/unten etwas abschneiden statt verzerren
-        local frac = math.min(1, (4 * 88) / math.max(1, rightW - 6))
-        banner:SetTexCoord(0, 1, (1 - frac) / 2, 1 - (1 - frac) / 2)
-        local shade = card:CreateTexture(nil, "BACKGROUND", nil, 3)
+        -- 0.8: echter Ladebildschirm des Dungeons (Art.lua); dunkle Bilder werden mit einer
+        -- zweiten, addierten Lage aufgehellt. Ohne Bild: gezeichnete Karte (Map1-4).
+        bannerLift = card:CreateTexture(nil, "BACKGROUND", nil, 3)
+        bannerLift:SetAllPoints(banner)
+        bannerLift:Hide()
+        local shade = card:CreateTexture(nil, "BACKGROUND", nil, 4)
         shade:SetPoint("TOPLEFT", banner, "TOPLEFT", 0, 0)
         shade:SetPoint("BOTTOMRIGHT", banner, "BOTTOMRIGHT", 0, 0)
         shade:SetColorTexture(1, 1, 1, 1)
@@ -371,7 +373,7 @@ function Page:Build(panel)
             return
         end
         title:SetText(d.name)
-        if banner then banner:SetTexture("Interface\\AddOns\\ONE_Dungeons\\Textures\\Map" .. Page.MapVariant(d.key)) end
+        if banner then Page.PaintBanner(banner, bannerLift, d.key, rightW - 6, 88) end
         sub:SetText(((d.en and d.en ~= d.name) and ("|cff9d9d9d" .. d.en .. "|r   ·   ") or "")
             .. Hex(d.color) .. "Stufe " .. d.min .. "–" .. d.max .. "|r"
             .. (d.hasData and ("   ·   " .. d.done .. "/" .. #d.quests .. " erledigt") or ""))
@@ -439,6 +441,17 @@ end
 
 function Page:Refresh() if self.refresh then self.refresh() end end
 
+-- Kopfbild: Ladebildschirm aus dem Client, sonst die gezeichnete Karte
+function Page.PaintBanner(tex, lift, key, w, h)
+    local aspect = w / math.max(1, h)
+    if dungeons.Art and dungeons.Art:Apply(tex, key, aspect, lift) then return "picture" end
+    if lift then lift:Hide() end
+    tex:SetTexture("Interface\\AddOns\\ONE_Dungeons\\Textures\\Map" .. Page.MapVariant(key))
+    -- Kartenbild 4:1 -> oben/unten etwas abschneiden statt verzerren
+    local frac = math.min(1, (4 * h) / math.max(1, w))
+    tex:SetTexCoord(0, 1, (1 - frac) / 2, 1 - (1 - frac) / 2)
+    return "map"
+end
 -- Kartenbild je Dungeon: fest (aus dem Schluessel), eine von vier Landschaften
 function Page.MapVariant(key)
     local h = 0
