@@ -19,5 +19,4 @@ DevShare.lua
 QuestCheck.lua
 EntranceCheck.lua
 LootCheck.lua
-ArtCheck.lua
 Commands.lua

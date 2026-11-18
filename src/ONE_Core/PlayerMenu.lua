@@ -5,8 +5,8 @@ local _, ONE = ...
 -- Grundeintraege hier (Fluestern, Einladen, Anstupsen, Freund); Module melden eigene
 -- an (z. B. ONE_Guild "Navi zu …", wenn die Person ihre Position teilt):
 --   ONE.PlayerMenu:Register{id, label, order, available = function(name, ctx) end, run = function(name, ctx) end}
--- Eigenes Menue (Kit:OpenMenu), sonst Blizzards Kontextmenue (MenuUtil),
--- (ohne beides kein Menue).
+-- Buch-Aussehen: Pergament-Menue (Book:OpenMenu), sonst Blizzards Kontextmenue (MenuUtil),
+-- ohne beides ebenfalls das Pergament-Menue.
 local PlayerMenu = {actions = {}}
 ONE.PlayerMenu = PlayerMenu
 
@@ -60,14 +60,8 @@ end
 function PlayerMenu:Open(owner, name, ctx)
     local items = self:Items(name, ctx)
     if #items == 0 or not owner then return false end
-    -- eigenes Menue im Aussehen "Nachtroute" (Kit:OpenMenu), sonst Blizzards Kontextmenue
-    if ONE.Kit and ONE.Kit.OpenMenu and ONE.Skin then
-        local list = {}
-        for i, it in ipairs(items) do list[i] = {value = i, text = it.text, tooltip = it.tooltip} end
-        ONE.Kit:OpenMenu(owner, list, nil, function(i) PlayerMenu:Run(items[i], name, ctx) end)
-        return true
-    end
-    if type(MenuUtil) == "table" and type(MenuUtil.CreateContextMenu) == "function" then
+    local book = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() and ONE.Book.OpenMenu
+    if not book and type(MenuUtil) == "table" and type(MenuUtil.CreateContextMenu) == "function" then
         local ok = pcall(MenuUtil.CreateContextMenu, owner, function(_, root)
             if root.CreateTitle then root:CreateTitle(Short(name)) end
             for _, it in ipairs(items) do
@@ -81,6 +75,12 @@ function PlayerMenu:Open(owner, name, ctx)
             end
         end)
         if ok then return true end
+    end
+    if ONE.Book and ONE.Book.OpenMenu then
+        local list = {}
+        for i, it in ipairs(items) do list[i] = {value = i, text = it.text, tooltip = it.tooltip} end
+        ONE.Book:OpenMenu(owner, list, nil, function(i) PlayerMenu:Run(items[i], name, ctx) end)
+        return true
     end
     return false
 end

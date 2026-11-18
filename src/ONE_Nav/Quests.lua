@@ -189,6 +189,7 @@ end
 function Q:Build(panel, embedded)
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local L, R
+    if ONE.Book and ONE.Book.Spread then L, R = ONE.Book:Spread() end
     local leftW = L and L.width or 380
     local rightX, rightW = R and R.x or (leftW + 14), R and R.width or (W - leftW - 14)
     local state = {}
@@ -210,7 +211,7 @@ function Q:Build(panel, embedded)
             if not row.selection then
                 row.selection = row:CreateTexture(nil, "BACKGROUND", nil, 1)
                 row.selection:SetAllPoints(row)
-                row.selection:SetColorTexture(1, .82, 0, .14)
+                if ONE.Book and ONE.Book.Paint then ONE.Book.Paint(row.selection, 1, .82, 0, .14) else row.selection:SetColorTexture(1, .82, 0, .14) end
             end
             if state.q and state.q.id == q.id then row.selection:Show() else row.selection:Hide() end
         end,

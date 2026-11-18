@@ -48,7 +48,6 @@ local ONE = {
 }
 ONE.Print = ONE.Print or function(_, m) ONE.printed = (ONE.printed or "") .. tostring(m) .. "\n" end
 _G.ProjectONE = ONE
-assert(loadfile(path .. "/src/ONE_Core/Skin.lua"))("ONE_Core", ONE)
 assert(loadfile(path .. "/src/ONE_Core/Geometry.lua"))("ONE_Core", ONE)
 assert(loadfile(path .. "/src/ONE_Core/WindowScale.lua"))("ONE_Core", ONE)
 assert(loadfile(path .. "/src/ONE_Core/Widgets.lua"))("ONE_Core", ONE)

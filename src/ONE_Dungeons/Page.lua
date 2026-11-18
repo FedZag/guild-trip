@@ -4,7 +4,7 @@
 -- (Questgeber, Ort, Vorquests, Hinweise) und "Hinfuehren" mit dem ONE-Pfeil.
 local _, dungeons = ...
 local ONE = _G.ProjectONE
-local function Paint(tex, r, g, b, a) tex:SetColorTexture(r, g, b, a) end
+local function Paint(tex, r, g, b, a) if ONE.Book and ONE.Book.Paint then return ONE.Book.Paint(tex, r, g, b, a) end tex:SetColorTexture(r, g, b, a) end
 -- Uebersetzung (ONE.T); ohne Sprachmodul bleibt der deutsche Text.
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 local Page = {}
@@ -60,26 +60,30 @@ function Page:Build(panel)
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local leftW, gap = 290, 12
     local rightX, rightW = leftW + gap, W - leftW - gap
+    if ONE.Book and ONE.Book.Spread and ONE.Book:Spread() then
+        local L, R = ONE.Book:Spread()
+        leftW, rightX, rightW = L.width, R.x, R.width
+    end
     local state = {selected = nil, quest = nil, list = {}}
 
     -- ===== Linke Spalte: Dungeonliste =====
     if not self.embedded then Text(panel, "GameFontNormalLarge", 0, -4, leftW, "accent", T("Dungeons")) end
     local okSearch, search = pcall(CreateFrame, "EditBox", nil, panel, "SearchBoxTemplate")
     if not okSearch or not search then search = CreateFrame("EditBox", nil, panel) end
-    if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(search) end
     search:SetSize(leftW - 8, 22)
     search:SetPoint("TOPLEFT", panel, "TOPLEFT", 6, -30)
     if search.SetAutoFocus then search:SetAutoFocus(false) end
     local okCheck, check = pcall(CreateFrame, "CheckButton", nil, panel, "UICheckButtonTemplate")
     if not okCheck or not check then check = CreateFrame("CheckButton", nil, panel) end
-    if ONE.Kit and ONE.Kit.StyleCheck then ONE.Kit:StyleCheck(check) end
     check:SetSize(24, 24)
     check:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -56)
     if check.SetChecked then check:SetChecked(store.suitableOnly) end
     local checkLabel = Text(panel, "GameFontHighlight", 26, -61, leftW - 26, "text")
-    -- Auswahl mit Zaehlern statt Haekchen (Fuer deine Stufe, Alle, Stufenbereiche, mit offenen Quests)
+    -- 0.6.8 Blizzard-Aussehen: Auswahl mit Zaehlern statt Haekchen (Fuer deine Stufe, Alle,
+    -- Stufenbereiche, mit offenen Quests); im Buch bleibt das Haekchen
+    local book = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
     local category
-    if ONE.Kit and ONE.Kit.Dropdown then
+    if not book and ONE.Kit and ONE.Kit.Dropdown then
         check:Hide() checkLabel:Hide()
         if not store.category then store.category = store.suitableOnly and "level" or "all" end
         category = ONE.Kit:Dropdown(panel, {point = "TOPLEFT", x = 0, y = -56, width = leftW,
@@ -91,10 +95,10 @@ function Page:Build(panel)
     local dungeonList
     dungeonList = ONE.Kit:List(panel, {x = 0, y = -86, width = leftW, height = H - 86, rowHeight = 24,
         columns = {
-            {key = "name", title = "DUNGEON", width = false and 142 or 116},
-            {key = "level", title = "STUFE", width = false and 46 or 40, align = "CENTER"},
-            {key = "open", title = "OFFEN", width = false and 46 or 38, align = "CENTER"},
-            {key = "guild", title = "GILDE", width = false and 46 or 38, align = "CENTER"},
+            {key = "name", title = "DUNGEON", width = (ONE.Book and ONE.Book:Spread()) and 142 or 116},
+            {key = "level", title = "STUFE", width = (ONE.Book and ONE.Book:Spread()) and 46 or 40, align = "CENTER"},
+            {key = "open", title = "OFFEN", width = (ONE.Book and ONE.Book:Spread()) and 46 or 38, align = "CENTER"},
+            {key = "guild", title = "GILDE", width = (ONE.Book and ONE.Book:Spread()) and 46 or 38, align = "CENTER"},
         },
         render = function(row, d, cells)
             local selected = state.selected and state.selected.key == d.key
@@ -141,32 +145,32 @@ function Page:Build(panel)
     if ONE.Themes then ONE.Themes:RegisterPanel(card) end
     -- 0.6.8 Blizzard-Aussehen: gezeichnete Karte als Kopfbild (scripts/build_maps.py), links
     -- abgedunkelt, damit Titel und Angaben lesbar bleiben; je Dungeon fest eine von vier Landschaften
-    local banner, bannerLift
-    banner = card:CreateTexture(nil, "BACKGROUND", nil, 2)
-    banner:SetPoint("TOPLEFT", card, "TOPLEFT", 3, -3)
-    banner:SetPoint("TOPRIGHT", card, "TOPRIGHT", -3, -3)
-    banner:SetHeight(88)
-    -- 0.8: echter Ladebildschirm des Dungeons (Art.lua); dunkle Bilder werden mit einer
-    -- zweiten, addierten Lage aufgehellt. Ohne Bild: gezeichnete Karte (Map1-4).
-    bannerLift = card:CreateTexture(nil, "BACKGROUND", nil, 3)
-    bannerLift:SetAllPoints(banner)
-    bannerLift:Hide()
-    local shade = card:CreateTexture(nil, "BACKGROUND", nil, 4)
-    shade:SetPoint("TOPLEFT", banner, "TOPLEFT", 0, 0)
-    shade:SetPoint("BOTTOMRIGHT", banner, "BOTTOMRIGHT", 0, 0)
-    shade:SetColorTexture(1, 1, 1, 1)
-    local dark, clear = {0, 0, 0, .86}, {0, 0, 0, .05}
-    local done = type(CreateColor) == "function" and shade.SetGradient
-        and pcall(shade.SetGradient, shade, "HORIZONTAL", CreateColor(unpack(dark)), CreateColor(unpack(clear)))
-    if not done and shade.SetGradientAlpha then
-        done = pcall(shade.SetGradientAlpha, shade, "HORIZONTAL", 0, 0, 0, .86, 0, 0, 0, .05)
+    local banner
+    if not book then
+        banner = card:CreateTexture(nil, "BACKGROUND", nil, 2)
+        banner:SetPoint("TOPLEFT", card, "TOPLEFT", 3, -3)
+        banner:SetPoint("TOPRIGHT", card, "TOPRIGHT", -3, -3)
+        banner:SetHeight(88)
+        -- Bild 4:1, Flaeche ca. 4,8:1 -> oben/unten etwas abschneiden statt verzerren
+        local frac = math.min(1, (4 * 88) / math.max(1, rightW - 6))
+        banner:SetTexCoord(0, 1, (1 - frac) / 2, 1 - (1 - frac) / 2)
+        local shade = card:CreateTexture(nil, "BACKGROUND", nil, 3)
+        shade:SetPoint("TOPLEFT", banner, "TOPLEFT", 0, 0)
+        shade:SetPoint("BOTTOMRIGHT", banner, "BOTTOMRIGHT", 0, 0)
+        shade:SetColorTexture(1, 1, 1, 1)
+        local dark, clear = {0, 0, 0, .86}, {0, 0, 0, .05}
+        local done = type(CreateColor) == "function" and shade.SetGradient
+            and pcall(shade.SetGradient, shade, "HORIZONTAL", CreateColor(unpack(dark)), CreateColor(unpack(clear)))
+        if not done and shade.SetGradientAlpha then
+            done = pcall(shade.SetGradientAlpha, shade, "HORIZONTAL", 0, 0, 0, .86, 0, 0, 0, .05)
+        end
+        if not done then shade:SetColorTexture(0, 0, 0, .55) end
+        local edge = card:CreateTexture(nil, "BORDER", nil, 2)
+        edge:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, 0)
+        edge:SetPoint("TOPRIGHT", banner, "BOTTOMRIGHT", 0, 0)
+        edge:SetHeight(1)
+        edge:SetColorTexture(.79, .64, .29, .6)
     end
-    if not done then shade:SetColorTexture(0, 0, 0, .55) end
-    local edge = card:CreateTexture(nil, "BORDER", nil, 2)
-    edge:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, 0)
-    edge:SetPoint("TOPRIGHT", banner, "BOTTOMRIGHT", 0, 0)
-    edge:SetHeight(1)
-    edge:SetColorTexture(.79, .64, .29, .6)
     local inner = rightW - 32
     local title = Text(card, "GameFontNormalHuge", 16, -14, inner - 32, "accent")
     if title.SetWordWrap then title:SetWordWrap(false) end
@@ -204,7 +208,7 @@ function Page:Build(panel)
         elseif state.selected then Page:OpenSeekDialog(state.selected) end
     end)
     local questList = ONE.Kit:List(card, {x = 8, y = -94, width = rightW - 16, height = 22 * 7 + 22, rowHeight = 22,
-        columns = false and {
+        columns = (ONE.Book and ONE.Book:Spread()) and {
             {key = "name", title = "QUEST", width = rightW - 16 - 24 - 6 - 46 - 46 - 16, indent = 20},
             {key = "level", title = "STUFE", width = 46, align = "CENTER"},
             {key = "guild", title = "GILDE", width = 46, align = "CENTER"},
@@ -266,7 +270,6 @@ function Page:Build(panel)
     local detailH = H + detailTop - 44
     local okScroll, scroll = pcall(CreateFrame, "ScrollFrame", nil, card, "UIPanelScrollFrameTemplate")
     if not okScroll or not scroll then scroll = CreateFrame("ScrollFrame", nil, card) end
-    if ONE.Kit and ONE.Kit.StyleScroll then ONE.Kit.StyleScroll(scroll) end
     scroll:SetPoint("TOPLEFT", card, "TOPLEFT", 16, detailTop - 8)
     scroll:SetSize(inner - 24, detailH)
     local child = CreateFrame("Frame", nil, scroll)
@@ -368,7 +371,7 @@ function Page:Build(panel)
             return
         end
         title:SetText(d.name)
-        if banner then Page.PaintBanner(banner, bannerLift, d.key, rightW - 6, 88) end
+        if banner then banner:SetTexture("Interface\\AddOns\\ONE_Dungeons\\Textures\\Map" .. Page.MapVariant(d.key)) end
         sub:SetText(((d.en and d.en ~= d.name) and ("|cff9d9d9d" .. d.en .. "|r   ·   ") or "")
             .. Hex(d.color) .. "Stufe " .. d.min .. "–" .. d.max .. "|r"
             .. (d.hasData and ("   ·   " .. d.done .. "/" .. #d.quests .. " erledigt") or ""))
@@ -436,17 +439,6 @@ end
 
 function Page:Refresh() if self.refresh then self.refresh() end end
 
--- Kopfbild: Ladebildschirm aus dem Client, sonst die gezeichnete Karte
-function Page.PaintBanner(tex, lift, key, w, h)
-    local aspect = w / math.max(1, h)
-    if dungeons.Art and dungeons.Art:Apply(tex, key, aspect, lift) then return "picture" end
-    if lift then lift:Hide() end
-    tex:SetTexture("Interface\\AddOns\\ONE_Dungeons\\Textures\\Map" .. Page.MapVariant(key))
-    -- Kartenbild 4:1 -> oben/unten etwas abschneiden statt verzerren
-    local frac = math.min(1, (4 * h) / math.max(1, w))
-    tex:SetTexCoord(0, 1, (1 - frac) / 2, 1 - (1 - frac) / 2)
-    return "map"
-end
 -- Kartenbild je Dungeon: fest (aus dem Schluessel), eine von vier Landschaften
 function Page.MapVariant(key)
     local h = 0
@@ -520,18 +512,16 @@ function Page:OpenSeekDialog(d)
         for i, key in ipairs({"T", "H", "D"}) do
             local okC, c = pcall(CreateFrame, "CheckButton", nil, f, "UICheckButtonTemplate")
             if not okC or not c then c = CreateFrame("CheckButton", nil, f) end
-            if ONE.Kit and ONE.Kit.StyleCheck then ONE.Kit:StyleCheck(c) end
-            c:SetSize(32, 24)
+            c:SetSize(24, 24)
             c:SetPoint("TOPLEFT", f, "TOPLEFT", 14 + (i - 1) * 104, -56)
             local label = Text(f, "GameFontHighlight", 0, 0, 70, "text", S:RoleName(key))
             label:ClearAllPoints()
-            label:SetPoint("LEFT", c, "RIGHT", 4, 0)
+            label:SetPoint("LEFT", c, "RIGHT", 2, 0)
             f.roles[key] = c
         end
         Text(f, "GameFontHighlight", 16, -94, 300, "text", T("Notiz (optional):"))
         local okE, edit = pcall(CreateFrame, "EditBox", nil, f, "InputBoxTemplate")
         if not okE or not edit then edit = CreateFrame("EditBox", nil, f) end
-        if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(edit) end
         edit:SetSize(296, 22)
         edit:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -114)
         if edit.SetAutoFocus then edit:SetAutoFocus(false) end
@@ -598,7 +588,7 @@ function Page:BuildCombined(panel)
     local refreshT = dungeons.TripsPage and dungeons.TripsPage:Build(tv)
     -- Die drei Umschalter muessen in die linke Spalte passen (290, im Buch die linke Seite);
     -- bis 0.6.4 ragte "Ausfluege" unter die rechte Karte.
-    local L = false
+    local L = ONE.Book and ONE.Book.Spread and ONE.Book:Spread()
     local span = L and L.width or 290
     local bw = math.floor((span - 8) / 3)
     local bD = ONE.Widgets:Button(panel, "Dungeons", bw, 24, "TOPLEFT", 0, -2, function() Page:ShowView("dungeons") end)
@@ -606,7 +596,7 @@ function Page:BuildCombined(panel)
     local bT = ONE.Widgets:Button(panel, "Ausflüge", span - 2 * (bw + 4), 24, "TOPLEFT", 2 * (bw + 4), -2, function() Page:ShowView("trips") end)
     self.combined = {dv = dv, gv = gv, tv = tv, refreshD = refreshD, refreshG = refreshG, refreshT = refreshT, bD = bD, bG = bG, bT = bT}
     -- 0.6.8: Reisepass als vierte Ansicht (nur Blizzard-Aussehen; im Buch bleibt alles wie es war)
-    if dungeons.PassPage and not (false) and ONE.UI.sidebar then
+    if dungeons.PassPage and not (ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()) and ONE.UI.sidebar then
         local pv = CreateFrame("Frame", nil, panel)
         pv:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
         pv:SetSize(W, H)

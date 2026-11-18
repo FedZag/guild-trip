@@ -142,7 +142,6 @@ function BugReport:CreateFrame()
 
     local okScroll, scroll = pcall(CreateFrame, "ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
     if not okScroll or not scroll then scroll = CreateFrame("ScrollFrame", nil, frame) end
-    if ONE.Kit and ONE.Kit.StyleScroll then ONE.Kit.StyleScroll(scroll) end
     scroll:SetPoint("TOPLEFT", 14, -62)
     scroll:SetPoint("BOTTOMRIGHT", -34, 44)
 

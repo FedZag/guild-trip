@@ -178,8 +178,13 @@ function R:ChatLine(run)
 end
 
 
--- Fenster im Aussehen "Nachtroute", Texte in Skin-Farben
-local function Ink(text) return text end
+-- Fenster im aktiven Aussehen (Blizzard-Rahmen bzw. Pergamentblatt im Buch) und Texte in Theme-Farben
+-- Im Buch-Aussehen: helle Farbcodes als lesbare Tinte auf Pergament
+local function Ink(text)
+    local book = ONE.Book
+    if book and book.IsActive and book:IsActive() and book.InkCodes then return book.InkCodes(text) end
+    return text
+end
 local function Themed(frame, bg, title, texts)
     local th = ONE.Themes
     if not th then return end
@@ -189,13 +194,8 @@ end
 
 -- ===== Karte =====
 local function Button(parent, label, width)
-    local W = ONE.Widgets
-    if W and W.SkinButton then
-        local b = W.SkinButton(parent, label, width, 24, "secondary")
-        b:SetText(label)
-        return b
-    end
-    local b = CreateFrame("Button", nil, parent)
+    local ok, b = pcall(CreateFrame, "Button", nil, parent, "UIPanelButtonTemplate")
+    if not ok or not b then b = CreateFrame("Button", nil, parent) end
     b:SetSize(width, 22)
     b:SetText(label)
     return b

@@ -49,12 +49,11 @@ local function NewIcon(parent, size, labelWidth)
     b:SetSize(size, size)
     b.tex = b:CreateTexture(nil, "ARTWORK")
     b.tex:SetAllPoints(b)
-    -- Aussehen "Nachtroute": abgerundet mit feinem Ring, heller beim Darueberfahren
-    if ONE.Widgets and ONE.Widgets.RoundIcon then b.ring = ONE.Widgets.RoundIcon(b, b.tex)
-    elseif b.tex.SetTexCoord then b.tex:SetTexCoord(.07, .93, .07, .93) end
+    if b.tex.SetTexCoord then b.tex:SetTexCoord(.07, .93, .07, .93) end
     local hl = b:CreateTexture(nil, "HIGHLIGHT")
     hl:SetAllPoints(b)
-    hl:SetColorTexture(1, 1, 1, .12)
+    if hl.SetTexture then hl:SetTexture("Interface\\Buttons\\ButtonHilight-Square") end
+    if hl.SetBlendMode then hl:SetBlendMode("ADD") end
     b.key = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
     b.key:SetPoint("TOPLEFT", b, "TOPLEFT", 2, -2)
     b.macro = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
@@ -114,6 +113,10 @@ end
 
 function Page:Build(panel)
     self.panel = panel
+    if ONE.Book and ONE.Book.Spread and ONE.Book:Spread() then
+        local L, R = ONE.Book:Spread()
+        LEFT_W, RIGHT_X, RIGHT_W = L.width, R.x, R.width
+    end
     local _, sub
     self.heading, sub = ONE.Widgets:PageHeader(panel, "", "", 290, true)
     self.sub = sub
@@ -137,11 +140,14 @@ function Page:Build(panel)
     self.weaponView = self:BuildWeapons(content)
     -- Umschalter rechts oben in einer Zeile mit dem Auswahlfeld (Ausrichtung);
     -- Lage je nach Klasse in Page:LayoutViews (Druide hat zusaetzlich "Gestalten")
-    self.viewBars = ONE.Widgets:Button(content, "Leisten", 72, 24, "TOPRIGHT", -344, -6, function()
+    local inBook0 = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
+    self.viewBars = ONE.Widgets:Button(content, "Leisten", inBook0 and 64 or 72, 24, "TOPRIGHT", -344, -6, function()
         Store().view = "bars" Page:Refresh() end)
-    self.viewTree = ONE.Widgets:Button(content, "Talente", 72, 24, "TOPRIGHT", -270, -6, function()
+    self.viewTree = ONE.Widgets:Button(content, "Talente", inBook0 and 64 or 72, 24, "TOPRIGHT", -270, -6, function()
         Store().view = "talents" Page:Refresh() end)
-    self.viewWeapons = ONE.Widgets:Button(content, "Bewaffnung", 84, 24, "TOPRIGHT", -196, -6, function()
+    -- im Buch ist die Tintenschrift breiter: "Bewaffnung" braucht dort mehr Platz
+    local inBook = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
+    self.viewWeapons = ONE.Widgets:Button(content, "Bewaffnung", inBook and 100 or 84, 24, "TOPRIGHT", -196, -6, function()
         Store().view = "weapons" Page:Refresh() end)
     -- Druide: Katzen- und Baerenleiste (nur sichtbar, wenn der Bauplan Gestalten hat)
     self.viewForms = ONE.Widgets:Button(content, "Gestalten", 88, 24, "TOPRIGHT", -196, -6, function()
@@ -249,18 +255,12 @@ local TREE = {icon = 32, dx = 46, dy = 46, top = -86, gap = 40}
 local function NewNode(parent)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(TREE.icon, TREE.icon)
-    -- Aussehen "Nachtroute": abgerundetes Symbol, Ring zeigt den Stand (gruen = gelernt,
-    -- Akzent mit Leuchten = naechster Punkt laut Plan), dahinter weiches Leuchten
-    b.glow = b:CreateTexture(nil, "BACKGROUND", nil, -7)
-    b.glow:SetPoint("CENTER", b, "CENTER")
-    b.glow:SetSize(TREE.icon * 2.2, TREE.icon * 2.2)
-    if ONE.Skin then b.glow:SetTexture(ONE.Skin.tex.glow) end
-    b.glow:Hide()
+    b.border = b:CreateTexture(nil, "BACKGROUND")
+    b.border:SetPoint("TOPLEFT", b, "TOPLEFT", -2, 2)
+    b.border:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 2, -2)
     b.tex = b:CreateTexture(nil, "ARTWORK")
     b.tex:SetAllPoints(b)
-    local ring = ONE.Widgets and ONE.Widgets.RoundIcon and ONE.Widgets.RoundIcon(b, b.tex)
-    if not ring and b.tex.SetTexCoord then b.tex:SetTexCoord(.07, .93, .07, .93) end
-    b.border = {SetColorTexture = function(self, r, g, bl, a) self.color = {r, g, bl, a} if ring then ring:SetColor(r, g, bl, a) end end}
+    if b.tex.SetTexCoord then b.tex:SetTexCoord(.07, .93, .07, .93) end
     b.rank = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
     b.rank:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 2, -2)
     b.order = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
@@ -298,6 +298,19 @@ end
 function Page:LayoutViews(forms)
     local order = {self.viewBars, self.viewTree, self.viewWeapons}
     if forms then order[#order + 1] = self.viewForms end
+    -- Buch: rechts ist nur Platz fuer die Spielstil-Auswahl – die Knoepfe stehen links
+    -- unter der Ueberschrift (sonst ragt "Talente" ueber die Falz)
+    local bookL = ONE.Book and ONE.Book.Spread and ONE.Book:Spread()
+    if bookL then
+        local x = bookL.x
+        for _, b in ipairs(order) do
+            local w = b.GetWidth and b:GetWidth() or 72
+            if b.ClearAllPoints then b:ClearAllPoints() end
+            b:SetPoint("TOPLEFT", self.content, "TOPLEFT", x, -30)
+            x = x + w + 4
+        end
+        return
+    end
     local right = -196
     for i = #order, 1, -1 do
         local b = order[i]
@@ -313,19 +326,24 @@ function Page:BuildWeapons(parent)
     local wv = CreateFrame("Frame", nil, parent)
     wv:SetPoint("TOPLEFT", 0, 0)
     wv:SetSize(W, H)
+    local bookL, bookR
+    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
+    wv.book = bookL ~= nil
     local NAVI_W = 26
     -- Buch: Liste auf der linken Seite (Lehrer im Tooltip), Erklaerung rechts.
     -- Sonst: volle Breite, Erklaerung unter der Liste.
-    local listX, listW = 0, W
+    local listX, listW = bookL and bookL.x or 0, bookL and bookL.width or W
     -- Buch: unter der Knopfzeile (Leisten | Talente | Bewaffnung) auf der linken Seite
-    local listY = -44
-    local listH = (H - 44 - 52)
-    local nameW, stateW = 180, 180
+    local listY = bookL and -62 or -44
+    local listH = bookL and (H - 62 - 8) or (H - 44 - 52)
+    local nameW, stateW = bookL and 130 or 180, bookL and 100 or 180
     local columns = {
         {key = "name", title = "WAFFE", width = nameW},
         {key = "state", title = "STAND", width = stateW},
     }
-    columns[#columns + 1] = {key = "trainer", title = "LEHRER", width = listW - 24 - 18 - nameW - stateW - NAVI_W}
+    if not bookL then
+        columns[#columns + 1] = {key = "trainer", title = "LEHRER", width = listW - 24 - 18 - nameW - stateW - NAVI_W}
+    end
     wv.list = ONE.Kit:List(wv, {x = listX, y = listY, width = listW, height = listH, rowHeight = 22, columns = columns,
         render = function(frame, row, cells)
             cells.name:SetText(T(row.weapon.name))
@@ -360,8 +378,8 @@ function Page:BuildWeapons(parent)
             GameTooltip:Show()
         end,
     })
-    local infoX, infoW = 8, W - 16
-    wv.info = Text(wv, "GameFontHighlightSmall", infoX + (0), (listY - listH - 8), infoW - (0), "soft")
+    local infoX, infoW = bookR and bookR.x or 8, bookR and bookR.width or W - 16
+    wv.info = Text(wv, "GameFontHighlightSmall", infoX + (bookR and 8 or 0), bookR and -50 or (listY - listH - 8), infoW - (bookR and 16 or 0), "soft")
     if wv.info.SetWordWrap then wv.info:SetWordWrap(true) end
     return wv
 end
@@ -381,7 +399,8 @@ function Page:RefreshWeapons(p)
         or T("Du beherrschst alle Waffen, die deine Klasse tragen kann.")
     if unknown > 0 then parts[#parts + 1] = T("Ob du eine Waffe schon kannst, verrät das Spiel hier nicht.") end
     if guess then parts[#parts + 1] = T("* = laut Classic, in Forever noch nicht bestätigt – sprich den Waffenmeister einmal an.") end
-    wv.info:SetText(table.concat(parts, "  ·  "))
+    if wv.book then parts[#parts + 1] = T("Welcher Waffenmeister die Waffe lehrt, steht im Tooltip der Zeile.") end
+    wv.info:SetText(table.concat(parts, wv.book and "\n\n" or "  ·  "))
 end
 
 -- Zeichnet alle Talentbaeume nebeneinander; Plan-Reihenfolge und naechster Punkt markiert.
@@ -395,14 +414,25 @@ function Page:RefreshTree(p, def, build)
     local cols = {}
     for _, t in pairs(p.talents) do cols[t.group] = math.max(cols[t.group] or 0, t.col + 1) end
     -- Buch: kein Baum auf der Falz – Baum 1 und 2 links (etwas enger), Baum 3 rechts
-    local dx = TREE.dx
+    local bookL, bookR
+    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
+    local book = bookL and bookR and #p.points == 3
+    local dx = book and 39 or TREE.dx
     local widths, total = {}, 0
     for g = 1, #p.points do
         widths[g] = ((cols[g] or 1) - 1) * dx + TREE.icon
         total = total + widths[g] + (g > 1 and TREE.gap or 0)
     end
     local x, starts = math.floor((W - total) / 2), {}
-    for g = 1, #p.points do starts[g] = x; x = x + widths[g] + TREE.gap end
+    if book then
+        local gap = math.max(12, bookL.width - widths[1] - widths[2] - 8)
+        gap = math.min(gap, 40)
+        local left = bookL.x + math.floor((bookL.width - widths[1] - widths[2] - gap) / 2)
+        starts[1], starts[2] = left, left + widths[1] + gap
+        starts[3] = bookR.x + math.floor((bookR.width - widths[3]) / 2)
+    else
+        for g = 1, #p.points do starts[g] = x; x = x + widths[g] + TREE.gap end
+    end
     -- Ueberschriften
     for g = 1, #p.points do
         local h = tv.headers[g] or Text(tv, "GameFontNormal", 0, -60, 160, "accent", "", "CENTER")
@@ -428,13 +458,9 @@ function Page:RefreshTree(p, def, build)
         local locked = t.ranks == 0 and t.canBuy == false
         if node.tex.SetDesaturated then node.tex:SetDesaturated(locked) end
         if node.SetAlpha then node:SetAlpha(locked and .55 or 1) end
-        local ar, ag, ab = 1, .82, 0
-        if ONE.Skin then ar, ag, ab = ONE.Skin:Color("accent") end
-        if t.spell == nextSpell then
-            node.border:SetColorTexture(ar, ag, ab, 1)
-            node.glow:SetVertexColor(ar, ag, ab, .5) node.glow:Show()
-        elseif t.ranks > 0 then node.border:SetColorTexture(.42, .85, .6, 1) node.glow:Hide()
-        else node.border:SetColorTexture(1, 1, 1, .15) node.glow:Hide() end
+        if t.spell == nextSpell then node.border:SetColorTexture(1, .82, 0, 1)
+        elseif t.ranks > 0 then node.border:SetColorTexture(.25, .85, .25, 1)
+        else node.border:SetColorTexture(.12, .12, .12, 1) end
         node.rank:SetText(t.ranks .. "/" .. t.max)
         node.order:SetText(order[t.spell] and ("|cff80ff80" .. order[t.spell] .. "|r") or "")
         node.planText = order[t.spell] and T("Plan: Schritt %d, bis Rang %d", order[t.spell], target[t.spell]) or nil

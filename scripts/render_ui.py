@@ -92,7 +92,7 @@ def wow_text(t):
 
 
 CSS = """
-body{background:#20242b;color:#ddd;font-family:Inter,'Trebuchet MS',sans-serif;margin:16px}
+body{background:#20242b;color:#ddd;font-family:'Friz Quadrata TT','Trebuchet MS',sans-serif;margin:16px}
 h1{font-size:18px;color:#fc0} h2{font-size:14px;color:#aaa;margin:18px 0 6px}
 .page{position:relative;overflow:visible;margin:0 0 10px 0}\n.cell{display:inline-block;vertical-align:top;margin:0 24px 0 0}
 .e{position:absolute;box-sizing:border-box}
@@ -149,15 +149,8 @@ def render_page(page, scale, book=False):
                 continue
             uri = texture_uri(it.get("tex") or "")
             if not uri:
-                tex = str(it.get("tex") or "")
-                # Spiel-Symbol (Nummer oder Interface\Icons): farbiger Platzhalter
-                if tex.isdigit() or "icons" in tex.lower():
-                    h = sum(ord(c) * (i + 7) for i, c in enumerate(tex)) % 360
-                    parts.append('<div class="e" style="%sbackground:radial-gradient(circle at 35%% 30%%,hsl(%d,45%%,68%%),hsl(%d,40%%,30%%) 60%%,hsl(%d,30%%,10%%));border-radius:%dpx;%s"></div>' % (
-                        st, h, h, h, max(2, int(w / 6)), "opacity:%.2f;" % a if a is not None else ""))
                 continue
             bg = "background-image:url(%s);background-size:100%% 100%%;" % uri
-            msize, mpos = "100% 100%", "0 0"
             tc = it.get("tc")
             if tc and len(tc) >= 4:
                 l, r, t, b = tc[0], tc[1], tc[2], tc[3]
@@ -167,18 +160,17 @@ def render_page(page, scale, book=False):
                     bw, bh = w / (r - l), h / (b - t)
                     bg = "background-image:url(%s);background-size:%.1fpx %.1fpx;background-position:%.1fpx %.1fpx;" % (
                         uri, bw, bh, -l * bw, -t * bh)
-                    msize, mpos = "%.1fpx %.1fpx" % (bw, bh), "%.1fpx %.1fpx" % (-l * bw, -t * bh)
             filt = ""
             if it.get("v"):
                 v = it["v"]
-                if v[0] == v[1] == v[2] and v[0] != 1 and v[3] == 1:
+                if v[0] == v[1] == v[2] and v[0] != 1:
                     filt = "filter:brightness(%.2f);" % v[0]
-                elif not (v[0] == v[1] == v[2] == v[3] == 1):
+                elif not (v[0] == v[1] == v[2] == 1):
                     # Einfaerben grob: Helligkeit + Farbton ueber Mischung
                     filt = "filter:drop-shadow(0 0 0 transparent);"
                     bg += "background-color:transparent;"
-                    parts.append('<div class="e tex" style="%sopacity:%.2f;-webkit-mask-image:url(%s);mask-image:url(%s);-webkit-mask-size:%s;mask-size:%s;-webkit-mask-position:%s;mask-position:%s;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;background:%s"></div>' % (
-                        st, (a if a is not None else 1) * v[3], uri, uri, msize, msize, mpos, mpos, rgba(v[:3] + [1])))
+                    parts.append('<div class="e tex" style="%s%sopacity:%.2f;-webkit-mask-image:url(%s);mask-image:url(%s);mask-size:100%% 100%%;background:%s"></div>' % (
+                        st, "", (a if a is not None else 1) * v[3], uri, uri, rgba(v[:3] + [1])))
                     continue
             parts.append('<div class="e tex" style="%s%s%s%s"></div>' % (
                 st, bg, filt, "opacity:%.2f;" % a if a is not None else ""))

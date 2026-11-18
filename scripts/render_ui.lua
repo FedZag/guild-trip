@@ -312,7 +312,7 @@ CreateFrame = function(kind, name, parent, tpl)
     if kind == "EditBox" then o.fontObj = "ChatFontNormal" end
     return o
 end
-CreateFont = function(name) local f = {fontName = name} function f:SetFont(_, size) FONTS[name] = {size or 12, "white"} end function f:SetTextColor() end function f:SetShadowOffset() end function f:SetShadowColor() end function f:CopyFontObject() end function f:SetJustifyH() end function f:SetSpacing() end function f:GetFont() return "x", 12, "" end _G[name] = f return f end
+CreateFont = function(name) local f = {fontName = name} function f:SetFont() end function f:SetTextColor() end function f:SetShadowOffset() end function f:SetShadowColor() end function f:CopyFontObject() end function f:SetJustifyH() end function f:SetSpacing() end function f:GetFont() return "x", 12, "" end _G[name] = f return f end
 for k in pairs(FONTS) do _G[k] = {fontName = k, GetFont = function() return "Fonts\\FRIZQT__.TTF", FONTS[k][1], "" end,
     SetFont = function() end, SetTextColor = function() end, GetTextColor = function() return 1, 1, 1, 1 end,
     CopyFontObject = function() end, SetShadowOffset = function() end, SetShadowColor = function() end} end
@@ -419,14 +419,6 @@ C_FriendList = Stub("C_FriendList")
 C_GossipInfo = Stub("C_GossipInfo")
 C_QuestLog = Stub("C_QuestLog")
 C_Item = Stub("C_Item")
--- Vorschau: Symbol-Nummer = Gegenstandsnummer (render_ui.py zeichnet farbige Platzhalter),
--- Qualitaet und Namen fuer die Beispiel-Rezepte
-local PREVIEW_ITEMS = {[3473] = {"Runenverzierte Kupferstiefel", 2}, [2853] = {"Kupferner Kettengürtel", 1}, [3240] = {"Grober Wetzstein", 1},
-    [2840] = {"Kupferbarren", 1}, [1206] = {"Malachit", 2}, [2320] = {"Grober Faden", 1}, [2836] = {"Grober Stein", 1}}
-C_Item.GetItemIconByID = function(id) return id end
-C_Item.GetItemQualityByID = function(id) return PREVIEW_ITEMS[id] and PREVIEW_ITEMS[id][2] end
-C_Item.GetItemNameByID = function(id) return PREVIEW_ITEMS[id] and PREVIEW_ITEMS[id][1] end
-C_Item.GetItemCount = function(id) return ({[2840] = 8, [1206] = 1})[id] or 0 end
 C_Spell = Stub("C_Spell")
 C_SpellBook = Stub("C_SpellBook")
 C_TradeSkillUI = Stub("C_TradeSkillUI")
@@ -462,7 +454,7 @@ GetQuestLogTitle = function() return nil end
 GetMoney = function() return 0 end
 GetCoinTextureString = function(m) return tostring(m) end
 GetSpellInfo = function(id) return "Zauber " .. tostring(id), nil, 136243 end
-GetSpellTexture = function(id) return tonumber(id) or 136243 end
+GetSpellTexture = function() return 136243 end
 GetItemInfo = function() return nil end
 GetItemInfoInstant = function() return nil end
 GetItemQualityColor = function() return 1, 1, 1, "ffffffff" end
@@ -530,15 +522,10 @@ setmetatable(_G, {__index = function(t, k)
 end})
 
 -- ===== Gespeicherte Daten (erfunden) =====
-ProjectONEDB = {theme = {skin = os.getenv("SKIN"), uiSounds = false}, soundEnabled = false, minimap = {hidden = true},
+ProjectONEDB = {theme = {selected = "native", uiSounds = false}, soundEnabled = false, minimap = {hidden = true},
     seenVersion = "0.6.7-alpha", loginSummaryEnabled = false, toastEnabled = false,
     dungeons = {pass = {Testheld = {d = {wc = {first = 1763000000, last = 1763300000, runs = 2}, rfc = {first = 1762500000, runs = 1},
-        dm = {first = 1763350000, runs = 1}}, t = {{id = "x", title = "Brachland-Treffen", time = 1763200000, count = 8}}}}},
-    -- Beispiel-Rezepte fuer die Berufe-Seite
-    crafting = {chars = {Testheld = {["Schmiedekunst"] = {skill = 142, max = 225, stamp = 1763300000,
-        recipes = {[3328] = 3473, [2662] = 2853, [3116] = 3240}}}},
-        names = {[3328] = "Runenverzierte Kupferstiefel", [2662] = "Kupferner Kettengürtel", [3116] = "Grober Wetzstein"},
-        reagents = {[3328] = {{2840, 6}, {1206, 1}, {2320, 2}}, [3116] = {{2836, 1}, {2840, 2}}}}}
+        dm = {first = 1763350000, runs = 1}}, t = {{id = "x", title = "Brachland-Treffen", time = 1763200000, count = 8}}}}}}
 if mode == "book" then ProjectONEDB.theme.selected = "book" ProjectONEDB.theme.book = true end
 
 -- ===== Addons laden =====
@@ -582,8 +569,7 @@ end
 
 -- ===== Seiten oeffnen und aufzeichnen =====
 local function Num(v) return math.floor(v * 10 + .5) / 10 end
-local function Fine(v) return math.floor(v * 1000 + .5) / 1000 end
-local function Color(c) if c then return {Fine(c[1] or 1), Fine(c[2] or 1), Fine(c[3] or 1), Fine(c[4] or 1)} end end
+local function Color(c) if c then return {Num(c[1] or 1), Num(c[2] or 1), Num(c[3] or 1), Num(c[4] or 1)} end end
 local function Visible(o)
     while o do
         if not o.shown then return false end
@@ -613,7 +599,7 @@ local function Dump(frame)
             e.tex = type(o.tex) == "string" and o.tex or (type(o.tex) == "number" and tostring(o.tex)) or nil e.atlas = Str(o.atlas)
             e.col = Color(o.colorTex) e.v = Color(o.vertex) if o.grad then e.grad = {o.grad[1], Color(o.grad[2]), Color(o.grad[3])} end e.a = o.alpha ~= 1 and o.alpha or nil
             e.l = LAYERS[o.layer or "ARTWORK"] or 3
-            if o.coords then local c = {} for i, v in ipairs(o.coords) do if type(v) == "number" then c[i] = Fine(v) end end e.tc = c end
+            if o.coords then local c = {} for i, v in ipairs(o.coords) do if type(v) == "number" then c[i] = Num(v) end end e.tc = c end
         else
             if type(o.text) == "string" and o.text ~= "" then e.t = o.text e.f = Str(o.fontObj) end
             if o.selectedTab ~= nil then e.sel = o.selectedTab end

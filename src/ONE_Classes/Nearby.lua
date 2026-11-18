@@ -423,8 +423,13 @@ end
 local TAGS = {group = "Gruppe", guild = "Gilde", friend = "Freund"}
 local CLICKS = {"Linksklick", "Rechtsklick", "Umschalt + Linksklick"}
 
--- Fenster im Aussehen "Nachtroute", Texte in Skin-Farben
-local function Ink(text) return text end
+-- Fenster im aktiven Aussehen (Blizzard-Rahmen bzw. Pergamentblatt im Buch) und Texte in Theme-Farben
+-- Im Buch-Aussehen: helle Farbcodes als lesbare Tinte auf Pergament
+local function Ink(text)
+    local book = ONE.Book
+    if book and book.IsActive and book:IsActive() and book.InkCodes then return book.InkCodes(text) end
+    return text
+end
 local function Themed(frame, bg, title, texts)
     local th = ONE.Themes
     if not th then return end

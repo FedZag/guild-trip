@@ -1,7 +1,7 @@
 -- Guild Trip Reisepass – Ansicht im Dungeons-Bereich (Blizzard-Aussehen, 0.6.8).
 -- Links: du und die Gilde mit Anzahl Stempel. Rechts: aufgeschlagener Pass – links Dungeons
 -- (runde Stempel), rechts Gildenausflüge (eckige Stempel); freie Felder gestrichelt mit Vorschlag.
--- Grafiken: Stempel scripts/build_stamps.py; Seiten sind Karten im Aussehen "Nachtroute".
+-- Grafiken: Stempel scripts/build_stamps.py, Seiten = Pergament aus dem Buch (Sheet.tga).
 local _, dungeons = ...
 local ONE = _G.ProjectONE
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
@@ -9,8 +9,9 @@ local PassPage = {}
 dungeons.PassPage = PassPage
 
 local TEX = "Interface\\AddOns\\ONE_Dungeons\\Textures\\"
-local INKS = {{.96, .5, .45}, {.58, .74, 1}, {.94, .7, .31}, {.45, .86, .6}}
-local SLOT = {.6, .63, .72}
+local SHEET = "Interface\\AddOns\\ONE_Core\\Textures\\Book\\Sheet"
+local FELL = "Interface\\AddOns\\ONE_Core\\Fonts\\IMFellEnglish.ttf"
+local INKS = {{.55, .11, .07}, {.16, .21, .45}, {.36, .24, .1}, {.12, .36, .2}}
 local PER_PAGE = 6
 local ROT = {.12, -.09, .05, -.14, .1, -.04}
 
@@ -21,15 +22,9 @@ local function Text(parent, font, role)
     return fs
 end
 local function Ink(fs, size, c)
-    if fs.SetFont and fs.GetFont then
-        local file = fs:GetFont()
-        if file then pcall(fs.SetFont, fs, file, size, "") end
-    end
+    if fs.SetFont then pcall(fs.SetFont, fs, FELL, size, "") end
     fs:SetTextColor(c[1], c[2], c[3])
-end
-local function Title()
-    local p = ONE.Themes and ONE.Themes:Current()
-    return p and p.title or {1, 1, 1}
+    if fs.SetShadowOffset then fs:SetShadowOffset(0, 0) end
 end
 local function Day(t) return (type(date) == "function" and t and t > 0) and date("%d.%m.%y", t) or "" end
 
@@ -60,12 +55,12 @@ local function NewStamp(parent, size)
     return f
 end
 local function SetStamp(f, kind, i, name, info, tip)
-    local c = kind == "slot" and SLOT or INKS[(i - 1) % #INKS + 1]
+    local c = kind == "slot" and {.36, .24, .12} or INKS[(i - 1) % #INKS + 1]
     f.tex:SetTexture(TEX .. (kind == "trip" and "StampRect" or kind == "slot" and "StampSlot" or "StampRound"))
-    f.tex:SetVertexColor(c[1], c[2], c[3], kind == "slot" and .4 or .9)
+    f.tex:SetVertexColor(c[1], c[2], c[3], kind == "slot" and .55 or .92)
     if f.tex.SetRotation then f.tex:SetRotation(kind == "slot" and 0 or ROT[(i - 1) % #ROT + 1]) end
-    Ink(f.name, kind == "trip" and 13 or 12, c)
-    Ink(f.info, 10, kind == "slot" and SLOT or c)
+    Ink(f.name, kind == "trip" and 13 or 12, kind == "slot" and {.4, .3, .18} or c)
+    Ink(f.info, 10, kind == "slot" and {.45, .35, .22} or c)
     f.name:SetText(name or "")
     f.info:SetText(info or "")
     f.tip = tip
@@ -83,13 +78,13 @@ function PassPage:Build(panel)
             {key = "count", title = "STEMPEL", width = 54, align = "CENTER"}},
         render = function(row, e, cells)
             cells.name:SetText(e.me and (e.name .. "  |cff9d9d9d(" .. T("du") .. ")|r") or e.name)
-            cells.name:SetTextColor(Title()[1], Title()[2], Title()[3])
+            cells.name:SetTextColor(1, .82, 0)
             cells.count:SetText(tostring(e.count))
             cells.count:SetTextColor(.9, .9, .9)
             if not row.selection then
                 row.selection = row:CreateTexture(nil, "BACKGROUND", nil, 1)
                 row.selection:SetAllPoints(row)
-                row.selection:SetColorTexture(1, 1, 1, .1)
+                row.selection:SetColorTexture(1, .82, 0, .14)
             end
             if state.who == e.name then row.selection:Show() else row.selection:Hide() end
         end,
@@ -108,20 +103,36 @@ function PassPage:Build(panel)
     local cover = CreateFrame("Frame", nil, panel)
     cover:SetPoint("TOPLEFT", panel, "TOPLEFT", RX, -48)
     cover:SetSize(RW, H - 50)
+    local leather = cover:CreateTexture(nil, "BACKGROUND")
+    leather:SetAllPoints(cover)
+    leather:SetColorTexture(.2, .11, .05, 1)
+    local rim = cover:CreateTexture(nil, "BORDER")
+    rim:SetPoint("TOPLEFT", cover, "TOPLEFT", 3, -3)
+    rim:SetPoint("BOTTOMRIGHT", cover, "BOTTOMRIGHT", -3, 3)
+    rim:SetColorTexture(.33, .19, .08, 1)
     local pageW, pageH = math.floor((RW - 22) / 2), H - 50 - 16
     local pages = {}
     for side = 1, 2 do
         local pg = CreateFrame("Frame", nil, cover)
         pg:SetPoint("TOPLEFT", cover, "TOPLEFT", 8 + (side - 1) * (pageW + 6), -8)
         pg:SetSize(pageW, pageH)
-        if ONE.Themes and ONE.Themes.RegisterPanel then ONE.Themes:RegisterPanel(pg) end
+        local paper = pg:CreateTexture(nil, "BACKGROUND")
+        paper:SetAllPoints(pg)
+        paper:SetTexture(SHEET)
+        -- Pergament aus dem Tagesueberblick-Blatt, je Seite eine Haelfte
+        paper:SetTexCoord(side == 1 and .04 or .5, side == 1 and .5 or .96, .06, .80)
+        local fold = pg:CreateTexture(nil, "ARTWORK")
+        fold:SetPoint(side == 1 and "TOPRIGHT" or "TOPLEFT", pg, side == 1 and "TOPRIGHT" or "TOPLEFT", 0, 0)
+        fold:SetPoint(side == 1 and "BOTTOMRIGHT" or "BOTTOMLEFT", pg, side == 1 and "BOTTOMRIGHT" or "BOTTOMLEFT", 0, 0)
+        fold:SetWidth(14)
+        fold:SetColorTexture(.25, .15, .05, .18)
         local head = pg:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         head:SetPoint("TOP", pg, "TOP", 0, -10)
-        Ink(head, 13, Title())
+        Ink(head, 13, {.42, .1, .03})
         head:SetText(side == 1 and T("DUNGEONS") or T("GILDENAUSFLÜGE"))
         local more = pg:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         more:SetPoint("BOTTOM", pg, "BOTTOM", 0, 8)
-        Ink(more, 10, SLOT)
+        Ink(more, 10, {.36, .24, .1})
         local stamps = {}
         local cell = math.min(math.floor(pageW / 2), math.floor((pageH - 44) / 3))
         for i = 1, PER_PAGE do

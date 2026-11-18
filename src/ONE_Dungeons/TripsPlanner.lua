@@ -23,7 +23,6 @@ end
 local function Edit(parent, x, y, width, maxLetters, numeric)
     local ok, box = pcall(CreateFrame, "EditBox", nil, parent, "InputBoxTemplate")
     if not ok or not box then box = CreateFrame("EditBox", nil, parent) end
-    if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(box) end
     box:SetPoint("TOPLEFT", parent, "TOPLEFT", x + 6, y)
     box:SetSize(width - 6, 22)
     if box.SetAutoFocus then box:SetAutoFocus(false) end
@@ -32,6 +31,7 @@ local function Edit(parent, x, y, width, maxLetters, numeric)
     if box.SetFontObject then pcall(box.SetFontObject, box, "GameFontHighlight") end
     box:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     box:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    if ONE.Book and ONE.Book.StyleEditBox then pcall(ONE.Book.StyleEditBox, ONE.Book, box) end
     return box
 end
 
@@ -140,6 +140,8 @@ end
 function Planner:Build(panel, onDone)
     local Tr = dungeons.Trips
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
+    local bookL, bookR
+    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
     local f = CreateFrame("Frame", nil, panel)
     f:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
     f:SetSize(W, H)
@@ -151,14 +153,16 @@ function Planner:Build(panel, onDone)
     -- Kaesten: Lage je nach Aussehen
     local half = math.floor((W - 12) / 2)
     -- Ueberschrift oben rechts (oben links liegen die Umschalter Dungeons | Gruppen | Ausfluege)
-    local hx, hw = (half + 12), half
+    local hx, hw = bookR and bookR.x or (half + 12), bookR and bookR.width or half
     local head = Text(f, "GameFontNormalLarge", hx, -4, hw, "accent", "Termin planen")
     Text(f, "GameFontHighlightSmall", hx, -24, hw, "soft", "Pflicht: nur Art, Titel und Tag")
     if head.SetWordWrap then head:SetWordWrap(false) end
-    local C1 = {x = 0, w = half}
-    local C2 = {x = (half + 12), w = half}
+    local C1 = {x = bookL and bookL.x or 0, w = bookL and bookL.width or half}
+    local C2 = {x = bookR and bookR.x or (half + 12), w = bookR and bookR.width or half}
     -- Kasten 1: drei Reihen Arten; Kasten 2: vier Zeilen (Tag, Beginn+Dauer, Wiederholen, Erinnerung)
-    local place = {
+    local place = bookL and {
+        {C1, -44, 168}, {C1, -218, 148}, {C2, -44, 84}, {C2, -134, 116},
+    } or {
         {C1, -44, 168}, {C2, -44, 168}, {C1, -218, 116}, {C2, -218, 116},
     }
     local LBL = 92
@@ -290,14 +294,14 @@ function Planner:Build(panel, onDone)
     -- Zusammenfassung und Knoepfe
     -- Buch: rechte Seite unter Kasten 4; sonst unter allen Kaesten ueber die volle Breite.
     -- Der Hinweis "was fehlt" steht in einer eigenen Zeile ueber den Knoepfen.
-    local sumX, sumY, sumW = 0, -344, W
+    local sumX, sumY, sumW = bookR and bookR.x or 0, bookR and -262 or -344, bookR and bookR.width or W
     local summary = Text(f, "GameFontHighlight", sumX, sumY, sumW, "text")
     if summary.SetWordWrap then summary:SetWordWrap(true) end
-    local missing = Text(f, "GameFontHighlightSmall", sumX, -390, (W - 2 * 140 - 30), "soft")
+    local missing = Text(f, "GameFontHighlightSmall", sumX, bookR and -326 or -390, bookR and sumW or (W - 2 * 140 - 30), "soft")
     if missing.SetWordWrap then missing:SetWordWrap(false) end
-    local BW = 120
-    local bx = (W) - 2 * BW - 8
-    local by = -386
+    local BW = bookR and 140 or 120
+    local bx = (bookR and (bookR.x + bookR.width) or W) - 2 * BW - 8
+    local by = bookR and -350 or -386
     ONE.Widgets:Button(f, T("Abbrechen"), BW, 26, "TOPLEFT", bx, by, function()
         f:Hide()
         if onDone then onDone(nil) end
@@ -324,7 +328,8 @@ function Planner:Build(panel, onDone)
             elseif chip.UnlockHighlight then chip:UnlockHighlight() end
             -- normales Aussehen: gewaehlte Art weiss mit Haken, die anderen gold
             local fs = chip.GetFontString and chip:GetFontString()
-            if fs then
+            local book = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
+            if fs and not book then
                 if on then fs:SetTextColor(1, 1, 1) else fs:SetTextColor(1, .82, 0) end
             end
             -- Haken als Spielbild (die WoW-Schrift kennt kein Haken-Zeichen)

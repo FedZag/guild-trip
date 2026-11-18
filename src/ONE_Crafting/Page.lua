@@ -5,7 +5,7 @@
 -- tust du selbst mit Enter.
 local _, crafting = ...
 local ONE = _G.ProjectONE
-local function Paint(tex, r, g, b, a) tex:SetColorTexture(r, g, b, a) end
+local function Paint(tex, r, g, b, a) if ONE.Book and ONE.Book.Paint then return ONE.Book.Paint(tex, r, g, b, a) end tex:SetColorTexture(r, g, b, a) end
 -- Uebersetzung (ONE.T); ohne Sprachmodul bleibt der deutsche Text.
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 local Page = {rows = 6}
@@ -64,6 +64,10 @@ function Page:Build(panel)
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local leftW, gap = 430, 12
     local rightX, rightW = leftW + gap, W - leftW - gap
+    if ONE.Book and ONE.Book.Spread and ONE.Book:Spread() then
+        local L, R = ONE.Book:Spread()
+        leftW, rightX, rightW = L.width, R.x, R.width
+    end
     local store = R:Store()
     local state = {}
 
@@ -101,9 +105,16 @@ function Page:Build(panel)
         onChange = function() Page:Refresh() end})
     local mine = Text(rv, "GameFontHighlightSmall", 0, -30, W, "soft")
     -- Buch: eigene Berufe rechts unter dem Auswahlfeld (zweizeilig), nicht ueber die Falz
+    if ONE.Book and ONE.Book.Spread and ONE.Book:Spread() then
+        local _, R = ONE.Book:Spread()
+        mine:ClearAllPoints()
+        mine:SetPoint("TOPLEFT", rv, "TOPLEFT", R.x, -34)
+        mine:SetWidth(R.width)
+        if mine.SetWordWrap then mine:SetWordWrap(true) end
+        if mine.SetMaxLines then mine:SetMaxLines(2) end
+    end
     local okSearch, search = pcall(CreateFrame, "EditBox", nil, rv, "SearchBoxTemplate")
     if not okSearch or not search then search = CreateFrame("EditBox", nil, rv) end
-    if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(search) end
     search:SetSize(leftW - 8, 22)
     search:SetPoint("TOPLEFT", rv, "TOPLEFT", 6, -50)
     if search.SetAutoFocus then search:SetAutoFocus(false) end
@@ -115,19 +126,16 @@ function Page:Build(panel)
             {key = "who", title = "WER", width = leftW - 24 - 6 - (leftW < 400 and 168 or 236) - (leftW < 400 and 84 or 96) - 16, align = "CENTER"},
         },
         render = function(row, e, cells)
-            -- echtes Spiel-Symbol (Gegenstand, sonst Rezept-/Zaubersymbol), Ring in Qualitaetsfarbe
             if not row.icon then
-                row.icon = ONE.Widgets:Icon(row, 18)
-                row.icon:SetPoint("LEFT", row, "LEFT", 4, 0)
+                row.icon = row:CreateTexture(nil, "ARTWORK")
+                row.icon:SetSize(16, 16)
+                row.icon:SetPoint("LEFT", row, "LEFT", 6, 0)
             end
-            row.icon:SetIcon(R:Icon(e.recipeID, e.itemID))
-            local q = e.itemID and e.itemID > 0 and C_Item and C_Item.GetItemQualityByID and select(2, pcall(C_Item.GetItemQualityByID, e.itemID))
-            row.icon:SetQuality(type(q) == "number" and q or nil)
-            row.icon:SetCount(R:Craftable(e.recipeID))
-            row.icon:SetSelected(state.entry and state.entry.recipeID == e.recipeID)
+            local icon = e.itemID and e.itemID > 0 and C_Item and type(C_Item.GetItemIconByID) == "function"
+                and select(2, pcall(C_Item.GetItemIconByID, e.itemID))
+            row.icon:SetTexture(type(icon) == "number" and icon or "Interface\\Icons\\INV_Misc_QuestionMark")
             cells.item:SetText(e.label)
-            local qc = ONE.Widgets.QUALITY[type(q) == "number" and q or 1] or {1, 1, 1}
-            cells.item:SetTextColor(qc[1], qc[2], qc[3])
+            cells.item:SetTextColor(1, .82, 0)
             cells.prof:SetText(e.prof)
             cells.prof:SetTextColor(.85, .85, .85)
             cells.who:SetText(e.online > 0 and ("|cff80e680" .. e.online .. "|r/" .. #e.crafters) or tostring(#e.crafters))
@@ -135,7 +143,7 @@ function Page:Build(panel)
             if not row.selection then
                 row.selection = row:CreateTexture(nil, "BACKGROUND", nil, 1)
                 row.selection:SetAllPoints(row)
-                Paint(row.selection, 1, 1, 1, .07)
+                Paint(row.selection, 1, .82, 0, .14)
             end
             if state.entry and state.entry.recipeID == e.recipeID then row.selection:Show() else row.selection:Hide() end
         end,
@@ -162,42 +170,21 @@ function Page:Build(panel)
     card:SetSize(rightW, H - 80)
     if ONE.Themes then ONE.Themes:RegisterPanel(card) end
     local inner = rightW - 28
-    -- Kopf: grosses Spiel-Symbol, Name in Qualitaetsfarbe, Rezept und Beruf darunter
-    local bigIcon = ONE.Widgets:Icon(card, 40)
-    bigIcon:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -14)
-    local title = Text(card, "GameFontNormal", 64, -16, inner - 50, "accent")
-    local recipe = Text(card, "GameFontHighlightSmall", 64, -36, inner - 50, "soft")
-    local rule = card:CreateTexture(nil, "ARTWORK")
-    rule:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -64)
-    rule:SetPoint("TOPRIGHT", card, "TOPRIGHT", -14, -64)
-    rule:SetHeight(1)
-    rule:SetColorTexture(1, 1, 1, .08)
-    -- Zutaten: Symbol, Name, "hast / brauchst" (gruen genug, rot fehlt)
-    local ingHead = Text(card, "GameFontNormalSmall", 14, -74, inner, "muted")
-    local MAXING = 5
-    local ings = {}
-    for i = 1, MAXING do
-        local ic = ONE.Widgets:Icon(card, 20)
-        local name = Text(card, "GameFontHighlight", 0, 0, inner - 90, "text")
-        local count = Text(card, "GameFontHighlight", 0, 0, 70, "text")
-        if count.SetJustifyH then count:SetJustifyH("RIGHT") end
-        ings[i] = {icon = ic, name = name, count = count}
-    end
-    local head = Text(card, "GameFontNormalSmall", 14, -56, inner, "muted")
+    local title = Text(card, "GameFontNormal", 14, -12, inner, "accent")
+    local recipe = Text(card, "GameFontHighlightSmall", 14, -32, inner, "soft")
+    local head = Text(card, "GameFontNormalSmall", 14, -56, inner, "accent")
     local rows = {}
     for i = 1, self.rows do
-        local name = Text(card, "GameFontHighlight", 14, 0, inner - 86, "text")
-        local info = Text(card, "GameFontHighlightSmall", 14, 0, inner - 86, "soft")
-        local ask = ONE.Widgets:Button(card, T("Anfragen"), 80, 22, "TOPRIGHT", -10, 0, function()
+        local y = -74 - (i - 1) * 40
+        local name = Text(card, "GameFontHighlight", 14, y, inner - 86, "text")
+        local info = Text(card, "GameFontHighlightSmall", 14, y - 17, inner - 86, "soft")
+        local ask = ONE.Widgets:Button(card, T("Anfragen"), 80, 22, "TOPRIGHT", -10, y + 2, function()
             local c = rows[i].crafter
             if c and state.entry then Page:Ask(state.entry, c) end
-        end, "ghost")
+        end)
         rows[i] = {name = name, info = info, ask = ask}
     end
-    local more = Text(card, "GameFontDisableSmall", 14, 0, inner, "soft")
-    local cardH = H - 80
-    -- Lage der Abschnitte je nach Anzahl Zutaten
-    local function Place(y, fs, x) fs:ClearAllPoints() fs:SetPoint("TOPLEFT", card, "TOPLEFT", x or 14, y) end
+    local more = Text(card, "GameFontDisableSmall", 14, -74 - self.rows * 40, inner, "soft")
 
     local function Changed() Page:Refresh() end
     if search.HookScript then search:HookScript("OnTextChanged", Changed) end
@@ -252,60 +239,14 @@ function Page:Build(panel)
         state.entry = still or items[1]
         local e = state.entry
         for _, r in ipairs(rows) do r.name:SetText("") r.info:SetText("") r.ask:Hide() r.crafter = nil end
-        for _, g in ipairs(ings) do g.icon:Hide() g.name:SetText("") g.count:SetText("") end
         more:SetText("")
-        list:Update()
-        if not e then title:SetText("") recipe:SetText("") head:SetText("") ingHead:SetText("") bigIcon:Hide() return end
-        bigIcon:Show()
-        bigIcon:SetIcon(R:Icon(e.recipeID, e.itemID))
-        local q = e.itemID and e.itemID > 0 and C_Item and C_Item.GetItemQualityByID and select(2, pcall(C_Item.GetItemQualityByID, e.itemID))
-        bigIcon:SetQuality(type(q) == "number" and q or nil)
-        bigIcon:SetCount(R:Craftable(e.recipeID))
+        if not e then title:SetText("") recipe:SetText("") head:SetText("") return end
         title:SetText(e.label)
-        local qc = ONE.Widgets.QUALITY[type(q) == "number" and q or 1] or {1, 1, 1}
-        title:SetTextColor(qc[1], qc[2], qc[3])
         recipe:SetText(R:Name(e.recipeID) .. "  ·  " .. e.prof)
-        -- Zutaten
-        local y = -74
-        local reagents = R:Reagents(e.recipeID)
-        if reagents then
-            ingHead:SetText(T("ZUTATEN"))
-            y = y - 18
-            for i, r in ipairs(reagents) do
-                local g = ings[i]
-                if not g then break end
-                local have, need = R:Have(r[1]), r[2]
-                g.icon:ClearAllPoints()
-                g.icon:SetPoint("TOPLEFT", card, "TOPLEFT", 14, y)
-                g.icon:Show()
-                g.icon:SetItem(r[1])
-                g.icon:SetMissing(have < need)
-                Place(y - 3, g.name, 42)
-                g.name:SetText(R:ItemName(r[1]) or T("Gegenstand %d", r[1]))
-                g.count:ClearAllPoints()
-                g.count:SetPoint("TOPRIGHT", card, "TOPRIGHT", -14, y - 3)
-                g.count:SetText(have .. " / " .. need)
-                local col = ONE.Skin and {ONE.Skin:Color(have >= need and "ok" or "bad")} or {1, 1, 1}
-                g.count:SetTextColor(col[1], col[2], col[3])
-                y = y - 24
-            end
-            y = y - 10
-        else
-            ingHead:SetText(e.crafters[1] and e.crafters[1].me and T("Zutaten: Berufsfenster einmal öffnen") or "")
-            if ingHead:GetText() ~= "" then y = y - 26 end
-        end
-        Place(y, head)
         head:SetText(T("WER KANN ES HERSTELLEN?"))
-        y = y - 18
-        local fit = math.max(1, math.min(#rows, math.floor((cardH + y - 20) / 38)))
         for i, c in ipairs(e.crafters) do
-            if i > fit then Place(y, more) more:SetText(T("+%d weitere", #e.crafters - fit)) break end
+            if i > #rows then more:SetText(T("+%d weitere", #e.crafters - #rows)) break end
             local row = rows[i]
-            Place(y, row.name)
-            Place(y - 17, row.info)
-            row.ask:ClearAllPoints()
-            row.ask:SetPoint("TOPRIGHT", card, "TOPRIGHT", -10, y + 2)
-            y = y - 38
             row.crafter = c
             row.name:SetText(c.me and T("%s (du)", Short(c.name)) or Short(c.name))
             row.name:SetTextColor(c.online and 1 or .6, c.online and 1 or .6, c.online and 1 or .6)
@@ -331,6 +272,10 @@ function Page:BuildTrainers(tv, W, H)
         get = function() return store.trainerKind end, set = function(v) store.trainerKind = v end,
         onChange = function() Page:RefreshTrainers() end})
     local leftW, cardX, NPCW, WHATW = 430, 442, 140, 116
+    if ONE.Book and ONE.Book.Spread and ONE.Book:Spread() then
+        local L, R = ONE.Book:Spread()
+        leftW, cardX, NPCW, WHATW = L.width, R.x, 120, 86
+    end
     local list = ONE.Kit:List(tv, {x = 0, y = -80, width = leftW, height = H - 80, rowHeight = 22,
         columns = {
             {key = "npc", title = "LEHRER", width = NPCW},
@@ -347,7 +292,7 @@ function Page:BuildTrainers(tv, W, H)
             if not row.selection then
                 row.selection = row:CreateTexture(nil, "BACKGROUND", nil, 1)
                 row.selection:SetAllPoints(row)
-                Paint(row.selection, 1, 1, 1, .07)
+                Paint(row.selection, 1, .82, 0, .14)
             end
             if state.entry and state.entry.npc == e.npc then row.selection:Show() else row.selection:Hide() end
         end,
