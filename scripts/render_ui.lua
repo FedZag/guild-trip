@@ -558,7 +558,7 @@ local function Fire(event, ...)
         if f then local ok, e = pcall(f, o, event, ...) if not ok then errors[#errors+1] = event .. ": " .. tostring(e) end end
     end
 end
-for _, a in ipairs({"ONE_Core", "ONE_Guild", "ONE_Nav", "ONE_Classes", "ONE_Crafting", "ONE_Dungeons", "ONE_Chat"}) do
+for _, a in ipairs({"ONE_Core", "ONE_QuestDB", "ONE_Chat", "ONE_Classes", "ONE_Crafting", "ONE_Dungeons", "ONE_Guild", "ONE_Leveling", "ONE_Nav"}) do
     LoadAddon(a)
     Fire("ADDON_LOADED", a)
 end
@@ -750,6 +750,10 @@ for _, id in ipairs(wanted) do
       local ns = namespaces["ONE_" .. mod:sub(1, 1):upper() .. mod:sub(2)]
       if ns.Page then ns.Page.view = sub end
       id = mod
+  end
+  if id == "gear" and namespaces.ONE_Leveling and namespaces.ONE_Leveling.Guide then
+      namespaces.ONE_Leveling.Guide:DB().view = "gear"
+      id = "leveling"
   end
   if id == "fenster" then DumpWindows() elseif id == "chat" then DumpChat() else
     local ok, e = pcall(function() ONE.UI:Navigate(id) ONE.UI:Refresh() end)

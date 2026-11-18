@@ -253,6 +253,17 @@ function Page:BuildGear(parent, W, H)
             GameTooltip:Show()
         end,
     })
+    -- Gegenstandsnamen kommen vom Server nach: dann die Liste neu zeichnen (gebremst)
+    local ev = CreateFrame("Frame", nil, parent)
+    local pendingAt
+    if ev.RegisterEvent then pcall(ev.RegisterEvent, ev, "GET_ITEM_INFO_RECEIVED") end
+    ev:SetScript("OnEvent", function()
+        if not (parent.IsVisible and parent:IsVisible()) or pendingAt then return end
+        pendingAt = true
+        if C_Timer and C_Timer.After then
+            C_Timer.After(.3, function() pendingAt = nil if parent:IsVisible() then list:Update() end end)
+        else pendingAt = nil list:Update() end
+    end)
     local foot = Text(parent, "GameFontDisableSmall", 4, -(H - 18), W - 8, "soft",
         "Bewertet wie im Tooltip „besser für dich“. Quests passend zu Fraktion und Klasse; seltene Drops nur im Tooltip.")
     return function()
