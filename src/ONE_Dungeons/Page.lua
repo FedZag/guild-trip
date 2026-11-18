@@ -60,10 +60,6 @@ function Page:Build(panel)
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local leftW, gap = 290, 12
     local rightX, rightW = leftW + gap, W - leftW - gap
-    if false then
-        local L, R = ONE.Book:Spread()
-        leftW, rightX, rightW = L.width, R.x, R.width
-    end
     local state = {selected = nil, quest = nil, list = {}}
 
     -- ===== Linke Spalte: Dungeonliste =====
@@ -81,11 +77,9 @@ function Page:Build(panel)
     check:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -56)
     if check.SetChecked then check:SetChecked(store.suitableOnly) end
     local checkLabel = Text(panel, "GameFontHighlight", 26, -61, leftW - 26, "text")
-    -- 0.6.8 Blizzard-Aussehen: Auswahl mit Zaehlern statt Haekchen (Fuer deine Stufe, Alle,
-    -- Stufenbereiche, mit offenen Quests); im Buch bleibt das Haekchen
-    local book = false
+    -- Auswahl mit Zaehlern statt Haekchen (Fuer deine Stufe, Alle, Stufenbereiche, mit offenen Quests)
     local category
-    if not book and ONE.Kit and ONE.Kit.Dropdown then
+    if ONE.Kit and ONE.Kit.Dropdown then
         check:Hide() checkLabel:Hide()
         if not store.category then store.category = store.suitableOnly and "level" or "all" end
         category = ONE.Kit:Dropdown(panel, {point = "TOPLEFT", x = 0, y = -56, width = leftW,

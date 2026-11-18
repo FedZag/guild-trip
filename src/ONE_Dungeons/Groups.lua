@@ -37,7 +37,6 @@ function Groups:Build(panel)
     local S, M = dungeons.Share, dungeons.Model
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local state = {}
-    local bookL, bookR
     local function Now() return type(GetTime) == "function" and GetTime() or 0 end
 
     if not self.embedded then Text(panel, "GameFontNormalLarge", 0, -4, 180, "accent", T("Gruppen")) end
@@ -48,15 +47,7 @@ function Groups:Build(panel)
     -- "Fortschritt teilen" steht in Optionen › Teilen
     -- Hinweise und Rolle: Optionen › Dungeons (Page:Register, Init.lua)
 
-    -- Buch: Liste auf der linken Seite (Rolle/Alter im Tooltip der Detailkarte), Karte rechts
-    local cols = bookL and {
-            {key = "dungeon", title = "DUNGEON", width = 120},
-            {key = "owner", title = "VON", width = 70},
-            {key = "size", title = "GRUPPE", width = 44, align = "CENTER"},
-            {key = "fit", title = "FÜR DICH", width = bookL.width - 24 - 6 - 120 - 70 - 44 - 24},
-            {key = "roles", title = "", width = 1},
-            {key = "age", title = "", width = 1},
-        } or {
+    local cols = {
             {key = "dungeon", title = "DUNGEON", width = 178},
             {key = "owner", title = "VON", width = 110},
             {key = "roles", title = "SUCHT", width = 150},

@@ -113,10 +113,6 @@ end
 
 function Page:Build(panel)
     self.panel = panel
-    if false then
-        local L, R = ONE.Book:Spread()
-        LEFT_W, RIGHT_X, RIGHT_W = L.width, R.x, R.width
-    end
     local _, sub
     self.heading, sub = ONE.Widgets:PageHeader(panel, "", "", 290, true)
     self.sub = sub
@@ -140,13 +136,10 @@ function Page:Build(panel)
     self.weaponView = self:BuildWeapons(content)
     -- Umschalter rechts oben in einer Zeile mit dem Auswahlfeld (Ausrichtung);
     -- Lage je nach Klasse in Page:LayoutViews (Druide hat zusaetzlich "Gestalten")
-    local inBook0 = false
     self.viewBars = ONE.Widgets:Button(content, "Leisten", 72, 24, "TOPRIGHT", -344, -6, function()
         Store().view = "bars" Page:Refresh() end)
     self.viewTree = ONE.Widgets:Button(content, "Talente", 72, 24, "TOPRIGHT", -270, -6, function()
         Store().view = "talents" Page:Refresh() end)
-    -- im Buch ist die Tintenschrift breiter: "Bewaffnung" braucht dort mehr Platz
-    local inBook = false
     self.viewWeapons = ONE.Widgets:Button(content, "Bewaffnung", 84, 24, "TOPRIGHT", -196, -6, function()
         Store().view = "weapons" Page:Refresh() end)
     -- Druide: Katzen- und Baerenleiste (nur sichtbar, wenn der Bauplan Gestalten hat)
@@ -298,9 +291,6 @@ end
 function Page:LayoutViews(forms)
     local order = {self.viewBars, self.viewTree, self.viewWeapons}
     if forms then order[#order + 1] = self.viewForms end
-    -- Buch: rechts ist nur Platz fuer die Spielstil-Auswahl – die Knoepfe stehen links
-    -- unter der Ueberschrift (sonst ragt "Talente" ueber die Falz)
-    local bookL = false
     local right = -196
     for i = #order, 1, -1 do
         local b = order[i]
@@ -316,8 +306,6 @@ function Page:BuildWeapons(parent)
     local wv = CreateFrame("Frame", nil, parent)
     wv:SetPoint("TOPLEFT", 0, 0)
     wv:SetSize(W, H)
-    local bookL, bookR
-    wv.book = bookL ~= nil
     local NAVI_W = 26
     -- Buch: Liste auf der linken Seite (Lehrer im Tooltip), Erklaerung rechts.
     -- Sonst: volle Breite, Erklaerung unter der Liste.
@@ -386,8 +374,7 @@ function Page:RefreshWeapons(p)
         or T("Du beherrschst alle Waffen, die deine Klasse tragen kann.")
     if unknown > 0 then parts[#parts + 1] = T("Ob du eine Waffe schon kannst, verrät das Spiel hier nicht.") end
     if guess then parts[#parts + 1] = T("* = laut Classic, in Forever noch nicht bestätigt – sprich den Waffenmeister einmal an.") end
-    if wv.book then parts[#parts + 1] = T("Welcher Waffenmeister die Waffe lehrt, steht im Tooltip der Zeile.") end
-    wv.info:SetText(table.concat(parts, wv.book and "\n\n" or "  ·  "))
+    wv.info:SetText(table.concat(parts, "  ·  "))
 end
 
 -- Zeichnet alle Talentbaeume nebeneinander; Plan-Reihenfolge und naechster Punkt markiert.
@@ -401,9 +388,7 @@ function Page:RefreshTree(p, def, build)
     local cols = {}
     for _, t in pairs(p.talents) do cols[t.group] = math.max(cols[t.group] or 0, t.col + 1) end
     -- Buch: kein Baum auf der Falz – Baum 1 und 2 links (etwas enger), Baum 3 rechts
-    local bookL, bookR
-    local book = bookL and bookR and #p.points == 3
-    local dx = book and 39 or TREE.dx
+    local dx = TREE.dx
     local widths, total = {}, 0
     for g = 1, #p.points do
         widths[g] = ((cols[g] or 1) - 1) * dx + TREE.icon

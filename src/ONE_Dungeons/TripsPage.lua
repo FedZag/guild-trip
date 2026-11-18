@@ -23,7 +23,6 @@ function TripsPage:Build(panel)
     local Tr, S = dungeons.Trips, dungeons.Share
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local state = {form = false, day = 0, minutes = 20 * 60}
-    local bookL, bookR
 
     local listW = W
     local cols = {

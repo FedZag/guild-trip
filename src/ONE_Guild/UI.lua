@@ -229,7 +229,6 @@ function UI:BuildCalendar(panel)
     -- Buch: wie gehabt. Sonst (15.11.2026, Nutzer-Kritik): keine zweite Ueberschrift
     -- (der Reiter heisst schon "Kalender"), alles 52 px hoeher, breitere rechte Spalte
     -- mit Tag, "Demnaechst" und "Was steht an", unten eine saubere Filter-/Knopfzeile.
-    local bookL, bookR
     local UP = 52
     Card(list, 0, -4, W, 354)
 
@@ -466,8 +465,8 @@ function UI:BuildCalendar(panel)
     for i, f in ipairs(filterDefs) do
         -- feste Abstaende je Beschriftung, damit "WoW-Events" nicht ins naechste Haekchen laeuft
         local FX = {0, 124, 210, 300}
-        local fx = bookL and (((i - 1) % 2) * 150) or (refreshRegion.x + FX[i])
-        local fy = bookL and (-350 - math.floor((i - 1) / 2) * 26) or FOOT
+        local fx = refreshRegion.x + FX[i]
+        local fy = FOOT
         local box = ONE.Kit:Check(list, {point = "TOPLEFT", x = fx, y = fy, label = f.label,
             get = function() return Filters()[f.key] ~= false end,
             set = function(on) Filters()[f.key] = on and true or false end,
@@ -523,7 +522,8 @@ function UI:BuildCalendar(panel)
 
     -- Antworten (15.11.2026): Zusagen / Vielleicht / Absagen direkt hier statt im WoW-Kalender
     -- Buch: oben auf der rechten Seite (nicht ueber die Falz); sonst unter der Beschreibung
-    local answerLine = bookR and Label(detail, "", "GameFontHighlight", bookR.x, -50, bookR.width)
+    -- eigener Stand links neben den Antwort-Knoepfen (fehlte ausserhalb des Buchs -> Lua-Fehler)
+    local answerLine = Label(detail, "", "GameFontHighlightSmall", 12, -369, W - 3 * 128 - 24)
         or Label(detail, "", "GameFontHighlight", 0, -368, W - 3 * 128 - 8)
     local answerButtons = {}
     local function Answer(kind)
@@ -774,7 +774,6 @@ function UI:BuildGuild(panel)
 
     local LW=446
     local RX,RW=LW+12,W-LW-12
-    local bookL, bookR = nil, nil
     local NAMEW=150
     -- 0.6.8 Symbolleiste: Gildenname + Zahlen stehen in der Kopfzeile, Seite rueckt hoch,
     -- die Karten bekommen die frei gewordene Hoehe

@@ -175,7 +175,6 @@ function Page:Build(panel)
     local W = ONE.UI.Layout.width
     local H = ONE.Geometry.tokens.contentHeight
     self.view = self.view or "guild"
-    local bookL, bookR
     local LX, LW, LY = 0, W, 0          -- Zielauswahl (Reiter + Liste)
 
     -- Oben: aktuelles Ziel mit Entfernung und Reisetipp

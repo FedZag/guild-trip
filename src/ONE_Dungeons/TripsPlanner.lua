@@ -32,7 +32,6 @@ local function Edit(parent, x, y, width, maxLetters, numeric)
     if box.SetFontObject then pcall(box.SetFontObject, box, "GameFontHighlight") end
     box:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     box:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
-    if ONE.Book and ONE.Book.StyleEditBox then pcall(ONE.Book.StyleEditBox, ONE.Book, box) end
     return box
 end
 
@@ -141,7 +140,6 @@ end
 function Planner:Build(panel, onDone)
     local Tr = dungeons.Trips
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
-    local bookL, bookR
     local f = CreateFrame("Frame", nil, panel)
     f:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
     f:SetSize(W, H)
@@ -160,9 +158,7 @@ function Planner:Build(panel, onDone)
     local C1 = {x = 0, w = half}
     local C2 = {x = (half + 12), w = half}
     -- Kasten 1: drei Reihen Arten; Kasten 2: vier Zeilen (Tag, Beginn+Dauer, Wiederholen, Erinnerung)
-    local place = bookL and {
-        {C1, -44, 168}, {C1, -218, 148}, {C2, -44, 84}, {C2, -134, 116},
-    } or {
+    local place = {
         {C1, -44, 168}, {C2, -44, 168}, {C1, -218, 116}, {C2, -218, 116},
     }
     local LBL = 92
@@ -328,8 +324,7 @@ function Planner:Build(panel, onDone)
             elseif chip.UnlockHighlight then chip:UnlockHighlight() end
             -- normales Aussehen: gewaehlte Art weiss mit Haken, die anderen gold
             local fs = chip.GetFontString and chip:GetFontString()
-            local book = false
-            if fs and not book then
+            if fs then
                 if on then fs:SetTextColor(1, 1, 1) else fs:SetTextColor(1, .82, 0) end
             end
             -- Haken als Spielbild (die WoW-Schrift kennt kein Haken-Zeichen)
