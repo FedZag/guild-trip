@@ -272,6 +272,20 @@ function Glass:Orb(parent, size)
     o.glow:SetPoint("CENTER")
     o.glow:SetSize(size * 2.1, size * 2.1)
     if o.glow.SetBlendMode then o.glow:SetBlendMode("ADD") end
+    -- ausgewaehlt: sanftes Atmen des Leuchtens (4 s, nur leicht schwaecher) statt starrem Licht
+    if o.glow.CreateAnimationGroup then
+        local ok, ag = pcall(o.glow.CreateAnimationGroup, o.glow)
+        if ok and ag and ag.CreateAnimation then
+            ag:SetLooping("BOUNCE")
+            local fade = ag:CreateAnimation("Alpha")
+            if fade then
+                if fade.SetFromAlpha then fade:SetFromAlpha(1) fade:SetToAlpha(.6) end
+                fade:SetDuration(2)
+                if fade.SetSmoothing then fade:SetSmoothing("IN_OUT") end
+                o.breathe = ag
+            end
+        end
+    end
     o.base = o:CreateTexture(nil, "BORDER")
     o.base:SetTexture(self.tex.circle)
     o.base:SetAllPoints(o)
@@ -315,6 +329,10 @@ function Glass:PaintOrb(o)
     o.shine:SetVertexColor(1, 1, 1, o.on and .55 or .3)
     o.ring:SetVertexColor(g[1], g[2], g[3], o.on and 1 or .35)
     o.glow:SetVertexColor(g[1], g[2], g[3], o.on and .55 or 0)
+    if o.breathe then
+        if o.on and not (o.breathe.IsPlaying and o.breathe:IsPlaying()) then o.breathe:Play()
+        elseif not o.on and o.breathe.Stop then o.breathe:Stop() end
+    end
     o.icon:SetVertexColor(1, 1, 1, o.on and 1 or .82)
 end
 Glass:OnChange(function() for _, o in ipairs(Glass.orbs or {}) do Glass:PaintOrb(o) end end)
