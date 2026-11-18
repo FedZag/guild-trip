@@ -129,7 +129,7 @@ function Welcome:Populate(view)
     if not view then return end
     local name = UnitName and UnitName("player") or nil
     view.heading:SetText(Greeting() .. (name and (", " .. name) or "") .. "!")
-    -- Tagesspruch (derselbe wie auf der Startseite)
+    -- Tagesspruch nur im Begruessungsfenster (Startseite hat ihn selbst, "Heute" nicht)
     if view.quip then view.quip:SetText(ONE.UI and ONE.UI.Quip and ONE.UI:Quip() or "") end
     local now = C_DateAndTime and C_DateAndTime.GetCurrentCalendarTime and C_DateAndTime.GetCurrentCalendarTime()
     if now then
@@ -175,13 +175,11 @@ function Welcome:BuildCentralView(panel)
     local view = {}
     AddLabel(panel, T("Deine Termine heute"), "GameFontNormalLarge", 0, -4, 650)
     view.heading = AddLabel(panel, "", "GameFontNormal", 0, -36, 650)
-    view.quip = AddLabel(panel, "", "GameFontHighlight", 0, -58, 650)
-    if view.quip.SetWordWrap then view.quip:SetWordWrap(true) end
-    view.date = AddLabel(panel, "", "GameFontHighlightSmall", 0, -90, 650)
-    AddLabel(panel, T("Deine nächsten Termine heute"), "GameFontNormal", 0, -118, 650)
+    view.date = AddLabel(panel, "", "GameFontHighlightSmall", 0, -63, 650)
+    AddLabel(panel, T("Deine nächsten Termine heute"), "GameFontNormal", 0, -101, 650)
     view.rows = {}
     for i = 1, 6 do
-        view.rows[i] = AddLabel(panel, "", "GameFontHighlight", 6, -144 - (i - 1) * 27, 665)
+        view.rows[i] = AddLabel(panel, "", "GameFontHighlight", 6, -130 - (i - 1) * 29, 665)
     end
     view.summary = AddLabel(panel, "", "GameFontHighlightSmall", 0, -310, 665)
     AddLabel(panel, T("Blizzard-Weltereignisse folgen in einer späteren Version."), "GameFontDisableSmall", 0, -334, 650)
