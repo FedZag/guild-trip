@@ -254,3 +254,6 @@ EN["Questgeber (!) sammeln und zeigen"] = EN["Questgeber (!) sammeln und zeigen"
 EN["Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."] =
     "Remembers where you (and, with \"Share quests\", your guild) were offered new quests and shows a \"!\" there – only for quests that fit your level. Off when Questie is installed, because Questie shows its own \"!\"."
 EN["(als Nächstes im Plan)"] = "(next in your plan)"
+EN["Questlevel vor Questnamen"] = "Quest level before quest names"
+EN["Zeigt die Stufe vor dem Questnamen – „[12] Die Volksmiliz“ – in der Quest-Führung, im Kasten unter der Minimap und in Quest-Links im Chat. Nur deine Anzeige: Was andere im Chat sehen, bleibt unverändert."] =
+    "Shows the level before the quest name – \"[12] The People's Militia\" – in the quest guide, the box under the minimap and quest links in chat. Only your display: what others see in chat stays unchanged."

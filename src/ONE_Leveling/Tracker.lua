@@ -231,7 +231,8 @@ function Tr.OtherLogQuests(shown)
     for i = 1, n do
         local info = Try(C_QuestLog.GetInfo, i)
         if type(info) == "table" and not info.isHeader and not info.isHidden and info.questID and not shown[info.questID] then
-            out[#out + 1] = {id = info.questID, title = info.title or G.Title(info.questID),
+            local QL = ONE.ns and ONE.ns.nav and ONE.ns.nav.QuestLevels
+            out[#out + 1] = {id = info.questID, title = (QL and QL.Prefix(info.questID, info.level) or "") .. (info.title or G.Title(info.questID)),
                 complete = Try(C_QuestLog.IsComplete, info.questID) == true}
         end
     end
@@ -352,7 +353,7 @@ function Tr:Rows(plan, budget)
         local ins = {{kind = "gap"}, {text = T("NOCH ANNEHMEN"), kind = "label"}}
         for k = 1, fit do
             local a = accepts[k]
-            ins[#ins + 1] = {text = G.ICON.accept .. " " .. G.Title(a.id), right = G.NodeName(a.step.nr) or "", kind = "next", nav = {step = a.step}}
+            ins[#ins + 1] = {text = G.ICON.accept .. " " .. G.LevelTitle(a.id), right = G.NodeName(a.step.nr) or "", kind = "next", nav = {step = a.step}}
         end
         for k = #ins, 1, -1 do table.insert(rows, acceptAt, ins[k]) end
     end

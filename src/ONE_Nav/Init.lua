@@ -57,6 +57,8 @@ if ONE.RegisterFeature then
         tooltip = "Zeigt im Tooltip eines Gegners, für welche Quest du ihn brauchst und wie weit du bist – dazu Gruppe und Gilde („Bob 7/10“). Ein kleines Symbol an der Namensplakette markiert Questgegner (gelb: du, blau: nur andere)."})
     ONE:RegisterFeature("nav.camps", {module = "nav", section = "Quests", order = 37, label = "Fundorte der Questgegner (Lager) + Farm-Runde",
         tooltip = "Kleine rotbraune Ringe auf Karte und Minimap zeigen, wo die Gegner für deine offenen Quests stehen. Klick auf einen Ring: der Pfeil führt von Lager zu Lager, bis die Quest fertig ist."})
+    ONE:RegisterFeature("nav.questLevels", {module = "nav", section = "Quests", order = 38, label = "Questlevel vor Questnamen",
+        tooltip = "Zeigt die Stufe vor dem Questnamen – „[12] Die Volksmiliz“ – in der Quest-Führung, im Kasten unter der Minimap und in Quest-Links im Chat. Nur deine Anzeige: Was andere im Chat sehen, bleibt unverändert."})
     ONE:RegisterFeature("nav.givers", {module = "nav", section = "Quests", order = 33, label = "Questgeber (!) sammeln und zeigen",
         tooltip = "Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."})
     ONE:RegisterFeature("nav.routes", {module = "nav", section = "Weg", order = 20, label = "Wegführung über das Guild-Trip-Wegenetz",
@@ -85,6 +87,7 @@ ONE:RegisterModule("nav", {
         nav.Partners:Initialize()
         nav.MobInfo:Initialize()
         nav.Camps:Initialize()
+        nav.QuestLevels:Initialize()
         nav.QuestGivers:Initialize()
         nav.QuestPins:Initialize()
         nav.RouteDots:Initialize()

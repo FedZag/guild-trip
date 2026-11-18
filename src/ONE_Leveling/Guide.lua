@@ -52,6 +52,12 @@ function G.Title(id)
     return d and d.titles and d.titles[id] or ("#" .. id)
 end
 
+-- Titel mit Stufe davor ("[12] Die Volksmiliz"), wenn eingeschaltet (Optionen › Navi)
+function G.LevelTitle(id, level)
+    local QL = Nav() and Nav().QuestLevels
+    return (QL and QL.Prefix(id, level) or "") .. G.Title(id)
+end
+
 function G.Catalog(key)
     local dg = Dungeons()
     for _, c in ipairs(dg and dg.Catalog or {}) do if c.key == key then return c end end
@@ -179,7 +185,7 @@ function G:StepText(step, short, plain)
     local who = G.NodeName(step.nr)
     local parts = {}
     for _, a in ipairs(step.actions) do
-        local title = G.Title(a.id)
+        local title = G.LevelTitle(a.id)
         if a.kind == "accept" then parts[#parts + 1] = G.ICON.accept .. " " .. (short and title or T("%s annehmen", title))
         elseif a.kind == "turnin" then parts[#parts + 1] = G.ICON.turnin .. " " .. (short and title or T("%s abgeben", title))
         else parts[#parts + 1] = G.ICON.obj .. " " .. (short and title or T("%s erledigen", title)) end
