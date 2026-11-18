@@ -151,31 +151,37 @@ function Nine:SetShown(on)
 end
 
 -- ===== Flaechen =====
+-- Schattengroessen: {Eckgroesse, Ausdehnung nach aussen, Versatz nach unten, Deckkraft}
+local SHADOWS = {
+    window = { 30, 14, -6, .7 }, card = { 18, 8, -3, .5 }, button = { 10, 4, -1, .45 }, float = { 24, 11, -4, .6 },
+}
 -- opts: fill (Rolle, Standard "panel"), alpha, radius (Standard 6), border (true),
--- shadow (true = Karte, "window" = Fenster, false), sheen (true), inset (Flaeche
--- um n px nach innen), flat (keine Rundung: Kopfleiste, Spalten).
+-- shadow ("card", "window", "button", "float" oder nil), sheen (true), inset (Flaeche
+-- um n px nach innen), flat (keine Rundung: Kopfleiste, Spalten), anchor (Flaeche
+-- um eine andere Region legen), lift (+ heller / - dunkler), borderRole (Randfarbe).
 function Skin:Surface(frame, opts)
     if not (frame and frame.CreateTexture) then return nil end
     opts = opts or {}
     local s = { frame = frame, opts = opts }
+    local anchor = opts.anchor or frame
     local r = opts.flat and 0 or (opts.radius or 6)
-    if opts.shadow ~= false and opts.shadow ~= nil then
-        local big = opts.shadow == "window"
+    if opts.shadow then
+        local size = SHADOWS[opts.shadow] or SHADOWS.card
         s.shadow = self:Nine(frame, self.tex.shadow, .375, "BACKGROUND", -8)
-        s.shadow:Place(big and 30 or 18, big and 14 or 8, nil, big and -6 or -3)
+        s.shadow:Place(size[1], size[2], anchor, size[3])
     end
     if r > 0 then
-        if opts.border ~= false then s.edge = self:Nine(frame, self.tex.round, .25, "BACKGROUND", -7):Place(r + 1, 1 - (opts.inset or 0)) end
-        s.fill = self:Nine(frame, self.tex.round, .25, "BACKGROUND", -6):Place(r, -(opts.inset or 0))
+        if opts.border ~= false then s.edge = self:Nine(frame, self.tex.round, .25, "BACKGROUND", -7):Place(r + 1, 1 - (opts.inset or 0), anchor) end
+        s.fill = self:Nine(frame, self.tex.round, .25, "BACKGROUND", -6):Place(r, -(opts.inset or 0), anchor)
     else
         s.flatFill = frame:CreateTexture(nil, "BACKGROUND", nil, -6)
-        s.flatFill:SetAllPoints(frame)
+        s.flatFill:SetAllPoints(anchor)
     end
     if opts.sheen ~= false then
         s.sheen = frame:CreateTexture(nil, "BACKGROUND", nil, -5)
         s.sheen:SetTexture(self.tex.sheen)
-        s.sheen:SetPoint("TOPLEFT", frame, "TOPLEFT", math.max(1, r), -1)
-        s.sheen:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -math.max(1, r), -1)
+        s.sheen:SetPoint("TOPLEFT", anchor, "TOPLEFT", math.max(1, r), -1)
+        s.sheen:SetPoint("TOPRIGHT", anchor, "TOPRIGHT", -math.max(1, r), -1)
         s.sheen:SetHeight(opts.sheenHeight or 28)
     end
     self.surfaces[#self.surfaces + 1] = s
@@ -187,17 +193,21 @@ function Skin:Paint(s)
     local o = s.opts
     local role = o.fill or "panel"
     local r, g, b = self:Color(role)
+    if o.lift and o.lift > 0 then r, g, b = self:Mix(role, o.lift)
+    elseif o.lift and o.lift < 0 then r, g, b = r * (1 + o.lift), g * (1 + o.lift), b * (1 + o.lift) end
     local a = o.alpha or 1
     if s.fill then s.fill:SetColor(r, g, b, a) end
     if s.flatFill then s.flatFill:SetColorTexture(r, g, b, a) end
     if s.edge then
         local p = self:Palette()
-        local er, eg, eb = self:Mix(role, (o.borderRole == "accent") and 0 or (p.hair or .09))
-        if o.borderRole == "accent" then er, eg, eb = self:Color("accent") end
-        s.edge:SetColor(er, eg, eb, a)
+        local er, eg, eb = self:Mix(role, p.hair or .09)
+        if o.borderRole then er, eg, eb = self:Color(o.borderRole) end
+        local ea = a
+        if o.borderAlways then ea = (o.borderRole and .9 or p.hair * 2.2) end
+        s.edge:SetColor(er, eg, eb, ea)
     end
-    if s.shadow then s.shadow:SetColor(0, 0, .02, o.shadow == "window" and .7 or .5) end
-    if s.sheen then s.sheen:SetVertexColor(1, 1, 1, o.sheenAlpha or .05) end
+    if s.shadow then s.shadow:SetColor(0, 0, .02, (SHADOWS[o.shadow] or SHADOWS.card)[4] * (a > 0 and 1 or 0)) end
+    if s.sheen then s.sheen:SetVertexColor(1, 1, 1, (o.sheenAlpha or .05) * (a > 0 and 1 or 0)) end
 end
 
 -- Spaeter Farbwechsel (z. B. Knopf hover / Auswahl)

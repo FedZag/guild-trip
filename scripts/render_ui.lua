@@ -312,7 +312,7 @@ CreateFrame = function(kind, name, parent, tpl)
     if kind == "EditBox" then o.fontObj = "ChatFontNormal" end
     return o
 end
-CreateFont = function(name) local f = {fontName = name} function f:SetFont() end function f:SetTextColor() end function f:SetShadowOffset() end function f:SetShadowColor() end function f:CopyFontObject() end function f:SetJustifyH() end function f:SetSpacing() end function f:GetFont() return "x", 12, "" end _G[name] = f return f end
+CreateFont = function(name) local f = {fontName = name} function f:SetFont(_, size) FONTS[name] = {size or 12, "white"} end function f:SetTextColor() end function f:SetShadowOffset() end function f:SetShadowColor() end function f:CopyFontObject() end function f:SetJustifyH() end function f:SetSpacing() end function f:GetFont() return "x", 12, "" end _G[name] = f return f end
 for k in pairs(FONTS) do _G[k] = {fontName = k, GetFont = function() return "Fonts\\FRIZQT__.TTF", FONTS[k][1], "" end,
     SetFont = function() end, SetTextColor = function() end, GetTextColor = function() return 1, 1, 1, 1 end,
     CopyFontObject = function() end, SetShadowOffset = function() end, SetShadowColor = function() end} end

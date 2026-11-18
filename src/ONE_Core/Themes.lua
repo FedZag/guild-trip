@@ -102,7 +102,7 @@ end
 function Themes:RegisterPanel(frame, opts)
     if not frame then return end
     local entry = { frame = frame }
-    entry.surface = Skin():Surface(frame, opts or { fill = "panel", radius = 6, shadow = true })
+    entry.surface = Skin():Surface(frame, opts or { fill = "panel", radius = 6, shadow = "card" })
     self.panels[#self.panels + 1] = entry
     -- alter Rueckgabewert: Hintergrundtextur (manche Aufrufer faerben sie); bleibt unsichtbar
     local bg = frame:CreateTexture(nil, "BACKGROUND", nil, -4)

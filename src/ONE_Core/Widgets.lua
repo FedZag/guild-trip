@@ -15,99 +15,87 @@ local function CreateLabel(button, text, alignment, leftInset, rightInset)
     label:SetWordWrap(false)
     button:SetFontString(label)
     button:SetText(ONE.T and ONE.T(text or "") or text or "")
+    if label.GetText and (label:GetText() or "") == "" then label:SetText(ONE.T and ONE.T(text or "") or text or "") end
     return label
 end
 
-local function NativeButton(parent, template)
-    local ok, button = pcall(CreateFrame, "Button", nil, parent, template or "UIPanelButtonTemplate")
-    if ok and button then return button end
-end
+-- Aussehen "Nachtroute" (0.8): eigene, flache Knoepfe mit runden Ecken.
+-- Sichtbar hoechstens 26 px hoch; ist die vorgesehene Flaeche hoeher, steht der
+-- Knopf mittig darin (die Klickflaeche bleibt so gross wie vorgesehen).
+-- style: "primary" (Akzent), "secondary"/"tab"/"nav" (Flaeche), "ghost" (nur Rand),
+-- "danger" (roter Rand, Hilferuf).
+Widgets.maxButtonHeight = 26
+local function Skin() return ONE.Skin end
 
--- Aussehen "Altes Buch": statt rotem Knopf ein Tintenlink in Rubrik-Rot mit
--- feiner Unterstreichung; Hauptknoepfe ("primary") bekommen ein Wachssiegel davor.
-local function InkLink(parent, text, width, height, style)
-    local Book = ONE.Book
-    local button = CreateFrame("Button", nil, parent)
-    button:SetSize(width, height)
-    local seal
-    if style == "primary" and width >= 90 then
-        seal = button:CreateTexture(nil, "ARTWORK")
-        seal:SetSize(height + 8, height + 8)
-        seal:SetPoint("LEFT", button, "LEFT", 0, 0)
-        seal:SetTexture(Book.sealArt)
-    end
-    local label = CreateLabel(button, text, "CENTER", seal and (height + 10) or 4, 4)
-    if label.SetFont then pcall(label.SetFont, label, Book.bodyFont, math.max(12, math.min(16, height * .62)), "") end
-    Book.Crisp(label)
-    label.__oneInk, label.__oneOldPrint = true, true
-    local line = button:CreateTexture(nil, "ARTWORK")
-    line:SetHeight(1)
-    line:SetPoint("TOP", label, "CENTER", 0, -(height * .3))
-    local function Width()
-        local w = label.GetStringWidth and label:GetStringWidth() or 0
-        if w <= 0 then w = width * .6 end
-        line:SetWidth(math.min(w, width - 8))
-    end
-    local red = Book.red
-    local locked = false
-    local function Paint(state)
-        if state == "on" and locked then state = "sel" end
-        local c = state == "hover" and {.70, .14, .04} or state == "off" and {.42, .34, .24}
-            or state == "sel" and Book.ink or red
-        line:SetHeight(state == "sel" and 2 or 1)
-        label:SetTextColor(c[1], c[2], c[3])
-        if line.SetColorTexture then line:SetColorTexture(c[1], c[2], c[3], (state == "hover" or state == "sel") and .9 or state == "off" and .25 or .5) end
-        if seal and seal.SetDesaturated then seal:SetDesaturated(state == "off") end
-        Width()
-    end
-    local function Enabled() return not (button.IsEnabled and not button:IsEnabled()) end
-    Paint("on")
-    if button.HookScript then
-        button:HookScript("OnEnter", function() if Enabled() then Paint("hover") end end)
-        button:HookScript("OnLeave", function() Paint(Enabled() and "on" or "off") end)
-        button:HookScript("OnEnable", function() Paint("on") end)
-        button:HookScript("OnDisable", function() Paint("off") end)
-        button:HookScript("OnShow", Width)
-    end
-    if hooksecurefunc then hooksecurefunc(button, "SetText", Width) end
-    -- Umschalter (Reiter auf einer Seite): ausgewaehlt = schwarze Tinte, kraeftig unterstrichen
-    function button:LockHighlight() locked = true Paint("on") end
-    -- Verzeichnis-Zeile: Text und Unterstrich linksbuendig
-    function button:AlignLeft()
-        label:SetJustifyH("LEFT")
-        line:ClearAllPoints()
-        line:SetPoint("TOPLEFT", label, "LEFT", 0, -(height * .3))
-        Width()
-    end
-    function button:UnlockHighlight() locked = false Paint(Enabled() and "on" or "off") end
-    button.__oneInkLink = true
-    if seal and button.HookScript then button:HookScript("OnClick", function() if ONE.Sound then ONE.Sound:Play("seal") end end) end
-    return button
+local function PaintButton(b)
+    local S, st = Skin(), b.__oneState
+    if not (S and b.__oneSurface) then return end
+    local p = S:Palette()
+    local style = b.__oneVariant
+    local on = not (b.IsEnabled and not b:IsEnabled())
+    local fill, lift, alpha, text = "ctl", 0, 1, p.ctlText
+    if style == "primary" then fill, text = "primary", p.primaryText
+    elseif style == "ghost" or style == "danger" then fill, alpha = "win", 0 end
+    if st.hover and on then lift = .08 end
+    if st.down and on then lift = -.06 end
+    local s = b.__oneSurface
+    s.opts.fill, s.opts.alpha, s.opts.lift = fill, on and alpha or alpha * .5, lift
+    s.opts.borderRole = (st.locked and "accent") or (style == "danger" and "bad") or nil
+    s.opts.borderAlways = style == "ghost" or style == "danger" or st.locked
+    S:Paint(s)
+    if st.locked and style ~= "primary" then text = p.accent end
+    if style == "danger" then text = p.bad end
+    if not on then text = p.muted end
+    if b.__oneLabel then b.__oneLabel:SetTextColor(text[1], text[2], text[3]) end
+    if b.__oneGlyph then b.__oneGlyph:SetVertexColor(text[1], text[2], text[3]) end
 end
+Widgets.PaintButton = PaintButton
+
+local function SkinButton(parent, text, width, height, style)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(width, height)
+    local vh = math.min(height, Widgets.maxButtonHeight)
+    b.__oneVariant = style or "secondary"
+    b.__oneState = {}
+    local box = b.CreateTexture and b:CreateTexture(nil, "BACKGROUND", nil, -8)
+    if box then
+        box:SetPoint("LEFT", b, "LEFT", 0, 0)
+        box:SetPoint("RIGHT", b, "RIGHT", 0, 0)
+        box:SetHeight(vh)
+        box:SetColorTexture(0, 0, 0, 0)
+    end
+    b.__oneSurface = box and Skin() and Skin():Surface(b, {fill = "ctl", radius = 4, anchor = box,
+        shadow = (style ~= "ghost" and style ~= "danger") and "button" or nil, sheenHeight = vh, sheenAlpha = .1})
+    local label = CreateLabel(b, text, "CENTER", 10, 10)
+    if ONE.Kit and ONE.Kit.Font then
+        local font = ONE.Kit:Font("button")
+        if font and label.SetFontObject then label:SetFontObject(font) end
+    end
+    b.__oneLabel = label
+    if b.HookScript and b.__oneSurface then
+        b:HookScript("OnEnter", function(self) self.__oneState.hover = true PaintButton(self) end)
+        b:HookScript("OnLeave", function(self) self.__oneState.hover, self.__oneState.down = nil, nil PaintButton(self) end)
+        b:HookScript("OnMouseDown", function(self) self.__oneState.down = true PaintButton(self) end)
+        b:HookScript("OnMouseUp", function(self) self.__oneState.down = nil PaintButton(self) end)
+        b:HookScript("OnEnable", PaintButton)
+        b:HookScript("OnDisable", PaintButton)
+    end
+    -- Umschalter: ausgewaehlt = Akzentrand und Akzentschrift
+    function b:LockHighlight() self.__oneState.locked = true PaintButton(self) end
+    function b:UnlockHighlight() self.__oneState.locked = nil PaintButton(self) end
+    function b:AlignLeft() label:SetJustifyH("LEFT") end
+    if Skin() then Skin():OnChange(function() PaintButton(b) end) end
+    PaintButton(b)
+    return b
+end
+Widgets.SkinButton = SkinButton
 
 function Widgets:Button(parent, text, width, height, point, x, y, callback, style)
     assert(parent and width and height, "ONE Button: Elternframe oder Maße fehlen")
-    -- forceNative: Knoepfe ausserhalb des Fensters (z. B. auf der Weltkarte) nie als Tintenlink
-    if not Widgets.forceNative and ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() then
-        local link = InkLink(parent, text, width, height, style)
-        link:SetPoint(point or "TOPLEFT", parent, point or "TOPLEFT", x or 0, y or 0)
-        link.__oneStyle, link.__oneNative, link.__oneVariant = true, false, style or "secondary"
-        if callback then link:SetScript("OnClick", callback) end
-        return link
-    end
-    local button = NativeButton(parent)
-    local native = button ~= nil
-    button = button or CreateFrame("Button", nil, parent)
-    button:SetSize(width, height)
+    local button = SkinButton(parent, text, width, height, style)
     button:SetPoint(point or "TOPLEFT", parent, point or "TOPLEFT", x or 0, y or 0)
     button.__oneStyle = true
-    button.__oneNative = native
-    button.__oneVariant = style or "secondary"
-    if native and button.GetFontString and button:GetFontString() then
-        button:SetText(ONE.T and ONE.T(text or "") or text or "")
-    else
-        CreateLabel(button, text, "CENTER", 11, 11)
-    end
+    button.__oneNative = false
     if callback then button:SetScript("OnClick", callback) end
     return button
 end
@@ -145,20 +133,6 @@ function Widgets:PageHeader(parent, title, subtitle, width, keepTop)
     if sidebar and (keepTop or ONE.UI:LiftPage(parent)) then
         heading:Hide() description:Hide()
         heading.Show=function() end description.Show=function() end
-    end
-    -- Buch: Titel nur auf der linken Seite, in Rubrik-Rot; die Unterzeile laeuft
-    -- sonst ueber die Falz und steht ohnehin im Tooltip-Wissen der Seite
-    if ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() then
-        heading:SetWidth(ONE.Book.left.width)
-        if heading.SetWordWrap then heading:SetWordWrap(false) end
-        if heading.SetFont then pcall(heading.SetFont,heading,ONE.Book.font,18,"") end
-        ONE.Book.Crisp(heading)
-        heading.__oneInk=true
-        local texts=ONE.Themes and ONE.Themes.texts or {}
-        for i=#texts,1,-1 do if texts[i].font==heading then table.remove(texts,i) end end
-        heading:SetTextColor(ONE.Book.red[1],ONE.Book.red[2],ONE.Book.red[3])
-        description:Hide()
-        description.Show=function() end
     end
     return heading,description
 end
@@ -210,19 +184,31 @@ function Widgets:IconButton(parent, texturePath, size, point, x, y, callback, va
     return button
 end
 
+-- Schliessen: kleines rundes Kreuz, hell beim Darueberfahren.
 function Widgets:CloseButton(parent, point, x, y, callback)
-    if ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() and ONE.Book.InkClose then
-        return ONE.Book:InkClose(parent, point, (x or 0) + 4, (y or 0) - 4, callback)
+    local close = CreateFrame("Button", nil, parent)
+    close:SetSize(24, 24)
+    close:SetPoint(point or "TOPLEFT", parent, point or "TOPLEFT", x or 0, y or 0)
+    local S = ONE.Skin
+    close.__oneSurface = S and S:Surface(close, {fill = "ctl", radius = 12, border = false, sheen = false, alpha = 0})
+    local glyph = close:CreateTexture(nil, "ARTWORK")
+    glyph:SetTexture("Interface\\AddOns\\ONE_Core\\Textures\\Common\\CloseGlyph.tga")
+    glyph:SetSize(11, 11)
+    glyph:SetPoint("CENTER", close, "CENTER", 0, 0)
+    close.__oneGlyph = glyph
+    local function Paint(hover)
+        if not S then return end
+        local r, g, b = S:Color(hover and "text" or "soft")
+        glyph:SetVertexColor(r, g, b)
+        if close.__oneSurface then S:Refill(close.__oneSurface, "ctl", hover and 1 or 0) end
     end
-    local ok, close = pcall(CreateFrame, "Button", nil, parent, "UIPanelCloseButton")
-    if ok and close then
-        close:SetPoint(point or "TOPLEFT", parent, point or "TOPLEFT", x or 0, y or 0)
-        if callback then close:SetScript("OnClick", callback) end
-        return close
-    end
-    return self:IconButton(parent,
-        "Interface\\AddOns\\ONE_Core\\Textures\\Common\\CloseGlyph.tga",
-        34, point or "TOPLEFT", x or 0, y or 0, callback, "primary", 14)
+    close:SetScript("OnEnter", function() Paint(true) end)
+    close:SetScript("OnLeave", function() Paint(false) end)
+    if S then S:OnChange(function() Paint(false) end) end
+    Paint(false)
+    if callback then close:SetScript("OnClick", callback)
+    else close:SetScript("OnClick", function() parent:Hide() end) end
+    return close
 end
 
 -- Kleiner Navi-Pfeil statt "Navi"-Knopf (Nutzer-Wunsch 15.11.2026: durchweg im ganzen Addon).
