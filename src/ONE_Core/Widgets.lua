@@ -35,13 +35,13 @@ local function PaintButton(b)
     local on = not (b.IsEnabled and not b:IsEnabled())
     local fill, lift, alpha, text = "ctl", 0, 1, p.ctlText
     if style == "primary" then fill, text = "primary", p.primaryText
-    elseif style == "ghost" or style == "danger" then fill, alpha = "win", 0 end
-    if st.hover and on then lift = .08 end
+    elseif style == "ghost" or style == "danger" then fill, alpha = "ctl", (st.hover and on) and .6 or 0 end
+    if st.hover and on and alpha > 0 then lift = .08 end
     if st.down and on then lift = -.06 end
     local s = b.__oneSurface
     s.opts.fill, s.opts.alpha, s.opts.lift = fill, on and alpha or alpha * .5, lift
     s.opts.borderRole = (st.locked and "accent") or (style == "danger" and "bad") or nil
-    s.opts.borderAlways = style == "ghost" or style == "danger" or st.locked
+    s.opts.borderAlways = st.locked
     S:Paint(s)
     if st.locked and style ~= "primary" then text = p.accent end
     if style == "danger" then text = p.bad end
@@ -64,8 +64,9 @@ local function SkinButton(parent, text, width, height, style)
         box:SetHeight(vh)
         box:SetColorTexture(0, 0, 0, 0)
     end
-    b.__oneSurface = box and Skin() and Skin():Surface(b, {fill = "ctl", radius = 4, anchor = box,
-        shadow = (style ~= "ghost" and style ~= "danger") and "button" or nil, sheenHeight = vh, sheenAlpha = .1})
+    local outline = style == "ghost" or style == "danger"
+    b.__oneSurface = box and Skin() and Skin():Surface(b, {fill = "ctl", radius = 4, anchor = box, outline = outline,
+        shadow = (not outline) and "button" or nil, sheenHeight = vh, sheenAlpha = .1})
     local label = CreateLabel(b, text, "CENTER", 10, 10)
     if ONE.Kit and ONE.Kit.Font then
         local font = ONE.Kit:Font("button")

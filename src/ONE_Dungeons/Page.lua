@@ -75,6 +75,7 @@ function Page:Build(panel)
     if search.SetAutoFocus then search:SetAutoFocus(false) end
     local okCheck, check = pcall(CreateFrame, "CheckButton", nil, panel, "UICheckButtonTemplate")
     if not okCheck or not check then check = CreateFrame("CheckButton", nil, panel) end
+    if ONE.Kit and ONE.Kit.StyleCheck then ONE.Kit:StyleCheck(check) end
     check:SetSize(24, 24)
     check:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -56)
     if check.SetChecked then check:SetChecked(store.suitableOnly) end
@@ -525,11 +526,12 @@ function Page:OpenSeekDialog(d)
         for i, key in ipairs({"T", "H", "D"}) do
             local okC, c = pcall(CreateFrame, "CheckButton", nil, f, "UICheckButtonTemplate")
             if not okC or not c then c = CreateFrame("CheckButton", nil, f) end
-            c:SetSize(24, 24)
+            if ONE.Kit and ONE.Kit.StyleCheck then ONE.Kit:StyleCheck(c) end
+            c:SetSize(32, 24)
             c:SetPoint("TOPLEFT", f, "TOPLEFT", 14 + (i - 1) * 104, -56)
             local label = Text(f, "GameFontHighlight", 0, 0, 70, "text", S:RoleName(key))
             label:ClearAllPoints()
-            label:SetPoint("LEFT", c, "RIGHT", 2, 0)
+            label:SetPoint("LEFT", c, "RIGHT", 4, 0)
             f.roles[key] = c
         end
         Text(f, "GameFontHighlight", 16, -94, 300, "text", T("Notiz (optional):"))

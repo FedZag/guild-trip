@@ -12,7 +12,7 @@ ONE.Skin = Skin
 local TEX = "Interface\\AddOns\\ONE_Core\\Textures\\Skin\\"
 Skin.tex = {
     round = TEX .. "Round", shadow = TEX .. "Shadow", sheen = TEX .. "Sheen",
-    dot = TEX .. "Dot", glow = TEX .. "Glow",
+    dot = TEX .. "Dot", glow = TEX .. "Glow", ring = TEX .. "Ring",
 }
 
 local function Hex(h)
@@ -170,8 +170,12 @@ function Skin:Surface(frame, opts)
         s.shadow = self:Nine(frame, self.tex.shadow, .375, "BACKGROUND", -8)
         s.shadow:Place(size[1], size[2], anchor, size[3])
     end
+    if opts.outline then
+        -- reiner Rahmen (Umriss-Knoepfe): 1 px, Radius 4, Flaeche bleibt durchsichtig
+        s.ring = self:Nine(frame, self.tex.ring, .25, "BACKGROUND", -5):Place(4, 0, anchor)
+    end
     if r > 0 then
-        if opts.border ~= false then s.edge = self:Nine(frame, self.tex.round, .25, "BACKGROUND", -7):Place(r + 1, 1 - (opts.inset or 0), anchor) end
+        if opts.border ~= false and not opts.outline then s.edge = self:Nine(frame, self.tex.round, .25, "BACKGROUND", -7):Place(r + 1, 1 - (opts.inset or 0), anchor) end
         s.fill = self:Nine(frame, self.tex.round, .25, "BACKGROUND", -6):Place(r, -(opts.inset or 0), anchor)
     else
         s.flatFill = frame:CreateTexture(nil, "BACKGROUND", nil, -6)
@@ -205,6 +209,10 @@ function Skin:Paint(s)
         local ea = a
         if o.borderAlways then ea = (o.borderRole and .9 or p.hair * 2.2) end
         s.edge:SetColor(er, eg, eb, ea)
+    end
+    if s.ring then
+        local rr, rg, rb = self:Color(o.borderRole or "text")
+        s.ring:SetColor(rr, rg, rb, o.borderRole and .75 or (self:Palette().hair or .09) * 2.4)
     end
     if s.shadow then s.shadow:SetColor(0, 0, .02, (SHADOWS[o.shadow] or SHADOWS.card)[4] * (a > 0 and 1 or 0)) end
     if s.sheen then s.sheen:SetVertexColor(1, 1, 1, (o.sheenAlpha or .05) * (a > 0 and 1 or 0)) end

@@ -7,6 +7,7 @@ Erzeugt in src/ONE_Core/Textures/Skin/:
   Sheen.tga   8x64,  Licht von oben: Deckkraft 100 % oben -> 0 % unten
   Dot.tga     32x32, runder Punkt (Routen-Wegpunkte, Online-Punkt)
   Glow.tga    64x64, weiches Leuchten (Wegpunkt "hier")
+  Ring.tga    16x16, 1 px Rahmen mit Radius 4 (Umriss-Knoepfe), Neun-Teile-Quelle 1:1
 Aufruf: python3 scripts/build_skin.py
 """
 from pathlib import Path
@@ -54,6 +55,15 @@ def dot():
     return round_rect(32, 16)
 
 
+def ring():
+    size, r = 16, 4
+    a = Image.new('L', (size * SS, size * SS), 0)
+    d = ImageDraw.Draw(a)
+    d.rounded_rectangle([0, 0, size * SS - 1, size * SS - 1], r * SS, fill=255)
+    d.rounded_rectangle([SS, SS, (size - 1) * SS - 1, (size - 1) * SS - 1], (r - 1) * SS, fill=0)
+    return a.resize((size, size), Image.LANCZOS)
+
+
 def glow():
     a = Image.new('L', (64, 64), 0)
     ImageDraw.Draw(a).ellipse([20, 20, 43, 43], fill=255)
@@ -66,4 +76,5 @@ if __name__ == '__main__':
     save(white_with_alpha(sheen()), 'Sheen.tga')
     save(white_with_alpha(dot()), 'Dot.tga')
     save(white_with_alpha(glow()), 'Glow.tga')
+    save(white_with_alpha(ring()), 'Ring.tga')
     print('ok', OUT)

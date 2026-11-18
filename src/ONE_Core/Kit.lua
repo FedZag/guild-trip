@@ -451,19 +451,70 @@ function Kit:Dropdown(parent, opts)
     return dd
 end
 
--- ===== An/Aus-Baustein: Blizzard-Haekchen mit Beschriftung =====
+-- ===== Schiebeschalter (Aussehen "Nachtroute") =====
+-- Macht aus einem CheckButton (mit oder ohne Blizzard-Vorlage) einen Schalter:
+-- Spur 28x16 mit runden Enden, Knopf links (aus) oder rechts (an, Akzentfarbe).
+function Kit:StyleCheck(box)
+    if not box or box.__oneSwitch or not box.CreateTexture then return box end
+    local S = ONE.Skin
+    for _, getter in ipairs({"GetNormalTexture", "GetPushedTexture", "GetHighlightTexture", "GetCheckedTexture", "GetDisabledCheckedTexture"}) do
+        local t = box[getter] and box[getter](box)
+        if t and t.SetAlpha then t:SetAlpha(0) end
+    end
+    local track = box:CreateTexture(nil, "BACKGROUND", nil, -8)
+    track:SetSize(28, 16)
+    track:SetPoint("LEFT", box, "LEFT", 2, 0)
+    track:SetColorTexture(0, 0, 0, 0)
+    local surface = S and S:Surface(box, {fill = "ctl", radius = 8, anchor = track, border = false, sheen = false})
+    local knob = box:CreateTexture(nil, "ARTWORK", nil, 2)
+    knob:SetTexture(S and S.tex.dot or nil)
+    knob:SetSize(12, 12)
+    local function Paint()
+        if not S then return end
+        local on = box.GetChecked and box:GetChecked() and true or false
+        local enabled = not (box.IsEnabled and not box:IsEnabled())
+        if surface then
+            surface.opts.fill = on and "accent" or "ctl"
+            surface.opts.lift = on and 0 or .1
+            surface.opts.alpha = enabled and 1 or .45
+            S:Paint(surface)
+        end
+        local r, g, b = S:Color(on and "onAccent" or "soft")
+        knob:SetVertexColor(r, g, b, enabled and 1 or .5)
+        knob:ClearAllPoints()
+        knob:SetPoint("CENTER", track, on and "RIGHT" or "LEFT", on and -8 or 8, 0)
+    end
+    box.__oneSwitch = Paint
+    if hooksecurefunc then hooksecurefunc(box, "SetChecked", Paint)
+    else
+        local set = box.SetChecked
+        if set then box.SetChecked = function(self, v) set(self, v) Paint() end end
+    end
+    if box.HookScript then
+        box:HookScript("OnClick", Paint)
+        box:HookScript("OnShow", Paint)
+        box:HookScript("OnEnable", Paint)
+        box:HookScript("OnDisable", Paint)
+    end
+    if S then S:OnChange(Paint) end
+    Paint()
+    return box
+end
+
+-- ===== An/Aus-Baustein: Schalter mit Beschriftung =====
 -- opts = {point="TOPLEFT", x=0, y=0, label="...", tooltip="...", get=function() end, set=function(on) end}
 function Kit:Check(parent, opts)
     local ok, box = pcall(CreateFrame, "CheckButton", nil, parent, "UICheckButtonTemplate")
     if not ok or not box then box = CreateFrame("CheckButton", nil, parent) end
-    box:SetSize(24, 24)
+    box:SetSize(32, 24)
     box:SetPoint(opts.point or "TOPLEFT", parent, opts.point or "TOPLEFT", opts.x or 0, opts.y or 0)
+    self:StyleCheck(box)
     local text = box:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     if (opts.point or "TOPLEFT"):find("RIGHT") then
-        text:SetPoint("RIGHT", box, "LEFT", -2, 0)
+        text:SetPoint("RIGHT", box, "LEFT", -4, 0)
         text:SetJustifyH("RIGHT")
     else
-        text:SetPoint("LEFT", box, "RIGHT", 2, 0)
+        text:SetPoint("LEFT", box, "RIGHT", 4, 0)
     end
     text:SetText(ONE.T and ONE.T(opts.label) or opts.label)
     if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(text, "text") end

@@ -1048,9 +1048,10 @@ function UI:BuildGuildMembers(panel)
     local onlineOnly=false
     local okCheck,check=pcall(CreateFrame,"CheckButton",nil,panel,"UICheckButtonTemplate")
     if not okCheck or not check then check=CreateFrame("CheckButton",nil,panel) end
-    check:SetSize(24,24)
+    if ONE.Kit and ONE.Kit.StyleCheck then ONE.Kit:StyleCheck(check) end
+    check:SetSize(32,24)
     check:SetPoint("TOPLEFT",panel,"TOPLEFT",240,-53)
-    local checkLabel=Label(panel,T("Nur online"),"GameFontHighlight",268,-58,110)
+    local checkLabel=Label(panel,T("Nur online"),"GameFontHighlight",276,-58,110)
     ONE.Widgets:Button(panel,"Blizzard-Gildenverwaltung",210,24,"TOPRIGHT",0,-53,function()
         if guild.Roster then guild.Roster:OpenNativeGuildUI() end
     end)

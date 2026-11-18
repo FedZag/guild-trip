@@ -569,7 +569,8 @@ end
 
 -- ===== Seiten oeffnen und aufzeichnen =====
 local function Num(v) return math.floor(v * 10 + .5) / 10 end
-local function Color(c) if c then return {Num(c[1] or 1), Num(c[2] or 1), Num(c[3] or 1), Num(c[4] or 1)} end end
+local function Fine(v) return math.floor(v * 1000 + .5) / 1000 end
+local function Color(c) if c then return {Fine(c[1] or 1), Fine(c[2] or 1), Fine(c[3] or 1), Fine(c[4] or 1)} end end
 local function Visible(o)
     while o do
         if not o.shown then return false end
@@ -599,7 +600,7 @@ local function Dump(frame)
             e.tex = type(o.tex) == "string" and o.tex or (type(o.tex) == "number" and tostring(o.tex)) or nil e.atlas = Str(o.atlas)
             e.col = Color(o.colorTex) e.v = Color(o.vertex) if o.grad then e.grad = {o.grad[1], Color(o.grad[2]), Color(o.grad[3])} end e.a = o.alpha ~= 1 and o.alpha or nil
             e.l = LAYERS[o.layer or "ARTWORK"] or 3
-            if o.coords then local c = {} for i, v in ipairs(o.coords) do if type(v) == "number" then c[i] = Num(v) end end e.tc = c end
+            if o.coords then local c = {} for i, v in ipairs(o.coords) do if type(v) == "number" then c[i] = Fine(v) end end e.tc = c end
         else
             if type(o.text) == "string" and o.text ~= "" then e.t = o.text e.f = Str(o.fontObj) end
             if o.selectedTab ~= nil then e.sel = o.selectedTab end
