@@ -528,6 +528,7 @@ function UI:BuildCalendar(panel)
 
     -- Scrollbarer Beschreibungstext, damit auch lange Gildentermine passen.
     local scroll = CreateFrame("ScrollFrame", nil, detail, "UIPanelScrollFrameTemplate")
+    if ONE.Kit and ONE.Kit.StyleScroll then ONE.Kit.StyleScroll(scroll) end
     scroll:SetPoint("TOPLEFT", 16, -162)
     scroll:SetSize(W-56, 175)
     local child = CreateFrame("Frame", nil, scroll)
@@ -1038,6 +1039,7 @@ function UI:BuildGuildMembers(panel)
     if ONE.UI.LiftPage and ONE.UI:LiftPage(panel,46) then lift=46 ONE.UI:RetireButtons(title,summary) end
     -- Werkzeugleiste: Suche, Filter, Blizzard-Verwaltung
     local okSearch,search=pcall(CreateFrame,"EditBox",nil,panel,"SearchBoxTemplate")
+    if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(search) end
     if not okSearch or not search then
         search=CreateFrame("EditBox",nil,panel)
         if search.SetFontObject and GameFontHighlight then search:SetFontObject(GameFontHighlight) end
@@ -1164,6 +1166,7 @@ function UI:BuildReminderSettings(panel, W)
 
     Label(panel, T("Eigene Minuten:"), "GameFontHighlight", 4, -66 + d1, 110)
     local entry = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+    if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(entry) end
     entry:SetSize(70, 26)
     entry:SetPoint("TOPLEFT", 122, -60 + d1)
     entry:SetAutoFocus(false)

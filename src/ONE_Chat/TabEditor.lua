@@ -30,6 +30,7 @@ function UI:EditTab(tab)
         nameLabel:SetText(T("Name"))
         local ok, name = pcall(CreateFrame, "EditBox", nil, d, "InputBoxTemplate")
         if not ok or not name then name = CreateFrame("EditBox", nil, d) end
+        if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(name) end
         name:SetPoint("TOPLEFT", d, "TOPLEFT", 96, -38)
         name:SetSize(200, 22)
         name:SetAutoFocus(false)

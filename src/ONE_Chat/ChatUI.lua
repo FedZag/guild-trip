@@ -275,6 +275,7 @@ function UI:Build()
     end
     local ok, box = pcall(CreateFrame, "EditBox", "GuildTripChatInput", f, "InputBoxTemplate")
     if not ok or not box then box = CreateFrame("EditBox", "GuildTripChatInput", f) end
+    if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(box) end
     box:SetPoint("BOTTOMLEFT", to, "BOTTOMRIGHT", 10, 0)
     if modern then
         box:SetPoint("BOTTOMRIGHT", self.sendButton, "BOTTOMLEFT", -10, 0)
@@ -963,6 +964,7 @@ function UI:AskWhisper()
     if not self.askBox then
         local ok, b = pcall(CreateFrame, "EditBox", nil, self.frame, "InputBoxTemplate")
         if not ok or not b then b = CreateFrame("EditBox", nil, self.frame) end
+        if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(b) end
         b:SetSize(LIST_W - 16, 20)
         b:SetPoint("BOTTOMLEFT", self.list, "BOTTOMLEFT", 10, 6)
         b:SetAutoFocus(true)

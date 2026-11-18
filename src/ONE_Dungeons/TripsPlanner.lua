@@ -23,6 +23,7 @@ end
 local function Edit(parent, x, y, width, maxLetters, numeric)
     local ok, box = pcall(CreateFrame, "EditBox", nil, parent, "InputBoxTemplate")
     if not ok or not box then box = CreateFrame("EditBox", nil, parent) end
+    if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(box) end
     box:SetPoint("TOPLEFT", parent, "TOPLEFT", x + 6, y)
     box:SetSize(width - 6, 22)
     if box.SetAutoFocus then box:SetAutoFocus(false) end

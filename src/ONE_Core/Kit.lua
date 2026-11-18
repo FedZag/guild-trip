@@ -194,7 +194,36 @@ local HEADER, SCROLLBAR = 20, 24
 local function CreateScroll(box)
     local ok, scroll = pcall(CreateFrame, "ScrollFrame", nil, box, "UIPanelScrollFrameTemplate")
     if not ok or not scroll then scroll = CreateFrame("ScrollFrame", nil, box) end
+    Kit.StyleScroll(scroll)
     return scroll
+end
+
+-- Blizzard-Scrollleiste im Aussehen "Nachtroute": ohne Pfeile und Rinne, nur ein
+-- schmaler, runder Schieber (heller beim Darueberfahren).
+function Kit.StyleScroll(scroll)
+    local bar = scroll and (scroll.ScrollBar or (scroll.GetName and scroll:GetName() and _G[scroll:GetName() .. "ScrollBar"]))
+    if type(bar) ~= "table" or bar.__oneStyled then return end
+    bar.__oneStyled = true
+    for _, key in ipairs({"ScrollUpButton", "ScrollDownButton"}) do
+        local b = bar[key] or (bar.GetName and bar:GetName() and _G[bar:GetName() .. key:gsub("Scroll", "")])
+        if type(b) == "table" and b.SetAlpha then b:SetAlpha(0) if b.EnableMouse then b:EnableMouse(false) end end
+    end
+    if bar.GetRegions then
+        for _, r in ipairs({bar:GetRegions()}) do
+            if r and r.SetAlpha and r ~= (bar.GetThumbTexture and bar:GetThumbTexture()) then r:SetAlpha(0) end
+        end
+    end
+    local thumb = bar.GetThumbTexture and bar:GetThumbTexture()
+    if thumb and ONE.Skin then
+        thumb:SetTexture(ONE.Skin.tex.round)
+        if thumb.SetTexCoord then thumb:SetTexCoord(.25, .75, .25, .75) end
+        thumb:SetSize(5, 36)
+        thumb:SetVertexColor(1, 1, 1, .2)
+        if bar.HookScript then
+            bar:HookScript("OnEnter", function() thumb:SetVertexColor(1, 1, 1, .35) end)
+            bar:HookScript("OnLeave", function() thumb:SetVertexColor(1, 1, 1, .2) end)
+        end
+    end
 end
 
 function Kit:List(parent, opts)
@@ -217,6 +246,8 @@ function Kit:List(parent, opts)
         label:SetAllPoints(head)
         label:SetJustifyH(col.align or "LEFT")
         label:SetText(ONE.T and ONE.T(col.title or "") or col.title or "")
+        if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(label, "muted") end
+        Kit:Upgrade(label, "small")
         head:SetScript("OnClick", function()
             if not opts.onSort then return end
             if list.sortKey == col.key then list.ascending = not list.ascending
@@ -230,7 +261,7 @@ function Kit:List(parent, opts)
     local rule = box:CreateTexture(nil, "ARTWORK")
     rule:SetPoint("TOPLEFT", box, "TOPLEFT", 0, -HEADER)
     rule:SetSize(usable, 1)
-    Paint(rule, 1, .82, 0, .35)
+    Paint(rule, 1, 1, 1, .08)
     -- Scrollbereich: das Kind ist nur so hoch wie alle Zeilen zusammen.
     local scroll = CreateScroll(box)
     scroll:SetPoint("TOPLEFT", box, "TOPLEFT", 0, -HEADER - 2)
@@ -250,14 +281,10 @@ function Kit:List(parent, opts)
         row:SetSize(usable, list.rowHeight)
         local stripe = row:CreateTexture(nil, "BACKGROUND")
         stripe:SetAllPoints(row)
-        Paint(stripe, 1, 1, 1, i % 2 == 0 and .04 or 0)
-        if ONE.Book and ONE.Book:IsActive() then
-            local hl = row:CreateTexture(nil, "HIGHLIGHT")
-            hl:SetAllPoints(row)
-            hl:SetColorTexture(ONE.Book.red[1], ONE.Book.red[2], ONE.Book.red[3], .12)
-        elseif row.SetHighlightTexture then
-            pcall(row.SetHighlightTexture, row, "Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-        end
+        Paint(stripe, 1, 1, 1, i % 2 == 0 and .025 or 0)
+        local hl = row:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints(row)
+        hl:SetColorTexture(1, 1, 1, .06)
         if row.EnableMouseWheel then
             row:EnableMouseWheel(true)
             row:SetScript("OnMouseWheel", function(_, delta) list:ScrollBy(-delta * 3) end)
@@ -265,6 +292,7 @@ function Kit:List(parent, opts)
         row.cells = {}
         for _, col in ipairs(opts.columns) do
             local cell = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+            Kit:Upgrade(cell, "label")
             cell:SetPoint("LEFT", row, "LEFT", col.x + (col.indent or 0), 0)
             cell:SetWidth(col.width - (col.indent or 0))
             cell:SetJustifyH(col.align or "LEFT")
@@ -371,20 +399,26 @@ function Kit:Dropdown(parent, opts)
     function dd:Text() return CurrentText() end
 
     local width = opts.width or 170
-    local book = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() and ONE.Book.OpenMenu
+    -- Aussehen "Nachtroute": eigenes Auswahlfeld (Knopf mit Pfeil) und eigenes Menue
+    local own = ONE.Skin and ONE.Widgets and ONE.Widgets.SkinButton and UIParent
     local ok, frame
-    if not book then ok, frame = pcall(CreateFrame, "DropdownButton", nil, parent, "WowStyle1DropdownTemplate") end
-    if book then
-        -- Buch: eigenes Auswahlfeld (Tinte, Unterstrich) mit Pergament-Menue (Book:OpenMenu)
-        dd.kind = "book"
-        frame = ONE.Book:MenuButton(parent, width)
-        frame:SetPoint(opts.point or "TOPLEFT", parent, opts.point or "TOPLEFT", opts.x or 0, opts.y or 0)
+    if not own then ok, frame = pcall(CreateFrame, "DropdownButton", nil, parent, "WowStyle1DropdownTemplate") end
+    if own then
+        dd.kind = "own"
+        frame = ONE.Widgets:Button(parent, "", width, 24, opts.point or "TOPLEFT", opts.x or 0, opts.y or 0, nil, "secondary")
+        if frame.AlignLeft then frame:AlignLeft() end
+        local arrow = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        arrow:SetPoint("RIGHT", frame, "RIGHT", -9, 0)
+        arrow:SetText("▼")
+        Kit:Upgrade(arrow, "small")
+        if arrow.SetScale then arrow:SetScale(.7) end
+        frame.__oneArrow = arrow
         frame:SetScript("OnClick", function(self)
             local list = {}
             for i, o in ipairs(Options()) do list[i] = {value = Wrap(o.value), text = o.text, tooltip = o.tooltip} end
-            ONE.Book:OpenMenu(self, list, Wrap(opts.get()), function(v) dd:Select(v) end)
+            Kit:OpenMenu(self, list, Wrap(opts.get()), function(v) dd:Select(v) end)
         end)
-        function dd:Refresh() frame:SetLabel(CurrentText()) end
+        function dd:Refresh() frame:SetText(CurrentText()) end
     elseif ok and frame and type(frame.SetupMenu) == "function" and type(MenuUtil) == "table" then
         dd.kind = "menu"
         frame:SetPoint(opts.point or "TOPLEFT", parent, opts.point or "TOPLEFT", opts.x or 0, opts.y or 0)
@@ -446,10 +480,116 @@ function Kit:Dropdown(parent, opts)
     end
     dd.frame = frame
     frame.__oneDropdown = dd
-    if dd.kind ~= "button" and dd.kind ~= "book" and ONE.Book and ONE.Book.StyleDropdown then ONE.Book:StyleDropdown(frame) end
     dd:Refresh()
     return dd
 end
+
+-- ===== Eingabefeld (Aussehen "Nachtroute") =====
+-- Blizzard-Rahmen (Left/Middle/Right) ausblenden; dunkle, eingelassene Flaeche mit
+-- feinem Rahmen, Akzentrahmen solange das Feld den Fokus hat. Suchlupe bleibt.
+function Kit.StyleEdit(box)
+    local S = ONE.Skin
+    if not (box and S and box.CreateTexture) or box.__oneEdit then return box end
+    box.__oneEdit = true
+    for _, key in ipairs({"Left", "Middle", "Right", "Mid"}) do
+        local t = box[key] or (box.GetName and box:GetName() and _G[box:GetName() .. key])
+        if type(t) == "table" and t.SetAlpha then t:SetAlpha(0) end
+    end
+    local frame = box:CreateTexture(nil, "BACKGROUND", nil, -8)
+    frame:SetPoint("TOPLEFT", box, "TOPLEFT", -5, 0)
+    frame:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 0, 0)
+    frame:SetColorTexture(0, 0, 0, 0)
+    local surface = S:Surface(box, {fill = "top", radius = 4, anchor = frame, border = false, sheen = false, outline = true})
+    local function Paint(focus)
+        surface.opts.borderRole = focus and "accent" or nil
+        S:Paint(surface)
+    end
+    if box.HookScript then
+        box:HookScript("OnEditFocusGained", function() Paint(true) end)
+        box:HookScript("OnEditFocusLost", function() Paint(false) end)
+    end
+    local font = Kit:Font("label")
+    if font and box.SetFontObject then box:SetFontObject(font) end
+    if box.SetTextInsets then box:SetTextInsets(4, 4, 0, 0) end
+    S:OnChange(function() Paint(box.HasFocus and box:HasFocus()) end)
+    Paint(false)
+    return box
+end
+
+-- ===== Auswahlmenue (Aussehen "Nachtroute") =====
+-- Ein gemeinsames Menue fuer alle Auswahlfelder: runde Flaeche mit Schatten, je Eintrag
+-- eine Zeile, aktueller Wert mit Akzentpunkt. Klick daneben oder Esc schliesst.
+local MENU_ROW = 22
+function Kit:OpenMenu(owner, list, current, onPick)
+    local S = ONE.Skin
+    local m = self.menu
+    if not m then
+        local catcher = CreateFrame("Button", nil, UIParent)
+        catcher:SetAllPoints(UIParent)
+        catcher:SetFrameStrata("FULLSCREEN_DIALOG")
+        catcher:SetScript("OnClick", function() Kit:CloseMenu() end)
+        catcher:Hide()
+        m = CreateFrame("Frame", "GuildTripMenu", UIParent)
+        m:SetFrameStrata("FULLSCREEN_DIALOG")
+        if m.SetFrameLevel and catcher.GetFrameLevel then m:SetFrameLevel(catcher:GetFrameLevel() + 5) end
+        m:EnableMouse(true)
+        S:Surface(m, {fill = "panel", radius = 6, shadow = "float", sheen = false, lift = .04})
+        m.catcher, m.rows = catcher, {}
+        m:Hide()
+        if UISpecialFrames then table.insert(UISpecialFrames, "GuildTripMenu") end
+        m:SetScript("OnHide", function() catcher:Hide() end)
+        self.menu = m
+    end
+    local width = math.max(owner.GetWidth and owner:GetWidth() or 160, 140)
+    for i, it in ipairs(list) do
+        local row = m.rows[i]
+        if not row then
+            row = CreateFrame("Button", nil, m)
+            row:SetHeight(MENU_ROW)
+            local hl = row:CreateTexture(nil, "HIGHLIGHT")
+            hl:SetPoint("TOPLEFT", row, "TOPLEFT", 4, 0) hl:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -4, 0)
+            hl:SetColorTexture(1, 1, 1, .07)
+            local dot = row:CreateTexture(nil, "ARTWORK")
+            dot:SetTexture(S.tex.dot) dot:SetSize(6, 6)
+            dot:SetPoint("LEFT", row, "LEFT", 12, 0)
+            local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+            text:SetPoint("LEFT", row, "LEFT", 24, 0) text:SetPoint("RIGHT", row, "RIGHT", -10, 0)
+            text:SetJustifyH("LEFT")
+            if text.SetWordWrap then text:SetWordWrap(false) end
+            Kit:Upgrade(text, "label")
+            row.dot, row.text = dot, text
+            row:SetScript("OnEnter", function(self)
+                if not (GameTooltip and self.tip) then return end
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:SetText(self.text:GetText() or "", 1, 1, 1)
+                GameTooltip:AddLine(self.tip, .85, .85, .85, true)
+                GameTooltip:Show()
+            end)
+            row:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+            m.rows[i] = row
+        end
+        row:ClearAllPoints()
+        row:SetPoint("TOPLEFT", m, "TOPLEFT", 0, -6 - (i - 1) * MENU_ROW)
+        row:SetWidth(width)
+        row.text:SetText(it.text)
+        row.tip = it.tooltip
+        local sel = it.value == current
+        local r, g, b = S:Color(sel and "text" or "soft")
+        row.text:SetTextColor(r, g, b)
+        local ar, ag, ab = S:Color("accent")
+        row.dot:SetVertexColor(ar, ag, ab, sel and 1 or 0)
+        row:SetScript("OnClick", function() Kit:CloseMenu() onPick(it.value) end)
+        row:Show()
+    end
+    for i = #list + 1, #m.rows do m.rows[i]:Hide() end
+    m:SetSize(width, #list * MENU_ROW + 12)
+    m:ClearAllPoints()
+    m:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -4)
+    m.catcher:Show()
+    m:Show()
+    return m
+end
+function Kit:CloseMenu() if self.menu then self.menu:Hide() end end
 
 -- ===== Schiebeschalter (Aussehen "Nachtroute") =====
 -- Macht aus einem CheckButton (mit oder ohne Blizzard-Vorlage) einen Schalter:

@@ -883,6 +883,7 @@ local function BuildOptions(panel)
     local innerW=paneW-44
     local ok,scroll=pcall(CreateFrame,"ScrollFrame",nil,pane,"UIPanelScrollFrameTemplate")
     if not ok or not scroll then scroll=CreateFrame("ScrollFrame",nil,pane) end
+    if ONE.Kit and ONE.Kit.StyleScroll then ONE.Kit.StyleScroll(scroll) end
     scroll:SetPoint("TOPLEFT",pane,"TOPLEFT",12,-10)
     scroll:SetSize(innerW,H-20)
     if scroll.EnableMouseWheel and not scroll.ScrollBar then

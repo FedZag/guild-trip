@@ -115,6 +115,7 @@ function Page:Build(panel)
     end
     local okSearch, search = pcall(CreateFrame, "EditBox", nil, rv, "SearchBoxTemplate")
     if not okSearch or not search then search = CreateFrame("EditBox", nil, rv) end
+    if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(search) end
     search:SetSize(leftW - 8, 22)
     search:SetPoint("TOPLEFT", rv, "TOPLEFT", 6, -50)
     if search.SetAutoFocus then search:SetAutoFocus(false) end

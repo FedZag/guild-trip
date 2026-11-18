@@ -70,6 +70,7 @@ function Page:Build(panel)
     if not self.embedded then Text(panel, "GameFontNormalLarge", 0, -4, leftW, "accent", T("Dungeons")) end
     local okSearch, search = pcall(CreateFrame, "EditBox", nil, panel, "SearchBoxTemplate")
     if not okSearch or not search then search = CreateFrame("EditBox", nil, panel) end
+    if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(search) end
     search:SetSize(leftW - 8, 22)
     search:SetPoint("TOPLEFT", panel, "TOPLEFT", 6, -30)
     if search.SetAutoFocus then search:SetAutoFocus(false) end
@@ -273,6 +274,7 @@ function Page:Build(panel)
     local detailH = H + detailTop - 44
     local okScroll, scroll = pcall(CreateFrame, "ScrollFrame", nil, card, "UIPanelScrollFrameTemplate")
     if not okScroll or not scroll then scroll = CreateFrame("ScrollFrame", nil, card) end
+    if ONE.Kit and ONE.Kit.StyleScroll then ONE.Kit.StyleScroll(scroll) end
     scroll:SetPoint("TOPLEFT", card, "TOPLEFT", 16, detailTop - 8)
     scroll:SetSize(inner - 24, detailH)
     local child = CreateFrame("Frame", nil, scroll)
@@ -537,6 +539,7 @@ function Page:OpenSeekDialog(d)
         Text(f, "GameFontHighlight", 16, -94, 300, "text", T("Notiz (optional):"))
         local okE, edit = pcall(CreateFrame, "EditBox", nil, f, "InputBoxTemplate")
         if not okE or not edit then edit = CreateFrame("EditBox", nil, f) end
+        if ONE.Kit and ONE.Kit.StyleEdit then ONE.Kit.StyleEdit(edit) end
         edit:SetSize(296, 22)
         edit:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -114)
         if edit.SetAutoFocus then edit:SetAutoFocus(false) end
