@@ -9,9 +9,11 @@
 
 Locale_enUS.lua
 Rewards.lua
+GearData.lua
 Planner.lua
 Guide.lua
 Journal.lua
+Way.lua
 Page.lua
 Tracker.lua
 Settings.lua

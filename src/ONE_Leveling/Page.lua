@@ -170,14 +170,111 @@ function Page:Build(parent, W, H, getMode)
 end
 
 -- ===== Reiter "Leveln" =====
-Page.VIEWS = {{"guide", "Plan"}, {"zones", "Gebiete"}, {"skipped", "Ausgelassen"}, {"journal", "Tagebuch"}, {"log", "Questlog"}}
+Page.VIEWS = {{"guide", "Plan"}, {"zones", "Gebiete"}, {"skipped", "Ausgelassen"}, {"gear", "Ausrüstung"}, {"journal", "Tagebuch"}, {"log", "Questlog"}}
 Page.SUBTITLE = {
     guide = "Nur die Quests, die sich lohnen – Dungeon-, Klassen- und Vorquests immer.",
     skipped = "Was die Führung auslässt und warum.",
     zones = "Alle Quests je Gebiet – nur zur Übersicht, der Plan bleibt die schnellste Route.",
     journal = "Deine Reise: Quests, Stufen, neue Gebiete und Dungeons – nur bei dir gespeichert.",
     log = "Deine Quests mit Fortschritt – „Navi“ zeigt die Richtung zum Ziel.",
+    gear = "Das Beste je Platz aus Quests, Dungeons und Herstellung – und wie lange es hält.",
 }
+
+-- ===== Ausrüstung auf deinem Weg (Way.lua) =====
+local QUALITY = {[0] = "9d9d9d", [1] = "ffffff", [2] = "1eff00", [3] = "0070dd", [4] = "a335ee", [5] = "ff8000"}
+function Page:BuildGear(parent, W, H)
+    local Way = lev.Way
+    local head = Text(parent, "GameFontHighlightSmall", 4, 0, W - 8, "soft")
+    local plan, stamp, level = nil, 0, nil
+    local function Name(id)
+        local name = (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or (GetItemInfo and GetItemInfo(id))
+        if not name and C_Item and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, id) end
+        return name or ("#" .. id)
+    end
+    local function Color(it, text) return "|cff" .. (QUALITY[it.quality] or "ffffff") .. text .. "|r" end
+    local list = ONE.Kit:List(parent, {x = 0, y = -22, width = W, height = H - 46, rowHeight = 24,
+        columns = {
+            {key = "slot", title = "PLATZ", width = 74, indent = 4},
+            {key = "item", title = "BESTES FÜR DICH", width = 198},
+            {key = "plus", title = "BESSER", width = 50, align = "RIGHT"},
+            {key = "src", title = "WOHER", width = 262},
+            {key = "holds", title = "HÄLT BIS", width = 64, align = "RIGHT"},
+        },
+        render = function(_, row, cells)
+            cells.slot:SetText(T(row.slot.name))
+            cells.slot:SetTextColor(.8, .8, .8)
+            if not row.now then
+                cells.item:SetText("|cff808080" .. T("nichts Passendes gefunden") .. "|r")
+                cells.plus:SetText("") cells.src:SetText("") cells.holds:SetText("")
+                return
+            end
+            local it = row.now.item
+            cells.item:SetText(Color(it, Name(it.id)))
+            if row.upgrade then
+                cells.plus:SetText(row.plus and row.plus >= 100 and "|cff40ff40" .. T("neu") .. "|r" or ("|cff40ff40+" .. (row.plus or 0) .. " %|r"))
+            else
+                cells.plus:SetText("|cff9d9d9d" .. T("hast du") .. "|r")
+            end
+            cells.src:SetText(Way.SourceText(row.now.sources[1], true))
+            cells.src:SetTextColor(row.upgrade and 1 or .6, row.upgrade and 1 or .6, row.upgrade and 1 or .6)
+            cells.holds:SetText(row.holdsTo and T("Stufe %d", row.holdsTo) or "|cff9d9d9d–|r")
+        end,
+        onClick = function(_, row)
+            if row.now then Way:Navi(row.now.sources[1], row.now.item.id) end
+        end,
+        onEnter = function(self, row)
+            if not (row.now and GameTooltip) then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            local it = row.now.item
+            if GameTooltip.SetHyperlink then pcall(GameTooltip.SetHyperlink, GameTooltip, "item:" .. it.id) end
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine(T("Guild Trip – so bekommst du es:"), 1, .82, 0)
+            for _, src in ipairs(row.now.all) do
+                GameTooltip:AddLine("• " .. Way.SourceText(src), src.sure and 1 or .6, src.sure and 1 or .6, src.sure and 1 or .6, true)
+                if src.kind == "c" and (src.status == "learn" or src.status == "soon") then
+                    for i, l in ipairs(src.learn) do
+                        if i > 3 then break end
+                        GameTooltip:AddLine("    " .. Way.LearnText(l), .75, .75, .75, true)
+                    end
+                elseif src.kind == "c" and src.status == "guild" then
+                    for i, g in ipairs(src.guild) do
+                        if i > 4 then break end
+                        GameTooltip:AddLine("    " .. (g.name:match("^[^%-]+") or g.name) .. (g.online and (" |cff40ff40" .. T("(online)") .. "|r") or ""), .8, .8, .8)
+                    end
+                end
+            end
+            if row.holdsTo then GameTooltip:AddLine(T("Hält, bis ab Stufe %d etwas deutlich Besseres kommt.", row.holdsTo), .7, .9, 1, true)
+            else GameTooltip:AddLine(T("Hält lange – nichts deutlich Besseres in Sicht."), .7, .9, 1, true) end
+            if row.next then
+                local n = row.next
+                GameTooltip:AddLine(T("Bald: %s ab Stufe %d – %s", Color(n.item, Name(n.item.id)), Way.ReqLevel(n.item), Way.SourceText(n.sources[1], true)), .9, .9, .9, true)
+            end
+            GameTooltip:AddLine(T("Klick: Navi zur Quelle (Herstellung durch die Gilde: Anfrage im Flüsterchat)"), .5, .5, .5, true)
+            GameTooltip:Show()
+        end,
+    })
+    local foot = Text(parent, "GameFontDisableSmall", 4, -(H - 18), W - 8, "soft",
+        "Bewertet wie im Tooltip „besser für dich“. Quests passend zu Fraktion und Klasse; seltene Drops nur im Tooltip.")
+    return function()
+        local L = (UnitLevel and UnitLevel("player")) or 1
+        local now = (GetTime and GetTime()) or 0
+        Way = Way or lev.Way
+        if not (Way and Way.Data()) then
+            head:SetText(T("Ausrüstungsdaten fehlen – ONE_Leveling vollständig installieren."))
+            list:SetItems({})
+            return
+        end
+        if not plan or level ~= L or now - stamp > 10 then
+            local ctx = Way:Context()
+            plan, stamp, level = Way:Plan(ctx), now, L
+            local ranks = ctx.ranks and #ctx.ranks > 0 and table.concat(ctx.ranks, " › ") or nil
+            head:SetText(T("Stufe %d", L) .. (ctx.spec ~= "" and (" · " .. T(ctx.spec)) or "")
+                .. (ranks and (" · " .. T("wichtig: %s", ranks)) or ""))
+        end
+        list:SetItems(plan or {})
+        if foot then foot:Show() end
+    end
+end
 
 function Page:BuildTab(panel)
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
@@ -200,6 +297,16 @@ function Page:BuildTab(panel)
         right = right - 100
         buttons[d[1]] = b
     end
+    -- Glas: Ansichten in der mittleren Spalte statt Knoepfe oben rechts
+    local glassViews = ONE.Glass and ONE.Glass:Active() and ONE.UI.SetViews
+    if glassViews then
+        local items = {}
+        for _, d in ipairs(Page.VIEWS) do
+            items[#items + 1] = {key = d[1], label = d[2], onClick = function(key) G:DB().view = key ONE.UI:Refresh() end}
+        end
+        ONE.UI:SetViews("leveling", items, Mode())
+        for _, b in pairs(buttons) do b:Hide() b.Show = function() end end
+    end
     local function Box(top)
         local box = CreateFrame("Frame", nil, panel)
         box:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, top)
@@ -208,20 +315,25 @@ function Page:BuildTab(panel)
     end
     local guideBox = Box(-36)
     local guide = self:Build(guideBox, W, H - 36, function() local m = Mode() return (m == "skipped" or m == "zones" or m == "journal") and m or "guide" end)
+    local gearBox = Box(-36)
+    local gear = self:BuildGear(gearBox, W, H - 36)
     local logBox = Box(0)
     local nav = ONE.ns and ONE.ns.nav
     local log = nav and nav.Quests and nav.Quests:Build(logBox, true)
     return function()
         local mode = Mode()
+        if glassViews then ONE.UI:SetActiveView("leveling", mode) end
         for k, b in pairs(buttons) do
             if b.LockHighlight then if k == mode then b:LockHighlight() else b:UnlockHighlight() end end
         end
         if sub and sub.SetText then sub:SetText(T(Page.SUBTITLE[mode] or "")) end
-        guideBox:SetShown(mode ~= "log")
+        guideBox:SetShown(mode ~= "log" and mode ~= "gear")
         logBox:SetShown(mode == "log")
+        gearBox:SetShown(mode == "gear")
         if mode == "log" then if log then log() end
+        elseif mode == "gear" then gear()
         else guide() end
-        local name = ({guide = "Plan", zones = "Gebiete", skipped = "Ausgelassen", journal = "Tagebuch", log = "Questlog"})[mode]
+        local name = ({guide = "Plan", zones = "Gebiete", skipped = "Ausgelassen", journal = "Tagebuch", log = "Questlog", gear = "Ausrüstung"})[mode]
         if ONE.UI.SetContext then ONE.UI:SetContext("leveling", T(name)) end
     end
 end
