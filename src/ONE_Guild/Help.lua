@@ -114,6 +114,21 @@ function Help:Text(c)
     return head
 end
 
+
+-- Fenster im aktiven Aussehen (Blizzard-Rahmen bzw. Pergamentblatt im Buch) und Texte in Theme-Farben
+-- Im Buch-Aussehen: helle Farbcodes als lesbare Tinte auf Pergament
+local function Ink(text)
+    local book = ONE.Book
+    if book and book.IsActive and book:IsActive() and book.InkCodes then return book.InkCodes(text) end
+    return text
+end
+local function Themed(frame, bg, title, texts)
+    local th = ONE.Themes
+    if not th then return end
+    if th.RegisterWindow then pcall(th.RegisterWindow, th, frame, bg, title) end
+    for fs, role in pairs(texts or {}) do if th.RegisterText then pcall(th.RegisterText, th, fs, role) end end
+end
+
 -- ===== Fenster =====
 local function Button(parent, label, width)
     local ok, b = pcall(CreateFrame, "Button", nil, parent, "UIPanelButtonTemplate")
@@ -154,6 +169,9 @@ function Help:Frame()
     f.go:SetScript("OnClick", function() Help:Come() end)
     f.whisper:SetScript("OnClick", function() Help:Whisper() end)
     f.close:SetScript("OnClick", function() Help:Hide() end)
+    Themed(f, bg, f.title, {[f.text] = "text"})
+    -- Hilferuf: Titel bleibt rot, damit er auffaellt
+    if f.title.SetTextColor then f.title:SetTextColor(1, .3, .2) end
     f:Hide()
     self.frame = f
     return f
@@ -162,7 +180,7 @@ end
 function Help:Show(c)
     self.current = c
     local f = self:Frame()
-    f.text:SetText(self:Text(c))
+    f.text:SetText(Ink(self:Text(c)))
     f:Show()
     ONE:Notify((self:Text(c):gsub("\n", " ")), {source = T("Hilferuf"), toast = false, sound = "notify"})
     if C_Timer and C_Timer.After then

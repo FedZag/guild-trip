@@ -97,6 +97,21 @@ function P:Check()
     end
 end
 
+
+-- Fenster im aktiven Aussehen (Blizzard-Rahmen bzw. Pergamentblatt im Buch) und Texte in Theme-Farben
+-- Im Buch-Aussehen: helle Farbcodes als lesbare Tinte auf Pergament
+local function Ink(text)
+    local book = ONE.Book
+    if book and book.IsActive and book:IsActive() and book.InkCodes then return book.InkCodes(text) end
+    return text
+end
+local function Themed(frame, bg, title, texts)
+    local th = ONE.Themes
+    if not th then return end
+    if th.RegisterWindow then pcall(th.RegisterWindow, th, frame, bg, title) end
+    for fs, role in pairs(texts or {}) do if th.RegisterText then pcall(th.RegisterText, th, fs, role) end end
+end
+
 -- ===== Fenster =====
 function P:Text(c)
     local head = #c.quests == 1 and T("%s (%d) macht deine Quest „%s“ – %d m entfernt.", c.name, c.level or 0, c.quests[1].title, math.floor(c.dist + .5))
@@ -151,6 +166,7 @@ function P:Frame()
     f.navi:SetScript("OnClick", function() P:Navi() end)
     f.whisper:SetScript("OnClick", function() P:Whisper() end)
     f.close:SetScript("OnClick", function() P:Hide() end)
+    Themed(f, bg, f.title, {[f.text] = "text"})
     -- Tooltip: welche Quests gemeinsam sind
     f:SetScript("OnEnter", function(self)
         local c = P.current

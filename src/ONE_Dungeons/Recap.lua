@@ -177,6 +177,21 @@ function R:ChatLine(run)
     return line
 end
 
+
+-- Fenster im aktiven Aussehen (Blizzard-Rahmen bzw. Pergamentblatt im Buch) und Texte in Theme-Farben
+-- Im Buch-Aussehen: helle Farbcodes als lesbare Tinte auf Pergament
+local function Ink(text)
+    local book = ONE.Book
+    if book and book.IsActive and book:IsActive() and book.InkCodes then return book.InkCodes(text) end
+    return text
+end
+local function Themed(frame, bg, title, texts)
+    local th = ONE.Themes
+    if not th then return end
+    if th.RegisterWindow then pcall(th.RegisterWindow, th, frame, bg, title) end
+    for fs, role in pairs(texts or {}) do if th.RegisterText then pcall(th.RegisterText, th, fs, role) end end
+end
+
 -- ===== Karte =====
 local function Button(parent, label, width)
     local ok, b = pcall(CreateFrame, "Button", nil, parent, "UIPanelButtonTemplate")
@@ -219,6 +234,7 @@ function R:Frame()
     f.close:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -12, 10)
     f.post:SetScript("OnClick", function() R:Post() end)
     f.close:SetScript("OnClick", function() f:Hide() end)
+    Themed(f, bg, f.title, {[f.head] = "soft", [f.body] = "text"})
     f:Hide()
     self.frame = f
     return f
@@ -227,9 +243,9 @@ end
 function R:Show(run)
     local f = self:Frame()
     self.shown = run
-    f.title:SetText(self:Title(run))
+    f.title:SetText(Ink(self:Title(run)))
     local lines = self:Lines(run)
-    f.body:SetText(table.concat(lines, "\n"))
+    f.body:SetText(Ink(table.concat(lines, "\n")))
     -- Hoehe nach Inhalt (Beute kann mehrere Zeilen haben)
     local count = #lines + #run.loot
     f:SetHeight(math.max(160, 100 + count * 16))

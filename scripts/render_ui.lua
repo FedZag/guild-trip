@@ -696,6 +696,66 @@ local function DumpChat()
     if okD then pages[#pages + 1] = {id = "chat", w = f.w, h = f.h, items = list}
     else errors[#errors + 1] = "Dump chat: " .. tostring(list) end
 end
+-- Kleine Fenster der 0.7.x mit Beispieldaten ("fenster")
+local function DumpWindows()
+    local function Add(id, f)
+        if not f then errors[#errors + 1] = "Fenster " .. id .. " fehlt" return end
+        f:ClearAllPoints() f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+        f:Show()
+        local okD, list = pcall(Dump, f)
+        if okD then pages[#pages + 1] = {id = id, w = f.w, h = f.h, items = list}
+        else errors[#errors + 1] = "Dump " .. id .. ": " .. tostring(list) end
+    end
+    local function Try(id, fn)
+        local ok, e = pcall(fn)
+        if not ok then errors[#errors + 1] = id .. ": " .. tostring(e) end
+    end
+    local nav, guild, classes, dg = namespaces.ONE_Nav, namespaces.ONE_Guild, namespaces.ONE_Classes, namespaces.ONE_Dungeons
+    Try("questpartner", function()
+        nav.Partners:Show({name = "Thrall", full = "Thrall", level = 23, dist = 250,
+            quests = {{id = 1, title = "Wolfsjagd"}, {id = 2, title = "Kräuterkunde", planned = true}}})
+        Add("questpartner", nav.Partners.frame)
+    end)
+    Try("hilferuf", function()
+        guild.Help:Show({name = "Bob", full = "Bob", level = 19, dist = 420, text = "Elite am Wegkreuz, schnell!"})
+        Add("hilferuf", guild.Help.frame)
+    end)
+    Try("auftragsbrett", function()
+        local B = guild.Board
+        local st = B:Store()
+        st.mine[1] = {text = "Brauche 10 Leinenstoff", at = (GetServerTime and GetServerTime() or 0) - 600, helpers = {Thrall = true}}
+        st.others.Bob = {[3] = {text = "Wer hilft bei der Elite-Quest in Westfall?", at = (GetServerTime and GetServerTime() or 0) - 7200}}
+        B:Open()
+        Add("auftragsbrett", B.frame)
+    end)
+    Try("beute", function()
+        local L = classes.LootNeed
+        L.needs[10] = {at = GetTime and GetTime() or 0, link = "|cff1eff00|Hitem:10::|h[Eichenstab]|h|r", who = {Bob = 30, Tester = 12, Gildi = 100}}
+        L:Refresh()
+        Add("beute", L.frame)
+    end)
+    Try("rueckblick", function()
+        dg.Recap:Show({name = "Die Todesminen", key = "dm", secs = 2520, record = true,
+            group = {Bob = true, Gildi = true, Tester = true, Thrall = true, Rehgar = true},
+            bosses = {"Rhahk'Zor", "Sneed", "Gilnid", "Edwin VanCleef"}, deaths = {Bob = 2, Tester = 1},
+            loot = {{who = "Bob", link = "|cff0070dd|Hitem:2::|h[Schwert des Kapitäns]|h|r"}, {who = "Gildi", link = "|cff1eff00|Hitem:3::|h[Grüner Umhang]|h|r"}}})
+        Add("rueckblick", dg.Recap.frame)
+    end)
+    Try("buffen", function()
+        local N = classes.Nearby
+        local offer = {name = "Machtwort: Seelenstärke", icon = 135987, ranks = {}, also = {}}
+        local offer2 = {name = "Göttlicher Willen", icon = 135898, ranks = {}, also = {}}
+        N.MyOffers = function() return {offer, offer2} end
+        N.Scan = function() return {
+            {name = "Bob", unit = "party1", level = 21, classFile = "MAGE", tag = "group", missing = {{offer = offer, spell = 1}, {offer = offer2, spell = 2}}},
+            {name = "Gildi", unit = "nameplate1", level = 18, classFile = "WARRIOR", tag = "guild", missing = {{offer = offer, spell = 1}}},
+            {name = "Wanderer", level = 40, classFile = "ROGUE", missing = {{offer = offer, spell = 1}}},
+        } end
+        N:Update()
+        Add("buffen", N.frame)
+    end)
+end
+
 local frame = ONE.UI.frame
 frame:ClearAllPoints() frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 frame:Show()
@@ -706,7 +766,7 @@ for _, id in ipairs(wanted) do
       if ns.Page then ns.Page.view = sub end
       id = mod
   end
-  if id == "chat" then DumpChat() else
+  if id == "fenster" then DumpWindows() elseif id == "chat" then DumpChat() else
     local ok, e = pcall(function() ONE.UI:Navigate(id) ONE.UI:Refresh() end)
     if not ok then errors[#errors+1] = "Seite " .. id .. ": " .. tostring(e) end
     local okD, list = pcall(Dump, frame)

@@ -378,6 +378,20 @@ end
 local TAGS = {group = "Gruppe", guild = "Gilde", friend = "Freund"}
 local CLICKS = {"Linksklick", "Rechtsklick", "Umschalt + Linksklick"}
 
+-- Fenster im aktiven Aussehen (Blizzard-Rahmen bzw. Pergamentblatt im Buch) und Texte in Theme-Farben
+-- Im Buch-Aussehen: helle Farbcodes als lesbare Tinte auf Pergament
+local function Ink(text)
+    local book = ONE.Book
+    if book and book.IsActive and book:IsActive() and book.InkCodes then return book.InkCodes(text) end
+    return text
+end
+local function Themed(frame, bg, title, texts)
+    local th = ONE.Themes
+    if not th then return end
+    if th.RegisterWindow then pcall(th.RegisterWindow, th, frame, bg, title) end
+    for fs, role in pairs(texts or {}) do if th.RegisterText then pcall(th.RegisterText, th, fs, role) end end
+end
+
 local function SavePos(f)
     f:StopMovingOrSizing()
     local _, _, _, x, y = f:GetPoint()
@@ -394,6 +408,7 @@ local function NewRow(parent, width, height)
     if hl.SetColorTexture then hl:SetColorTexture(1, 1, 1, .12) end
     b.label = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     b.label:SetPoint("LEFT", b, "LEFT", 4, 0)
+    if ONE.Themes and ONE.Themes.RegisterText then pcall(ONE.Themes.RegisterText, ONE.Themes, b.label, "text") end
     if b.label.SetJustifyH then b.label:SetJustifyH("LEFT") end
     b.icons = {}
     for i = 1, 3 do
@@ -449,6 +464,8 @@ function Nearby:Frame()
     f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     f.title:SetPoint("TOPLEFT", f, "TOPLEFT", 4, -4)
     f.rows = {}
+    f.bg = bg
+    Themed(f, bg, f.title)
     -- Im Kampf ausblenden – ueber Blizzards sichere Zustandssteuerung
     if type(RegisterStateDriver) == "function" then pcall(RegisterStateDriver, f, "visibility", "[combat] hide; show") end
     self.frame = f
@@ -495,7 +512,7 @@ function Nearby:Update()
         local text = c and c.colorStr and ("|c" .. c.colorStr .. short .. "|r") or short
         if e.level then text = text .. " |cffaaaaaa" .. e.level .. "|r" end
         if e.tag then text = text .. " |cff66ccff" .. T(TAGS[e.tag]) .. "|r" end
-        b.label:SetText(text)
+        b.label:SetText(Ink(text))
         if b.SetAlpha then b:SetAlpha(e.unit and 1 or .7) end
         for k = 1, 3 do
             local m = e.missing[k]

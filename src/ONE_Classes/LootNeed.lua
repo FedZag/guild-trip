@@ -113,6 +113,21 @@ function L:WhoText(itemID)
     return table.concat(parts, ", "), #parts
 end
 
+
+-- Fenster im aktiven Aussehen (Blizzard-Rahmen bzw. Pergamentblatt im Buch) und Texte in Theme-Farben
+-- Im Buch-Aussehen: helle Farbcodes als lesbare Tinte auf Pergament
+local function Ink(text)
+    local book = ONE.Book
+    if book and book.IsActive and book:IsActive() and book.InkCodes then return book.InkCodes(text) end
+    return text
+end
+local function Themed(frame, bg, title, texts)
+    local th = ONE.Themes
+    if not th then return end
+    if th.RegisterWindow then pcall(th.RegisterWindow, th, frame, bg, title) end
+    for fs, role in pairs(texts or {}) do if th.RegisterText then pcall(th.RegisterText, th, fs, role) end end
+end
+
 -- ===== Fenster =====
 function L:Frame()
     if self.frame then return self.frame end
@@ -137,6 +152,7 @@ function L:Frame()
     close:SetPoint("TOPRIGHT", f, "TOPRIGHT", 2, 2)
     close:SetScript("OnClick", function() f:Hide() end)
     f.lines = {}
+    Themed(f, bg, f.title)
     f:Hide()
     self.frame = f
     return f
@@ -159,12 +175,13 @@ function L:Refresh()
             line = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             line:SetWidth(284)
             if line.SetJustifyH then line:SetJustifyH("LEFT") end
+            if ONE.Themes and ONE.Themes.RegisterText then pcall(ONE.Themes.RegisterText, ONE.Themes, line, "text") end
             f.lines[i] = line
         end
         line:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -26 - (i - 1) * 30)
         local name = self.needs[id].link
         if not (type(name) == "string" and name:find("|H")) then name = Call(rawget(_G, "GetItemInfo"), id) or ("#" .. id) end
-        line:SetText(name .. "\n|cff40ff40" .. self:WhoText(id) .. "|r")
+        line:SetText(Ink(name .. "\n|cff40ff40" .. self:WhoText(id) .. "|r"))
         line:Show()
     end
     for i = n + 1, #f.lines do f.lines[i]:Hide() end

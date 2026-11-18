@@ -188,6 +188,21 @@ function Board:Feed()
     return out
 end
 
+
+-- Fenster im aktiven Aussehen (Blizzard-Rahmen bzw. Pergamentblatt im Buch) und Texte in Theme-Farben
+-- Im Buch-Aussehen: helle Farbcodes als lesbare Tinte auf Pergament
+local function Ink(text)
+    local book = ONE.Book
+    if book and book.IsActive and book:IsActive() and book.InkCodes then return book.InkCodes(text) end
+    return text
+end
+local function Themed(frame, bg, title, texts)
+    local th = ONE.Themes
+    if not th then return end
+    if th.RegisterWindow then pcall(th.RegisterWindow, th, frame, bg, title) end
+    for fs, role in pairs(texts or {}) do if th.RegisterText then pcall(th.RegisterText, th, fs, role) end end
+end
+
 -- ===== Fenster =====
 local function Button(parent, label, width)
     local ok, b = pcall(CreateFrame, "Button", nil, parent, "UIPanelButtonTemplate")
@@ -208,7 +223,7 @@ Board.Age = Age
 function Board:Frame()
     if self.frame then return self.frame end
     local f = CreateFrame("Frame", "GuildTripBoard", UIParent)
-    f:SetSize(380, 90 + self.rows * 24)
+    f:SetSize(420, 90 + self.rows * 24)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
     if f.SetFrameStrata then f:SetFrameStrata("DIALOG") end
     if f.SetMovable then f:SetMovable(true) end
@@ -230,7 +245,7 @@ function Board:Frame()
     -- Eingabe
     local okE, edit = pcall(CreateFrame, "EditBox", nil, f, "InputBoxTemplate")
     if not okE or not edit then edit = CreateFrame("EditBox", nil, f) end
-    edit:SetSize(270, 20)
+    edit:SetSize(310, 20)
     edit:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -32)
     if edit.SetAutoFocus then edit:SetAutoFocus(false) end
     if edit.SetMaxLetters then edit:SetMaxLetters(self.maxLen) end
@@ -252,11 +267,11 @@ function Board:Frame()
     f.rows = {}
     for i = 1, self.rows do
         local row = CreateFrame("Frame", nil, f)
-        row:SetSize(356, 22)
+        row:SetSize(396, 22)
         row:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -78 - (i - 1) * 24)
         row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         row.text:SetPoint("LEFT", row, "LEFT", 0, 0)
-        row.text:SetWidth(266)
+        row.text:SetWidth(304)
         if row.text.SetJustifyH then row.text:SetJustifyH("LEFT") end
         if row.text.SetWordWrap then row.text:SetWordWrap(false) end
         row.action = Button(row, "", 86)
@@ -268,6 +283,10 @@ function Board:Frame()
         end)
         f.rows[i] = row
     end
+    local texts = {[f.hint] = "soft", [f.empty] = "soft"}
+    for _, row in ipairs(f.rows) do texts[row.text] = "text" end
+    Themed(f, bg, f.title, texts)
+    if ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() and ONE.Book.StyleEditBox then pcall(ONE.Book.StyleEditBox, ONE.Book, edit) end
     f:Hide()
     self.frame = f
     return f
@@ -285,7 +304,7 @@ function Board:Refresh()
             local helpers = 0
             for _ in pairs(e.helpers or {}) do helpers = helpers + 1 end
             local extra = helpers > 0 and (" |cff40ff40" .. T("(%d helfen)", helpers) .. "|r") or ""
-            row.text:SetText(who .. ": " .. e.text .. " |cff888888" .. Age(e.at) .. "|r" .. extra)
+            row.text:SetText(Ink(who .. ": " .. e.text .. " |cff888888" .. Age(e.at) .. "|r" .. extra))
             row.action:SetText(e.mine and T("Erledigt") or T("Ich helfe"))
             row:Show()
         else
@@ -293,6 +312,8 @@ function Board:Refresh()
         end
     end
     if #list == 0 then f.empty:Show() else f.empty:Hide() end
+    -- so hoch wie der Inhalt
+    f:SetHeight(96 + math.max(1, math.min(#list, self.rows)) * 24)
 end
 
 function Board:Open()
