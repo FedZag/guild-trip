@@ -129,6 +129,8 @@ function Welcome:Populate(view)
     if not view then return end
     local name = UnitName and UnitName("player") or nil
     view.heading:SetText(Greeting() .. (name and (", " .. name) or "") .. "!")
+    -- Tagesspruch (derselbe wie auf der Startseite)
+    if view.quip then view.quip:SetText(ONE.UI and ONE.UI.Quip and ONE.UI:Quip() or "") end
     local now = C_DateAndTime and C_DateAndTime.GetCurrentCalendarTime and C_DateAndTime.GetCurrentCalendarTime()
     if now then
         view.date:SetText(string.format(T("Dein Tagesüberblick für den %02d.%02d.%04d"), now.monthDay, now.month, now.year))
@@ -173,11 +175,13 @@ function Welcome:BuildCentralView(panel)
     local view = {}
     AddLabel(panel, T("Deine Termine heute"), "GameFontNormalLarge", 0, -4, 650)
     view.heading = AddLabel(panel, "", "GameFontNormal", 0, -36, 650)
-    view.date = AddLabel(panel, "", "GameFontHighlightSmall", 0, -63, 650)
-    AddLabel(panel, T("Deine nächsten Termine heute"), "GameFontNormal", 0, -101, 650)
+    view.quip = AddLabel(panel, "", "GameFontHighlight", 0, -58, 650)
+    if view.quip.SetWordWrap then view.quip:SetWordWrap(true) end
+    view.date = AddLabel(panel, "", "GameFontHighlightSmall", 0, -90, 650)
+    AddLabel(panel, T("Deine nächsten Termine heute"), "GameFontNormal", 0, -118, 650)
     view.rows = {}
     for i = 1, 6 do
-        view.rows[i] = AddLabel(panel, "", "GameFontHighlight", 6, -130 - (i - 1) * 29, 665)
+        view.rows[i] = AddLabel(panel, "", "GameFontHighlight", 6, -144 - (i - 1) * 27, 665)
     end
     view.summary = AddLabel(panel, "", "GameFontHighlightSmall", 0, -310, 665)
     AddLabel(panel, T("Blizzard-Weltereignisse folgen in einer späteren Version."), "GameFontDisableSmall", 0, -334, 650)
@@ -222,11 +226,13 @@ function Welcome:BuildUI()
     local title = AddLabel(frame, "GUILD TRIP  |  TAGESÜBERBLICK", "GameFontNormalSmall", 22, -18, 520)
     self.popup = {}
     self.popup.heading = AddLabel(frame, "", "GameFontNormalLarge", 22, -49, 510)
-    self.popup.date = AddLabel(frame, "", "GameFontHighlightSmall", 22, -82, 510)
-    AddLabel(frame, T("Deine nächsten Termine heute"), "GameFontNormal", 22, -121, 520)
+    self.popup.quip = AddLabel(frame, "", "GameFontHighlight", 22, -76, 540)
+    if self.popup.quip.SetWordWrap then self.popup.quip:SetWordWrap(true) end
+    self.popup.date = AddLabel(frame, "", "GameFontHighlightSmall", 22, -108, 510)
+    AddLabel(frame, T("Deine nächsten Termine heute"), "GameFontNormal", 22, -131, 520)
     self.popup.rows = {}
     for i = 1, 6 do
-        self.popup.rows[i] = AddLabel(frame, "", "GameFontHighlight", 26, -151 - (i - 1) * 30, 530)
+        self.popup.rows[i] = AddLabel(frame, "", "GameFontHighlight", 26, -158 - (i - 1) * 29, 530)
     end
     self.popup.summary = AddLabel(frame, "", "GameFontHighlightSmall", 22, -337, 545)
     AddLabel(frame, T("Blizzard-Weltereignisse folgen in einer späteren Version."), "GameFontDisableSmall", 22, -358, 540)
