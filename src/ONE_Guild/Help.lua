@@ -219,7 +219,17 @@ function Help:Initialize()
     if ONE.RegisterSlash then
         ONE:RegisterSlash("sos", function(rest) Help:Slash(rest) end, T("Hilferuf an die Gilde: /trip sos [Text], /trip sos aus"))
     end
+    -- Knopf unten in der Gildenspalte des Hauptfensters; laeuft ein Ruf, beendet er ihn
+    if ONE.UI and ONE.UI.AddColumnAction then
+        ONE.UI:AddColumnAction("help", {order = 90, style = "danger",
+            label = function() return Help:Active() and "Hilferuf beenden" or "Hilferuf an die Gilde" end,
+            onClick = function()
+                if Help:Active() then Help:Cancel() else Help:Call("") end
+                if ONE.UI.column then ONE.UI.column.Update() end
+            end})
+    end
 end
+function Help:Active() return self.lastCall ~= nil and Clock() - self.lastCall < self.keep end
 
 -- Tastenbelegung (Bindings.xml)
 _G.BINDING_HEADER_GUILDTRIPHELP = "Guild Trip"
