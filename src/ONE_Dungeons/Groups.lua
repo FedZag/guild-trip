@@ -43,7 +43,6 @@ function Groups:Build(panel)
     if not self.embedded then Text(panel, "GameFontNormalLarge", 0, -4, 180, "accent", T("Gruppen")) end
     local intro = Text(panel, "GameFontHighlightSmall", 0, -30, W, "soft",
         T("Gildeninterner Gruppenfinder – nur für Mitglieder mit Guild Trip."))
-    if bookL then intro:Hide() end
     -- Einstellungen rechts oben: zwei Haekchen (an/aus) und die Rolle als Dropdown
     local function Changed() Groups:Refresh() end
     -- "Fortschritt teilen" steht in Optionen › Teilen
@@ -65,11 +64,10 @@ function Groups:Build(panel)
             {key = "age", title = "SEIT", width = 54, align = "CENTER"},
             {key = "fit", title = "FÜR DICH", width = W - 24 - 6 - 178 - 110 - 150 - 52 - 54 - 40},
         }
-    local listH = bookL and (H - 54 - 8) or (22 * 7 + 22)
-    local list = ONE.Kit:List(panel, {x = 0, y = -54, width = bookL and bookL.width or W, height = listH, rowHeight = 22,
+    local listH = (22 * 7 + 22)
+    local list = ONE.Kit:List(panel, {x = 0, y = -54, width = W, height = listH, rowHeight = 22,
         columns = cols,
         render = function(row, ad, cells)
-            if bookL then cells.roles:Hide() cells.age:Hide() end
             local fits, open, over = S:Fit(ad)
             cells.dungeon:SetText(S:AdName(ad))
             cells.dungeon:SetTextColor(1, .82, 0)
@@ -100,32 +98,27 @@ function Groups:Build(panel)
         end,
         onClick = function(_, ad) state.ad = ad Groups:Refresh() end,
     })
-    local empty = Text(panel, "GameFontHighlight", 16, -98, (bookL and bookL.width or W) - 32, "soft")
+    local empty = Text(panel, "GameFontHighlight", 16, -98, (W) - 32, "soft")
     if empty.SetWordWrap then empty:SetWordWrap(true) end
 
     -- Detailkarte unten
     local cardTop = -54 - (22 * 7 + 22) - 10
     local CW = W
     local card = CreateFrame("Frame", nil, panel)
-    if bookL then
-        cardTop, CW = -54, bookR.width
-        card:SetPoint("TOPLEFT", panel, "TOPLEFT", bookR.x, cardTop)
-    else
-        card:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, cardTop)
-    end
+    card:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, cardTop)
     card:SetSize(CW, H + cardTop)
     if ONE.Themes then ONE.Themes:RegisterPanel(card) end
     -- Buch: Texte volle Breite, Knoepfe in eigener Zeile darunter, Meldungen danach
-    local TW = bookL and (CW - 32) or (W - 220)
-    local headline = Text(card, "GameFontNormal", 16, -12, bookL and TW or (W - 390), "accent")
+    local TW = (W - 220)
+    local headline = Text(card, "GameFontNormal", 16, -12, (W - 390), "accent")
     -- Feste Zeilen statt eines umbrechenden Textblocks: nichts kann sich ueberlappen.
     local info = Text(card, "GameFontHighlight", 16, -34, TW, "text")
     local noteLine = Text(card, "GameFontHighlight", 16, -54, TW, "soft")
     local fitLine = Text(card, "GameFontHighlight", 16, -74, TW, "text")
     for _, fs in ipairs({info, noteLine, fitLine}) do if fs.SetWordWrap then fs:SetWordWrap(false) end end
-    local appliedHead = Text(card, "GameFontNormalSmall", 16, bookL and -134 or -98, 300, "accent")
-    local BW = bookL and 145 or 170
-    local function BP(right) if bookL then return "TOPLEFT", right and (16 + BW + 10) or 16, -100 end return "TOPRIGHT", right and -12 or -190, -10 end
+    local appliedHead = Text(card, "GameFontNormalSmall", 16, -98, 300, "accent")
+    local BW = 170
+    local function BP(right) return "TOPRIGHT", right and -12 or -190, -10 end
     local p1, x1, y1 = BP(false)
     local guildChat = ONE.Widgets:Button(card, T("Im Gildenchat posten"), BW, 26, p1, x1, y1, function()
         if S:PostToGuildChat() then ONE:Print(T("Gesuch im Gildenchat gepostet.")) end
@@ -141,9 +134,9 @@ function Groups:Build(panel)
     -- Meldungen beim eigenen Gesuch (bis zu 4 sichtbar)
     local applicants = {}
     for i = 1, 3 do
-        local y = (bookL and -150 or -114) - (i - 1) * 28
-        local AW = bookL and 84 or 120
-        local label = Text(card, "GameFontHighlight", 16, y - 4, bookL and (CW - 32 - 2 * AW - 20) or (W - 300), "text")
+        local y = (-114) - (i - 1) * 28
+        local AW = 120
+        local label = Text(card, "GameFontHighlight", 16, y - 4, (W - 300), "text")
         local invite = ONE.Widgets:Button(card, T("Einladen"), AW, 24, "TOPRIGHT", -(12 + AW + 12), y, function()
             local a = applicants[i].who
             if a and not S:Invite(a.name) then ONE:Print(T("Einladen ging nicht – bitte per Rechtsklick einladen.")) end

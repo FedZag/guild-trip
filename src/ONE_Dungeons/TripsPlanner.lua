@@ -153,12 +153,12 @@ function Planner:Build(panel, onDone)
     -- Kaesten: Lage je nach Aussehen
     local half = math.floor((W - 12) / 2)
     -- Ueberschrift oben rechts (oben links liegen die Umschalter Dungeons | Gruppen | Ausfluege)
-    local hx, hw = bookR and bookR.x or (half + 12), bookR and bookR.width or half
+    local hx, hw = (half + 12), half
     local head = Text(f, "GameFontNormalLarge", hx, -4, hw, "accent", "Termin planen")
     Text(f, "GameFontHighlightSmall", hx, -24, hw, "soft", "Pflicht: nur Art, Titel und Tag")
     if head.SetWordWrap then head:SetWordWrap(false) end
-    local C1 = {x = bookL and bookL.x or 0, w = bookL and bookL.width or half}
-    local C2 = {x = bookR and bookR.x or (half + 12), w = bookR and bookR.width or half}
+    local C1 = {x = 0, w = half}
+    local C2 = {x = (half + 12), w = half}
     -- Kasten 1: drei Reihen Arten; Kasten 2: vier Zeilen (Tag, Beginn+Dauer, Wiederholen, Erinnerung)
     local place = bookL and {
         {C1, -44, 168}, {C1, -218, 148}, {C2, -44, 84}, {C2, -134, 116},
@@ -294,14 +294,14 @@ function Planner:Build(panel, onDone)
     -- Zusammenfassung und Knoepfe
     -- Buch: rechte Seite unter Kasten 4; sonst unter allen Kaesten ueber die volle Breite.
     -- Der Hinweis "was fehlt" steht in einer eigenen Zeile ueber den Knoepfen.
-    local sumX, sumY, sumW = bookR and bookR.x or 0, bookR and -262 or -344, bookR and bookR.width or W
+    local sumX, sumY, sumW = 0, -344, W
     local summary = Text(f, "GameFontHighlight", sumX, sumY, sumW, "text")
     if summary.SetWordWrap then summary:SetWordWrap(true) end
-    local missing = Text(f, "GameFontHighlightSmall", sumX, bookR and -326 or -390, bookR and sumW or (W - 2 * 140 - 30), "soft")
+    local missing = Text(f, "GameFontHighlightSmall", sumX, -390, (W - 2 * 140 - 30), "soft")
     if missing.SetWordWrap then missing:SetWordWrap(false) end
-    local BW = bookR and 140 or 120
-    local bx = (bookR and (bookR.x + bookR.width) or W) - 2 * BW - 8
-    local by = bookR and -350 or -386
+    local BW = 120
+    local bx = (W) - 2 * BW - 8
+    local by = -386
     ONE.Widgets:Button(f, T("Abbrechen"), BW, 26, "TOPLEFT", bx, by, function()
         f:Hide()
         if onDone then onDone(nil) end

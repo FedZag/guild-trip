@@ -230,14 +230,8 @@ function UI:BuildCalendar(panel)
     -- (der Reiter heisst schon "Kalender"), alles 52 px hoeher, breitere rechte Spalte
     -- mit Tag, "Demnaechst" und "Was steht an", unten eine saubere Filter-/Knopfzeile.
     local bookL, bookR
-    local UP = bookL and 0 or 52
-    if bookL then
-        ONE.Widgets:PageHeader(list,T("Kalender"),
-            T("Monatsübersicht mit Kalenderwochen, WoW-Events und Gildenterminen"),W)
-        Card(list, 0, -59, W, 289)
-    else
-        Card(list, 0, -4, W, 354)
-    end
+    local UP = 52
+    Card(list, 0, -4, W, 354)
 
     local today = Dates.Today(guild.Calendar)
     local view = {year = today.year, month = today.month}
@@ -271,11 +265,10 @@ function UI:BuildCalendar(panel)
     local GX, KWW, CW, CH, TOP = 8, 26, 62, 39, -108
     if UP > 0 then CW, CH, TOP = 54, 46, -108 + UP end
     -- Buch: Monatsraster auf der linken Seite, Tagesansicht auf der rechten
-    if bookL then GX, KWW, CW = bookL.x, 22, math.floor((bookL.width - 22) / 7) end
-    local ICON, STEP = bookL and 12 or 14, bookL and 13 or 16
+    local ICON, STEP = 14, 16
     local gridRight = GX + KWW + 7 * CW
-    local RX = bookR and bookR.x or gridRight + 12
-    local RW = bookR and bookR.width or W - RX - 10
+    local RX = gridRight + 12
+    local RW = W - RX - 10
 
     -- Monat wechseln (der Client haelt Vormonat bis naechsten Monat vor).
     local function Move(delta)
@@ -303,7 +296,6 @@ function UI:BuildCalendar(panel)
 
     -- Kopfzeile: KW, Mo ... So
     local kwHead = Label(list, "KW", "GameFontDisableSmall", GX, -92 + UP, KWW)
-    if bookL and kwHead.SetFont then pcall(kwHead.SetFont, kwHead, ONE.Book.bodyFont, 11, "") kwHead.__oneOldPrint = true end
     kwHead:SetJustifyH("CENTER")
     for i, name in ipairs(Dates.weekdaysShort) do
         name = T(name)
@@ -386,17 +378,16 @@ function UI:BuildCalendar(panel)
 
     -- Rechte Spalte: ausgewaehlter Tag und "Demnaechst"
     -- Buch: rechts oben "Was steht an" (von der Gilde-Seite), darunter der Tag
-    local D = bookL and -14 or UP
+    local D = UP
     local feedRows = {}
     -- "Was steht an": im Buch rechts oben, sonst unten in der rechten Spalte
-    local feedTop = bookL and -4 or -284
+    local feedTop = -284
     do
-        local head = Label(list, T("Was steht an"), bookL and "GameFontNormal" or "GameFontNormalSmall", RX, feedTop, RW)
-        if bookL and head.SetFont then pcall(head.SetFont, head, ONE.Book.font, 15, "") end
+        local head = Label(list, T("Was steht an"), "GameFontNormalSmall", RX, feedTop, RW)
         for i = 1, 3 do
             local b = CreateFrame("Button", nil, list)
             b:SetSize(RW, 16)
-            b:SetPoint("TOPLEFT", list, "TOPLEFT", RX, feedTop - (bookL and 20 or 16) - (i - 1) * 17)
+            b:SetPoint("TOPLEFT", list, "TOPLEFT", RX, feedTop - (16) - (i - 1) * 17)
             b.icon = b:CreateTexture(nil, "ARTWORK")
             b.icon:SetSize(14, 14)
             b.icon:SetPoint("LEFT", b, "LEFT", 0, 0)
@@ -410,10 +401,10 @@ function UI:BuildCalendar(panel)
         end
     end
     local dayTitle = Label(list, "", "GameFontNormal", RX, -66 + D, RW)
-    local daySub = Label(list, "", "GameFontHighlightSmall", RX, -84 + D - (bookL and 4 or 0), RW)
+    local daySub = Label(list, "", "GameFontHighlightSmall", RX, -84 + D - (0), RW)
     local dayEntries = {}
-    local TIMEW = bookL and 54 or 64
-    local dayList = ONE.Kit:List(list, {x = RX, y = -102 + D - (bookL and 4 or 0), width = RW, height = bookL and 128 or 124, rowHeight = 30,
+    local TIMEW = 64
+    local dayList = ONE.Kit:List(list, {x = RX, y = -102 + D - (0), width = RW, height = 124, rowHeight = 30,
         columns = {
             {key = "time", title = "ZEIT", width = TIMEW},
             {key = "title", title = "EINTRAG", width = RW - 24 - 6 - TIMEW - 12, indent = 20},
@@ -454,16 +445,16 @@ function UI:BuildCalendar(panel)
         {x=RX,y=-124+D,width=RW,height=100,parentWidth=W,parentHeight=ONE.Geometry.tokens.contentHeight},
         T("Kein Eintrag"),
         T("An diesem Tag steht nichts im Kalender."))
-    Label(list, T("Demnächst"), "GameFontNormalSmall", RX, bookL and -252 or -196, RW)
+    Label(list, T("Demnächst"), "GameFontNormalSmall", RX, -196, RW)
     local upcoming = {}
-    for i = 1, bookL and 5 or 4 do upcoming[i] = Label(list, "", "GameFontHighlightSmall", RX, (bookL and -254 or -196) - i * 16, RW) end
+    for i = 1, 4 do upcoming[i] = Label(list, "", "GameFontHighlightSmall", RX, (-196) - i * 16, RW) end
     for _, line in ipairs(upcoming) do if line.SetWordWrap then line:SetWordWrap(false) end end
 
     -- Eigene Aktionszeile unter der Karte: Status und Schaltflaeche
     -- duerfen nicht uebereinander liegen. Die rechte Kante folgt dem Raster.
     local inset=ONE.Geometry.tokens.panelStrokeInset
     local refreshRegion={x=inset,y=-353,width=W-2*inset}
-    local FOOT = bookL and -355 or -366
+    local FOOT = -366
     -- Filter = Legende: Haekchen mit Farbe je Art
     local filterDefs = {
         {key = "holiday", label = "WoW-Events", color = TYPE_COLOR.HOLIDAY},
@@ -488,22 +479,16 @@ function UI:BuildCalendar(panel)
     -- das Formular fuer einen Gildenausflug (eigenes Ziel vorgewaehlt). Der WoW-Kalender
     -- wird nie geoeffnet.
     local FBW = 150
-    local createButton = ONE.Widgets:Button(list, T("Termin erstellen"), bookR and 124 or FBW, 24, "TOPLEFT",
-        bookR and bookR.x or (W - inset - 2 * FBW - 8), FOOT, function()
+    local createButton = ONE.Widgets:Button(list, T("Termin erstellen"), FBW, 24, "TOPLEFT",
+        (W - inset - 2 * FBW - 8), FOOT, function()
         local dm = ONE.modules and ONE.modules.dungeons
         if dm and dm.PlanTrip then dm:PlanTrip()
         else ONE:Print(T("Termine planst du mit dem Modul Dungeons (Optionen › Dungeons).")) end
     end)
     local refreshButton
-    if bookL then
-        refreshButton = ONE.Widgets:ActionButton(list,T("Jetzt aktualisieren"),refreshRegion,function()
-            guild.Calendar:RequestRefresh()
-        end,"secondary","toolbar","right")
-    else
-        refreshButton = ONE.Widgets:Button(list, T("Jetzt aktualisieren"), FBW, 24, "TOPLEFT", W - inset - FBW, FOOT, function()
-            guild.Calendar:RequestRefresh()
-        end)
-    end
+    refreshButton = ONE.Widgets:Button(list, T("Jetzt aktualisieren"), FBW, 24, "TOPLEFT", W - inset - FBW, FOOT, function()
+        guild.Calendar:RequestRefresh()
+    end)
     -- Status (z. B. "6 WoW-Events in diesem Monat") nur noch im Tooltip
     if refreshButton and refreshButton.SetScript then
         refreshButton:SetScript("OnEnter", function(self)
@@ -550,9 +535,9 @@ function UI:BuildCalendar(panel)
         end)
     end
     for i, a in ipairs({{"yes", "Zusagen"}, {"maybe", "Vielleicht"}, {"no", "Absagen"}}) do
-        local ax = bookR and (bookR.x + (i - 1) * math.floor(bookR.width / 3)) or (W - (4 - i) * 128)
-        local ay = bookR and -80 or -364
-        answerButtons[i] = ONE.Widgets:Button(detail, T(a[2]), bookR and (math.floor(bookR.width / 3) - 8) or 120, 24, "TOPLEFT", ax, ay,
+        local ax = (W - (4 - i) * 128)
+        local ay = -364
+        answerButtons[i] = ONE.Widgets:Button(detail, T(a[2]), 120, 24, "TOPLEFT", ax, ay,
             function() Answer(a[1]) end, a[1] == "yes" and "primary" or nil)
     end
 
@@ -646,8 +631,7 @@ function UI:BuildCalendar(panel)
                 cell.more:SetText(#shown > 3 and ("+" .. (#shown - 3)) or "")
                 if running then
                     local c = TYPE_COLOR.HOLIDAY
-                    if bookL then cell.span:SetColorTexture(.55, .30, .10, d.inMonth and .45 or .2)
-                    else cell.span:SetColorTexture(c[1], c[2], c[3], d.inMonth and .8 or .35) end
+                    cell.span:SetColorTexture(c[1], c[2], c[3], d.inMonth and .8 or .35)
                     cell.span:Show()
                 else
                     cell.span:Hide()
@@ -791,21 +775,7 @@ function UI:BuildGuild(panel)
     local LW=446
     local RX,RW=LW+12,W-LW-12
     local bookL, bookR = nil, nil
-    if bookL then
-        -- Buch: Kopf links (Fakten duerfen zweizeilig sein), Nachricht des Tages rechts oben;
-        -- die Online-Liste laeuft ueber beide Seiten, "Was steht an" steht im Kalender
-        LW,RX,RW=bookL.width,bookR.x,bookR.width
-        title:SetWidth(bookL.width)
-        facts:SetWidth(bookL.width)
-        if facts.SetWordWrap then facts:SetWordWrap(true) end
-        if facts.SetMaxLines then facts:SetMaxLines(2) end
-        motd:ClearAllPoints()
-        motd:SetPoint("TOPLEFT",panel,"TOPLEFT",bookR.x,-8)
-        motd:SetWidth(bookR.width)
-        if motd.SetWordWrap then motd:SetWordWrap(true) end
-        if motd.SetMaxLines then motd:SetMaxLines(3) end
-    end
-    local NAMEW=bookL and 110 or 150
+    local NAMEW=150
     -- 0.6.8 Symbolleiste: Gildenname + Zahlen stehen in der Kopfzeile, Seite rueckt hoch,
     -- die Karten bekommen die frei gewordene Hoehe
     local lift=0
@@ -885,46 +855,11 @@ function UI:BuildGuild(panel)
     -- Buch: wie ein Kassenbuch ueber beide Seiten – links Name und Stufe, rechts auf
     -- gleicher Hoehe Gebiet und Navi; beide Listen scrollen gemeinsam
     local list2
-    if bookL then
-        local inner=LW-20-24-8
-        listOpts.columns={
-            {key="name",title="NAME",width=inner-56,indent=22},
-            {key="level",title="STUFE",width=48,align="CENTER"},
-        }
-    end
-    if bookL then listOpts.noScrollBar=true end
     local list=ONE.Kit:List(left,listOpts)
-    if bookL then
-        local more=Card(panel,RX,cardY,RW,cardH)
-        CardHeader(more,"","GameFontNormal",RW)
-        local inner=RW-20-24-8
-        local opts2={}
-        for k,v in pairs(listOpts) do opts2[k]=v end
-        opts2.width=RW-20
-        opts2.noScrollBar=nil
-        opts2.columns={
-            {key="zone",title="GEBIET",width=inner-52},
-            {key="live",title="NAVI",width=44,align="CENTER"},
-        }
-        list2=ONE.Kit:List(more,opts2)
-        local syncing=false
-        local function Sync(from,to)
-            if not (from.scroll.HookScript and to.scroll.SetVerticalScroll) then return end
-            from.scroll:HookScript("OnVerticalScroll",function(_,value)
-                if syncing then return end
-                syncing=true
-                to.scroll:SetVerticalScroll(value or 0)
-                to:Update()
-                syncing=false
-            end)
-        end
-        Sync(list,list2) Sync(list2,list)
-    end
     local noneOnline=Label(left,"","GameFontHighlightSmall",22,-76,LW-44)
 
     -- Rechts: Was steht an (im Buch auf der Kalenderseite)
-    local right=Card(panel,bookL and 0 or RX,cardY,RW,cardH)
-    if bookL then right:Hide() end
+    local right=Card(panel,RX,cardY,RW,cardH)
     CardHeader(right,T("IN DER GILDE LOS"),"GameFontNormal",RW)
     local feedRows={}
     for i=1,7 do
@@ -950,13 +885,13 @@ function UI:BuildGuild(panel)
     ONE.Widgets:Button(panel,T("Weltkarte"),130,24,"TOPLEFT",0,by,function()
         if guild.Pins then guild.Pins:OpenMap() end
     end)
-    local allMembers=ONE.Widgets:Button(panel,T("Alle Mitglieder"),140,24,"TOPLEFT",bookL and 150 or 136,by,function()
+    local allMembers=ONE.Widgets:Button(panel,T("Alle Mitglieder"),140,24,"TOPLEFT",136,by,function()
         if guild.Roster then guild.Roster:Request() end
         ONE.UI:Navigate("guild-members")
     end)
     -- mit Symbolleiste ist "Mitglieder" eine Ansicht oben; Gildenfenster rueckt nach
     if sidebar then ONE.UI:RetireButtons(allMembers) end
-    ONE.Widgets:Button(panel,T("Gildenfenster"),140,24,"TOPLEFT",bookR and bookR.x or (sidebar and 136 or 282),by,function()
+    ONE.Widgets:Button(panel,T("Gildenfenster"),140,24,"TOPLEFT",(sidebar and 136 or 282),by,function()
         if guild.Roster then guild.Roster:OpenNativeGuildUI() end
     end)
     -- "Meine Position teilen" steht in Optionen › Teilen

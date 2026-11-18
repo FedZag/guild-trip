@@ -177,29 +177,27 @@ function Page:Build(panel)
     self.view = self.view or "guild"
     local bookL, bookR
     local LX, LW, LY = 0, W, 0          -- Zielauswahl (Reiter + Liste)
-    if bookL then LX, LW = bookR.x, bookR.width end
 
     -- Oben: aktuelles Ziel mit Entfernung und Reisetipp
-    local top = Card(panel, 0, 0, bookL and bookL.width or W, bookL and 150 or 92, "AKTUELLES ZIEL")
+    local top = Card(panel, 0, 0, W, 92, "AKTUELLES ZIEL")
     local icon = top:CreateTexture(nil, "ARTWORK")
     icon:SetSize(40, 40)
-    icon:SetPoint("TOPLEFT", top, "TOPLEFT", 16, bookL and -50 or -40)
+    icon:SetPoint("TOPLEFT", top, "TOPLEFT", 16, -40)
     icon:SetTexture("Interface\\AddOns\\ONE_Nav\\Textures\\Arrow")
     if icon.SetVertexColor then icon:SetVertexColor(1, .82, 0) end
-    local textW = bookL and (bookL.width - 66 - 10) or (W - 66 - 150)
-    local goal = ONE.Kit:Stack(top, 66, bookL and -50 or -40, textW, 0):Text("", "body", "accent")
-    local tip = ONE.Kit:Stack(top, 66, bookL and -72 or -60, textW, 0):Text("", "small", "soft", bookL and 3 or nil)
-    local stop = ONE.Widgets:Button(top, T("Navi beenden"), 130, 26, bookL and "TOPLEFT" or "TOPRIGHT",
-        bookL and 66 or -14, bookL and -122 or -44, function()
+    local textW = (W - 66 - 150)
+    local goal = ONE.Kit:Stack(top, 66, -40, textW, 0):Text("", "body", "accent")
+    local tip = ONE.Kit:Stack(top, 66, -60, textW, 0):Text("", "small", "soft", nil)
+    local stop = ONE.Widgets:Button(top, T("Navi beenden"), 130, 26, "TOPRIGHT",
+        -14, -44, function()
         nav.Arrow:Stop(T("Navi beendet.")) ONE.UI:Refresh()
     end, "primary")
 
     -- Umschalter: Gilde | Lehrer | Flugmeister
     local tabs = {}
-    local tabY = bookL and -4 or -102
+    local tabY = -102
     local function Tab(id, x, width)
         -- Buch: vier Reiter muessen auf die rechte Seite passen
-        if bookL then local f = math.min(.88, LW / 470) width = math.floor(width * f) x = LX + math.floor(x * f) end
         tabs[id] = ONE.Widgets:Button(panel, "", width, 24, "TOPLEFT", x, tabY, function()
             Page.view = id ONE.UI:Refresh()
         end)
@@ -213,33 +211,33 @@ function Page:Build(panel)
     if headerViews then ONE.UI:RetireButtons(tabs.guild, tabs.trainers, tabs.flights, tabs.merchants) end
 
     -- Lehrer-Art (nur in der Ansicht Lehrer): im Buch links unter dem Ziel, sonst rechts neben den Reitern
-    local trainerFilter = ONE.Kit:Dropdown(panel, {point = "TOPLEFT", x = bookL and 16 or (W - 200), y = bookL and -160 or (tabY - 2),
-        width = bookL and math.min(220, bookL.width - 32) or 200,
+    local trainerFilter = ONE.Kit:Dropdown(panel, {point = "TOPLEFT", x = (W - 200), y = (tabY - 2),
+        width = 200,
         options = function() return Page:TrainerFilterOptions() end,
         get = function() return Page:TrainerFilter() end, set = function(v) Page:SetTrainerFilter(v) end,
         onChange = function() ONE.UI:Refresh() end})
 
     -- Haendler-Angebot (nur in der Ansicht Haendler), gleicher Platz wie die Lehrer-Auswahl
-    local merchantFilter = ONE.Kit:Dropdown(panel, {point = "TOPLEFT", x = bookL and 16 or (W - 200), y = bookL and -160 or (tabY - 2),
-        width = bookL and math.min(220, bookL.width - 32) or 200,
+    local merchantFilter = ONE.Kit:Dropdown(panel, {point = "TOPLEFT", x = (W - 200), y = (tabY - 2),
+        width = 200,
         options = function() return nav.Merchants:FilterOptions() end,
         get = function() return nav.Merchants:Filter() end, set = function(v) nav.Merchants:SetFilter(v) end,
         onChange = function() ONE.UI:Refresh() end})
 
-    local listY = bookL and -36 or -134
-    local listH = bookL and (H - 36 - 8) or (H - 134 - 8)
-    local NAMEW, DISTW = bookL and 150 or 200, bookL and 64 or 110
+    local listY = -134
+    local listH = (H - 134 - 8)
+    local NAMEW, DISTW = 200, 110
     local list = ONE.Kit:List(panel, {x = LX, y = listY, width = LW, height = listH, rowHeight = 24,
         columns = {
             {key = "name", title = "ZIEL", width = NAMEW, indent = 8},
-            {key = "info", title = bookL and "" or "WO", width = math.max(4, LW - 24 - NAMEW - DISTW - 36 - 24)},
-            {key = "dist", title = bookL and "WEG" or "ENTFERNUNG", width = DISTW, align = "RIGHT"},
+            {key = "info", title = "WO", width = math.max(4, LW - 24 - NAMEW - DISTW - 36 - 24)},
+            {key = "dist", title = "ENTFERNUNG", width = DISTW, align = "RIGHT"},
             {key = "go", title = "", width = 36, align = "CENTER"},
         },
         render = function(row, it, cells)
             cells.name:SetText(it.name)
             cells.name:SetTextColor(1, .82, 0)
-            cells.info:SetText(bookL and "" or (it.info or ""))
+            cells.info:SetText((it.info or ""))
             cells.info:SetTextColor(.85, .85, .85)
             cells.dist:SetText(it.distText or "")
             -- kleiner Navi-Pfeil; nur er startet das Navi (Zeilenklick nicht mehr, Nutzer-Wunsch)
@@ -278,7 +276,7 @@ function Page:Build(panel)
             GameTooltip:Show()
         end,
     })
-    local empty = ONE.Kit:Stack(panel, LX + 12, bookL and -72 or -170, LW - 24, 4)
+    local empty = ONE.Kit:Stack(panel, LX + 12, -170, LW - 24, 4)
     local emptyTitle = empty:Text("", "body", "text")
     local emptyHint = empty:Text("", "small", "soft", 3)
 

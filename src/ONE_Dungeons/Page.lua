@@ -148,33 +148,31 @@ function Page:Build(panel)
     -- 0.6.8 Blizzard-Aussehen: gezeichnete Karte als Kopfbild (scripts/build_maps.py), links
     -- abgedunkelt, damit Titel und Angaben lesbar bleiben; je Dungeon fest eine von vier Landschaften
     local banner, bannerLift
-    if not book then
-        banner = card:CreateTexture(nil, "BACKGROUND", nil, 2)
-        banner:SetPoint("TOPLEFT", card, "TOPLEFT", 3, -3)
-        banner:SetPoint("TOPRIGHT", card, "TOPRIGHT", -3, -3)
-        banner:SetHeight(88)
-        -- 0.8: echter Ladebildschirm des Dungeons (Art.lua); dunkle Bilder werden mit einer
-        -- zweiten, addierten Lage aufgehellt. Ohne Bild: gezeichnete Karte (Map1-4).
-        bannerLift = card:CreateTexture(nil, "BACKGROUND", nil, 3)
-        bannerLift:SetAllPoints(banner)
-        bannerLift:Hide()
-        local shade = card:CreateTexture(nil, "BACKGROUND", nil, 4)
-        shade:SetPoint("TOPLEFT", banner, "TOPLEFT", 0, 0)
-        shade:SetPoint("BOTTOMRIGHT", banner, "BOTTOMRIGHT", 0, 0)
-        shade:SetColorTexture(1, 1, 1, 1)
-        local dark, clear = {0, 0, 0, .86}, {0, 0, 0, .05}
-        local done = type(CreateColor) == "function" and shade.SetGradient
-            and pcall(shade.SetGradient, shade, "HORIZONTAL", CreateColor(unpack(dark)), CreateColor(unpack(clear)))
-        if not done and shade.SetGradientAlpha then
-            done = pcall(shade.SetGradientAlpha, shade, "HORIZONTAL", 0, 0, 0, .86, 0, 0, 0, .05)
-        end
-        if not done then shade:SetColorTexture(0, 0, 0, .55) end
-        local edge = card:CreateTexture(nil, "BORDER", nil, 2)
-        edge:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, 0)
-        edge:SetPoint("TOPRIGHT", banner, "BOTTOMRIGHT", 0, 0)
-        edge:SetHeight(1)
-        edge:SetColorTexture(.79, .64, .29, .6)
+    banner = card:CreateTexture(nil, "BACKGROUND", nil, 2)
+    banner:SetPoint("TOPLEFT", card, "TOPLEFT", 3, -3)
+    banner:SetPoint("TOPRIGHT", card, "TOPRIGHT", -3, -3)
+    banner:SetHeight(88)
+    -- 0.8: echter Ladebildschirm des Dungeons (Art.lua); dunkle Bilder werden mit einer
+    -- zweiten, addierten Lage aufgehellt. Ohne Bild: gezeichnete Karte (Map1-4).
+    bannerLift = card:CreateTexture(nil, "BACKGROUND", nil, 3)
+    bannerLift:SetAllPoints(banner)
+    bannerLift:Hide()
+    local shade = card:CreateTexture(nil, "BACKGROUND", nil, 4)
+    shade:SetPoint("TOPLEFT", banner, "TOPLEFT", 0, 0)
+    shade:SetPoint("BOTTOMRIGHT", banner, "BOTTOMRIGHT", 0, 0)
+    shade:SetColorTexture(1, 1, 1, 1)
+    local dark, clear = {0, 0, 0, .86}, {0, 0, 0, .05}
+    local done = type(CreateColor) == "function" and shade.SetGradient
+        and pcall(shade.SetGradient, shade, "HORIZONTAL", CreateColor(unpack(dark)), CreateColor(unpack(clear)))
+    if not done and shade.SetGradientAlpha then
+        done = pcall(shade.SetGradientAlpha, shade, "HORIZONTAL", 0, 0, 0, .86, 0, 0, 0, .05)
     end
+    if not done then shade:SetColorTexture(0, 0, 0, .55) end
+    local edge = card:CreateTexture(nil, "BORDER", nil, 2)
+    edge:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, 0)
+    edge:SetPoint("TOPRIGHT", banner, "BOTTOMRIGHT", 0, 0)
+    edge:SetHeight(1)
+    edge:SetColorTexture(.79, .64, .29, .6)
     local inner = rightW - 32
     local title = Text(card, "GameFontNormalHuge", 16, -14, inner - 32, "accent")
     if title.SetWordWrap then title:SetWordWrap(false) end
