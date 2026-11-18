@@ -181,7 +181,6 @@ EN["1 neue Quest"] = "1 new quest"
 EN["%d neue Quests"] = "%d new quests"
 EN["Dungeon: %s"] = "Dungeon: %s"
 EN["Auf Stufe %d: %s"] = "At level %d: %s"
-EN["Upgrade %s (+%d %%)"] = "Upgrade %s (+%d %%)"
 
 -- Reisetagebuch (0.7.1)
 EN["Tagebuch"] = "Journal"

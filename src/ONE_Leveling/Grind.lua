@@ -126,9 +126,9 @@ function Gr.ImportantNow(plan)
     return out
 end
 
--- Schaltet die naechste Stufe etwas frei? (Zauber beim Lehrer, neue Quests, Dungeon, Ausruestung)
+-- Schaltet die naechste Stufe etwas frei? (Zauber beim Lehrer, neue Quests, Dungeon)
 function Gr.HasUnlock(u)
-    return u ~= nil and ((#(u.spells or {}) > 0) or (#(u.quests or {}) > 0) or (#(u.dungeons or {}) > 0) or (#(u.gear or {}) > 0))
+    return u ~= nil and ((#(u.spells or {}) > 0) or (#(u.quests or {}) > 0) or (#(u.dungeons or {}) > 0))
 end
 
 -- Empfehlung (Nutzer 17.11.2026): Monster hauen NUR, wenn

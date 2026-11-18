@@ -245,42 +245,12 @@ function G.ZoneName(mapID)
     return info and info.name or ""
 end
 
--- Teile in deinen Taschen, die du erst ab Stufe "lvl" tragen darfst und die fuer dich besser sind
--- (Ausruestung bewerten, mindestens P.UPGRADE_PCT). Rueckgabe: {{itemID, link, pct}}, beste zuerst
-function G.BagUpgrades(lvl)
-    local out = {}
-    local classes = ONE.ns and ONE.ns.classes
-    local gear = classes and classes.Gear
-    if not (gear and gear.UpgradePercent) then return out end
-    local C = rawget(_G, "C_Container") or {}
-    local numSlots = C.GetContainerNumSlots or rawget(_G, "GetContainerNumSlots")
-    local seen = {}
-    for bag = 0, 4 do
-        for slot = 1, Try(numSlots, bag) or 0 do
-            local info = Try(C.GetContainerItemInfo, bag, slot)
-            local id = type(info) == "table" and info.itemID
-            if id and not seen[id] then
-                seen[id] = true
-                local ok, _, link, _, _, minLevel = pcall(rawget(_G, "GetItemInfo") or error, id)
-                if ok and minLevel == lvl then
-                    local pct = Try(gear.UpgradePercent, gear, id)
-                    if pct and pct >= P.UPGRADE_PCT then out[#out + 1] = {itemID = id, link = link or info.hyperlink, pct = pct} end
-                end
-            end
-        end
-    end
-    table.sort(out, function(a, b) return a.pct > b.pct end)
-    return out
-end
-
--- Was bringt dir Stufe "lvl"? {spells = {Namen}, quests = {ids}, dungeons = {Namen}, gear = {{link, pct}}}
+-- Was bringt dir Stufe "lvl"? {spells = {Namen}, quests = {ids}, dungeons = {Namen}}
 --  * Zauber/Raenge beim Klassenlehrer (Wissen der Klassen-Seite: eigener Besuch oder Startpaket)
 --  * Quests, die erst ab dieser Stufe gehen (Questdatenbank)
 --  * Dungeons, deren Mindeststufe genau diese ist (Katalog, eigene Fraktion)
---  * Ausruestung in deinen Taschen, die erst ab dieser Stufe passt und besser ist
 function G:Unlocks(lvl, level)
-    local out = {spells = {}, quests = {}, dungeons = {}, gear = {}}
-    out.gear = G.BagUpgrades(lvl)
+    local out = {spells = {}, quests = {}, dungeons = {}}
     local classes = ONE.ns and ONE.ns.classes
     if classes and classes.Trainer and classes.Player then
         local p = Try(classes.Player.Read, classes.Player, ONE.db and ONE.db.classGuide and ONE.db.classGuide.spec)
@@ -316,8 +286,6 @@ function G.UnlockText(u)
     end
     if #u.quests > 0 then parts[#parts + 1] = #u.quests == 1 and T("1 neue Quest") or T("%d neue Quests", #u.quests) end
     if #u.dungeons > 0 then parts[#parts + 1] = T("Dungeon: %s", table.concat(u.dungeons, ", ")) end
-    local g = u.gear and u.gear[1]
-    if g then parts[#parts + 1] = T("Upgrade %s (+%d %%)", g.link or ("#" .. g.itemID), g.pct) end
     return table.concat(parts, " · ")
 end
 
