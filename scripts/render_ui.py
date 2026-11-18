@@ -163,7 +163,10 @@ def render_page(page, scale, book=False):
             filt = ""
             if it.get("v"):
                 v = it["v"]
-                if v[0] == v[1] == v[2] and v[0] != 1:
+                if max(v[:3]) - min(v[:3]) <= .15 and max(v[:3]) < 1 and v[3] == 1:
+                    # leichte Toenung eines Bildes (z. B. Buch-Papier): als Helligkeit + etwas Sepia
+                    filt = "filter:brightness(%.2f) sepia(%.2f);" % (sum(v[:3]) / 3, min(.4, (v[0] - v[2]) * 4))
+                elif v[0] == v[1] == v[2] and v[0] != 1:
                     filt = "filter:brightness(%.2f);" % v[0]
                 elif not (v[0] == v[1] == v[2] == 1):
                     # Einfaerben grob: Helligkeit + Farbton ueber Mischung

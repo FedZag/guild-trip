@@ -54,9 +54,16 @@ Book.soft = {.36, .25, .14}
 -- und ein halbdurchsichtiges Abrieb-Bild ueber den Seiten (Textures/Book/Wear.tga,
 -- scripts/build_book.py --wear). Schalter: Optionen › Darstellung › "Gealterte Tinte".
 Book.wearArt = "Interface\\AddOns\\ONE_Core\\Textures\\Book\\Wear.tga"
-Book.agedInk = {.26, .16, .07}
-Book.agedSoft = {.42, .31, .19}
-Book.agedRed = {.48, .17, .08}
+-- 0.7.1 (Nutzer-Wunsch: Buch zu hell): Papier 18 % dunkler und etwas waermer (Book.paper),
+-- dafuer fast schwarze Tinte. Gemessen (WCAG-Kontrast auf dem Pergament): Tinte bleibt bei
+-- ~3,8 wie vorher, Rubrik-Rot (nur Ueberschriften) ~3,0. Dunkler geht nicht ohne Lesbarkeit zu verlieren.
+Book.agedInk = {.07, .045, .02}
+Book.agedSoft = {.22, .14, .07}
+Book.agedRed = {.30, .04, .01}
+Book.paper = {.82, .787, .738}
+function Book.Tone(tex)
+    if tex and tex.SetVertexColor then tex:SetVertexColor(Book.paper[1], Book.paper[2], Book.paper[3], 1) end
+end
 Book.bleed = {.40, .26, .12, .22}
 function Book.Aged()
     return not (ONE.db and type(ONE.db.theme) == "table" and ONE.db.theme.agedInk == false)
@@ -139,6 +146,7 @@ local function BuildArt(self, ui)
     local tex = art:CreateTexture(nil, "BACKGROUND", nil, -8)
     tex:SetAllPoints(art)
     tex:SetTexture(self.art)
+    Book.Tone(tex)
     -- Schatten, der beim Umblaettern ueber die Seiten wandert
     local sweep = CreateFrame("Frame", nil, art)
     sweep:SetSize(70, 10)
@@ -569,7 +577,7 @@ function Book:Sheet(entry)
     bg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 6, -6)
     bg:SetTexture(art)
     if bg.SetTexCoord then bg:SetTexCoord(0, 1, 0, 1) end
-    if bg.SetVertexColor then bg:SetVertexColor(1, 1, 1, 1) end
+    Book.Tone(bg)
     if not frame.__oneSheet then
         frame.__oneSheet = true
         local shadow = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
@@ -638,6 +646,7 @@ function Book:OpenMenu(owner, list, current, onSelect)
         if shadow.SetVertexColor then shadow:SetVertexColor(0, 0, 0, .55) end
         local bg = m:CreateTexture(nil, "BACKGROUND", nil, -7)
         bg:SetTexture(self.sheetArt)
+        Book.Tone(bg)
         bg:SetPoint("TOPLEFT", m, "TOPLEFT", -6, 6)
         bg:SetPoint("BOTTOMRIGHT", m, "BOTTOMRIGHT", 6, -6)
         m.rows, m.catcher = {}, catcher

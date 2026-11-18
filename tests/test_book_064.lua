@@ -122,7 +122,8 @@ assert(ONE.Book.Aged(), "gealterte Tinte ist Standard")
 assert(ONE.Book.wear and ONE.Book.wear.level > page.level + 20, "Abrieb liegt ueber den Seiten")
 f = io.open(root .. "/ONE_Core/Textures/Book/Wear.tga", "rb")
 assert(f, "Wear.tga fehlt (scripts/build_book.py --wear)") f:close()
-assert(ONE.Book.ink == ONE.Book.agedInk and ONE.Book.ink[1] > .2, "Sepia statt fast schwarz")
+assert(ONE.Book.ink == ONE.Book.agedInk and ONE.Book.ink[1] > .05 and ONE.Book.ink[1] > ONE.Book.ink[2] and ONE.Book.ink[2] > ONE.Book.ink[3], "dunkles Sepia statt Schwarz (0.7.1: dunkleres Papier)")
+assert(ONE.Book.paper[1] < 1, "Papier abgedunkelt")
 do
     local fs = {}
     function fs:SetShadowOffset(x, y) self.off = {x, y} end
