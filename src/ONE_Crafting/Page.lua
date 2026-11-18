@@ -5,7 +5,7 @@
 -- tust du selbst mit Enter.
 local _, crafting = ...
 local ONE = _G.ProjectONE
-local function Paint(tex, r, g, b, a) if ONE.Book and ONE.Book.Paint then return ONE.Book.Paint(tex, r, g, b, a) end tex:SetColorTexture(r, g, b, a) end
+local function Paint(tex, r, g, b, a) tex:SetColorTexture(r, g, b, a) end
 -- Uebersetzung (ONE.T); ohne Sprachmodul bleibt der deutsche Text.
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 local Page = {rows = 6}
@@ -64,7 +64,7 @@ function Page:Build(panel)
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local leftW, gap = 430, 12
     local rightX, rightW = leftW + gap, W - leftW - gap
-    if ONE.Book and ONE.Book.Spread and ONE.Book:Spread() then
+    if false then
         local L, R = ONE.Book:Spread()
         leftW, rightX, rightW = L.width, R.x, R.width
     end
@@ -105,7 +105,7 @@ function Page:Build(panel)
         onChange = function() Page:Refresh() end})
     local mine = Text(rv, "GameFontHighlightSmall", 0, -30, W, "soft")
     -- Buch: eigene Berufe rechts unter dem Auswahlfeld (zweizeilig), nicht ueber die Falz
-    if ONE.Book and ONE.Book.Spread and ONE.Book:Spread() then
+    if false then
         local _, R = ONE.Book:Spread()
         mine:ClearAllPoints()
         mine:SetPoint("TOPLEFT", rv, "TOPLEFT", R.x, -34)
@@ -273,7 +273,7 @@ function Page:BuildTrainers(tv, W, H)
         get = function() return store.trainerKind end, set = function(v) store.trainerKind = v end,
         onChange = function() Page:RefreshTrainers() end})
     local leftW, cardX, NPCW, WHATW = 430, 442, 140, 116
-    if ONE.Book and ONE.Book.Spread and ONE.Book:Spread() then
+    if false then
         local L, R = ONE.Book:Spread()
         leftW, cardX, NPCW, WHATW = L.width, R.x, 120, 86
     end

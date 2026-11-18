@@ -142,7 +142,6 @@ function Planner:Build(panel, onDone)
     local Tr = dungeons.Trips
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local bookL, bookR
-    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
     local f = CreateFrame("Frame", nil, panel)
     f:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
     f:SetSize(W, H)
@@ -329,7 +328,7 @@ function Planner:Build(panel, onDone)
             elseif chip.UnlockHighlight then chip:UnlockHighlight() end
             -- normales Aussehen: gewaehlte Art weiss mit Haken, die anderen gold
             local fs = chip.GetFontString and chip:GetFontString()
-            local book = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
+            local book = false
             if fs and not book then
                 if on then fs:SetTextColor(1, 1, 1) else fs:SetTextColor(1, .82, 0) end
             end

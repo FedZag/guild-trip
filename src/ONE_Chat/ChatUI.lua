@@ -23,7 +23,7 @@ local function Modern() return UI.modern == true end
 -- Buch-Aussehen (Tinte auf Pergament) – nicht im schlichten Aussehen (dunkler Grund)
 local function Book()
     if UI.flat then return nil end
-    return ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() and ONE.Book or nil
+    return false and ONE.Book or nil
 end
 local function Text(parent, font, role)
     local fs = parent:CreateFontString(nil, "OVERLAY", font)
@@ -100,7 +100,7 @@ function UI:Build()
     if self.frame then return self.frame end
     local s = Chat:Settings()
     self.flat = Chat:Flat() -- vor allem anderen: entscheidet ueber Tinte/Pergament
-    local modern = not self.flat and not (ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive())
+    local modern = not self.flat and not (false)
     local f
     if modern then
         local ok, fr = pcall(CreateFrame, "Frame", "GuildTripChatWindow", UIParent, "PortraitFrameTemplate")

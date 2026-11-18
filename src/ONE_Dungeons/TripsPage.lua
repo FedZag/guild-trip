@@ -3,7 +3,7 @@
 -- Karte: Details und Anmeldungen – oder das Formular "Ausflug planen".
 local _, dungeons = ...
 local ONE = _G.ProjectONE
-local function Paint(tex, r, g, b, a) if ONE.Book and ONE.Book.Paint then return ONE.Book.Paint(tex, r, g, b, a) end tex:SetColorTexture(r, g, b, a) end
+local function Paint(tex, r, g, b, a) tex:SetColorTexture(r, g, b, a) end
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 local TripsPage = {}
 dungeons.TripsPage = TripsPage
@@ -24,7 +24,6 @@ function TripsPage:Build(panel)
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local state = {form = false, day = 0, minutes = 20 * 60}
     local bookL, bookR
-    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
 
     local listW = bookL and bookL.width or W
     local cols = {

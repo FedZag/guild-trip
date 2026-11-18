@@ -1,6 +1,6 @@
 local _, guild = ...
 local ONE = _G.ProjectONE
-local function Paint(tex, r, g, b, a) if ONE.Book and ONE.Book.Paint then return ONE.Book.Paint(tex, r, g, b, a) end tex:SetColorTexture(r, g, b, a) end
+local function Paint(tex, r, g, b, a) tex:SetColorTexture(r, g, b, a) end
 -- Uebersetzung (ONE.T); ohne Sprachmodul bleibt der deutsche Text.
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 
@@ -230,7 +230,6 @@ function UI:BuildCalendar(panel)
     -- (der Reiter heisst schon "Kalender"), alles 52 px hoeher, breitere rechte Spalte
     -- mit Tag, "Demnaechst" und "Was steht an", unten eine saubere Filter-/Knopfzeile.
     local bookL, bookR
-    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
     local UP = bookL and 0 or 52
     if bookL then
         ONE.Widgets:PageHeader(list,T("Kalender"),
@@ -792,7 +791,6 @@ function UI:BuildGuild(panel)
     local LW=446
     local RX,RW=LW+12,W-LW-12
     local bookL, bookR = nil, nil
-    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
     if bookL then
         -- Buch: Kopf links (Fakten duerfen zweizeilig sein), Nachricht des Tages rechts oben;
         -- die Online-Liste laeuft ueber beide Seiten, "Was steht an" steht im Kalender

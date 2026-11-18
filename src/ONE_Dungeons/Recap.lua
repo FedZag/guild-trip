@@ -194,8 +194,13 @@ end
 
 -- ===== Karte =====
 local function Button(parent, label, width)
-    local ok, b = pcall(CreateFrame, "Button", nil, parent, "UIPanelButtonTemplate")
-    if not ok or not b then b = CreateFrame("Button", nil, parent) end
+    local W = ONE.Widgets
+    if W and W.SkinButton then
+        local b = W.SkinButton(parent, label, width, 24, "secondary")
+        b:SetText(label)
+        return b
+    end
+    local b = CreateFrame("Button", nil, parent)
     b:SetSize(width, 22)
     b:SetText(label)
     return b

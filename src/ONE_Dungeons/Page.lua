@@ -4,7 +4,7 @@
 -- (Questgeber, Ort, Vorquests, Hinweise) und "Hinfuehren" mit dem ONE-Pfeil.
 local _, dungeons = ...
 local ONE = _G.ProjectONE
-local function Paint(tex, r, g, b, a) if ONE.Book and ONE.Book.Paint then return ONE.Book.Paint(tex, r, g, b, a) end tex:SetColorTexture(r, g, b, a) end
+local function Paint(tex, r, g, b, a) tex:SetColorTexture(r, g, b, a) end
 -- Uebersetzung (ONE.T); ohne Sprachmodul bleibt der deutsche Text.
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 local Page = {}
@@ -60,7 +60,7 @@ function Page:Build(panel)
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local leftW, gap = 290, 12
     local rightX, rightW = leftW + gap, W - leftW - gap
-    if ONE.Book and ONE.Book.Spread and ONE.Book:Spread() then
+    if false then
         local L, R = ONE.Book:Spread()
         leftW, rightX, rightW = L.width, R.x, R.width
     end
@@ -83,7 +83,7 @@ function Page:Build(panel)
     local checkLabel = Text(panel, "GameFontHighlight", 26, -61, leftW - 26, "text")
     -- 0.6.8 Blizzard-Aussehen: Auswahl mit Zaehlern statt Haekchen (Fuer deine Stufe, Alle,
     -- Stufenbereiche, mit offenen Quests); im Buch bleibt das Haekchen
-    local book = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
+    local book = false
     local category
     if not book and ONE.Kit and ONE.Kit.Dropdown then
         check:Hide() checkLabel:Hide()
@@ -97,10 +97,10 @@ function Page:Build(panel)
     local dungeonList
     dungeonList = ONE.Kit:List(panel, {x = 0, y = -86, width = leftW, height = H - 86, rowHeight = 24,
         columns = {
-            {key = "name", title = "DUNGEON", width = (ONE.Book and ONE.Book:Spread()) and 142 or 116},
-            {key = "level", title = "STUFE", width = (ONE.Book and ONE.Book:Spread()) and 46 or 40, align = "CENTER"},
-            {key = "open", title = "OFFEN", width = (ONE.Book and ONE.Book:Spread()) and 46 or 38, align = "CENTER"},
-            {key = "guild", title = "GILDE", width = (ONE.Book and ONE.Book:Spread()) and 46 or 38, align = "CENTER"},
+            {key = "name", title = "DUNGEON", width = false and 142 or 116},
+            {key = "level", title = "STUFE", width = false and 46 or 40, align = "CENTER"},
+            {key = "open", title = "OFFEN", width = false and 46 or 38, align = "CENTER"},
+            {key = "guild", title = "GILDE", width = false and 46 or 38, align = "CENTER"},
         },
         render = function(row, d, cells)
             local selected = state.selected and state.selected.key == d.key
@@ -212,7 +212,7 @@ function Page:Build(panel)
         elseif state.selected then Page:OpenSeekDialog(state.selected) end
     end)
     local questList = ONE.Kit:List(card, {x = 8, y = -94, width = rightW - 16, height = 22 * 7 + 22, rowHeight = 22,
-        columns = (ONE.Book and ONE.Book:Spread()) and {
+        columns = false and {
             {key = "name", title = "QUEST", width = rightW - 16 - 24 - 6 - 46 - 46 - 16, indent = 20},
             {key = "level", title = "STUFE", width = 46, align = "CENTER"},
             {key = "guild", title = "GILDE", width = 46, align = "CENTER"},
@@ -606,7 +606,7 @@ function Page:BuildCombined(panel)
     local refreshT = dungeons.TripsPage and dungeons.TripsPage:Build(tv)
     -- Die drei Umschalter muessen in die linke Spalte passen (290, im Buch die linke Seite);
     -- bis 0.6.4 ragte "Ausfluege" unter die rechte Karte.
-    local L = ONE.Book and ONE.Book.Spread and ONE.Book:Spread()
+    local L = false
     local span = L and L.width or 290
     local bw = math.floor((span - 8) / 3)
     local bD = ONE.Widgets:Button(panel, "Dungeons", bw, 24, "TOPLEFT", 0, -2, function() Page:ShowView("dungeons") end)
@@ -614,7 +614,7 @@ function Page:BuildCombined(panel)
     local bT = ONE.Widgets:Button(panel, "Ausflüge", span - 2 * (bw + 4), 24, "TOPLEFT", 2 * (bw + 4), -2, function() Page:ShowView("trips") end)
     self.combined = {dv = dv, gv = gv, tv = tv, refreshD = refreshD, refreshG = refreshG, refreshT = refreshT, bD = bD, bG = bG, bT = bT}
     -- 0.6.8: Reisepass als vierte Ansicht (nur Blizzard-Aussehen; im Buch bleibt alles wie es war)
-    if dungeons.PassPage and not (ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()) and ONE.UI.sidebar then
+    if dungeons.PassPage and not (false) and ONE.UI.sidebar then
         local pv = CreateFrame("Frame", nil, panel)
         pv:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
         pv:SetSize(W, H)

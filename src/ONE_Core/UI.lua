@@ -13,10 +13,6 @@ UI.Layout = Layout
 
 -- Keine mehrfachen, voneinander abweichenden Spalten-Berechnungen mehr.
 function Layout:Columns(weights)
-    if #weights==2 and ONE.Book and ONE.Book.Spread then
-        local L,R=ONE.Book:Spread()
-        if L then return {{x=L.x,width=L.width},{x=R.x,width=R.width}} end
-    end
     return ONE.Geometry:Columns(self.width,weights,self.gutter)
 end
 function Layout:Actions(card,weights)
@@ -190,7 +186,6 @@ function UI:AddTab(id,title,builder)
     local button=self:AddNavButton(id,title)
     self.tabs[id]={button=button,panel=panel,refresh=builder(panel) or function() end}
     self.order[#self.order+1]=id
-    if ONE.Book then ONE.Book:PanelAdded(self) end
     return true
 end
 function UI:RegisterView(id,builder)
@@ -203,7 +198,6 @@ function UI:RegisterView(id,builder)
     panel.__oneTopPanel=true
     self.views[id]={panel=panel,refresh=builder(panel) or function() end}
     self:AddNavButton(id,id)
-    if ONE.Book then ONE.Book:PanelAdded(self) end
     return true
 end
 -- Alles, was an die Gilde geteilt wird, als Haekchen gesammelt unter
@@ -255,7 +249,6 @@ function UI:UpdateBackButton()
         if can then self.backButton:Show() else self.backButton:Hide() end
     end
     if self.forwardButton then self.forwardButton:SetEnabled(#self.forwardHistory>0) end
-    if ONE.Book then ONE.Book:UpdateBack(self) end
 end
 function UI:GoBack()
     local handler=self.backHandlers[self.activeTab]
@@ -319,18 +312,9 @@ function UI:Navigate(id,origin)
     for key,view in pairs(self.views) do
         if key==id then view.panel:Show() else view.panel:Hide() end
     end
-    if ONE.Book then
-        local entry=self.tabs[id] or self.views[id]
-        if self.__hasNavigated and self.frame:IsShown() then ONE.Book:TurnPage(entry and entry.panel) end
-        if entry and entry.panel then ONE.Book:InkTree(entry.panel,0) end
-    end
     if self.pathLabel then self.pathLabel:SetText(T(NAV_LABEL[id] or (self.sidebar and NAV_LABEL[VIEW_PARENT[id] or ""]) or "")) end
     self:UpdateContext()
     self:UpdateViews()
-    -- Buch: "Guild Trip · Gildenname" links oben nur auf der Startseite (Nutzer-Wunsch 15.11.2026)
-    if ONE.Book and ONE.Book.leftHead then
-        if id=="home" then ONE.Book.leftHead:Show() else ONE.Book.leftHead:Hide() end
-    end
     for key,btn in pairs(self.sidebarButtons) do btn.__oneSelected=(key==id) end
     self:SelectNativeTab()
     self:Show()
@@ -432,7 +416,6 @@ end
 function UI:Refresh()
     local active=self.tabs[self.activeTab] or self.views[self.activeTab]
     if active and active.refresh then active.refresh() end
-    if ONE.Book then ONE.Book:InkPages(self) end
     -- Angabe der tatsaechlich aktiven gespeicherten Farbpalette.
     if self.themeStatus then self.themeStatus:SetText("v" .. ONE.version) end
     if ONE.Themes and self.frame then ONE.Themes:StyleTree(self.frame) end
@@ -447,14 +430,10 @@ function UI:Toggle()
 end
 
 local function BuildHome(panel)
-    -- Buch-Aussehen: eigene Doppelseite (Initiale, Siegel, Inhaltsverzeichnis)
-    if ONE.Book and ONE.Book:Spread() then return ONE.Book:BuildHome(panel) end
     local W=UI.Layout.width
     local cols=UI.Layout:Columns({5,4})
     -- Einheitliche Seiteneinfuehrung; alle Karten liegen innerhalb der 726er Spur.
-    -- Buch-Aussehen: Doppelseite – links Begruessung, rechts die Kacheln
     local L,R=nil,nil
-    if ONE.Book then L,R=ONE.Book:Spread() end
     local LW=L and L.width or W
     if not UI:LiftPage(panel) then
         Label(panel,T("Deine Zentrale"),"GameFontNormalLarge",0,-4,LW)
@@ -489,8 +468,6 @@ local function BuildHome(panel)
     local function RefreshArt()
         if artReady then return end
         art:SetTexture(heroTexture)
-        -- im Buch-Aussehen kein dunkles Bild hinter der Tinte
-        if ONE.Book and ONE.Book:IsActive() then art:Hide() end
         art:ClearAllPoints()
         art:SetPoint("TOPLEFT",hero,"TOPLEFT",4,-4)
         art:SetPoint("BOTTOMRIGHT",hero,"BOTTOMRIGHT",-4,4)
@@ -865,7 +842,6 @@ local function BuildOptions(panel)
     local W=UI.Layout.width
     local H=ONE.Geometry.tokens.contentHeight or 437
     local L,R
-    if ONE.Book and ONE.Book.Spread then L,R=ONE.Book:Spread() end
     -- Buch: links die Bereiche, rechts die Einstellungen; sonst Liste 150 breit links
     local listX,listW=L and L.x or 0,L and math.min(L.width,220) or 150
     local paneX=R and R.x or listW+10
@@ -1059,11 +1035,10 @@ local function RegisterCoreSettings()
         get=function() return ONE.Skin:Choice() end,
         set=function(v) ONE.Skin:Set(v) end})
 end
--- Kern-Funktionen in ihre Bereiche lenken (stehen in Core.lua/Vendor.lua/Book.lua)
+-- Kern-Funktionen in ihre Bereiche lenken (stehen in Core.lua/Vendor.lua)
 local CORE_FEATURE_PLACE={
     ["core.loginSummary"]={"general","Hinweise",12},
     ["core.sounds"]={"look","Klänge",40},
-    ["core.agedInk"]={"look","Sprache und Aussehen",35},
     ["core.autoRepair"]={"general","Händler",30},
     ["core.autoRepairGuild"]={"general","Händler",31,1},
     ["core.sellJunk"]={"general","Händler",32},

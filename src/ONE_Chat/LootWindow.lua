@@ -125,7 +125,7 @@ end
 function Loot:Build()
     if self.frame then return self.frame end
     -- 0.6.8: im Blizzard-Aussehen derselbe Rahmen wie Hauptfenster und Chat
-    local modern = not chat.Chat:Flat() and not (ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive())
+    local modern = not chat.Chat:Flat() and not (false)
     local f
     if modern then
         local ok, fr = pcall(CreateFrame, "Frame", "GuildTripLootWindow", UIParent, "PortraitFrameTemplate")
@@ -253,7 +253,7 @@ end
 
 function Loot:Show()
     local f = self:Build()
-    chat.Chat.parchment = chat.UI.frame and ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() and not chat.UI.flat or false
+    chat.Chat.parchment = chat.UI.frame and false and not chat.UI.flat or false
     self:UpdateQualityButton()
     self:Render()
     f:Show()

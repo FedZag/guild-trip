@@ -3,7 +3,7 @@
 -- ONE eigene, groessere Schriftobjekte mit Schatten. Eine Aenderung der
 -- Schriftgroesse wirkt sofort auf alle Texte, weil WoW Schriftobjekte teilt.
 local _, ONE = ...
-local function Paint(tex, r, g, b, a) if ONE.Book and ONE.Book.Paint then return ONE.Book.Paint(tex, r, g, b, a) end tex:SetColorTexture(r, g, b, a) end
+local function Paint(tex, r, g, b, a) tex:SetColorTexture(r, g, b, a) end
 local Kit = {fonts = {}}
 ONE.Kit = Kit
 
@@ -128,8 +128,7 @@ end
 -- Textfarben mit Kontrast-Modus: Nebentext wird fast so hell wie Fliesstext.
 function Kit:TextColor(palette, role)
     local c = palette[role] or palette.text
-    -- auf Pergament (Aussehen "Altes Buch") nie weisse Schrift
-    if self:IsHighContrast() and palette.skin ~= "book" then
+    if self:IsHighContrast() then
         if role == "soft" then return palette.text end
         if role == "text" then return {1, 1, 1} end
     end
@@ -227,9 +226,7 @@ function Kit.StyleScroll(scroll)
 end
 
 function Kit:List(parent, opts)
-    -- Buch: Texte brechen zweizeilig um statt abgeschnitten zu werden ("alles vollstaendig lesbar")
-    local book = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
-    local list = setmetatable({opts = opts, items = {}, rows = {}, rowHeight = book and math.max(opts.rowHeight or 22, 32) or opts.rowHeight or 22}, List)
+    local list = setmetatable({opts = opts, items = {}, rows = {}, rowHeight = opts.rowHeight or 22}, List)
     local box = CreateFrame("Frame", nil, parent)
     box:SetPoint("TOPLEFT", parent, "TOPLEFT", opts.x or 0, opts.y or 0)
     box:SetSize(opts.width, opts.height)
@@ -296,10 +293,7 @@ function Kit:List(parent, opts)
             cell:SetPoint("LEFT", row, "LEFT", col.x + (col.indent or 0), 0)
             cell:SetWidth(col.width - (col.indent or 0))
             cell:SetJustifyH(col.align or "LEFT")
-            if book and (col.width or 0) >= 60 then
-                if cell.SetWordWrap then cell:SetWordWrap(true) end
-                if cell.SetMaxLines then cell:SetMaxLines(2) end
-            elseif cell.SetWordWrap then cell:SetWordWrap(false) end
+            if cell.SetWordWrap then cell:SetWordWrap(false) end
             row.cells[col.key] = cell
         end
         if row.RegisterForClicks then row:RegisterForClicks("LeftButtonUp", "RightButtonUp") end

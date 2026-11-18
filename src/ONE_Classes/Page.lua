@@ -113,7 +113,7 @@ end
 
 function Page:Build(panel)
     self.panel = panel
-    if ONE.Book and ONE.Book.Spread and ONE.Book:Spread() then
+    if false then
         local L, R = ONE.Book:Spread()
         LEFT_W, RIGHT_X, RIGHT_W = L.width, R.x, R.width
     end
@@ -140,13 +140,13 @@ function Page:Build(panel)
     self.weaponView = self:BuildWeapons(content)
     -- Umschalter rechts oben in einer Zeile mit dem Auswahlfeld (Ausrichtung);
     -- Lage je nach Klasse in Page:LayoutViews (Druide hat zusaetzlich "Gestalten")
-    local inBook0 = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
+    local inBook0 = false
     self.viewBars = ONE.Widgets:Button(content, "Leisten", inBook0 and 64 or 72, 24, "TOPRIGHT", -344, -6, function()
         Store().view = "bars" Page:Refresh() end)
     self.viewTree = ONE.Widgets:Button(content, "Talente", inBook0 and 64 or 72, 24, "TOPRIGHT", -270, -6, function()
         Store().view = "talents" Page:Refresh() end)
     -- im Buch ist die Tintenschrift breiter: "Bewaffnung" braucht dort mehr Platz
-    local inBook = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
+    local inBook = false
     self.viewWeapons = ONE.Widgets:Button(content, "Bewaffnung", inBook and 100 or 84, 24, "TOPRIGHT", -196, -6, function()
         Store().view = "weapons" Page:Refresh() end)
     -- Druide: Katzen- und Baerenleiste (nur sichtbar, wenn der Bauplan Gestalten hat)
@@ -300,7 +300,7 @@ function Page:LayoutViews(forms)
     if forms then order[#order + 1] = self.viewForms end
     -- Buch: rechts ist nur Platz fuer die Spielstil-Auswahl – die Knoepfe stehen links
     -- unter der Ueberschrift (sonst ragt "Talente" ueber die Falz)
-    local bookL = ONE.Book and ONE.Book.Spread and ONE.Book:Spread()
+    local bookL = false
     if bookL then
         local x = bookL.x
         for _, b in ipairs(order) do
@@ -327,7 +327,6 @@ function Page:BuildWeapons(parent)
     wv:SetPoint("TOPLEFT", 0, 0)
     wv:SetSize(W, H)
     local bookL, bookR
-    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
     wv.book = bookL ~= nil
     local NAVI_W = 26
     -- Buch: Liste auf der linken Seite (Lehrer im Tooltip), Erklaerung rechts.
@@ -415,7 +414,6 @@ function Page:RefreshTree(p, def, build)
     for _, t in pairs(p.talents) do cols[t.group] = math.max(cols[t.group] or 0, t.col + 1) end
     -- Buch: kein Baum auf der Falz – Baum 1 und 2 links (etwas enger), Baum 3 rechts
     local bookL, bookR
-    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
     local book = bookL and bookR and #p.points == 3
     local dx = book and 39 or TREE.dx
     local widths, total = {}, 0

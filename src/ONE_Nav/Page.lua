@@ -176,7 +176,6 @@ function Page:Build(panel)
     local H = ONE.Geometry.tokens.contentHeight
     self.view = self.view or "guild"
     local bookL, bookR
-    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
     local LX, LW, LY = 0, W, 0          -- Zielauswahl (Reiter + Liste)
     if bookL then LX, LW = bookR.x, bookR.width end
 
