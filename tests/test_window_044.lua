@@ -84,9 +84,10 @@ assert(ONE.UI.sidebarButtons.home and ONE.UI.frame.Tabs and #ONE.UI.frame.Tabs>=
 assert(not ONE.UI.views.modules and not ONE.UI.tabs.modules and ONE.UI.tabs.options, "Module stehen in den Optionen")
 assert(ONE.UI.inset, "Eingelassene Innenflaeche fehlt")
 -- 0.6.8: Blizzard-Aussehen mit Symbolleiste links, breiteres Fenster, Inhaltsflaeche bleibt 726x437
-assert(ONE.UI.frame._SetSize[1]==858 and ONE.UI.frame._SetSize[2]==533)
-assert(ONE.UI.sidebar, "Symbolleiste links fehlt")
-assert(ONE.WindowScale.WIDTH==858 and ONE.WindowScale.HEIGHT==533, "Fensterskalierung kennt die neue Groesse")
+-- 0.8 Nachtroute: Navigation oben, Route, Gildenspalte rechts; Inhaltsflaeche bleibt 726x437
+assert(ONE.UI.frame._SetSize[1]==998 and ONE.UI.frame._SetSize[2]==568)
+assert(ONE.UI.sidebar and ONE.UI.route and ONE.UI.column, "Kopfleiste, Route oder Gildenspalte fehlt")
+assert(ONE.WindowScale.WIDTH==998 and ONE.WindowScale.HEIGHT==568, "Fensterskalierung kennt die neue Groesse")
 local function Click(label, idx)
  local count=0
  for _,e in ipairs(elements) do
@@ -153,11 +154,11 @@ assert(ONE.UI.sidebarButtons.guild.__oneSelected and ONE.UI.pathLabel.text=="Gil
 -- 0.6.8: Symbolknopf der Leiste zeigt die Auswahl, Unterseiten markieren ihren Hauptbereich
 do
  local side=ONE.UI.sidebarButtons.guild.__oneSide
- assert(side and side.bar.visible~=false and side.label.text=="Gilde", "Gilde in der Leiste markiert")
- assert(ONE.UI.sidebarButtons.home.__oneSide.bar.visible==false, "Startseite nicht markiert")
+ assert(side and side.line.visible~=false and side.label.text=="Gilde", "Gilde in der Leiste markiert")
+ assert(ONE.UI.sidebarButtons.home.__oneSide.line.visible==false, "Startseite nicht markiert")
  ONE.UI:Navigate("modules")
  assert(ONE.UI.activeTab=="options" and ONE.UI.optionsCategory=="general", "alte Unterseite Module leitet in Optionen")
- assert(ONE.UI.sidebarButtons.options.__oneSide.bar.visible~=false, "Optionen markiert")
+ assert(ONE.UI.sidebarButtons.options.__oneSide.line.visible~=false, "Optionen markiert")
  assert(ONE.UI.contextLabel.text=="Allgemein", "Bereich in der Kopfzeile")
  ONE.UI:SetContext("calendar","November 2026")
  ONE.UI:Navigate("calendar")
@@ -262,29 +263,14 @@ ONE.UI:Refresh()
 local found=false
 for _,e in ipairs(elements) do if e.kind=="FontString" and e.text=="Beta" then found=true end end
 assert(found, "Live-Mitglied fehlt auf der Navi-Seite")
--- 0.5.0: Fenstertitel "Guild Trip" plus eigener Gildenname
-local titleTexts={}
-local function Titles() titleTexts={} for _,e in ipairs(elements) do if e.kind=="FontString" and type(e.text)=="string" and e.text:find("^Guild Trip") then titleTexts[#titleTexts+1]=e.text end end return titleTexts end
+-- 0.8: Gildenname steht oben in der Gildenspalte
 local oldGuildInfo=GetGuildInfo
 GetGuildInfo=function() return "Die Testgilde" end
-ONE.UI.ApplyTitle()
+ONE.UI.column.Update()
 local hasGuild=false
-for _,t in ipairs(Titles()) do if t=="Guild Trip  ·  Die Testgilde" then hasGuild=true end end
-assert(hasGuild, "Titel mit Gildenname fehlt")
+for _,e in ipairs(elements) do if e.kind=="FontString" and e.text=="Die Testgilde" then hasGuild=true end end
+assert(hasGuild, "Gildenname in der Gildenspalte fehlt")
 GetGuildInfo=oldGuildInfo
--- 15.11.2026: im Buch steht "Guild Trip · Gildenname" links oben nur auf der Startseite
-do
- local head={shown=true}
- function head:Show() self.shown=true end
- function head:Hide() self.shown=false end
- local oldBook=ONE.Book
- ONE.Book=setmetatable({leftHead=head},{__index=function() return function() end end}) -- sonst alles leer
- ONE.UI:Navigate("calendar")
- assert(not head.shown,"Buchtitel nur auf der Startseite")
- ONE.UI:Navigate("home")
- assert(head.shown,"Startseite zeigt den Buchtitel")
- ONE.Book=oldBook
-end
 -- 0.6.9: lange Bereiche scrollen statt blaettern; Bereichsliste links, Module mit Hauptschalter
 do
  for i=1,40 do ONE:RegisterFeature("core.scrolltest"..i,{label="Scrolltest "..i}) end

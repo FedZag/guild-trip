@@ -27,19 +27,18 @@ local NAV_ORDER={home=1,guild=2,calendar=3,dungeons=4,groups=5,crafting=6,classe
 -- 0.4.4 nativer Look: Blizzard-Fenster (PortraitFrameTemplate) mit eingelassener
 -- Innenflaeche und Reitern unten wie im Charakterfenster. Die Inhaltsflaeche
 -- bleibt 726x437, damit alle Seiten unveraendert hineinpassen.
-local WINDOW={width=774,height=548,insetX=12,insetTop=60,insetBottom=28,contentX=24,contentY=72}
+-- 0.8 Aussehen "Nachtroute": Navigation als Leiste oben (44), darunter die Route
+-- (Stufenfortschritt, 28), dann Seitentitel und Inhalt (726x437, unveraendert),
+-- rechts die Gildenspalte (236). Die Inhaltsflaeche bleibt gleich, damit alle Seiten passen.
+local NIGHT_WINDOW={width=998,height=568,insetX=18,insetRight=254,insetTop=72,insetBottom=14,
+    contentX=18,contentY=116,topHeight=44,routeHeight=28,columnWidth=236,headerY=84}
+UI.NIGHT_WINDOW=NIGHT_WINDOW
+UI.NATIVE_WINDOW=NIGHT_WINDOW
+local WINDOW=NIGHT_WINDOW
 UI.WINDOW=WINDOW
--- 0.6.8 (Nutzer-Wunsch 17.11.2026): im Blizzard-Aussehen Hauptbereiche als Symbolleiste
--- links (eigene Goldsymbole) statt Reiter unten, Seitenname gross in der Kopfzeile.
--- Die Inhaltsflaeche bleibt 726x437, nur das Fenster wird breiter. Das Buch behaelt
--- seine Masse (Buchbild ist auf 774x548 gezeichnet).
-local NATIVE_WINDOW={width=858,height=533,insetX=96,insetRight=12,insetTop=60,insetBottom=12,
-    contentX=108,contentY=72,sideX=10,sideWidth=80,navHeight=44,navGap=2}
-UI.NATIVE_WINDOW=NATIVE_WINDOW
 -- Unterseiten markieren in der Leiste ihren Hauptbereich
 local VIEW_PARENT={["guild-members"]="guild",today="home"}
 UI.VIEW_PARENT=VIEW_PARENT
-local function BookActive() return ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() end
 local ICONS="Interface\\AddOns\\ONE_Core\\Textures\\Common\\TabIcons"
 local ICON_INDEX={home=0,guild=1,calendar=2,dungeons=3,groups=3,crafting=4,classes=5,quests=6,nav=7,options=8,leveling=10}
 local NAV_LABEL={home="Startseite",guild="Gilde",calendar="Kalender",today="Heute",
@@ -73,50 +72,72 @@ local function Panel(parent,x,y,w,h)
     return panel
 end
 
--- Reiter unten am Fenster, sortiert nach NAV_ORDER.
--- Knopf der Symbolleiste: Goldsymbol oben, Name darunter, Auswahl mit goldener Kante links
-function UI:SideButton(id,title)
-    local parent=self.sidebar or self.frame
-    local b=CreateFrame("Button","ProjectONEMainWindowTab"..id,parent)
-    local W=NATIVE_WINDOW
-    b:SetSize(W.sideWidth-8,W.navHeight)
-    local sel=b:CreateTexture(nil,"BACKGROUND")
-    sel:SetAllPoints(b)
-    sel:SetColorTexture(1,.82,0,.13)
-    local bar=b:CreateTexture(nil,"BORDER")
-    bar:SetPoint("TOPLEFT",b,"TOPLEFT",0,0)
-    bar:SetPoint("BOTTOMLEFT",b,"BOTTOMLEFT",0,0)
-    bar:SetWidth(3)
-    bar:SetColorTexture(1,.82,0,.95)
-    local hover=b:CreateTexture(nil,"HIGHLIGHT")
-    hover:SetAllPoints(b)
-    hover:SetColorTexture(1,1,1,.07)
+-- Hauptnavigation: Knoepfe waagerecht in der Kopfleiste (Symbol + Name),
+-- Auswahl mit Akzent-Unterstrich. Optionen als Zahnrad ganz rechts.
+local NAV_PAD,NAV_ICON=12,15
+function UI:NavButton(id,title)
+    local bar=self.sidebar
+    local b=CreateFrame("Button","ProjectONEMainWindowTab"..id,bar)
+    b:SetHeight(WINDOW.topHeight)
     local icon=b:CreateTexture(nil,"ARTWORK")
-    icon:SetSize(24,24)
-    icon:SetPoint("TOP",b,"TOP",0,-4)
+    icon:SetSize(NAV_ICON+3,NAV_ICON+3)
+    icon:SetPoint("LEFT",b,"LEFT",NAV_PAD-2,0)
     icon:SetTexture(ICONS)
+    if icon.SetDesaturated then icon:SetDesaturated(true) end
     local idx=ICON_INDEX[id] or 9
     local col,row=idx%4,math.floor(idx/4)
     icon:SetTexCoord(col/4,(col+1)/4,row/4,(row+1)/4)
-    local label=b:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
-    label:SetPoint("BOTTOM",b,"BOTTOM",0,4)
-    label:SetWidth(W.sideWidth-8)
-    label:SetJustifyH("CENTER")
+    local label=b:CreateFontString(nil,"OVERLAY","GameFontHighlight")
+    label:SetPoint("LEFT",icon,"RIGHT",6,0)
     if label.SetWordWrap then label:SetWordWrap(false) end
-    -- Name immer im eigenen Schriftfeld (kein Vorlagen-Text)
-    b.SetText=function(_,text) label:SetText(text) end
+    if ONE.Kit then ONE.Kit:Upgrade(label,"label") end
+    local line=b:CreateTexture(nil,"OVERLAY")
+    line:SetPoint("BOTTOMLEFT",b,"BOTTOMLEFT",8,0)
+    line:SetPoint("BOTTOMRIGHT",b,"BOTTOMRIGHT",-8,0)
+    line:SetHeight(2)
+    local hover=b:CreateTexture(nil,"HIGHLIGHT")
+    hover:SetAllPoints(b)
+    hover:SetColorTexture(1,1,1,.05)
+    local gear=(id=="options")
+    if gear then label:Hide() end
+    local function Width()
+        if gear then return NAV_PAD*2+NAV_ICON end
+        local w=label.GetStringWidth and label:GetStringWidth() or 0
+        if not w or w<=0 then w=#(label:GetText() or "")*6.4 end
+        return math.floor(NAV_PAD*2+NAV_ICON+6+w+.5)
+    end
+    b.SetText=function(_,text) label:SetText(text) b:SetWidth(Width()) end
     b.GetText=function() return label:GetText() end
-    b.__oneSide={sel=sel,bar=bar,icon=icon,label=label}
+    b.__oneSide={icon=icon,label=label,line=line,gear=gear}
     b:SetText(T(NAV_LABEL[id] or title))
+    if gear then
+        b:SetScript("OnEnter",function(self)
+            if not GameTooltip then return end
+            GameTooltip:SetOwner(self,"ANCHOR_BOTTOM")
+            GameTooltip:SetText(T("Optionen"))
+            GameTooltip:Show()
+        end)
+        b:SetScript("OnLeave",function() if GameTooltip then GameTooltip:Hide() end end)
+    end
     return b
 end
+UI.SideButton=UI.NavButton
 function UI:StyleSideButton(b,selected)
     local r=b and b.__oneSide
     if not r then return end
-    if selected then r.sel:Show() r.bar:Show() else r.sel:Hide() r.bar:Hide() end
-    local k=selected and 1 or .72
-    r.icon:SetVertexColor(k,k,k)
-    if selected then r.label:SetTextColor(1,.82,0) else r.label:SetTextColor(.82,.76,.6) end
+    local S=ONE.Skin
+    local role=selected and "text" or "soft"
+    local cr,cg,cb=S:Color(role)
+    r.label:SetTextColor(cr,cg,cb)
+    if selected then
+        local ar,ag,ab=S:Color("accent")
+        r.icon:SetVertexColor(ar,ag,ab)
+        r.line:SetColorTexture(ar,ag,ab,1)
+        r.line:Show()
+    else
+        r.icon:SetVertexColor(cr,cg,cb)
+        r.line:Hide()
+    end
 end
 function UI:IsSidebar() return self.sidebar~=nil end
 function UI:RelayoutNavigation()
@@ -124,18 +145,17 @@ function UI:RelayoutNavigation()
     for id in pairs(self.sidebarButtons) do keys[#keys+1]=id end
     table.sort(keys,function(a,b) return (NAV_ORDER[a] or 90)<(NAV_ORDER[b] or 90) end)
     local tabs={}
-    local W=NATIVE_WINDOW
-    local row=0
+    local x=0
     for i,id in ipairs(keys) do
         local tab=self.sidebarButtons[id]
         if tab.SetID then tab:SetID(i) end
         if tab.ClearAllPoints then tab:ClearAllPoints() end
-        if self.sidebar then
-            -- Optionen unten in der Leiste, alles andere von oben
-            if id=="options" then tab:SetPoint("BOTTOMLEFT",self.sidebar,"BOTTOMLEFT",4,22)
-            else tab:SetPoint("TOPLEFT",self.sidebar,"TOPLEFT",4,-6-row*(W.navHeight+W.navGap)) row=row+1 end
-        elseif i==1 then tab:SetPoint("TOPLEFT",self.frame,"BOTTOMLEFT",12,2)
-        else tab:SetPoint("LEFT",tabs[i-1],"RIGHT",(ONE.Book and ONE.Book:IsActive()) and 2 or -14,0) end
+        if id=="options" then
+            tab:SetPoint("RIGHT",self.closeButton or self.sidebar,"LEFT",-4,0)
+        else
+            tab:SetPoint("TOPLEFT",self.navAnchor or self.sidebar,"TOPRIGHT",x,0)
+            x=x+(tab.GetWidth and tab:GetWidth() or 90)
+        end
         tabs[i]=tab
         tab.__oneSelected=(id==self.activeTab)
     end
@@ -145,32 +165,17 @@ function UI:RelayoutNavigation()
 end
 function UI:SelectNativeTab()
     if not self.tabIds then return end
-    if self.sidebar then
-        local active=VIEW_PARENT[self.activeTab] or self.activeTab
-        for _,id in ipairs(self.tabIds) do self:StyleSideButton(self.sidebarButtons[id],id==active) end
-        return
-    end
-    local selected
-    for i,id in ipairs(self.tabIds) do if id==self.activeTab then selected=i end end
-    if type(PanelTemplates_SetNumTabs)=="function" then pcall(PanelTemplates_SetNumTabs,self.frame,#self.tabIds) end
-    if selected and type(PanelTemplates_SetTab)=="function" then
-        pcall(PanelTemplates_SetTab,self.frame,selected)
-    elseif not selected and type(PanelTemplates_DeselectTab)=="function" then
-        for _,tab in ipairs(self.frame.Tabs or {}) do pcall(PanelTemplates_DeselectTab,tab) end
-    end
-    if ONE.Book then ONE.Book:UpdateTabs(self) end
+    local active=VIEW_PARENT[self.activeTab] or self.activeTab
+    for _,id in ipairs(self.tabIds) do self:StyleSideButton(self.sidebarButtons[id],id==active) end
 end
 function UI:AddNavButton(id,title)
     if not NAV_ORDER[id] or self.sidebarButtons[id] then return end
-    local ok,tab
-    if self.sidebar then ok,tab=pcall(self.SideButton,self,id,title)
-    else ok,tab=pcall(CreateFrame,"Button","ProjectONEMainWindowTab"..id,self.frame,"PanelTabButtonTemplate") end
+    local ok,tab=pcall(self.NavButton,self,id,title)
     if not ok or not tab then
         tab=ONE.Widgets:Button(self.frame,NAV_LABEL[id] or title,96,26,"TOPLEFT",0,0)
     end
     tab:SetText(T(NAV_LABEL[id] or title))
     tab:SetScript("OnClick",function() self:Navigate(id) end)
-    if not self.sidebar and type(PanelTemplates_TabResize)=="function" then pcall(PanelTemplates_TabResize,tab,0) end
     self.sidebarButtons[id]=tab
     self:RelayoutNavigation()
     return tab
@@ -381,7 +386,7 @@ function UI:UpdateViews()
     local items=set and set.items or {}
     -- Ansichten, die eigene Seiten sind, folgen der offenen Seite
     if set then for _,it in ipairs(items) do if it.key==self.activeTab then set.active=it.key end end end
-    local right=-118
+    local right=-(WINDOW.insetRight+104)
     for i=#items,1,-1 do
         local it=items[i]
         local b=self.viewButtons[i]
@@ -394,17 +399,13 @@ function UI:UpdateViews()
         local w=math.max(64,math.floor(#label*6.2+26))
         b:SetSize(w,22)
         b:ClearAllPoints()
-        b:SetPoint("TOPRIGHT",self.frame,"TOPRIGHT",right,-(WINDOW.insetTop-27))
+        b:SetPoint("TOPRIGHT",self.frame,"TOPRIGHT",right,-(WINDOW.headerY-3))
         right=right-w-2
         local on=(it.key==set.active)
         if on then
             if b.LockHighlight then b:LockHighlight() end
-            local fs=b.GetFontString and b:GetFontString()
-            if fs and fs.SetTextColor then fs:SetTextColor(1,1,1) end
         else
             if b.UnlockHighlight then b:UnlockHighlight() end
-            local fs=b.GetFontString and b:GetFontString()
-            if fs and fs.SetTextColor then fs:SetTextColor(1,.82,0) end
         end
         b.__oneViewOn=on
         b:SetScript("OnClick",function()
@@ -1047,10 +1048,15 @@ local function RegisterCoreSettings()
         options=function() return {{value=nil,text="Automatisch (Spielsprache)"},{value="de",text="Deutsch"},{value="en",text="English"}} end,
         get=function() return ONE.db.language end,set=function(v) ONE.db.language=v end,
         onChange=function() UI:AskReload() end})
-    Set("look","Sprache und Aussehen",{id="lookChoice",kind="dropdown",label="Aussehen",order=31,width=220,
-        options=function() return {{value="native",text=T("Blizzard")},{value="book",text=T("Altes Buch (Probe)")}} end,
-        get=function() return ONE.db.theme and ONE.db.theme.selected=="book" and "book" or "native" end,
-        set=function(v) if ONE.Book then ONE.Book:SetEnabled(v=="book") end end})
+    Set("look","Sprache und Aussehen",{id="lookChoice",kind="dropdown",label="Farben",order=31,width=220,
+        tooltip="Nur die Farben wechseln, Aufbau und Bedienung bleiben gleich. „Nach Fraktion“ wählt Horde oder Allianz passend zu deiner Figur.",
+        options=function()
+            local out={}
+            for _,id in ipairs(ONE.Skin.order) do out[#out+1]={value=id,text=T(ONE.Skin.labels[id])} end
+            return out
+        end,
+        get=function() return ONE.Skin:Choice() end,
+        set=function(v) ONE.Skin:Set(v) end})
 end
 -- Kern-Funktionen in ihre Bereiche lenken (stehen in Core.lua/Vendor.lua/Book.lua)
 local CORE_FEATURE_PLACE={
@@ -1069,14 +1075,279 @@ function UI:PlaceFeatures()
     end
 end
 
-function UI:Initialize()
-    local ok,frame=pcall(CreateFrame,"Frame","ProjectONEMainWindow",UIParent,"PortraitFrameTemplate")
-    if not ok or not frame then frame=CreateFrame("Frame","ProjectONEMainWindow",UIParent) end
-    self.frame=frame
-    if not BookActive() then
-        for k,v in pairs(NATIVE_WINDOW) do WINDOW[k]=v end
-        ONE.WindowScale.WIDTH,ONE.WindowScale.HEIGHT=WINDOW.width,WINDOW.height
+-- Route: Stufenfortschritt als gepunktete Linie quer ueber das Fenster.
+local ROUTE_DOTS=48
+function UI:BuildRoute()
+    local W=WINDOW
+    local strip=CreateFrame("Frame",nil,self.frame)
+    strip:SetPoint("TOPLEFT",self.frame,"TOPLEFT",0,-W.topHeight)
+    strip:SetPoint("TOPRIGHT",self.frame,"TOPRIGHT",0,-W.topHeight)
+    strip:SetHeight(W.routeHeight)
+    if strip.SetFrameLevel and self.sidebar.GetFrameLevel then strip:SetFrameLevel(self.sidebar:GetFrameLevel()+1) end
+    ONE.Skin:Surface(strip,{fill="strip",flat=true,border=false,sheen=false})
+    local hair=strip:CreateTexture(nil,"BORDER")
+    hair:SetPoint("BOTTOMLEFT") hair:SetPoint("BOTTOMRIGHT") hair:SetHeight(1)
+    local from=strip:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+    from:SetPoint("LEFT",strip,"LEFT",16,0)
+    local to=strip:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+    to:SetPoint("RIGHT",strip,"RIGHT",-16,0)
+    local info=strip:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+    info:SetPoint("RIGHT",to,"LEFT",-12,0)
+    for _,fs in ipairs({from,to,info}) do if ONE.Kit then ONE.Kit:Upgrade(fs,"small") end end
+    local line=CreateFrame("Frame",nil,strip)
+    line:SetPoint("LEFT",strip,"LEFT",84,0)
+    line:SetPoint("RIGHT",info,"LEFT",-14,0)
+    line:SetHeight(12)
+    local dots={}
+    for i=1,ROUTE_DOTS do
+        local d=line:CreateTexture(nil,"ARTWORK")
+        d:SetTexture(ONE.Skin.tex.dot)
+        d:SetSize(3,3)
+        dots[i]=d
     end
+    local here=line:CreateTexture(nil,"OVERLAY")
+    here:SetTexture(ONE.Skin.tex.dot) here:SetSize(10,10)
+    local glow=line:CreateTexture(nil,"ARTWORK",nil,-1)
+    glow:SetTexture(ONE.Skin.tex.glow) glow:SetSize(30,30)
+    glow:SetPoint("CENTER",here,"CENTER")
+    local route={strip=strip,from=from,to=to,info=info,line=line,dots=dots,here=here,glow=glow,hair=hair}
+    self.route=route
+    function route.Update()
+        local S=ONE.Skin
+        local level=UnitLevel and UnitLevel("player") or 1
+        local xp=UnitXP and UnitXP("player") or 0
+        local max=UnitXPMax and UnitXPMax("player") or 0
+        local cap=(type(GetMaxPlayerLevel)=="function" and GetMaxPlayerLevel()) or 60
+        local pct=(max and max>0) and math.min(1,xp/max) or 0
+        if (level or 0)>=cap then pct=1 end
+        local width=line.GetWidth and line:GetWidth() or 0
+        if not width or width<=0 then width=WINDOW.width-84-200 end
+        local tr,tg,tb=S:Color("text")
+        local sr,sg,sb=S:Color("soft")
+        local ar,ag,ab=S:Color("accent")
+        from:SetText(T("Stufe %d",level or 1)) from:SetTextColor(tr,tg,tb)
+        if (level or 0)>=cap then
+            to:SetText("") info:SetText(T("Höchststufe erreicht"))
+        else
+            to:SetText(tostring((level or 1)+1)) to:SetTextColor(tr,tg,tb)
+            local rested=GetXPExhaustion and GetXPExhaustion() or nil
+            local text=T("%d %%",math.floor(pct*100))
+            if rested and rested>0 then text=text.."  ·  "..T("erholt") end
+            info:SetText(text)
+        end
+        info:SetTextColor(sr,sg,sb)
+        hair:SetColorTexture(1,1,1,.06)
+        for i,d in ipairs(dots) do
+            local f=(i-1)/(ROUTE_DOTS-1)
+            d:ClearAllPoints()
+            d:SetPoint("CENTER",line,"LEFT",f*width,0)
+            if f<=pct then d:SetVertexColor(ar,ag,ab,1) else d:SetVertexColor(1,1,1,.22) end
+        end
+        here:ClearAllPoints()
+        here:SetPoint("CENTER",line,"LEFT",pct*width,0)
+        here:SetVertexColor(ar,ag,ab,1)
+        glow:SetVertexColor(ar,ag,ab,.55)
+    end
+    if strip.RegisterEvent then
+        for _,ev in ipairs({"PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","PLAYER_ENTERING_WORLD"}) do pcall(strip.RegisterEvent,strip,ev) end
+        strip:SetScript("OnEvent",function() route.Update() end)
+    end
+    if strip.SetScript then strip:SetScript("OnSizeChanged",function() route.Update() end) end
+    ONE.Skin:OnChange(route.Update)
+    route.Update()
+    return route
+end
+
+-- Gildenspalte rechts: wer online ist (in deiner Naehe zuerst), was ansteht,
+-- Knoepfe der Module (z. B. Hilferuf). Module melden Knoepfe mit UI:AddColumnAction an.
+UI.columnActions={}
+function UI:AddColumnAction(id,def)
+    if type(id)~="string" or type(def)~="table" or type(def.onClick)~="function" then return false end
+    def.id,def.order=id,def.order or 50
+    for i,a in ipairs(self.columnActions) do if a.id==id then table.remove(self.columnActions,i) break end end
+    self.columnActions[#self.columnActions+1]=def
+    table.sort(self.columnActions,function(a,b) return a.order<b.order end)
+    if self.column then self.column.Update() end
+    return true
+end
+local COLUMN_ROWS=9
+function UI:BuildGuildColumn()
+    local W=WINDOW
+    local col=CreateFrame("Frame",nil,self.frame)
+    col:SetPoint("TOPRIGHT",self.frame,"TOPRIGHT",0,-(W.topHeight+W.routeHeight))
+    col:SetPoint("BOTTOMRIGHT",self.frame,"BOTTOMRIGHT",0,0)
+    col:SetWidth(W.columnWidth)
+    ONE.Skin:Surface(col,{fill="side",flat=true,border=false,sheen=false})
+    local edge=col:CreateTexture(nil,"BORDER")
+    edge:SetPoint("TOPLEFT") edge:SetPoint("BOTTOMLEFT") edge:SetWidth(1)
+    local function Text(font,role,level)
+        local fs=col:CreateFontString(nil,"OVERLAY",font or "GameFontHighlight")
+        fs:SetJustifyH("LEFT")
+        if fs.SetWordWrap then fs:SetWordWrap(false) end
+        if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(fs,role or "text") end
+        if ONE.Kit and level then ONE.Kit:Upgrade(fs,level) end
+        return fs
+    end
+    local head=Text("GameFontNormal","title","heading")
+    head:SetPoint("TOPLEFT",col,"TOPLEFT",14,-12)
+    head:SetWidth(W.columnWidth-80)
+    local count=Text("GameFontHighlightSmall","muted","small")
+    count:SetPoint("TOPRIGHT",col,"TOPRIGHT",-14,-14)
+    count:SetJustifyH("RIGHT")
+    local rule=col:CreateTexture(nil,"BORDER")
+    rule:SetPoint("TOPLEFT",col,"TOPLEFT",0,-38) rule:SetPoint("TOPRIGHT",col,"TOPRIGHT",0,-38) rule:SetHeight(1)
+    -- Abschnitt "Steht an" (aus UI:FeedItems)
+    local nextLab=Text("GameFontHighlightSmall","muted","small")
+    nextLab:SetPoint("TOPLEFT",col,"TOPLEFT",14,-48)
+    local feed={}
+    for i=1,2 do
+        local b=CreateFrame("Button",nil,col)
+        b:SetSize(W.columnWidth-28,20)
+        b:SetPoint("TOPLEFT",col,"TOPLEFT",14,-64-(i-1)*20)
+        local fs=b:CreateFontString(nil,"OVERLAY","GameFontHighlight")
+        fs:SetAllPoints(b) fs:SetJustifyH("LEFT")
+        if fs.SetWordWrap then fs:SetWordWrap(false) end
+        if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(fs,"text") end
+        if ONE.Kit then ONE.Kit:Upgrade(fs,"label") end
+        local hl=b:CreateTexture(nil,"HIGHLIGHT") hl:SetAllPoints(b) hl:SetColorTexture(1,1,1,.05)
+        b.text=fs
+        feed[i]=b
+    end
+    -- Mitglieder online
+    local memLab=Text("GameFontHighlightSmall","muted","small")
+    local rows={}
+    for i=1,COLUMN_ROWS do
+        local r=CreateFrame("Frame",nil,col)
+        r:SetSize(W.columnWidth-28,22)
+        local dot=r:CreateTexture(nil,"ARTWORK")
+        dot:SetTexture(ONE.Skin.tex.dot) dot:SetSize(7,7)
+        dot:SetPoint("LEFT",r,"LEFT",0,0)
+        local name=r:CreateFontString(nil,"OVERLAY","GameFontHighlight")
+        name:SetPoint("LEFT",dot,"RIGHT",8,0)
+        name:SetWidth(96) name:SetJustifyH("LEFT")
+        if name.SetWordWrap then name:SetWordWrap(false) end
+        local where=r:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+        where:SetPoint("RIGHT",r,"RIGHT",0,0)
+        where:SetPoint("LEFT",name,"RIGHT",6,0)
+        where:SetJustifyH("RIGHT")
+        if where.SetWordWrap then where:SetWordWrap(false) end
+        if ONE.Kit then ONE.Kit:Upgrade(name,"label") ONE.Kit:Upgrade(where,"small") end
+        r.dot,r.name,r.where=dot,name,where
+        rows[i]=r
+    end
+    local more=Text("GameFontHighlightSmall","muted","small")
+    local buttons={}
+    local column={frame=col}
+    self.column=column
+    local function Members()
+        local list,total,online={},0,0
+        if type(GetNumGuildMembers)=="function" then
+            total,online=GetNumGuildMembers()
+            total,online=total or 0,online or 0
+            local myZone=GetRealZoneText and GetRealZoneText() or nil
+            local me=UnitName and UnitName("player") or nil
+            for i=1,total do
+                local name,_,_,level,_,zone,_,_,isOnline,_,class=GetGuildRosterInfo(i)
+                if name and isOnline then
+                    local short=name:match("^[^-]+") or name
+                    if short~=me then
+                        list[#list+1]={name=short,level=level or 0,zone=zone or "",class=class,near=(myZone and zone==myZone)}
+                    end
+                end
+            end
+            table.sort(list,function(a,b)
+                if a.near~=b.near then return a.near end
+                return a.name<b.name
+            end)
+        end
+        return list,total,online
+    end
+    function column.Update()
+        local S=ONE.Skin
+        edge:SetColorTexture(1,1,1,.07)
+        rule:SetColorTexture(1,1,1,.07)
+        local guildName=type(GetGuildInfo)=="function" and GetGuildInfo("player") or nil
+        head:SetText(guildName or T("Keine Gilde"))
+        local list,_,online=Members()
+        count:SetText(guildName and T("%d online",online) or "")
+        -- Steht an
+        local items=self.FeedItems and self:FeedItems() or {}
+        local y=-48
+        if #items>0 then
+            nextLab:SetText(T("STEHT AN")) nextLab:Show()
+            y=y-16
+            for i,b in ipairs(feed) do
+                local it=items[i]
+                if it then
+                    b.text:SetText(it.text)
+                    b:SetScript("OnClick",function() if it.open then it.open() elseif it.link then self:OpenLink(it.link) end end)
+                    b:Show()
+                    y=y-20
+                else b:Hide() end
+            end
+            y=y-10
+        else
+            nextLab:Hide()
+            for _,b in ipairs(feed) do b:Hide() end
+        end
+        -- Mitglieder
+        memLab:ClearAllPoints()
+        memLab:SetPoint("TOPLEFT",col,"TOPLEFT",14,y)
+        memLab:SetText(guildName and T("ONLINE") or "")
+        y=y-18
+        local actionsH=#self.columnActions*30+12
+        local room=math.max(0,math.floor((W.height-W.topHeight-W.routeHeight+y-actionsH-22)/22))
+        local shown=math.min(room,COLUMN_ROWS,#list)
+        local okR,okG,okB=S:Color("ok")
+        for i,r in ipairs(rows) do
+            local m=i<=shown and list[i]
+            if m then
+                r:ClearAllPoints()
+                r:SetPoint("TOPLEFT",col,"TOPLEFT",14,y-(i-1)*22)
+                local cc=m.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[m.class]
+                local tr,tg,tb=S:Color("text")
+                if cc then tr,tg,tb=cc.r,cc.g,cc.b end
+                r.name:SetText(m.name) r.name:SetTextColor(tr,tg,tb)
+                r.where:SetText(m.near and (m.level.." · "..T("hier")) or (m.level.." · "..m.zone))
+                local sr,sg,sb=S:Color("muted")
+                r.where:SetTextColor(sr,sg,sb)
+                r.dot:SetVertexColor(okR,okG,okB,1)
+                r:Show()
+            else r:Hide() end
+        end
+        more:ClearAllPoints()
+        more:SetPoint("TOPLEFT",col,"TOPLEFT",14,y-shown*22-2)
+        more:SetText(#list>shown and T("+ %d weitere",#list-shown) or (guildName and #list==0 and T("Gerade ist niemand online.") or ""))
+        -- Knoepfe der Module unten
+        for i,a in ipairs(self.columnActions) do
+            local b=buttons[i]
+            if not b then
+                b=ONE.Widgets:Button(col,"",W.columnWidth-28,26,"BOTTOMLEFT",14,0)
+                buttons[i]=b
+            end
+            b.__oneVariant=a.style or "secondary"
+            local label=type(a.label)=="function" and a.label() or a.label
+            b:SetText(T(label))
+            b:ClearAllPoints()
+            b:SetPoint("BOTTOMLEFT",col,"BOTTOMLEFT",14,12+(#self.columnActions-i)*30)
+            b:SetScript("OnClick",function() a.onClick() end)
+            if ONE.Widgets.PaintButton then ONE.Widgets.PaintButton(b) end
+            if a.visible and not a.visible() then b:Hide() else b:Show() end
+        end
+        for i=#self.columnActions+1,#buttons do buttons[i]:Hide() end
+    end
+    if col.RegisterEvent then
+        for _,ev in ipairs({"GUILD_ROSTER_UPDATE","PLAYER_GUILD_UPDATE","ZONE_CHANGED_NEW_AREA"}) do pcall(col.RegisterEvent,col,ev) end
+        col:SetScript("OnEvent",function() if self.frame:IsShown() then column.Update() end end)
+    end
+    ONE.Skin:OnChange(column.Update)
+    return column
+end
+
+function UI:Initialize()
+    local frame=CreateFrame("Frame","ProjectONEMainWindow",UIParent)
+    self.frame=frame
+    ONE.WindowScale.WIDTH,ONE.WindowScale.HEIGHT=WINDOW.width,WINDOW.height
     frame:SetSize(WINDOW.width,WINDOW.height)
     ONE.WindowScale:Initialize(frame)
     frame:SetFrameStrata("DIALOG")
@@ -1090,94 +1361,80 @@ function UI:Initialize()
         ONE.WindowScale:SavePosition(self)
     end)
     frame:SetClampedToScreen(true)
-    -- Titel und rundes Portrait (ONE-Logo) wie bei Blizzard-Fenstern.
-    -- Titel: "Guild Trip" plus der Name der eigenen Gilde (fuer jede Gilde passend).
-    local function TitleText()
-        local guildName=type(GetGuildInfo)=="function" and GetGuildInfo("player")
-        if type(guildName)=="string" and guildName~="" then return "Guild Trip  ·  "..guildName end
-        return T("Guild Trip")
+    -- Fensterflaeche: runde Ecken, grosser Schatten
+    ONE.Skin:Surface(frame,{fill="win",radius=10,shadow="window",sheen=false})
+    -- Kopfleiste: Wappen, "GUILD TRIP", Navigation, Schliessen
+    local top=CreateFrame("Frame",nil,frame)
+    top:SetPoint("TOPLEFT",frame,"TOPLEFT",0,0)
+    top:SetPoint("TOPRIGHT",frame,"TOPRIGHT",0,0)
+    top:SetHeight(WINDOW.topHeight+10)
+    ONE.Skin:Surface(top,{fill="top",radius=10,border=false,sheenHeight=WINDOW.topHeight,sheenAlpha=.04})
+    local rim=top:CreateTexture(nil,"OVERLAY")
+    rim:SetPoint("TOPLEFT",top,"TOPLEFT",60,0) rim:SetPoint("TOPRIGHT",top,"TOPRIGHT",-60,0) rim:SetHeight(1)
+    self.sidebar=top
+    local logo=top:CreateTexture(nil,"ARTWORK")
+    logo:SetTexture("Interface\\AddOns\\ONE_Core\\Textures\\Common\\Emblem.tga")
+    logo:SetSize(28,28)
+    logo:SetPoint("LEFT",top,"TOPLEFT",12,-WINDOW.topHeight/2)
+    local word=top:CreateFontString(nil,"OVERLAY","GameFontNormal")
+    word:SetPoint("LEFT",logo,"RIGHT",9,0)
+    if ONE.Kit then ONE.Kit:Upgrade(word,"label") end
+    word:SetText(T("GUILD TRIP"))
+    if word.SetSpacing then pcall(word.SetSpacing,word,0) end
+    local sep=top:CreateTexture(nil,"BORDER")
+    sep:SetSize(1,WINDOW.topHeight)
+    sep:SetPoint("TOPLEFT",top,"TOPLEFT",144,0)
+    local navAnchor=CreateFrame("Frame",nil,top)
+    navAnchor:SetSize(1,WINDOW.topHeight)
+    navAnchor:SetPoint("TOPLEFT",top,"TOPLEFT",144,0)
+    self.navAnchor=navAnchor
+    self.closeButton=ONE.Widgets:CloseButton(top,"TOPRIGHT",-10,-10,function() frame:Hide() end)
+    local function PaintTop()
+        local S=ONE.Skin
+        local ar,ag,ab=S:Color("accent")
+        rim:SetColorTexture(ar,ag,ab,.55)
+        local tr,tg,tb=S:Color("text")
+        word:SetTextColor(tr,tg,tb)
+        sep:SetColorTexture(1,1,1,.07)
+        self:SelectNativeTab()
     end
-    local fallbackTitle
-    local function ApplyTitle()
-        local text=TitleText()
-        if type(frame.SetTitle)=="function" and pcall(frame.SetTitle,frame,text) then return end
-        if not fallbackTitle then
-            fallbackTitle=frame:CreateFontString(nil,"OVERLAY","GameFontNormal")
-            fallbackTitle:SetPoint("TOP",frame,"TOP",0,-6)
-        end
-        fallbackTitle:SetText(text)
-    end
-    ApplyTitle()
-    if frame.HookScript then frame:HookScript("OnShow",ApplyTitle) end
-    self.ApplyTitle=ApplyTitle
-    local logo="Interface\\AddOns\\ONE_Core\\Textures\\Common\\Emblem.tga"
-    local portrait=false
-    for _,method in ipairs({"SetPortraitToAsset","SetPortraitTextureRaw"}) do
-        if not portrait and type(frame[method])=="function" then portrait=pcall(frame[method],frame,logo) end
-    end
-    if not portrait then
-        local icon=frame:CreateTexture(nil,"ARTWORK")
-        icon:SetTexture(logo)
-        icon:SetSize(54,54)
-        icon:SetPoint("TOPLEFT",frame,"TOPLEFT",-6,8)
-        self.portraitIcon=icon
-    end
-    -- Eingelassene Innenflaeche wie im Charakterfenster.
-    local insetOk,inset=pcall(CreateFrame,"Frame",nil,frame,"InsetFrameTemplate")
-    if not insetOk or not inset then
-        inset=CreateFrame("Frame",nil,frame)
-        ONE.Themes:RegisterPanel(inset)
-    end
+    ONE.Skin:OnChange(PaintTop)
+    PaintTop()
+    self.ApplyTitle=function() end
+    self:BuildRoute()
+    self:BuildGuildColumn()
+    -- Inhaltsflaeche (unsichtbar): Bezug fuer Seiten, die sich am Inhalt ausrichten
+    local inset=CreateFrame("Frame",nil,frame)
     inset:SetPoint("TOPLEFT",frame,"TOPLEFT",WINDOW.insetX,-WINDOW.insetTop)
-    inset:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-(WINDOW.insetRight or WINDOW.insetX),WINDOW.insetBottom)
+    inset:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-WINDOW.insetRight,WINDOW.insetBottom)
     self.inset=inset
-    if WINDOW.sideWidth then
-        -- Symbolleiste links: eigene eingelassene Flaeche wie die Innenflaeche
-        local sok,side=pcall(CreateFrame,"Frame",nil,frame,"InsetFrameTemplate")
-        if not sok or not side then side=CreateFrame("Frame",nil,frame) ONE.Themes:RegisterPanel(side) end
-        side:SetPoint("TOPLEFT",frame,"TOPLEFT",WINDOW.sideX,-WINDOW.insetTop)
-        side:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",WINDOW.sideX,WINDOW.insetBottom)
-        side:SetWidth(WINDOW.sideWidth)
-        self.sidebar=side
-    end
-    -- Blizzard-Aussehen: beim Oeffnen alle Textfarben (Gold/Weiss/Grau) neu setzen,
-    -- falls das Spiel Schriften inzwischen aufgefrischt hat
+    -- Kopfzeile ueber dem Inhalt: Seitenname gross, daneben grau die Zusatzangabe;
+    -- rechts Ansichten-Umschalter und Zurueck.
+    self.pathLabel=Label(frame,T("Startseite"),"GameFontNormalLarge",WINDOW.insetX+4,-WINDOW.headerY,360,"title")
+    if ONE.Kit then ONE.Kit:Upgrade(self.pathLabel,"title") end
+    self.pathLabel:SetWidth(0)
+    if self.pathLabel.SetWordWrap then self.pathLabel:SetWordWrap(false) end
+    self.contextLabel=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+    self.contextLabel:SetPoint("BOTTOMLEFT",self.pathLabel,"BOTTOMRIGHT",12,2)
+    self.contextLabel:SetJustifyH("LEFT")
+    if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(self.contextLabel,"soft") end
+    self.backButton=ONE.Widgets:Button(frame,T("Zurück"),96,24,"TOPRIGHT",-WINDOW.insetRight,-(WINDOW.headerY-3),function() self:GoBack() end,"ghost")
+    self.forwardButton=ONE.Widgets:Button(frame,T("Weiter"),96,24,"TOPRIGHT",-(WINDOW.insetRight+100),-(WINDOW.headerY-3),function() self:GoForward() end,"ghost")
+    self.forwardButton:Hide()
+    -- Version klein unten links
+    self.themeStatus=frame:CreateFontString(nil,"OVERLAY","GameFontDisableSmall")
+    self.themeStatus:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",WINDOW.insetX,-1)
+    self.themeStatus:SetJustifyH("LEFT")
+    self.themeStatus:Hide()
     if frame.HookScript then
         frame:HookScript("OnShow",function()
-            if ONE.Themes and ONE.Themes.IsNative and ONE.Themes:IsNative() then ONE.Themes:ApplyAll() end
+            if self.route then self.route.Update() end
+            if self.column then
+                if type(C_GuildInfo)=="table" and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster)
+                elseif type(GuildRoster)=="function" then pcall(GuildRoster) end
+                self.column.Update()
+            end
         end)
-    end
-    self.closeButton=frame.CloseButton
-    if not self.closeButton then
-        self.closeButton=ONE.Widgets:CloseButton(frame,"TOPRIGHT",-2,-2,function() frame:Hide() end)
-    end
-    -- Kopfleiste ueber der Innenflaeche: Seitenname links, Zurueck rechts.
-    if self.sidebar then
-        -- Kopfzeile: Seitenname gross, daneben grau die Zusatzangabe
-        self.pathLabel=Label(frame,T("Startseite"),"GameFontNormalLarge",WINDOW.insetX+4,-(WINDOW.insetTop-29),360)
-        self.pathLabel:SetWidth(0)
-        if self.pathLabel.SetWordWrap then self.pathLabel:SetWordWrap(false) end
-        self.contextLabel=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
-        self.contextLabel:SetPoint("BOTTOMLEFT",self.pathLabel,"BOTTOMRIGHT",10,1)
-        self.contextLabel:SetJustifyH("LEFT")
-        if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(self.contextLabel,"soft") end
-    else
-        self.pathLabel=Label(frame,T("Startseite"),"GameFontNormal",WINDOW.insetX+58,-(WINDOW.insetTop-24),300)
-    end
-    self.backButton=ONE.Widgets:Button(frame,T("Zurück"),96,22,"TOPRIGHT",-12,-(WINDOW.insetTop-27),function() self:GoBack() end)
-    self.forwardButton=ONE.Widgets:Button(frame,T("Weiter"),96,22,"TOPRIGHT",-112,-(WINDOW.insetTop-27),function() self:GoForward() end)
-    self.forwardButton:Hide()
-    -- Fussleiste: Version
-    -- endet links neben dem Groessen-Griff unten rechts (26 px)
-    if self.sidebar then
-        -- Version klein unten in der Symbolleiste
-        self.themeStatus=self.sidebar:CreateFontString(nil,"OVERLAY","GameFontDisableSmall")
-        self.themeStatus:SetPoint("BOTTOM",self.sidebar,"BOTTOM",0,7)
-        self.themeStatus:SetWidth(WINDOW.sideWidth-6)
-        self.themeStatus:SetJustifyH("CENTER")
-    else
-        self.themeStatus=Label(frame,"","GameFontDisableSmall",WINDOW.width-262,-(WINDOW.height-WINDOW.insetBottom+7),220)
-        if self.themeStatus.SetJustifyH then self.themeStatus:SetJustifyH("RIGHT") end
     end
     if UISpecialFrames then table.insert(UISpecialFrames,"ProjectONEMainWindow") end
     if ONE.Kit then
@@ -1192,6 +1449,5 @@ function UI:Initialize()
     self:AddTab("options",T("Optionen"),BuildOptions)
     self:SelectTab("home")
     self:UpdateBackButton()
-    if ONE.Book then ONE.Book:Attach(self) end
     frame:Hide()
 end
