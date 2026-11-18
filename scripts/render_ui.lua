@@ -419,6 +419,14 @@ C_FriendList = Stub("C_FriendList")
 C_GossipInfo = Stub("C_GossipInfo")
 C_QuestLog = Stub("C_QuestLog")
 C_Item = Stub("C_Item")
+-- Vorschau: Symbol-Nummer = Gegenstandsnummer (render_ui.py zeichnet farbige Platzhalter),
+-- Qualitaet und Namen fuer die Beispiel-Rezepte
+local PREVIEW_ITEMS = {[3473] = {"Runenverzierte Kupferstiefel", 2}, [2853] = {"Kupferner Kettengürtel", 1}, [3240] = {"Grober Wetzstein", 1},
+    [2840] = {"Kupferbarren", 1}, [1206] = {"Malachit", 2}, [2320] = {"Grober Faden", 1}, [2836] = {"Grober Stein", 1}}
+C_Item.GetItemIconByID = function(id) return id end
+C_Item.GetItemQualityByID = function(id) return PREVIEW_ITEMS[id] and PREVIEW_ITEMS[id][2] end
+C_Item.GetItemNameByID = function(id) return PREVIEW_ITEMS[id] and PREVIEW_ITEMS[id][1] end
+C_Item.GetItemCount = function(id) return ({[2840] = 8, [1206] = 1})[id] or 0 end
 C_Spell = Stub("C_Spell")
 C_SpellBook = Stub("C_SpellBook")
 C_TradeSkillUI = Stub("C_TradeSkillUI")
@@ -454,7 +462,7 @@ GetQuestLogTitle = function() return nil end
 GetMoney = function() return 0 end
 GetCoinTextureString = function(m) return tostring(m) end
 GetSpellInfo = function(id) return "Zauber " .. tostring(id), nil, 136243 end
-GetSpellTexture = function() return 136243 end
+GetSpellTexture = function(id) return tonumber(id) or 136243 end
 GetItemInfo = function() return nil end
 GetItemInfoInstant = function() return nil end
 GetItemQualityColor = function() return 1, 1, 1, "ffffffff" end

@@ -149,6 +149,12 @@ def render_page(page, scale, book=False):
                 continue
             uri = texture_uri(it.get("tex") or "")
             if not uri:
+                tex = str(it.get("tex") or "")
+                # Spiel-Symbol (Nummer oder Interface\Icons): farbiger Platzhalter
+                if tex.isdigit() or "icons" in tex.lower():
+                    h = sum(ord(c) * (i + 7) for i, c in enumerate(tex)) % 360
+                    parts.append('<div class="e" style="%sbackground:radial-gradient(circle at 35%% 30%%,hsl(%d,45%%,68%%),hsl(%d,40%%,30%%) 60%%,hsl(%d,30%%,10%%));border-radius:%dpx;%s"></div>' % (
+                        st, h, h, h, max(2, int(w / 6)), "opacity:%.2f;" % a if a is not None else ""))
                 continue
             bg = "background-image:url(%s);background-size:100%% 100%%;" % uri
             msize, mpos = "100% 100%", "0 0"
