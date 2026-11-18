@@ -212,6 +212,105 @@ function Widgets:CloseButton(parent, point, x, y, callback)
     return close
 end
 
+-- ===== Spiel-Symbol (Gegenstand, Zauber, Rezept) =====
+-- Echte Symbole aus dem Client, im Aussehen "Nachtroute": abgerundet (Maske, sonst
+-- Blizzard-Rand abgeschnitten), feiner Ring in Qualitaetsfarbe, kleine Anzahl-Plakette
+-- unten rechts, weiches Leuchten in Akzentfarbe, wenn ausgewaehlt.
+-- icon = Widgets:Icon(parent, size); icon:SetItem(itemID) / :SetSpell(id) / :SetIcon(tex)
+-- icon:SetQuality(q) icon:SetCount(n) icon:SetSelected(on) icon:SetMissing(on)
+local QUALITY = {[0] = {.62, .62, .62}, {1, 1, 1}, {.12, 1, 0}, {0, .44, .87}, {.64, .21, .93}, {1, .5, 0}}
+Widgets.QUALITY = QUALITY
+local Icon = {}
+Icon.__index = Icon
+local function Call(fn, ...)
+    if type(fn) ~= "function" then return nil end
+    local ok, a, b = pcall(fn, ...)
+    if ok then return a, b end
+end
+function Widgets:Icon(parent, size)
+    local S = ONE.Skin
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetSize(size, size)
+    local o = setmetatable({frame = f, size = size}, Icon)
+    o.glow = f:CreateTexture(nil, "BACKGROUND", nil, -7)
+    o.glow:SetTexture(S and S.tex.glow or nil)
+    o.glow:SetPoint("CENTER", f, "CENTER")
+    o.glow:SetSize(size * 2.2, size * 2.2)
+    o.glow:Hide()
+    o.tex = f:CreateTexture(nil, "ARTWORK")
+    o.tex:SetAllPoints(f)
+    -- runde Ecken per Maske (wenn der Client Masken kann), sonst Blizzard-Rand abschneiden
+    local masked = false
+    if S and f.CreateMaskTexture and o.tex.AddMaskTexture then
+        local ok, mask = pcall(f.CreateMaskTexture, f)
+        if ok and mask then
+            pcall(mask.SetTexture, mask, S.tex.round, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            mask:SetAllPoints(f)
+            masked = pcall(o.tex.AddMaskTexture, o.tex, mask)
+        end
+    end
+    if o.tex.SetTexCoord then o.tex:SetTexCoord(.08, .92, .08, .92) end
+    o.masked = masked
+    o.ring = S and S:Nine(f, S.tex.ring, .25, "OVERLAY", 1):Place(4, 1)
+    o.badge = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    o.badge:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 2, -1)
+    if ONE.Kit then ONE.Kit:Upgrade(o.badge, "small") end
+    if o.badge.SetShadowOffset then o.badge:SetShadowOffset(1, -1) end
+    o:SetQuality(nil)
+    return o
+end
+function Icon:SetIcon(tex)
+    self.tex:SetTexture(tex or "Interface\\Icons\\INV_Misc_QuestionMark")
+    return self
+end
+function Icon:SetItem(itemID)
+    local tex = itemID and itemID > 0 and C_Item and Call(C_Item.GetItemIconByID, itemID)
+    if not tex and type(GetItemIcon) == "function" and itemID then tex = Call(GetItemIcon, itemID) end
+    local q = itemID and itemID > 0 and C_Item and Call(C_Item.GetItemQualityByID, itemID)
+    self:SetIcon(tex)
+    self:SetQuality(q)
+    return tex ~= nil
+end
+function Icon:SetSpell(spellID)
+    local tex = spellID and ((C_Spell and Call(C_Spell.GetSpellTexture, spellID)) or Call(GetSpellTexture, spellID))
+    self:SetIcon(tex)
+    self:SetQuality(nil)
+    return tex ~= nil
+end
+function Icon:SetQuality(q)
+    self.quality = q
+    if not self.ring then return self end
+    local c = QUALITY[q or -1]
+    if c then self.ring:SetColor(c[1], c[2], c[3], .9)
+    else self.ring:SetColor(1, 1, 1, .18) end
+    return self
+end
+function Icon:SetCount(n)
+    self.badge:SetText((n and n > 1) and tostring(n) or (n == 1 and "1") or "")
+    return self
+end
+function Icon:SetSelected(on)
+    if on and ONE.Skin then
+        local r, g, b = ONE.Skin:Color("accent")
+        self.glow:SetVertexColor(r, g, b, .5)
+        self.glow:Show()
+        if self.ring then self.ring:SetColor(r, g, b, 1) end
+    else
+        self.glow:Hide()
+        self:SetQuality(self.quality)
+    end
+    return self
+end
+function Icon:SetMissing(on)
+    if self.tex.SetDesaturated then self.tex:SetDesaturated(on and true or false) end
+    self.tex:SetAlpha(on and .5 or 1)
+    return self
+end
+function Icon:SetPoint(...) self.frame:SetPoint(...) return self end
+function Icon:ClearAllPoints() self.frame:ClearAllPoints() return self end
+function Icon:Show() self.frame:Show() end
+function Icon:Hide() self.frame:Hide() end
+
 -- Kleiner Navi-Pfeil statt "Navi"-Knopf (Nutzer-Wunsch 15.11.2026: durchweg im ganzen Addon).
 -- Startet das Navi nur beim Klick auf den Pfeil; der Tooltip sagt, wohin.
 -- tip: Text oder Funktion(self) -> Titel, Zusatzzeile. callback(self) wie bei Button.

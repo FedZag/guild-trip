@@ -118,3 +118,7 @@ EN["Gilde & Kalender"] = "Guild & calendar"
 
 EN["Zu %s (%s)"] = "To %s (%s)"
 EN["lehrt %s"] = "teaches %s"
+-- 0.8: Spiel-Symbole und Zutaten
+EN["ZUTATEN"] = "REAGENTS"
+EN["Gegenstand %d"] = "Item %d"
+EN["Zutaten: Berufsfenster einmal öffnen"] = "Reagents: open the profession window once"

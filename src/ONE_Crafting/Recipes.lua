@@ -33,6 +33,9 @@ function Recipes:Store()
     s.guild = type(s.guild) == "table" and s.guild or {}
     s.names = type(s.names) == "table" and s.names or {}
     s.shareChars = type(s.shareChars) == "table" and s.shareChars or {}
+    -- 0.8: Symbol und Zutaten je Rezept (beim Oeffnen des Berufsfensters gemerkt)
+    s.icons = type(s.icons) == "table" and s.icons or {}
+    s.reagents = type(s.reagents) == "table" and s.reagents or {}
     return s
 end
 
@@ -61,12 +64,71 @@ function Recipes:Capture()
             local itemID = type(out) == "table" and tonumber(out.itemID) or 0
             recipes[id] = itemID
             if type(info.name) == "string" and info.name ~= "" then names[id] = info.name end
+            if info.icon then self:Store().icons[id] = info.icon end
+            local reagents = self:ReadReagents(id)
+            if reagents then self:Store().reagents[id] = reagents end
             count = count + 1
         end
     end
     self:Mine()[prof] = {skill = tonumber(base.skillLevel) or 0, max = tonumber(base.maxSkillLevel) or 0,
         stamp = Now(), recipes = recipes}
     return prof, count
+end
+
+-- Zutaten eines Rezepts aus dem offenen Berufsfenster: {{itemID, menge}, ...} oder nil.
+-- Zwei Wege, je nach Client: GetRecipeSchematic (neu) oder GetRecipeNumReagents/-ItemLink (alt).
+local function LinkItemID(link) return type(link) == "string" and tonumber(link:match("item:(%d+)")) or nil end
+function Recipes:ReadReagents(recipeID)
+    local T = C_TradeSkillUI
+    if not T then return nil end
+    local out = {}
+    local schem = Call(T.GetRecipeSchematic, recipeID, false)
+    if type(schem) == "table" and type(schem.reagentSlotSchematics) == "table" then
+        for _, slot in ipairs(schem.reagentSlotSchematics) do
+            local r = type(slot.reagents) == "table" and slot.reagents[1]
+            local item = r and tonumber(r.itemID)
+            -- reagentType 1 = Pflichtzutat (optionale Zutaten weglassen)
+            if item and (slot.reagentType == nil or slot.reagentType == 1) then
+                out[#out + 1] = {item, tonumber(slot.quantityRequired) or 1}
+            end
+        end
+        if #out > 0 then return out end
+    end
+    local n = tonumber((Call(T.GetRecipeNumReagents, recipeID)))
+    if not n or n <= 0 then return nil end
+    for i = 1, math.min(n, 8) do
+        local _, _, count = Call(T.GetRecipeReagentInfo, recipeID, i)
+        local item = LinkItemID(Call(T.GetRecipeReagentItemLink, recipeID, i))
+        if item then out[#out + 1] = {item, tonumber(count) or 1} end
+    end
+    return #out > 0 and out or nil
+end
+function Recipes:Reagents(recipeID) return self:Store().reagents[recipeID] end
+-- Symbol: Gegenstand, sonst gemerktes Rezeptsymbol, sonst Zaubersymbol (recipeID = Zauber-ID)
+function Recipes:Icon(recipeID, itemID)
+    if itemID and itemID > 0 and C_Item then
+        local tex = Call(C_Item.GetItemIconByID, itemID)
+        if tex then return tex end
+    end
+    local saved = self:Store().icons[recipeID]
+    if saved then return saved end
+    return (C_Spell and Call(C_Spell.GetSpellTexture, recipeID)) or Call(GetSpellTexture, recipeID)
+end
+-- Wie viele hast du (Taschen + Bank)?
+function Recipes:Have(itemID)
+    local n = C_Item and Call(C_Item.GetItemCount, itemID, true) or Call(GetItemCount, itemID, true)
+    return tonumber(n) or 0
+end
+-- Wie oft kannst du es gerade herstellen? nil, wenn die Zutaten nicht bekannt sind
+function Recipes:Craftable(recipeID)
+    local list = self:Reagents(recipeID)
+    if not list then return nil end
+    local times
+    for _, r in ipairs(list) do
+        local t = math.floor(self:Have(r[1]) / math.max(1, r[2]))
+        times = times and math.min(times, t) or t
+    end
+    return times
 end
 
 -- Rezeptname: aus dem eigenen Berufsfenster gemerkt, sonst Zauber-Name (recipeID = Zauber-ID).

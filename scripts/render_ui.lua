@@ -525,7 +525,12 @@ end})
 ProjectONEDB = {theme = {skin = os.getenv("SKIN"), uiSounds = false}, soundEnabled = false, minimap = {hidden = true},
     seenVersion = "0.6.7-alpha", loginSummaryEnabled = false, toastEnabled = false,
     dungeons = {pass = {Testheld = {d = {wc = {first = 1763000000, last = 1763300000, runs = 2}, rfc = {first = 1762500000, runs = 1},
-        dm = {first = 1763350000, runs = 1}}, t = {{id = "x", title = "Brachland-Treffen", time = 1763200000, count = 8}}}}}}
+        dm = {first = 1763350000, runs = 1}}, t = {{id = "x", title = "Brachland-Treffen", time = 1763200000, count = 8}}}}},
+    -- Beispiel-Rezepte fuer die Berufe-Seite
+    crafting = {chars = {Testheld = {["Schmiedekunst"] = {skill = 142, max = 225, stamp = 1763300000,
+        recipes = {[3328] = 3473, [2662] = 2853, [3116] = 3240}}}},
+        names = {[3328] = "Runenverzierte Kupferstiefel", [2662] = "Kupferner Kettengürtel", [3116] = "Grober Wetzstein"},
+        reagents = {[3328] = {{2840, 6}, {1206, 1}, {2320, 2}}, [3116] = {{2836, 1}, {2840, 2}}}}}
 if mode == "book" then ProjectONEDB.theme.selected = "book" ProjectONEDB.theme.book = true end
 
 -- ===== Addons laden =====
