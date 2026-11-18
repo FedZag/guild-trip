@@ -54,7 +54,7 @@ ONE.Widgets = {Button = function() return Stub() end, NaviArrow = function() ret
 ONE.Kit = {List = function(_, _, opts) local l = {box = Stub(), opts = opts} function l:SetItems(items) self.items = items end lists[#lists + 1] = l return l end}
 ONE.UI = {Refresh = function() end}
 local lev = {}
-for _, f in ipairs({"Rewards", "Planner", "Grind", "Guide", "Page", "Tracker", "Settings", "AutoQuest", "Init"}) do assert(loadfile(root .. "/ONE_Leveling/" .. f .. ".lua"))("ONE_Leveling", lev) end
+for _, f in ipairs({"Rewards", "Planner", "Grind", "Guide", "Journal", "Page", "Tracker", "Settings", "AutoQuest", "Init"}) do assert(loadfile(root .. "/ONE_Leveling/" .. f .. ".lua"))("ONE_Leveling", lev) end
 assert(ONE.modules.leveling and ONE.modules.leveling:OwnsQuestTab())
 ONE.modules.leveling.Initialize()
 local G, Tr = lev.Guide, lev.Tracker
@@ -206,8 +206,8 @@ ONE.ns.nav.Quests = {Build = function(_, panel, embedded) logBuilt = embedded re
 ONE.UI.SetContext = function(_, id, text) ctx = {id, text} end
 local tab = lev.Page:BuildTab(Stub())
 assert(logBuilt == true, "Questlog ohne eigene Kopfzeile eingebettet")
-assert(#lev.Page.VIEWS == 4 and lev.Page.VIEWS[2][1] == "zones", "Plan | Gebiete | Ausgelassen | Questlog")
-for _, v in ipairs({"guide", "zones", "skipped", "log"}) do
+assert(#lev.Page.VIEWS == 5 and lev.Page.VIEWS[2][1] == "zones" and lev.Page.VIEWS[4][1] == "journal", "Plan | Gebiete | Ausgelassen | Tagebuch | Questlog")
+for _, v in ipairs({"guide", "zones", "skipped", "journal", "log"}) do
     G:DB().view = v
     tab()
     assert(ctx[1] == "leveling", v)

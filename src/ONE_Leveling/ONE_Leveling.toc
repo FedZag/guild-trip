@@ -12,6 +12,7 @@ Rewards.lua
 Planner.lua
 Grind.lua
 Guide.lua
+Journal.lua
 Page.lua
 Tracker.lua
 Settings.lua

@@ -26,6 +26,10 @@ S.SECTIONS = {
         {key = "autoQuestAll", label = "… auch Quests außerhalb der Führung annehmen", indent = 1,
             tip = "Nimmt alle nicht-grauen, nicht wiederholbaren Quests an."},
     }},
+    {title = "Reisetagebuch", options = {
+        {key = "journal", label = "Reisetagebuch führen", default = true,
+            tip = "Merkt sich abgegebene Quests, Stufenaufstiege, neue Gebiete und Dungeon-Läufe mit Datum und Ort (Leveln › Tagebuch). Nur bei dir gespeichert."},
+    }},
 }
 
 function S.Value(o)

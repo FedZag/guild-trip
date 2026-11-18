@@ -91,6 +91,15 @@ function Page:Build(parent, W, H, getMode)
 
     local function Items(plan, mode)
         local out = {}
+        if mode == "journal" then
+            local J = lev.Journal
+            local out = {}
+            if J then
+                out[1] = {key = "js", header = true, text = "|cff9d9d9d" .. J:Summary() .. "|r"}
+                for _, it in ipairs(J:Items(300)) do out[#out + 1] = it end
+            end
+            return out
+        end
         if mode == "zones" then
             -- oben: Monster hauen, wenn es schneller zur naechsten Stufe bringt; dann die Gebiete
             local out = G:GrindItems(G:Grind(plan))
@@ -139,7 +148,7 @@ function Page:Build(parent, W, H, getMode)
         local items = Items(plan, mode)
         list:SetItems(items)
         if #items == 0 then
-            empty:SetText(mode == "skipped" and T("Nichts ausgelassen.") or mode == "zones" and T("Keine offenen Quests in deiner Nähe.") or T("Gerade nichts zu tun – alle passenden Quests sind erledigt. Monster hauen oder ein Gebiet weiter."))
+            empty:SetText(mode == "skipped" and T("Nichts ausgelassen.") or mode == "zones" and T("Keine offenen Quests in deiner Nähe.") or mode == "journal" and T("Noch nichts erlebt – gib eine Quest ab, dann geht dein Tagebuch los.") or T("Gerade nichts zu tun – alle passenden Quests sind erledigt. Monster hauen oder ein Gebiet weiter."))
             empty:Show()
         else empty:Hide() end
         -- Auswahl halten, sonst der aktuelle Schritt
@@ -185,11 +194,12 @@ function Page:Build(parent, W, H, getMode)
 end
 
 -- ===== Reiter "Leveln" =====
-Page.VIEWS = {{"guide", "Plan"}, {"zones", "Gebiete"}, {"skipped", "Ausgelassen"}, {"log", "Questlog"}}
+Page.VIEWS = {{"guide", "Plan"}, {"zones", "Gebiete"}, {"skipped", "Ausgelassen"}, {"journal", "Tagebuch"}, {"log", "Questlog"}}
 Page.SUBTITLE = {
     guide = "Nur die Quests, die sich lohnen – Dungeon-, Klassen- und Vorquests immer.",
     skipped = "Was die Führung auslässt und warum.",
     zones = "Alle Quests je Gebiet – nur zur Übersicht, der Plan bleibt die schnellste Route.",
+    journal = "Deine Reise: Quests, Stufen, neue Gebiete und Dungeons – nur bei dir gespeichert.",
     log = "Deine Quests mit Fortschritt – „Navi“ zeigt die Richtung zum Ziel.",
 }
 
@@ -222,7 +232,7 @@ function Page:BuildTab(panel)
         return box
     end
     local guideBox = Box(-36)
-    local guide = self:Build(guideBox, W, H - 36, function() local m = Mode() return (m == "skipped" or m == "zones") and m or "guide" end)
+    local guide = self:Build(guideBox, W, H - 36, function() local m = Mode() return (m == "skipped" or m == "zones" or m == "journal") and m or "guide" end)
     local logBox = Box(0)
     local nav = ONE.ns and ONE.ns.nav
     local log = nav and nav.Quests and nav.Quests:Build(logBox, true)
@@ -232,11 +242,11 @@ function Page:BuildTab(panel)
             if b.LockHighlight then if k == mode then b:LockHighlight() else b:UnlockHighlight() end end
         end
         if sub and sub.SetText then sub:SetText(T(Page.SUBTITLE[mode] or "")) end
-        guideBox:SetShown(mode == "guide" or mode == "skipped" or mode == "zones")
+        guideBox:SetShown(mode ~= "log")
         logBox:SetShown(mode == "log")
         if mode == "log" then if log then log() end
         else guide() end
-        local name = ({guide = "Plan", zones = "Gebiete", skipped = "Ausgelassen", log = "Questlog"})[mode]
+        local name = ({guide = "Plan", zones = "Gebiete", skipped = "Ausgelassen", journal = "Tagebuch", log = "Questlog"})[mode]
         if ONE.UI.SetContext then ONE.UI:SetContext("leveling", T(name)) end
     end
 end
