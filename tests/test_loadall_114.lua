@@ -123,7 +123,7 @@ for _, addon in ipairs(ADDONS) do
     end
 end
 local ONE = _G.ProjectONE
-assert(ONE and ONE.version == "0.7.0-alpha", "Kern geladen")
+assert(ONE and ONE.version == "0.7.1-alpha", "Kern geladen")
 
 -- ===== Kern starten (ADDON_LOADED) =====
 local errors = {}

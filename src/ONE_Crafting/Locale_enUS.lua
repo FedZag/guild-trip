@@ -118,3 +118,6 @@ EN["Gilde & Kalender"] = "Guild & calendar"
 
 EN["Zu %s (%s)"] = "To %s (%s)"
 EN["lehrt %s"] = "teaches %s"
+EN["Guild Trip: Sollen deine Gildenmitglieder sehen, was du herstellen kannst?\n\nDann kann dich die Gilde um Ausrüstung bitten – und du siehst umgekehrt, wer dir etwas herstellen kann. Änderbar unter Optionen › Teilen."] = "Guild Trip: Should your guild see what you can craft?\n\nThen your guild can ask you for gear – and you see who can craft something for you. Change it under Options › Sharing."
+EN["Ja, teilen"] = "Yes, share"
+EN["Nein"] = EN["Nein"] or "No"

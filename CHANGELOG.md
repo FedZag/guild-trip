@@ -4,6 +4,34 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.7.1-alpha (gebaut 18.11.2026)
+
+```
+## 0.7.1-alpha
+
+**English**
+- New look "Glass": a see-through, tinted window with three columns – areas on the left as round glowing icons, the sub-pages of each area in the middle (plus who of your guild is online), the content on the right. Colour sets Azeroth (gold), Glass (blue), Horde, Alliance, or your own glow and glass colour with an opacity slider (Options › Display). The Blizzard look of 0.7.0 stays selectable.
+- New: Levelling › Gear. For every slot the best piece you can get at your level – from quests, dungeons and crafting – how much better it is than what you wear, and up to which level it lasts. Dungeon loot wins over quest rewards when it is clearly better. Crafted gear says whether you can make it, will soon be able to (with trainer, skill and price), or which guild member can make it for you (online first, one click whispers a request). Click a row for the Navi to the source.
+- Home page: a calm picture and a cheeky line of the day (100 lines, a different one for every character, also in the login window).
+- Dungeon pages show the real loading screen of the dungeon.
+- Minimap: at most 3 plain "!" for the quest givers your plan suggests next (all of them stay on the world map; option to show all).
+- Professions: once, when you first open a profession window, Guild Trip asks whether your guild may see what you can craft. Trainer windows now quietly record their recipes.
+- Removed: the "old book" look.
+- Fixed: Lua error when clicking a guild event in the calendar.
+
+**Deutsch**
+- Neues Aussehen „Glas“: durchsichtig getöntes Fenster mit drei Spalten – links die Bereiche als runde, leuchtende Symbole, in der Mitte die Unterseiten des Bereichs (dazu, wer aus der Gilde online ist), rechts der Inhalt. Farbsätze Azeroth (Gold), Glas (Blau), Horde, Allianz oder eigene Leucht- und Glasfarbe mit Deckkraft-Regler (Optionen › Darstellung). Der Blizzard-Look von 0.7.0 bleibt wählbar.
+- Neu: Leveln › Ausrüstung. Für jeden Platz das Beste, was du auf deiner Stufe bekommen kannst – aus Quests, Dungeons und Herstellung –, wie viel besser es als dein getragenes Teil ist und bis zu welcher Stufe es hält. Dungeon-Beute schlägt Questbelohnungen, wenn sie klar besser ist. Bei Hergestelltem steht, ob du es selbst kannst, bald kannst (mit Lehrer, Fertigkeit und Preis) oder wer aus der Gilde es dir herstellen kann (online zuerst, ein Klick bereitet die Anfrage im Flüsterchat vor). Klick auf eine Zeile: Navi zur Quelle.
+- Startseite: ruhiges Bild und ein frecher Tagesspruch (100 Sprüche, jeder Charakter einen anderen, auch im Begrüßungsfenster).
+- Dungeon-Seiten zeigen den echten Ladebildschirm des Dungeons.
+- Minimap: höchstens 3 schlichte „!“ für die Questgeber, die dein Plan als Nächstes vorschlägt (auf der Weltkarte weiterhin alle; Schalter für alle).
+- Berufe: Beim ersten Berufsfenster fragt Guild Trip einmal, ob die Gilde sehen darf, was du herstellen kannst. Lehrerfenster schreiben ihre Rezepte still mit.
+- Entfernt: das Aussehen „Altes Buch“.
+- Behoben: Lua-Fehler beim Anklicken eines Gildentermins im Kalender.
+```
+
+---
+
 ## 0.7.0-alpha (gebaut 17.11.2026)
 
 ```

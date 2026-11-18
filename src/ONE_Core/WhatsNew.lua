@@ -10,6 +10,12 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.7.1-alpha"] = {
+        "Neues Aussehen „Glas“: durchsichtig, drei Spalten, runde leuchtende Symbole – Farben unter Optionen › Darstellung (Blizzard-Look bleibt wählbar)",
+        "Leveln › Ausrüstung: das Beste je Platz aus Quests, Dungeons und Herstellung – und bis zu welcher Stufe es hält",
+        "Startseite mit frechem Tagesspruch, echte Dungeon-Bilder, Minimap mit weniger „!“",
+        "Behoben: Lua-Fehler beim Anklicken eines Gildentermins",
+    },
     ["0.7.0-alpha"] = {
         "Spieler in der Nähe buffen: Liste aller Spieler in Reichweite, ein Klick wirkt den Buff im passenden Rang",
         "Gilde: Questpartner in der Nähe, Hilferuf (/trip sos), Auftragsbrett (/trip auftrag), wer braucht die Beute?",
