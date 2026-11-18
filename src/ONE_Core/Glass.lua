@@ -272,15 +272,15 @@ function Glass:Orb(parent, size)
     o.glow:SetPoint("CENTER")
     o.glow:SetSize(size * 2.1, size * 2.1)
     if o.glow.SetBlendMode then o.glow:SetBlendMode("ADD") end
-    -- ausgewaehlt: sanftes Atmen des Leuchtens (4 s, nur leicht schwaecher) statt starrem Licht
+    -- ausgewaehlt: sanftes Atmen des Leuchtens (3,5 s je Atemzug, von kraeftig zu schwach) statt starrem Licht
     if o.glow.CreateAnimationGroup then
         local ok, ag = pcall(o.glow.CreateAnimationGroup, o.glow)
         if ok and ag and ag.CreateAnimation then
             ag:SetLooping("BOUNCE")
             local fade = ag:CreateAnimation("Alpha")
             if fade then
-                if fade.SetFromAlpha then fade:SetFromAlpha(1) fade:SetToAlpha(.6) end
-                fade:SetDuration(2)
+                if fade.SetFromAlpha then fade:SetFromAlpha(1) fade:SetToAlpha(.3) end
+                fade:SetDuration(1.75)
                 if fade.SetSmoothing then fade:SetSmoothing("IN_OUT") end
                 o.breathe = ag
             end
@@ -328,7 +328,7 @@ function Glass:PaintOrb(o)
     o.base:SetVertexColor(r, gg, b, 1)
     o.shine:SetVertexColor(1, 1, 1, o.on and .55 or .3)
     o.ring:SetVertexColor(g[1], g[2], g[3], o.on and 1 or .35)
-    o.glow:SetVertexColor(g[1], g[2], g[3], o.on and .55 or 0)
+    o.glow:SetVertexColor(g[1], g[2], g[3], o.on and .75 or 0)
     if o.breathe then
         if o.on and not (o.breathe.IsPlaying and o.breathe:IsPlaying()) then o.breathe:Play()
         elseif not o.on and o.breathe.Stop then o.breathe:Stop() end
