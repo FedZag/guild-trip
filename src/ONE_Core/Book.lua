@@ -54,13 +54,13 @@ Book.soft = {.36, .25, .14}
 -- und ein halbdurchsichtiges Abrieb-Bild ueber den Seiten (Textures/Book/Wear.tga,
 -- scripts/build_book.py --wear). Schalter: Optionen › Darstellung › "Gealterte Tinte".
 Book.wearArt = "Interface\\AddOns\\ONE_Core\\Textures\\Book\\Wear.tga"
--- 0.7.1 (Nutzer-Wunsch: Buch zu hell): Papier 18 % dunkler und etwas waermer (Book.paper),
--- dafuer fast schwarze Tinte. Gemessen (WCAG-Kontrast auf dem Pergament): Tinte bleibt bei
--- ~3,8 wie vorher, Rubrik-Rot (nur Ueberschriften) ~3,0. Dunkler geht nicht ohne Lesbarkeit zu verlieren.
+-- 0.7.1 (Nutzer-Wunsch: Buch zu hell): Papier 15 % dunkler und etwas waermer (Book.paper),
+-- dafuer fast schwarze Tinte. Gemessen (WCAG-Kontrast auf dem Pergament): Tinte ~4,0 (vorher 3,8),
+-- Rubrik-Rot (nur Ueberschriften) ~3,2. Dunkler geht nicht ohne Lesbarkeit zu verlieren.
 Book.agedInk = {.07, .045, .02}
 Book.agedSoft = {.22, .14, .07}
 Book.agedRed = {.30, .04, .01}
-Book.paper = {.82, .787, .738}
+Book.paper = {.85, .816, .765}
 function Book.Tone(tex)
     if tex and tex.SetVertexColor then tex:SetVertexColor(Book.paper[1], Book.paper[2], Book.paper[3], 1) end
 end
