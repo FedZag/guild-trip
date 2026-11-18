@@ -100,20 +100,13 @@ function Page:Build(parent, W, H, getMode)
             end
             return out
         end
-        if mode == "zones" then
-            -- oben: Monster hauen, wenn es schneller zur naechsten Stufe bringt; dann die Gebiete
-            local out = G:GrindItems(G:Grind(plan))
-            for _, it in ipairs(G:ZoneItems(plan, state)) do out[#out + 1] = it end
-            return out
-        end
+        if mode == "zones" then return G:ZoneItems(plan, state) end
         if mode == "skipped" then
             for _, o in ipairs(plan.skipped) do
                 out[#out + 1] = {key = "s" .. o.id, qid = o.id, dim = true, text = G.Title(o.id) .. "  |cff9d9d9d" .. (lev.Planner.SkipText(o, plan, T) or "") .. "|r"}
             end
             return out
         end
-        -- Plan: lohnt sich Monster hauen gerade mehr, steht das oben (nur ein Hinweis)
-        out = G:GrindItems(G:Grind(plan))
         local lastMap
         for i, s in ipairs(plan.steps) do
             if s.mapID and s.mapID ~= lastMap then
@@ -158,22 +151,6 @@ function Page:Build(parent, W, H, getMode)
         if not pick and not state.sel then for _, it in ipairs(items) do if it.current then pick = it break end end end
         if not pick then for _, it in ipairs(items) do if not it.header then pick = it break end end end
         state.sel, state.step, state.qid = pick, pick and pick.step, pick and pick.qid
-        -- Lager zum Monster hauen: eigene Erklaerung
-        if pick and pick.camp then
-            card:Show()
-            local lines, why = G:CampWhy(pick.camp, G:Grind(plan))
-            title:SetText(pick.camp.name)
-            sub:SetText(G.CampText(pick.camp))
-            for i, r in ipairs(rows) do
-                local l = lines[i]
-                r[1]:SetText(l and l[1] or "") r[2]:SetText(l and l[2] or "")
-            end
-            verdict:SetText(why)
-            valueText:SetText(T("Pfeil = Navi zum Lager."))
-            go:Enable() toggle:Hide() group:Hide()
-            return
-        end
-        toggle:Show()
         if not (pick and pick.qid) then card:Hide() return end
         card:Show()
         local lines, why, values, o = G:Why(pick.qid)

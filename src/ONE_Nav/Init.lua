@@ -51,12 +51,8 @@ if ONE.RegisterFeature then
     ONE:RegisterFeature("nav.questMinimap", {module = "nav", section = "Quests", order = 32, label = "Quest-Symbole auf der Minimap",
         get = function() return nav.QuestPins:Settings().minimap end,
         set = function(on) nav.QuestPins:Settings().minimap = on and true or false nav.QuestPins:Refresh() end})
-    ONE:RegisterFeature("nav.partners", {module = "nav", section = "Quests", order = 35, label = "Questpartner in der Nähe melden",
-        tooltip = "Hat ein Gildenmitglied in deiner Nähe (bis 500 m) dieselben offenen Quests wie du, kommt ein kleines Fenster mit Einladen, Navi und Flüstern. Klappt mit allen, die „Quests teilen“ und ihre Position teilen. Je Person höchstens alle 20 Minuten."})
     ONE:RegisterFeature("nav.mobInfo", {module = "nav", section = "Quests", order = 36, label = "Questgegner im Tooltip und an der Namensplakette",
         tooltip = "Zeigt im Tooltip eines Gegners, für welche Quest du ihn brauchst und wie weit du bist – dazu Gruppe und Gilde („Bob 7/10“). Ein kleines Symbol an der Namensplakette markiert Questgegner (gelb: du, blau: nur andere)."})
-    ONE:RegisterFeature("nav.camps", {module = "nav", section = "Quests", order = 37, label = "Fundorte der Questgegner (Lager) + Farm-Runde",
-        tooltip = "Kleine rotbraune Ringe auf Karte und Minimap zeigen, wo die Gegner für deine offenen Quests stehen. Klick auf einen Ring: der Pfeil führt von Lager zu Lager, bis die Quest fertig ist."})
     ONE:RegisterFeature("nav.questLevels", {module = "nav", section = "Quests", order = 38, label = "Questlevel vor Questnamen",
         tooltip = "Zeigt die Stufe vor dem Questnamen – „[12] Die Volksmiliz“ – in der Quest-Führung, im Kasten unter der Minimap und in Quest-Links im Chat. Nur deine Anzeige: Was andere im Chat sehen, bleibt unverändert."})
     ONE:RegisterFeature("nav.givers", {module = "nav", section = "Quests", order = 33, label = "Questgeber (!) sammeln und zeigen",
@@ -84,9 +80,7 @@ ONE:RegisterModule("nav", {
         nav.Page:Register()
         if not ONE.FeatureOn or ONE:FeatureOn("nav.quests") then nav.Quests:Register() end
         nav.QuestShare:Initialize()
-        nav.Partners:Initialize()
         nav.MobInfo:Initialize()
-        nav.Camps:Initialize()
         nav.QuestLevels:Initialize()
         nav.QuestGivers:Initialize()
         nav.QuestPins:Initialize()

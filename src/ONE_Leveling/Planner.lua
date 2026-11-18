@@ -404,7 +404,6 @@ function P:Plan(ctx)
         if s.kind == "dungeon" then s.idsSet = {} for _, id in ipairs(s.ids) do s.idsSet[id] = true end end
     end
     local order, pos, minutes, xpSum = {}, here, 0, 0
-    local fieldXP, fieldMin = 0, 0 -- ohne Dungeon-Quests (fuer den Vergleich mit Monster hauen)
     local prefer = ctx.prefer
     local zone = me.mapID
     local switch = ctx.zoneBlocks == false and 0 or P.ZONE_SWITCH
@@ -448,9 +447,6 @@ function P:Plan(ctx)
         -- echte Zeit dieses Halts (die Wechsel-Strafe zaehlt nicht mit)
         best.cost = minutes - before
         best.gain = xpSum - xpBefore
-        if not (best.kind == "dungeon" or (best.id and info[best.id] and info[best.id].dungeon)) then
-            fieldXP, fieldMin = fieldXP + (xpSum - xpBefore), fieldMin + best.cost
-        end
     end
     local left = {}
     for _, s in ipairs(stops) do if not s.used then left[#left + 1] = s end end
@@ -488,39 +484,7 @@ function P:Plan(ctx)
     end
     table.sort(skipped, function(a, b) if a.totalXP ~= b.totalXP then return a.totalXP > b.totalXP end return a.id < b.id end)
     return {steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left,
-        fieldXP = fieldXP, fieldMinutes = fieldMin,
         grind = grind, factor = factor, level = L}
-end
-
--- Quests, die erst ab Stufe "level" angenommen werden koennen (Mindeststufe = level) und sonst fuer
--- dich passen (Volk, Klasse, Vorquests, nicht erledigt) – fuer "was schaltet die naechste Stufe frei?"
-function P.UnlockedQuests(ctx, level)
-    local Q = P.Data()
-    if not Q then return {} end
-    local me = ctx.me
-    local done = ctx.done or function() return false end
-    local inLog = ctx.inLog or function() return false end
-    local probe = {}
-    for k, v in pairs(me) do probe[k] = v end
-    probe.level = level
-    -- nur Quests auf deinem Kontinent (Questgeber), wenn die Lage bekannt ist
-    local myC = me.mapID and ctx.world and ctx.world(me.mapID, me.x or .5, me.y or .5)
-    local out = {}
-    for id, e in pairs(Q.q) do
-        if (e[2] or 0) == level and not inLog(id) and Fits(id, e, probe, done, inLog) then
-            local ok = true
-            if myC then
-                local giver = e[6] and e[6][1]
-                local m, x, y
-                if giver then m, x, y = P.NodePoint(Q, giver, me.mapID) end
-                local c = m and ctx.world(m, x, y)
-                ok = c == myC
-            end
-            if ok then out[#out + 1] = id end
-        end
-    end
-    table.sort(out)
-    return out
 end
 
 -- ===== Gebietsuebersicht (0.7.0) – NUR Anzeige, aendert den Plan nicht =====

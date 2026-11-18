@@ -127,16 +127,6 @@ EN["Läuft bald aus"] = "Expiring soon"
 EN["Fehlt"] = "Missing"
 EN["Klicken zum Wirken · Alt + Ziehen: verschieben"] = "Click to cast · Alt + drag: move"
 EN["Buffs fehlen"] = "Buffs missing"
-
--- Wer braucht die Beute? (0.7.0)
-EN["Wer braucht die Beute? (Gruppe)"] = "Who needs the loot? (group)"
-EN["Fällt in der Gruppe Ausrüstung, rechnet jeder mit Guild Trip aus, ob sie für ihn besser ist. Ein kleines Fenster und der Tooltip zeigen: „Bob (+12 %), Gildi (Platz frei)“ – so geht die Beute an den, der sie wirklich braucht."] =
-    "When gear drops in your group, everyone with Guild Trip works out whether it is better for them. A small window and the tooltip show: \"Bob (+12 %), Gildi (empty slot)\" – so the loot goes to whoever really needs it."
-EN["Wer braucht die Beute?"] = "Who needs the loot?"
-EN["%s (Platz frei)"] = "%s (empty slot)"
-EN["%s (+%d %%)"] = "%s (+%d %%)"
-EN["Guild Trip: Upgrade für %s"] = "Guild Trip: upgrade for %s"
-
 -- Spieler in der Naehe buffen
 EN["Spieler in der Nähe buffen"] = "Buff players nearby"
 EN["Kleines Fenster mit allen Spielern in Reichweite, denen einer deiner Buffs fehlt – Gruppe, Gilde, Freunde und Fremde. Ein Klick auf einen Namen wirkt den Buff im passenden Rang für die Stufe – sobald er sitzt, verschwindet der Spieler aus der Liste (Rechtsklick / Umschalt + Linksklick: weitere Buffs). Nur außerhalb des Kampfes."] =

@@ -220,40 +220,17 @@ EN["Weg zeigen als"] = "Show route as"
 EN["Goldene Punkte"] = "Golden dots"
 EN["Fußspuren"] = "Footprints"
 EN["Pfeil"] = "Arrow"
-
--- Questpartner in der Naehe (0.7.0)
-EN["Questpartner in der Nähe melden"] = "Report quest partners nearby"
-EN["Hat ein Gildenmitglied in deiner Nähe (bis 500 m) dieselben offenen Quests wie du, kommt ein kleines Fenster mit Einladen, Navi und Flüstern. Klappt mit allen, die „Quests teilen“ und ihre Position teilen. Je Person höchstens alle 20 Minuten."] =
-    "When a guild member near you (up to 500 yards) has the same open quests as you, a small window pops up with Invite, Navi and Whisper. Works with everyone who shares quests and position. At most every 20 minutes per person."
-EN["%s (%d) macht deine Quest „%s“ – %d m entfernt."] = "%s (%d) is doing your quest \"%s\" – %d yd away."
-EN["%s (%d) macht %d deiner Quests – %d m entfernt."] = "%s (%d) is doing %d of your quests – %d yd away."
-EN["Hey, wollen wir „%s“ zusammen machen?"] = "Hey, want to do \"%s\" together?"
-EN["Hey, wir haben %d gleiche Quests – zusammen machen?"] = "Hey, we have %d quests in common – team up?"
-EN["Questpartner in der Nähe"] = "Quest partner nearby"
-EN["Questpartner"] = "Quest partner"
-EN["Gemeinsame Quests"] = "Quests in common"
-EN["Einladen"] = EN["Einladen"] or "Invite"
-EN["Flüstern"] = EN["Flüstern"] or "Whisper"
-
 -- Questgegner (0.7.0)
 EN["Questgegner im Tooltip und an der Namensplakette"] = "Quest mobs in tooltip and on nameplates"
 EN["Zeigt im Tooltip eines Gegners, für welche Quest du ihn brauchst und wie weit du bist – dazu Gruppe und Gilde („Bob 7/10“). Ein kleines Symbol an der Namensplakette markiert Questgegner (gelb: du, blau: nur andere)."] =
     "Shows in a mob's tooltip which quest you need it for and how far along you are – plus group and guild (\"Bob 7/10\"). A small icon on the nameplate marks quest mobs (yellow: you, blue: only others)."
 EN["fertig"] = EN["fertig"] or "done"
-
--- Lager + Farm-Runde (0.7.0)
-EN["Fundorte der Questgegner (Lager) + Farm-Runde"] = "Quest mob locations (camps) + grind loop"
-EN["Kleine rotbraune Ringe auf Karte und Minimap zeigen, wo die Gegner für deine offenen Quests stehen. Klick auf einen Ring: der Pfeil führt von Lager zu Lager, bis die Quest fertig ist."] =
-    "Small red-brown rings on map and minimap show where the mobs for your open quests are. Click a ring: the arrow leads from camp to camp until the quest is done."
-EN["%s (%d/%d)"] = "%s (%d/%d)"
-EN["Farm-Runde für „%s“: %d Lager – der Pfeil führt von Lager zu Lager."] = "Grind loop for \"%s\": %d camps – the arrow leads from camp to camp."
-EN["„%s“ ist fertig – Farm-Runde beendet."] = "\"%s\" is done – grind loop ended."
-EN["Lager mit %d Gegnern – für „%s“"] = "Camp with %d mobs – for \"%s\""
-EN["Klick: Farm-Runde über alle Lager starten"] = "Click: start a grind loop over all camps"
-EN["Questgeber (!) sammeln und zeigen"] = EN["Questgeber (!) sammeln und zeigen"] or "Collect and show quest givers (!)"
-EN["Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."] =
-    "Remembers where you (and, with \"Share quests\", your guild) were offered new quests and shows a \"!\" there – only for quests that fit your level. Off when Questie is installed, because Questie shows its own \"!\"."
-EN["(als Nächstes im Plan)"] = "(next in your plan)"
+-- Questlevel vor Questnamen (0.7.1)
 EN["Questlevel vor Questnamen"] = "Quest level before quest names"
 EN["Zeigt die Stufe vor dem Questnamen – „[12] Die Volksmiliz“ – in der Quest-Führung, im Kasten unter der Minimap und in Quest-Links im Chat. Nur deine Anzeige: Was andere im Chat sehen, bleibt unverändert."] =
     "Shows the level before the quest name – \"[12] The People's Militia\" – in the quest guide, the box under the minimap and quest links in chat. Only your display: what others see in chat stays unchanged."
+
+-- Optionen (Nachtrag 0.7.0)
+EN["Questgeber (!) sammeln und zeigen"] = EN["Questgeber (!) sammeln und zeigen"] or "Collect and show quest givers (!)"
+EN["Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."] =
+    "Remembers where you (and, with \"Share quests\", your guild) were offered new quests and shows a \"!\" there – only for quests that fit your level. Off when Questie is installed, because Questie shows its own \"!\"."

@@ -710,29 +710,10 @@ local function DumpWindows()
         local ok, e = pcall(fn)
         if not ok then errors[#errors + 1] = id .. ": " .. tostring(e) end
     end
-    local nav, guild, classes, dg = namespaces.ONE_Nav, namespaces.ONE_Guild, namespaces.ONE_Classes, namespaces.ONE_Dungeons
-    Try("questpartner", function()
-        nav.Partners:Show({name = "Thrall", full = "Thrall", level = 23, dist = 250,
-            quests = {{id = 1, title = "Wolfsjagd"}, {id = 2, title = "Kräuterkunde", planned = true}}})
-        Add("questpartner", nav.Partners.frame)
-    end)
+    local guild, classes, dg = namespaces.ONE_Guild, namespaces.ONE_Classes, namespaces.ONE_Dungeons
     Try("hilferuf", function()
         guild.Help:Show({name = "Bob", full = "Bob", level = 19, dist = 420, text = "Elite am Wegkreuz, schnell!"})
         Add("hilferuf", guild.Help.frame)
-    end)
-    Try("auftragsbrett", function()
-        local B = guild.Board
-        local st = B:Store()
-        st.mine[1] = {text = "Brauche 10 Leinenstoff", at = (GetServerTime and GetServerTime() or 0) - 600, helpers = {Thrall = true}}
-        st.others.Bob = {[3] = {text = "Wer hilft bei der Elite-Quest in Westfall?", at = (GetServerTime and GetServerTime() or 0) - 7200}}
-        B:Open()
-        Add("auftragsbrett", B.frame)
-    end)
-    Try("beute", function()
-        local L = classes.LootNeed
-        L.needs[10] = {at = GetTime and GetTime() or 0, link = "|cff1eff00|Hitem:10::|h[Eichenstab]|h|r", who = {Bob = 30, Tester = 12, Gildi = 100}}
-        L:Refresh()
-        Add("beute", L.frame)
     end)
     Try("rueckblick", function()
         dg.Recap:Show({name = "Die Todesminen", key = "dm", secs = 2520, record = true,
