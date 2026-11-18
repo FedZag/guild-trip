@@ -257,37 +257,48 @@ local logout = N.events and N.events.scripts and N.events.scripts.OnEvent
 assert(N.autoOn and cvars.nameplateShowFriends == "1")
 N:ApplyAuto(false)
 assert(cvars.nameplateShowFriends == "0" and cvars.nameplateMaxDistance == "20")
--- 15) 0.7.1: Du schaltest die Plaketten selbst um (Umschalt+V) -> sichtbar, Guild Trip versteckt nichts mehr
+-- 15) 0.7.1: Umschalt+V heisst sichtbar/unsichtbar – technisch bleiben die Plaketten an
 cvars.nameplateShowFriends = "0"
-ONE.db.classGuide.nearbyCVars, ONE.db.classGuide.nearbyAuto = nil, nil
+ONE.db.classGuide.nearbyCVars, ONE.db.classGuide.nearbyAuto, ONE.db.classGuide.nearbyVisible = nil, nil, nil
 N.autoOn = nil
 local printed = {}
 ONE.Print = function(_, t) printed[#printed + 1] = t end
 N:Update()
-assert(N.autoOn and N.hidePlates and cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 0)
--- a) per Ereignis (Umschalt+V schaltet sie "aus")
+assert(N.autoOn and N.hidePlates and cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 0, "unsichtbar")
+-- a) Umschalt+V (Spiel schaltet "aus") -> sichtbar, bleibt an
 cvars.nameplateShowFriends = "0"
-N:UserToggled()
-assert(cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 1 and clickThrough == false, "sichtbar")
-assert(not N.autoOn and ONE.db.classGuide.nearbyAuto == false and ONE.db.classGuide.nearbyCVars == nil and #printed == 1)
+assert(N:UserToggled())
+assert(cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 1 and clickThrough == false and N.autoOn, "sichtbar")
+assert(ONE.db.classGuide.nearbyVisible == true and printed[#printed]:find("sichtbar", 1, true))
 N:Update()
-assert(plates.nameplate1.UnitFrame.alpha == 1 and not N.autoOn, "bleibt sichtbar")
+assert(plates.nameplate1.UnitFrame.alpha == 1 and N.autoOn, "bleibt sichtbar")
+-- b) nochmal Umschalt+V (ueber den Abgleich, ohne Ereignis) -> wieder unsichtbar, Liste laeuft weiter
+cvars.nameplateShowFriends = "0"
+N:Update()
+assert(cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 0 and clickThrough == true and N.autoOn, "wieder unsichtbar")
+assert(ONE.db.classGuide.nearbyVisible == false and printed[#printed]:find("ausgeblendet", 1, true))
 assert(Names(N:Update()) ~= "", "Liste funktioniert weiter")
--- b) eigene Aenderungen zaehlen nicht als Umschalten
-ONE.db.classGuide.nearbyAuto = nil
-cvars.nameplateShowFriends = "0"
-N.autoOn = nil
-N:Update()
-assert(N.autoOn and N.hidePlates)
+-- c) eigene Aenderungen zaehlen nicht
 N.ownChange = true
 assert(N:UserToggled() == false)
 N.ownChange = nil
--- c) ohne Ereignis: der regelmaessige Abgleich merkt es
-cvars.nameplateShowFriends = "0"
-N:Update()
-assert(not N.autoOn and cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 1, "Abgleich")
+-- d) Wahl wird gemerkt: sichtbar gewaehlt, ausloggen -> Plaketten bleiben an
+cvars.nameplateShowFriends = "0" N:UserToggled()
+assert(ONE.db.classGuide.nearbyVisible == true)
+N:ApplyAuto(false)
+assert(cvars.nameplateShowFriends == "1", "sichtbar gewaehlt: bleibt an")
+-- unsichtbar gewaehlt: ausloggen -> wie vor Guild Trip (aus)
+N:ApplyAuto(true)
+cvars.nameplateShowFriends = "0" N:UserToggled()
+assert(ONE.db.classGuide.nearbyVisible == false)
+N:ApplyAuto(false)
+assert(cvars.nameplateShowFriends == "0", "unsichtbar gewaehlt: beim Ausloggen aus")
+-- Einloggen: Wahl gilt wieder
+N:ApplyAuto(true)
+assert(N.hidePlates and cvars.nameplateShowFriends == "1")
 -- 16) Namensplaketten-Addon aktiv: nichts anfassen
-ONE.db.classGuide.nearbyAuto = nil
+N:ApplyAuto(false)
+ONE.db.classGuide.nearbyAuto, ONE.db.classGuide.nearbyVisible = nil, nil
 ONE.db.classGuide.nearbyCVars = nil
 cvars.nameplateShowFriends = "0"
 N.autoOn = nil

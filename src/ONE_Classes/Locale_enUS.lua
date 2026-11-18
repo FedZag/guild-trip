@@ -132,10 +132,12 @@ EN["Spieler in der Nähe buffen"] = "Buff players nearby"
 EN["Kleines Fenster mit allen Spielern in Reichweite, denen einer deiner Buffs fehlt – Gruppe, Gilde, Freunde und Fremde. Ein Klick auf einen Namen wirkt den Buff im passenden Rang für die Stufe – sobald er sitzt, verschwindet der Spieler aus der Liste (Rechtsklick / Umschalt + Linksklick: weitere Buffs). Nur außerhalb des Kampfes."] =
     "Small window with every player in range who is missing one of your buffs – group, guild, friends and strangers. One click on a name casts the buff in the right rank for their level – once it lands, the player drops off the list (right-click / Shift + left-click: more buffs). Out of combat only."
 EN["… alle Spieler in der Nähe automatisch erkennen"] = "… detect every player nearby automatically"
-EN["Addons sehen andere Spieler nur über Namensplaketten – die blauen Namen über den Köpfen bleiben für sie unsichtbar. Darum schaltet Guild Trip die freundlichen Namensplaketten ein und macht sie unsichtbar. Schaltest du sie selbst um (Umschalt + V), werden sie sichtbar und bleiben es. Mit Plater & Co. fasst Guild Trip die Plaketten nicht an."] =
-    "Add-ons only see other players through nameplates – the blue names above heads are invisible to them. So Guild Trip turns on friendly nameplates and makes them invisible. If you toggle them yourself (Shift + V), they become visible and stay that way. With Plater & co. Guild Trip leaves nameplates alone."
-EN["Freundliche Namensplaketten sind jetzt sichtbar – Guild Trip versteckt sie nicht mehr. Die Buff-Liste sieht trotzdem alle Spieler in der Nähe."] =
-    "Friendly nameplates are visible now – Guild Trip no longer hides them. The buff list still sees every player nearby."
+EN["Addons sehen andere Spieler nur über Namensplaketten – die blauen Namen über den Köpfen bleiben für sie unsichtbar. Darum schaltet Guild Trip die freundlichen Namensplaketten ein und macht sie unsichtbar. Umschalt + V blendet sie ein und wieder aus – die Liste sieht die Spieler so oder so. Mit Plater & Co. fasst Guild Trip die Plaketten nicht an."] =
+    "Add-ons only see other players through nameplates – the blue names above heads are invisible to them. So Guild Trip turns on friendly nameplates and makes them invisible. Shift + V shows and hides them – the list sees the players either way. With Plater & co. Guild Trip leaves nameplates alone."
+EN["Freundliche Namensplaketten sichtbar. Umschalt + V blendet sie wieder aus – die Buff-Liste sieht die Spieler in der Nähe so oder so."] =
+    "Friendly nameplates visible. Shift + V hides them again – the buff list sees players nearby either way."
+EN["Freundliche Namensplaketten ausgeblendet. Die Buff-Liste sieht die Spieler in der Nähe trotzdem."] =
+    "Friendly nameplates hidden. The buff list still sees players nearby."
 EN["Buffen in der Nähe (%d)"] = "Buff nearby (%d)"
 EN["Linksklick"] = "Left-click"
 EN["Rechtsklick"] = "Right-click"

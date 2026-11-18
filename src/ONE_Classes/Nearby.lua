@@ -11,8 +11,8 @@ local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select(
 --    (die blauen Namen ueber den Koepfen sind fuer Addons unsichtbar). Guild Trip schaltet
 --    deshalb die freundlichen Namensplaketten ein, macht sie aber unsichtbar und nicht
 --    anklickbar – so landet jeder, der an dir vorbeilaeuft, in der Liste.
---    0.7.1: Schaltest DU die Plaketten um (Umschalt+V, Menue), werden sie sofort sichtbar
---    und Guild Trip versteckt nichts mehr. Laeuft ein Namensplaketten-Addon (Plater, Kui …),
+--    0.7.1: Umschalt+V (oder das Menue) heisst nur noch sichtbar/unsichtbar – die Plaketten bleiben
+--    technisch an, die Liste verliert nie die Spieler. Laeuft ein Namensplaketten-Addon (Plater, Kui …),
 --    fasst Guild Trip die Plaketten gar nicht an. Die Reichweite bleibt, wie du sie hast.
 --    Abschalten und Ausloggen stellen deine Einstellung wieder her.
 --  * Klick auf eine Zeile wirkt den Buff: Linksklick = erster Buff,
@@ -111,6 +111,22 @@ function Nearby.PlateAddon()
 end
 
 -- Plaketten an/aus je nach Zustand; alte Werte werden gemerkt und zurueckgestellt.
+-- Sichtbar oder unsichtbar? Deine Wahl (Umschalt+V) gilt; sonst wie vor Guild Trip
+-- (hattest du freundliche Plaketten schon an, bleiben sie sichtbar).
+function Nearby:Visible()
+    local store = Store()
+    if store.nearbyVisible ~= nil then return store.nearbyVisible end
+    return (store.nearbyCVars and store.nearbyCVars.friends or GetCV("nameplateShowFriends")) == "1"
+end
+
+-- Plaketten sichtbar/unsichtbar und durchklickbar setzen
+function Nearby:ApplyVisibility()
+    self.hidePlates = self.autoOn and not self:Visible() or false
+    local np = rawget(_G, "C_NamePlate")
+    if np and type(np.SetNamePlateFriendlyClickThrough) == "function" then Call(np.SetNamePlateFriendlyClickThrough, self.hidePlates) end
+    for i = 1, 40 do self:StylePlate("nameplate" .. i) end
+end
+
 function Nearby:ApplyAuto(want)
     if InCombat() then return end
     local store = Store()
@@ -119,39 +135,34 @@ function Nearby:ApplyAuto(want)
     if want then
         if not store.nearbyCVars then store.nearbyCVars = {friends = GetCV("nameplateShowFriends") or "0"} end
         if GetCV("nameplateShowFriends") ~= "1" then SetCV("nameplateShowFriends", "1") end
-        -- Hattest du die Plaketten selbst schon an, bleiben sie sichtbar
-        self.hidePlates = store.nearbyCVars.friends ~= "1"
     else
         local old = store.nearbyCVars
         if old then
-            if old.friends then SetCV("nameplateShowFriends", old.friends) end
+            -- zurueck: deine letzte eigene Wahl (sichtbar = an, unsichtbar = aus), sonst wie vor Guild Trip
+            local friends = store.nearbyVisible == true and "1" or store.nearbyVisible == false and "0" or old.friends
+            if friends then SetCV("nameplateShowFriends", friends) end
             -- aus 0.7.0: dort wurde noch die Reichweite verstellt
             if old.dist then SetCV("nameplateMaxDistance", old.dist) end
             store.nearbyCVars = nil
         end
-        self.hidePlates = false
     end
-    local np = rawget(_G, "C_NamePlate")
-    if np and type(np.SetNamePlateFriendlyClickThrough) == "function" then Call(np.SetNamePlateFriendlyClickThrough, self.hidePlates) end
     self.autoOn = want
-    for i = 1, 40 do self:StylePlate("nameplate" .. i) end
+    self:ApplyVisibility()
 end
 
--- Du hast die freundlichen Plaketten selbst umgeschaltet (Umschalt+V, Menue), waehrend Guild Trip
--- sie unsichtbar haelt: Du willst sie sehen. Also sichtbar machen, eingeschaltet lassen und ab
--- jetzt nichts mehr verstecken (Optionen › Klasse: "… alle Spieler automatisch erkennen" ist dann aus).
+-- Du hast die freundlichen Plaketten selbst umgeschaltet (Umschalt+V, Menue): sichtbar <-> unsichtbar.
 function Nearby:UserToggled()
-    if not (self.autoOn and self.hidePlates) or self.ownChange then return false end
-    local store = Store()
-    store.nearbyAuto = false
-    store.nearbyCVars = nil
-    self.hidePlates = false
-    self.autoOn = false
+    if not self.autoOn or self.ownChange then return false end
+    -- Umschalt+V heisst jetzt nur noch sichtbar/unsichtbar: technisch bleiben die Plaketten an,
+    -- sonst verliert die Buff-Liste die Spieler in der Naehe.
+    local visible = not self:Visible()
+    Store().nearbyVisible = visible
     if GetCV("nameplateShowFriends") ~= "1" then SetCV("nameplateShowFriends", "1") end
-    local np = rawget(_G, "C_NamePlate")
-    if np and type(np.SetNamePlateFriendlyClickThrough) == "function" then Call(np.SetNamePlateFriendlyClickThrough, false) end
-    for i = 1, 40 do self:StylePlate("nameplate" .. i) end
-    if ONE.Print then ONE:Print(T("Freundliche Namensplaketten sind jetzt sichtbar – Guild Trip versteckt sie nicht mehr. Die Buff-Liste sieht trotzdem alle Spieler in der Nähe.")) end
+    self:ApplyVisibility()
+    if ONE.Print then
+        ONE:Print(visible and T("Freundliche Namensplaketten sichtbar. Umschalt + V blendet sie wieder aus – die Buff-Liste sieht die Spieler in der Nähe so oder so.")
+            or T("Freundliche Namensplaketten ausgeblendet. Die Buff-Liste sieht die Spieler in der Nähe trotzdem."))
+    end
     return true
 end
 
@@ -526,7 +537,7 @@ function Nearby:Update()
         self.myOffers = {}
     end
     -- Plaketten sind aus, obwohl wir sie eingeschaltet hatten: das warst du (Umschalt+V)
-    if self.autoOn and self.hidePlates and GetCV("nameplateShowFriends") == "0" then self:UserToggled() end
+    if self.autoOn and GetCV("nameplateShowFriends") == "0" then self:UserToggled() end
     local want = self:Enabled() and self:AutoEnabled() and #self.myOffers > 0
     if want ~= (self.autoOn or false) then self:ApplyAuto(want)
     elseif self.hidePlates then for i = 1, 40 do self:StylePlate("nameplate" .. i) end end
