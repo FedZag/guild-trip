@@ -445,6 +445,38 @@ function UI:Toggle()
     if self.frame:IsShown() then self.frame:Hide() else self:Show() end
 end
 
+-- Freche Sprueche fuer die Startseite. Einer je Sitzung; passt etwas zur Lage
+-- (spaet nachts, frueh morgens, Hoechststufe, erholt), kommt der passende.
+UI.QUIPS={
+    T("Wieder mal da, um Azeroth unsicher zu machen?"),
+    T("Die Murlocs haben schon nach dir gefragt."),
+    T("Dein Ruhestein hat dich vermisst."),
+    T("Heute schon jemanden gebufft?"),
+    T("Die Gilde hat gewettet, ob du heute noch auftauchst. Du hast gerade jemandem Gold eingebracht."),
+    T("Irgendwo wartet ein Questgeber mit einem Ausrufezeichen. Nur auf dich."),
+    T("Schön, dass du wieder da bist. Die Monster sehen das anders."),
+    T("Taschen leer, Mut voll? Dann los."),
+    T("Bereit für Ruhm und Ehre? Oder wenigstens für zehn Eberlenden?"),
+    T("Heute wird gelevelt, nicht nur vor dem Briefkasten gestanden!"),
+}
+function UI:Quip()
+    if self.quip then return self.quip end
+    local hour=tonumber(type(date)=="function" and date("%H") or "") or 12
+    local level=UnitLevel and UnitLevel("player") or 0
+    local rested=type(GetXPExhaustion)=="function" and (GetXPExhaustion() or 0) or 0
+    local cap=(type(GetMaxPlayerLevel)=="function" and GetMaxPlayerLevel()) or 60
+    local pick
+    local roll=math.random and math.random(1,100) or 50
+    if roll<=50 then
+        if hour<5 then pick=T("Noch wach? Azeroth schläft nie, du anscheinend auch nicht.")
+        elseif hour<9 then pick=T("Frühaufsteher! Die Monster reiben sich noch die Augen.")
+        elseif (level or 0)>=cap then pick=T("Höchststufe und immer noch nicht genug? Respekt.")
+        elseif rested>0 then pick=T("Gut ausgeruht, die Erholungs-EP warten schon.") end
+    end
+    self.quip=pick or self.QUIPS[math.random and math.random(1,#self.QUIPS) or 1]
+    return self.quip
+end
+
 local function BuildHome(panel)
     -- Buch-Aussehen: eigene Doppelseite (Initiale, Siegel, Inhaltsverzeichnis)
     if ONE.Book and ONE.Book:Spread() then return ONE.Book:BuildHome(panel) end
@@ -497,10 +529,10 @@ local function BuildHome(panel)
     end
     RefreshArt()
     Label(hero,"DEIN TAG IN AZEROTH","GameFontNormalSmall",heroHeader.x,heroHeader.y,textW)
+    -- Begruessung mit Namen und einem frechen Spruch (wechselt je Sitzung, manche passen zur Lage)
     local heading=Label(hero,T("Willkommen zurück!"),"GameFontNormalHuge",heroHeader.x,-54,textW)
-    local playerName=Label(hero,"","GameFontHighlight",heroHeader.x,-90,textW)
-    Label(hero,T("Termine und Gilde – übersichtlich an einem Ort."),
-        "GameFontHighlight",heroHeader.x,-114,L and textW or 430,"soft")
+    local quip=Label(hero,"","GameFontHighlight",heroHeader.x,-90,L and textW or 430,"soft")
+    if quip.SetWordWrap then quip:SetWordWrap(true) end
     Action(hero,T("Heutige Termine ansehen"),{
         x=heroHeader.x,y=ONE.Geometry:BottomActionY(heroH),width=heroHeader.width,
     },function() ONE.UI:OpenLink("today") end,"primary","primary","left")
@@ -549,7 +581,8 @@ local function BuildHome(panel)
 
     return function()
         local name=UnitName and UnitName("player") or nil
-        playerName:SetText(name or T("Dein Abenteuer geht weiter"))
+        heading:SetText(name and T("Na %s!",name) or T("Willkommen zurück!"))
+        quip:SetText(UI:Quip())
         RefreshArt()
         BuildTiles()
         for _,card in ipairs(tileCards) do

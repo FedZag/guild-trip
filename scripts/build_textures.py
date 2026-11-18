@@ -1,6 +1,6 @@
 """Guild Trip: alle uebrigen Grafiken als EIGENE Zeichnungen (keine fremden Bilder, keine Blizzard-Dateien).
 Erzeugt:
-  src/ONE_Core/Textures/Hero/TripHero.tga        1024x256, Startseiten-Hintergrund (Reiseroute auf Nachtblau)
+  src/ONE_Core/Textures/Hero/TripHero.tga        1024x256, Startseiten-Hintergrund (ruhige Abenddaemmerung)
   src/ONE_Core/Textures/Common/CloseGlyph.tga    64x64, Schliessen-Kreuz
   src/ONE_Guild/Textures/MemberPin.tga           64x64, Kartenpunkt Gildenmitglied
   src/ONE_Guild/Textures/MemberPinSelected.tga   64x64, ausgewaehlter Kartenpunkt
@@ -25,59 +25,60 @@ def lerp(a, b, t):
 
 
 def hero():
+    """Startseite: ruhige Abenddaemmerung ueber Huegeln (0.7.1, Nutzer-Wunsch: ruhiges Bild).
+    Links dunkler, damit Begruessung und Spruch gut lesbar sind."""
     S = 2
     W, H = 1024 * S, 256 * S
     im = Image.new('RGB', (W, H))
     px = im.load()
-    # Nachtblauer Verlauf, links dunkler (dort liegt der Text)
+    sun = (W * .80, H * .56)
     for y in range(H):
+        ty = y / H
+        # Himmel: oben tiefes Schieferblau, zum Horizont warmes, gedaempftes Abendlicht
+        sky = lerp((18, 22, 36), (104, 78, 72), min(1, max(0, (ty - .05) / .6)) ** 1.4)
         for x in range(W):
-            tx, ty = x / W, y / H
-            base = lerp((6, 12, 24), (26, 52, 86), min(1, tx * 1.25))
-            px[x, y] = lerp(base, (4, 8, 16), abs(ty - .45) * .9)
+            dx, dy = (x - sun[0]) / W, (y - sun[1]) / H
+            glow = max(0, 1 - math.sqrt(dx * dx * 4 + dy * dy * 9) * 2.2) ** 2
+            c = lerp(sky, (196, 150, 108), glow * .55)
+            px[x, y] = c
     d = ImageDraw.Draw(im, 'RGBA')
-    # Kartengitter wie auf einer Reisekarte
-    for gx in range(0, W, 64 * S):
-        d.line((gx, 0, gx, H), fill=(120, 160, 210, 18), width=S)
-    for gy in range(0, H, 64 * S):
-        d.line((0, gy, W, gy), fill=(120, 160, 210, 18), width=S)
-    # Reiseroute: gepunktete Goldlinie in der rechten Haelfte
-    rnd = random.Random(7)
-    pts = []
-    for i in range(200):
-        t = i / 199
-        x = W * (.62 + .32 * t)
-        y = H * (.72 - .42 * t + .16 * math.sin(t * math.pi * 2.3))
-        pts.append((x, y))
-    for i in range(0, len(pts) - 1, 4):
-        d.line(pts[i] + pts[i + 1], fill=GOLD + (170,), width=4 * S)
-    # Etappen-Punkte mit Ring
-    for t, r in ((0, 13), (.45, 11), (1, 17)):
-        x, y = pts[int(t * (len(pts) - 1))]
-        r *= S
-        d.ellipse((x - r - 4 * S, y - r - 4 * S, x + r + 4 * S, y + r + 4 * S), fill=DARK + (200,))
-        d.ellipse((x - r, y - r, x + r, y + r), fill=GOLD + (255,))
-        d.ellipse((x - r * .45, y - r * .45, x + r * .45, y + r * .45), fill=(30, 60, 100, 255))
-    # Kompassrose als Wasserzeichen ganz rechts
-    cx, cy, L = W * .9, H * .5, 110 * S
-    rose = Image.new('RGBA', im.size, (0, 0, 0, 0))
-    rd = ImageDraw.Draw(rose)
-    for k in range(8):
-        a = math.radians(k * 45 - 90)
-        ln = L if k % 2 == 0 else L * .55
-        w = 26 * S if k % 2 == 0 else 16 * S
-        tip = (cx + ln * math.cos(a), cy + ln * math.sin(a))
-        l = (cx + w * math.cos(a - math.pi / 2), cy + w * math.sin(a - math.pi / 2))
-        r_ = (cx + w * math.cos(a + math.pi / 2), cy + w * math.sin(a + math.pi / 2))
-        rd.polygon([tip, l, (cx, cy), r_], fill=(236, 196, 110, 40))
-    rd.ellipse((cx - L * .75, cy - L * .75, cx + L * .75, cy + L * .75), outline=(236, 196, 110, 40), width=3 * S)
-    im = Image.alpha_composite(im.convert('RGBA'), rose.filter(ImageFilter.GaussianBlur(S)))
-    # Sterne (sparsam)
-    d = ImageDraw.Draw(im)
-    for _ in range(60):
-        x, y = rnd.uniform(W * .45, W), rnd.uniform(0, H)
-        a = rnd.randint(40, 120)
-        d.ellipse((x, y, x + 2 * S, y + 2 * S), fill=(220, 230, 255, a))
+    # tief stehende Sonne, weich
+    r = 26 * S
+    sunimg = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    ImageDraw.Draw(sunimg).ellipse((sun[0] - r, sun[1] - r, sun[0] + r, sun[1] + r), fill=(240, 206, 160, 150))
+    im = Image.alpha_composite(im.convert('RGBA'), sunimg.filter(ImageFilter.GaussianBlur(6 * S)))
+    # Huegelketten von hinten (dunstig) nach vorn (dunkel), dazwischen Nebel
+    layers = [
+        (.60, 26, (78, 66, 78), 1.3, 3),
+        (.70, 30, (52, 46, 60), 2.1, 11),
+        (.80, 26, (32, 30, 42), 3.0, 23),
+        (.90, 20, (16, 17, 26), 4.2, 37),
+    ]
+    for base, amp, col, freq, seed in layers:
+        rnd = random.Random(seed)
+        ph = [rnd.uniform(0, 6.28) for _ in range(3)]
+        hill = Image.new('RGBA', im.size, (0, 0, 0, 0))
+        hd = ImageDraw.Draw(hill)
+        pts = [(0, H)]
+        for i in range(0, W + 8, 8):
+            t = i / W
+            yy = H * base - S * amp * (math.sin(t * math.pi * freq + ph[0]) * .6
+                + math.sin(t * math.pi * freq * 2.3 + ph[1]) * .3 + math.sin(t * math.pi * freq * 5.1 + ph[2]) * .1)
+            pts.append((i, yy))
+        pts.append((W, H))
+        hd.polygon(pts, fill=col + (255,))
+        im = Image.alpha_composite(im, hill)
+        fog = Image.new('RGBA', im.size, (0, 0, 0, 0))
+        ImageDraw.Draw(fog).rectangle((0, H * base - 6 * S, W, H * base + 10 * S), fill=(170, 150, 150, 26))
+        im = Image.alpha_composite(im, fog.filter(ImageFilter.GaussianBlur(8 * S)))
+    # links abdunkeln (Text), sanft auslaufend
+    shade = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    sp = shade.load()
+    for x in range(W):
+        a = int(170 * max(0, 1 - x / (W * .55)) ** 1.5)
+        for y in range(H):
+            sp[x, y] = (8, 9, 16, a)
+    im = Image.alpha_composite(im, shade)
     out = ROOT / 'ONE_Core' / 'Textures' / 'Hero' / 'TripHero.tga'
     im.convert('RGB').resize((1024, 256), Image.LANCZOS).save(out)
     return out
