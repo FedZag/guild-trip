@@ -445,19 +445,24 @@ function UI:Toggle()
     if self.frame:IsShown() then self.frame:Hide() else self:Show() end
 end
 
--- Freche Sprueche fuer die Startseite. Einer je Sitzung; passt etwas zur Lage
--- (spaet nachts, frueh morgens, Hoechststufe, erholt), kommt der passende.
+-- Freche Sprueche fuer die Startseite (sollen zum Lachen bringen). Einer je Sitzung;
+-- passt etwas zur Lage (Geist, nachts, frueh, niedrige Stufe, Hoechststufe, erholt),
+-- kommt in jedem zweiten Fall der passende.
 UI.QUIPS={
-    T("Wieder mal da, um Azeroth unsicher zu machen?"),
-    T("Die Murlocs haben schon nach dir gefragt."),
-    T("Dein Ruhestein hat dich vermisst."),
-    T("Heute schon jemanden gebufft?"),
-    T("Die Gilde hat gewettet, ob du heute noch auftauchst. Du hast gerade jemandem Gold eingebracht."),
-    T("Irgendwo wartet ein Questgeber mit einem Ausrufezeichen. Nur auf dich."),
-    T("Schön, dass du wieder da bist. Die Monster sehen das anders."),
-    T("Taschen leer, Mut voll? Dann los."),
-    T("Bereit für Ruhm und Ehre? Oder wenigstens für zehn Eberlenden?"),
-    T("Heute wird gelevelt, nicht nur vor dem Briefkasten gestanden!"),
+    T("Mrglglgl! Die Murlocs haben dich vermisst. Wir nicht so."),
+    T("„Nur noch eine Quest“ ist übrigens keine Zeitangabe."),
+    T("Deine Taschen sind voller grauem Plunder. Wir müssen reden."),
+    T("Die Kobolde lassen ausrichten: Du nix nehmen Kerze!"),
+    T("Die Gilde hat gewettet, ob du heute kommst. Danke, jemand ist jetzt 50 Silber ärmer."),
+    T("Deine Rüstung hat angerufen. Sie möchte repariert werden. Dringend."),
+    T("Die Eber im Brachland haben angeblich Lenden. Gefunden hat sie noch keiner."),
+    T("Häufigste Todesursache in Azeroth: „Ich pull schon mal.“"),
+    T("Leeroy wäre stolz auf dich. Das ist kein Kompliment."),
+    T("Wieder Lust auf 20 Minuten Flugpunkt-Kino?"),
+    T("Der Questgeber steht seit Tagen mit Ausrufezeichen rum und tut so, als wäre nichts."),
+    T("Du riechst nach Gnoll. Wir sagen nichts. Nur das."),
+    T("Na, wieder da, um Azeroth unsicher zu machen? Azeroth hat schon Kissen vor die Tür gelegt."),
+    T("Gute Nachricht: Die Mobs sind wieder da. Schlechte Nachricht: Die Mobs sind wieder da."),
 }
 function UI:Quip()
     if self.quip then return self.quip end
@@ -465,13 +470,16 @@ function UI:Quip()
     local level=UnitLevel and UnitLevel("player") or 0
     local rested=type(GetXPExhaustion)=="function" and (GetXPExhaustion() or 0) or 0
     local cap=(type(GetMaxPlayerLevel)=="function" and GetMaxPlayerLevel()) or 60
+    local ghost=type(UnitIsDeadOrGhost)=="function" and UnitIsDeadOrGhost("player")
     local pick
     local roll=math.random and math.random(1,100) or 50
-    if roll<=50 then
-        if hour<5 then pick=T("Noch wach? Azeroth schläft nie, du anscheinend auch nicht.")
-        elseif hour<9 then pick=T("Frühaufsteher! Die Monster reiben sich noch die Augen.")
-        elseif (level or 0)>=cap then pick=T("Höchststufe und immer noch nicht genug? Respekt.")
-        elseif rested>0 then pick=T("Gut ausgeruht, die Erholungs-EP warten schon.") end
+    if ghost then pick=T("Ein Geist? Na super. Laufweg zur Leiche, deine Lieblingsbeschäftigung.")
+    elseif roll<=50 then
+        if hour<5 then pick=T("Nach Mitternacht? Dein Bett hat eine Vermisstenanzeige aufgegeben.")
+        elseif hour<8 then pick=T("So früh? Selbst die Murlocs haben noch Kissenabdrücke im Gesicht.")
+        elseif (level or 0)>0 and level<10 then pick=T("Stufe %d? Süß. Die Wölfe hier halten dich für einen Snack.",level)
+        elseif (level or 0)>=cap then pick=T("Stufe 60. Jetzt beginnt der ernste Teil: anderen beim Leveln zuschauen und alles besser wissen.")
+        elseif rested>0 then pick=T("Ausgeruht wie ein Gnom nach dem Mittagsschlaf. Die Erholungs-EP brennen dir ein Loch in die Tasche.") end
     end
     self.quip=pick or self.QUIPS[math.random and math.random(1,#self.QUIPS) or 1]
     return self.quip
