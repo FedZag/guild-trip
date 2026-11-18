@@ -17,7 +17,7 @@ for item, line in pairs(G.items) do
         elseif s[1] == "d" then
             drops = drops + 1
             dungeons[s[2]] = true
-            assert(s[4] > 0 and s[4] <= 100, "Chance " .. item)
+            assert(s[4] >= 0 and s[4] <= 100, "Chance " .. item) -- 0 = Chance unbekannt
         elseif s[1] == "c" then crafts = crafts + 1
         else assert(s[1] == "w", "unbekannte Herkunft " .. tostring(s[1])) end
     end

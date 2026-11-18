@@ -2,7 +2,7 @@
 -- Quellen: ForeverLevelingBiS v0.12.0-beta von Thunder (MIT) ueber Polestar_ItemDB (GPL-3.0);
 -- Polestar_ItemDB/Items.lua (Classic-Era-Spieltabellen, Fakten); cmangos classic-db (GPL-3.0). Siehe THIRD_PARTY.md.
 -- items[g] = "<platz> <gstufe> <mindeststufe> <qualitaet> <klasse> <unterklasse> [werte]"
--- src[g] = {{"q", quest} | {"d", dungeon, npc, chance%} | {"w", gebiet, npc, chance%} | {"c", beruf, fertigkeit}}
+-- src[g] = {{"q", quest} | {"d", dungeon, npc, chance% (0 = unbekannt)} | {"w", gebiet, npc, chance%} | {"c", beruf, fertigkeit}}
 GuildTripGear = GuildTripGear or {}
 local G = GuildTripGear
 G.items = {
