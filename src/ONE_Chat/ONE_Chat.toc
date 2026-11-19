@@ -3,7 +3,7 @@
 ## Notes: Freiwilliger Chat wie ein Messenger: Reiter, Flüstergespräche, festes Ziel je Gespräch
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later
-## Version: 0.7.2-alpha
+## Version: 0.7.3-alpha
 ## Dependencies: ONE_Core
 ## OptionalDeps: ONE_Guild, ONE_Nav
 

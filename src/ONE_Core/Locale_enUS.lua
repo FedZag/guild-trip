@@ -398,3 +398,10 @@ EN["Übersicht"] = EN["Übersicht"] or "Overview"
 EN["Heute"] = EN["Heute"] or "Today"
 EN["Begrüßungsfenster (Tagesüberblick) zeigen"] = "Show the welcome window (daily overview)"
 EN["Ziehen: Fenster größer/kleiner"] = "Drag: make the window bigger/smaller"
+
+-- Neuigkeiten 0.7.3
+EN["Dungeons: „Bosse & Beute“ – jeder Boss mit seiner Beute (Forever-Dungeons und alle klassischen), Umschalt+Klick verlinkt"] = "Dungeons: \"Bosses & loot\" – every boss with its loot (Forever dungeons and all classic ones), shift-click links it"
+EN["Chat lässt sich viel schmaler ziehen: Reiter oben, Flüstern links als Wappen; eigenes Aussehen unter Optionen › Chat"] = "Chat can be dragged much narrower: tabs on top, whispers as crests on the left; its own look under Options › Chat"
+EN["ESC schließt den Chat nicht mehr; Dungeon-Quests zeigen die echte Quest-Stufe"] = "ESC no longer closes the chat; dungeon quests show their real quest level"
+EN["Quest-Führung: im Zielgebiet zeigt der Pfeil zum nächsten Fundort"] = "Quest guide: inside an objective area the arrow points to the nearest spawn spot"
+EN["„Leisten automatisch aktuell halten“ ist jetzt standardmäßig aus (Optionen › Klasse)"] = "\"Keep action bars up to date\" is now off by default (Options › Class)"

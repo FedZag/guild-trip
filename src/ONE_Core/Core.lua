@@ -4,7 +4,7 @@ local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select(
 
 -- Andere AddOns haben eigene Namespace-Tabellen. Die Bruecke ist nur das Core-API.
 _G.ProjectONE = ONE
-ONE.version = "0.7.2-alpha"
+ONE.version = "0.7.3-alpha"
 ONE.modules = {}
 ONE.moduleOrder = {}
 ONE.slashCommands = {}
@@ -107,10 +107,11 @@ function ONE:RegisterSlash(name, handler, help)
     return true
 end
 
-function ONE:RunSlash(name, rest)
+-- rest = Rest der Eingabe kleingeschrieben (fuer Schluesselwoerter), raw = wie getippt (z. B. Text fuer /trip sos)
+function ONE:RunSlash(name, rest, raw)
     local entry = self.slashCommands[name]
     if not entry then return false end
-    local ok, err = pcall(entry.handler, rest or "")
+    local ok, err = pcall(entry.handler, rest or "", raw or rest or "")
     if not ok then
         self:Print(T("/trip %s fehlgeschlagen: %s", name, tostring(err)))
         if self.BugReport then self.BugReport:Record("/trip " .. name, err) end
@@ -162,13 +163,15 @@ function ONE:Initialize()
     SLASH_PROJECTONE1 = "/trip"
     SLASH_PROJECTONE2 = "/one" -- alter Befehl bleibt fuer bisherige Tester
     SlashCmdList.PROJECTONE = function(input)
-        input = (input or ""):lower():match("^%s*(.-)%s*$")
+        local raw = tostring(input or ""):match("^%s*(.-)%s*$")
+        input = raw:lower()
         local command, rest = input:match("^(%S+)%s*(.-)$")
+        local rawRest = raw:match("^%S+%s*(.-)$") or ""
         if input == "heute" or input == "today" then
             self.UI:Navigate("today")
-        elseif input == "modules" or input == "module" then
-            self.UI:SelectTab("modules")
-            self.UI:Show()
+        elseif input == "modules" or input == "module" or input == "optionen" or input == "options" then
+            -- eigene Modul-Ansicht gibt es seit 17.11.2026 nicht mehr: Module stehen in den Optionen
+            if self.UI.OpenOptions then self.UI:OpenOptions() else self.UI:Show() end
         elseif input == "guild" or input == "gilde" then
             if self.UI.tabs.guild then
                 self.UI:SelectTab("guild")
@@ -194,7 +197,7 @@ function ONE:Initialize()
                 local help = self.slashCommands[name].help
                 self:Print("/trip " .. name .. (help and (" - " .. T(help)) or ""))
             end
-        elseif command and self:RunSlash(command, rest) then
+        elseif command and self:RunSlash(command, rest, rawRest) then
             -- handled by an optional module
         else
             self.UI:Toggle()

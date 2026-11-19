@@ -2,6 +2,12 @@
 # Usage: bash scripts/install-forever.sh [optional path to the _forever_ folder]
 set -euo pipefail
 project="$(cd "$(dirname "$0")/.." && pwd)"
+# Nie bei laufendem Spiel installieren: WoW liest die Dateien nur beim Start, und beim Ausloggen
+# schreibt es SavedVariables – halb kopierte Ordner waeren moeglich.
+if ps -eo cmd | grep -qi "[w]ow.exe"; then
+  echo 'STOP: WoW läuft noch. Bitte erst das Spiel beenden, dann erneut installieren.' >&2
+  exit 5
+fi
 forever="${1:-$HOME/.local/share/Steam/steamapps/compatdata/3370188812/pfx/drive_c/Program Files (x86)/World of Warcraft/_forever_}"
 if [[ "$(basename "$forever")" != "_forever_" || ! -d "$forever/Interface" ]]; then
   echo 'STOP: Der angegebene Ordner ist keine geprüfte _forever_-Installation.' >&2

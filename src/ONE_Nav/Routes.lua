@@ -288,6 +288,12 @@ end
 -- holder = Tabelle, in der die Route gemerkt wird (Arrow); now = Uhrzeit (s).
 function Routes:Steer(holder, continent, px, py, tx, ty, now)
     if not self:Available() then return end
+    -- Nah genug: direkt hin. Auch eine alte Route verwerfen – sonst fuehrt sie im Zielgebiet noch
+    -- ueber den naechsten Weg und zurueck (Nutzer 19.11.2026: "729 m", obwohl 90 m entfernt).
+    if (tx - px) ^ 2 + (ty - py) ^ 2 <= self.direct * self.direct then
+        holder.route = nil
+        return
+    end
     local r = holder.route
     local moved = r and (r.continent ~= continent or (r.tx - tx) ^ 2 + (r.ty - ty) ^ 2 > 30 * 30)
     if r and not moved then

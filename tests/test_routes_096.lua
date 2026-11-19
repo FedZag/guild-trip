@@ -113,6 +113,33 @@ A:Refresh()
 assert(not A.state.advice.routed and A.state.target.x == 990, "ohne Wegenetz: Luftlinie")
 ONE.FeatureOn = nil
 
+-- 4b) Alte Route im Zielgebiet verwerfen (Nutzer 19.11.2026: "729 m · Folge dem Weg", obwohl 90 m entfernt)
+do
+    local h = {}
+    assert(R:Steer(h, 1, 10, -5, 990, 5, 50) and h.route, "weit weg: Route")
+    assert(R:Steer(h, 1, 900, 5, 990, 5, 51) == nil and h.route == nil, "nah: direkt, alte Route weg")
+end
+-- 4c) Quest-Ziel als Gebiet: Pfeil zum nächsten Spawnpunkt, mittendrin "Im Zielgebiet" ohne Weg
+do
+    local A2 = A
+    local spx, spy = px, py
+    px, py = 60, -40
+    A2:StartPoint("Raptorendiebe", 1, .99, .005, {quiet = true, area = {{1, 990, 5}, {1, 120, -60}, {2, 60, -40}}})
+    assert(A2.state.advice.kind == "area" and A2.route == nil, "im Gebiet: keine Wegführung")
+    assert(A2.hint.text == "Im Zielgebiet" and tonumber(A2.distance.text) < 100, A2.distance.text)
+    assert(A2.state.target.x == 120 and A2.state.target.y == -60, "Richtung zum nächsten Spawnpunkt (gleicher Kontinent)")
+    assert(A2.active, "Pfeil bleibt (Ziel noch nicht erledigt)")
+    px, py = 0, 300
+    A2:Refresh()
+    assert(A2.state.advice.kind ~= "area", "außerhalb: wieder normale Führung")
+    local nearest, d = A2.AreaNearest({{1, 990, 5}, {1, 120, -60}}, 1, 0, 300)
+    assert(nearest[1] == 1 and nearest[2] == 120 and d > 300, "nächster Spawnpunkt")
+    assert(A2.AreaNearest({{2, 0, 0}}, 1, 0, 0) == nil and A2.AreaNearest(nil, 1, 0, 0) == nil)
+    A2:Stop()
+    px, py = spx, spy
+    A2:StartPoint("Brücke", 1, .99, .005, {quiet = true})
+end
+
 -- 5) Punkte für Minimap/Weltkarte: gleichmäßig entlang des Wegs, nächste Abbiegung als Ring
 assert(loadfile(root .. "/ONE_Nav/RouteDots.lua"))("ONE_Nav", nav)
 local RD = nav.RouteDots

@@ -9,7 +9,8 @@
   unter der Ueberschrift "## <version>"
 * Spielversion: CF_GAME_VERSION (Vorgabe 1.60.1), per Name in der CurseForge-Liste gesucht
 * Art: CF_RELEASE_TYPE (release | beta | alpha, Vorgabe release)
-* Abhaengigkeiten (Shortest Path Forever) stehen auf CurseForge als "Default Relations".
+* Abhaengigkeiten: keine. Guild Trip braucht seit 0.7.2 kein anderes Addon (Shortest Path Forever nicht mehr
+  als "Default Relation" eintragen; Wegenetz ist eingebaut).
 --dry-run: alles pruefen und anzeigen, nichts senden (kein Schluessel noetig).
 --check: nur Schluessel und Spielversion bei CurseForge pruefen (nichts hochladen).
 --force: auch hochladen, wenn die Version schon in .github/curseforge-uploads.txt steht.

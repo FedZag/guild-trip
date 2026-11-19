@@ -37,6 +37,20 @@ local ctx = {
 }
 local plan = assert(P:Plan(ctx))
 assert(#plan.steps > 5, "Plan hat Schritte")
+-- Quest-Ziele tragen ihr Gebiet (Spawnpunkte, Weltkoordinaten) fuer Pfeil und Entfernung
+do
+    local objs, withArea = 0, 0
+    for _, st in ipairs(plan.steps) do
+        if st.kind == "obj" then
+            objs = objs + 1
+            if st.area then
+                withArea = withArea + 1
+                assert(#st.area <= P.AREA_MAX and type(st.area[1][1]) == "number" and type(st.area[1][2]) == "number")
+            end
+        end
+    end
+    assert(objs > 0 and withArea > 0, "Ziel-Schritte mit Gebiet: " .. withArea .. "/" .. objs)
+end
 -- Pflicht: Todesminen-Kette – Endquest 166 (Dungeon) zieht Vorquests 65 ff. nach sich
 assert(plan.chosen[166] == "dungeon", "Todesminen-Quest Pflicht")
 assert(plan.chosen[65] == "pre", "Vorquest der Kette Pflicht: " .. tostring(plan.chosen[65]))

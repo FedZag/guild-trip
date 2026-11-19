@@ -6,11 +6,13 @@
 -- en = englischer Name (Anzeige in Klammern, hilft bei englischen Guides).
 local _, dungeons = ...
 
+-- faction = Eingang liegt bei einer Hauptstadt (Wachen toeten die andere Fraktion): Halle der Thanen
+-- bei Eisenschmiede, Ruinen von Lordaeron vor Unterstadt, Verlies in Sturmwind (Nutzer 19.11.2026).
 dungeons.Catalog = {
     {key = "rfc", en = "Ragefire Chasm", activities = {798}, name = "Ragefireabgrund", min = 13, max = 18, quests = "Ragefire Chasm"},
-    {key = "thanes", en = "The Hall of Thanes", activities = {1984}, name = "Halle der Thanen", min = 13, max = 20, quests = "The Hall of Thanes"},
+    {key = "thanes", en = "The Hall of Thanes", activities = {1984}, name = "Halle der Thanen", min = 13, max = 20, quests = "The Hall of Thanes", faction = "Alliance"},
     {key = "wc", en = "Wailing Caverns", activities = {796}, name = "Höhlen des Wehklagens", min = 15, max = 24, quests = "Wailing Caverns"},
-    {key = "ruins", en = "Ruins of Lordaeron", activities = {1982}, name = "Ruinen von Lordaeron", min = 15, max = 22, quests = "Ruins of Lordaeron"},
+    {key = "ruins", en = "Ruins of Lordaeron", activities = {1982}, name = "Ruinen von Lordaeron", min = 15, max = 22, quests = "Ruins of Lordaeron", faction = "Horde"},
     {key = "dm", en = "The Deadmines", activities = {799}, name = "Todesminen", min = 17, max = 26, quests = "The Deadmines"},
     {key = "sfk", en = "Shadowfang Keep", activities = {800}, name = "Burg Shadowfang", min = 20, max = 30, quests = "Shadowfang Keep"},
     {key = "stocks", en = "The Stockade", activities = {}, name = "Das Verlies", min = 22, max = 30, quests = "The Stockades", faction = "Alliance"},

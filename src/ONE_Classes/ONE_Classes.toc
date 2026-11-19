@@ -3,7 +3,7 @@
 ## Notes: Klassen-Ratgeber: Kampfreihenfolge, Talente und Ausrüstung für deine Stufe
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later
-## Version: 0.7.2-alpha
+## Version: 0.7.3-alpha
 ## Dependencies: ONE_Core
 
 Locale_enUS.lua

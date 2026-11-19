@@ -4,6 +4,7 @@
 -- Bosse sind (ENCOUNTER_END). Mit den Gegner-Nummern holt scripts/import_dungeon_finds.py spaeter die volle
 -- Beute-Tabelle aus forever-db (GPL-3). Gespeichert kontoweit:
 --   ONE.db.dungeons.roster[schluessel] = {npcs = {[npcID] = {name, n, boss}}, bosses = {[encounterID] = name}, runs}
+-- Seit 19.11.2026 auch die Beute der Bosse (LOOT_OPENED, ab gruen): npcs[id].loot/looted, Anzeige in Bosses.lua.
 -- Keine Spielernamen, nichts wird gesendet. /trip dungeondaten zeigt den Stand.
 local _, dungeons = ...
 local ONE = _G.ProjectONE
@@ -18,6 +19,12 @@ local function Call(fn, ...)
     if ok then return a, b, c end
 end
 local function G(name) return rawget(_G, name) end
+-- wie Call, aber mit allen Rueckgabewerten (GetLootSlotInfo: Qualitaet ist der 5. Wert)
+local function Rest(ok, ...) if ok then return ... end end
+local function Call5(fn, ...)
+    if type(fn) ~= "function" then return nil end
+    return Rest(pcall(fn, ...))
+end
 local function Now() return Call(G("GetTime")) or 0 end
 
 function Roster:Store()
@@ -95,6 +102,56 @@ function Roster:OnEncounter(encounterID, name, success)
     if encounterID and Plain(encounterID) then e.bosses[encounterID] = (Plain(name) and name) or e.bosses[encounterID] or true end
 end
 
+-- Beute mitschreiben (Nutzer 19.11.2026: "Ja, mitschreiben"): beim Pluendern eines Bosses im Dungeon
+-- je Gegenstand (ab gruen) zaehlen, wie oft er bei diesem Boss lag, und wie oft der Boss gepluendert wurde.
+--   npcs[npcID].loot = {[itemID] = Anzahl}, npcs[npcID].looted = Leichen
+-- Jede Leiche zaehlt nur einmal (GUID); nur Bosse (Boss-Leiste oder bekannte Bossdaten). Nur lokal.
+Roster.MIN_QUALITY = 2
+function Roster:IsBoss(key, npc, n)
+    if n and n.boss then return true end
+    local B = dungeons.Bosses
+    local list = B and B:For(key, true)
+    for _, b in ipairs(list or {}) do if b.npc == npc then return true end end
+    return false
+end
+
+function Roster:OnLoot()
+    local key = self:Current()
+    if not key then return 0 end
+    local count = Call(G("GetNumLootItems")) or 0
+    if not Plain(count) then return 0 end
+    self.seenLoot = self.seenLoot or {}
+    local e, added = self:Entry(key), 0
+    for slot = 1, count do
+        local link = Call(G("GetLootSlotLink"), slot)
+        local item = type(link) == "string" and Plain(link) and tonumber(link:match("item:(%d+)"))
+        local info = {Call5(G("GetLootSlotInfo"), slot)}
+        local quality = info[5]
+        if item and Plain(quality) and (tonumber(quality) or 0) >= self.MIN_QUALITY then
+            local src = {Call5(G("GetLootSourceInfo"), slot)}
+            for i = 1, #src, 2 do
+                local guid = src[i]
+                local npc = Plain(guid) and self.NpcID(guid)
+                local n = npc and e.npcs[npc]
+                if npc and self:IsBoss(key, npc, n) then
+                    if not n then n = {n = 0, boss = true} e.npcs[npc] = n end
+                    n.loot = type(n.loot) == "table" and n.loot or {}
+                    if not self.seenLoot[guid] then
+                        self.seenLoot[guid] = {}
+                        n.looted = (tonumber(n.looted) or 0) + 1
+                    end
+                    if not self.seenLoot[guid][item] then
+                        self.seenLoot[guid][item] = true
+                        n.loot[item] = (tonumber(n.loot[item]) or 0) + 1
+                        added = added + 1
+                    end
+                end
+            end
+        end
+    end
+    return added
+end
+
 -- Zusammenfassung: {{key, npcs, bosses}}
 function Roster:Summary()
     local out = {}
@@ -120,12 +177,13 @@ function Roster:Initialize()
         end, T("Gesammelte Dungeon-Gegner und Bosse anzeigen"))
     end
     local f = CreateFrame("Frame")
-    for _, ev in ipairs({"ENCOUNTER_END", "INSTANCE_ENCOUNTER_ENGAGE_UNIT", "NAME_PLATE_UNIT_ADDED", "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT"}) do
+    for _, ev in ipairs({"ENCOUNTER_END", "LOOT_OPENED", "INSTANCE_ENCOUNTER_ENGAGE_UNIT", "NAME_PLATE_UNIT_ADDED", "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT"}) do
         pcall(f.RegisterEvent, f, ev)
     end
     f:SetScript("OnEvent", function(_, event, a, b, _, _, e)
         if event == "ENCOUNTER_END" then Roster:OnEncounter(a, b, e == 1 or e == true) return end
         if not Roster:Current() then return end
+        if event == "LOOT_OPENED" then Roster:OnLoot() return end
         if event == "INSTANCE_ENCOUNTER_ENGAGE_UNIT" then
             for i = 1, 5 do if Call(G("UnitExists"), "boss" .. i) then Roster:See("boss" .. i, true) end end
         elseif event == "NAME_PLATE_UNIT_ADDED" then Roster:See(a)

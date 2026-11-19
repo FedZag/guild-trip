@@ -98,9 +98,8 @@ PlayerMenu:Register({id = "invite", order = 20, label = "In Gruppe einladen",
 -- Emotes: C_ChatInfo.PerformEmote (das alte DoEmote sperrt der Forever-Client, Spieltest 19.11.2026)
 function PlayerMenu.EmoteFn()
     local ci = rawget(_G, "C_ChatInfo")
+    -- kein Rueckfall auf DoEmote: das ist gesperrt ("wurde geblockt") – ohne PerformEmote kein Anstupsen
     if type(ci) == "table" and type(ci.PerformEmote) == "function" then return ci.PerformEmote end
-    local old = rawget(_G, "DoEmote")
-    if type(old) == "function" then return old end
 end
 PlayerMenu:Register({id = "poke", order = 30, label = "Anstupsen",
     tooltip = "Das Spiel-Emote /anstupsen – wirkt nur, wenn ihr nah beieinander seid.",

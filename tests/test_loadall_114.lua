@@ -161,10 +161,23 @@ for _, fn in ipairs(tickers) do
 end
 
 -- ===== /trip-Befehle: keine Doppelbelegung mit dem Kern =====
-local core = {heute = 1, today = 1, modules = 1, module = 1, guild = 1, gilde = 1, map = 1, karte = 1, minimap = 1,
+local core = {heute = 1, today = 1, modules = 1, module = 1, optionen = 1, options = 1, guild = 1, gilde = 1, map = 1, karte = 1, minimap = 1,
     klang = 1, sound = 1, bug = 1, fehler = 1, help = 1, hilfe = 1}
 for name in pairs(ONE.slashCommands) do assert(not core[name], "/trip " .. name .. " ist im Kern schon belegt") end
 assert(ONE.slashCommands.sos, "Hilferuf-Befehl da")
+-- Gross-/Kleinschreibung: Befehl egal, Text bleibt wie getippt (Pruefung 19.11.2026: Hilferuf kam kleingeschrieben an)
+local sosHandler, gotRest, gotRaw = ONE.slashCommands.sos.handler
+ONE.slashCommands.sos.handler = function(rest, raw) gotRest, gotRaw = rest, raw end
+SlashCmdList.PROJECTONE("  SOS Brauche Hilfe bei Hogger  ")
+assert(gotRest == "brauche hilfe bei hogger" and gotRaw == "Brauche Hilfe bei Hogger", "sos-Text: " .. tostring(gotRaw))
+ONE.slashCommands.sos.handler = sosHandler
+-- /trip modules zeigt auf die Optionen (eigene Modul-Ansicht gibt es nicht mehr)
+local openedOptions
+local openOriginal = ONE.UI.OpenOptions
+ONE.UI.OpenOptions = function() openedOptions = true end
+SlashCmdList.PROJECTONE("modules")
+assert(openedOptions, "/trip modules oeffnet die Optionen")
+ONE.UI.OpenOptions = openOriginal
 -- Alle Funktionen haben ein Modul, das es gibt
 for id, def in pairs(ONE.features) do
     if def.module then assert(ONE.modules[def.module], "Funktion " .. id .. ": Modul " .. def.module .. " fehlt") end

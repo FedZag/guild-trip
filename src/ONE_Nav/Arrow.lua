@@ -244,7 +244,8 @@ function Arrow:StartPoint(label, mapID, x, y, opts)
     if type(mapID) ~= "number" or type(x) ~= "number" or type(y) ~= "number" then return false end
     self:Create()
     self:RememberForReturn(opts)
-    self.probe = {name = label or T("Ziel"), mapID = mapID, x = x, y = y, service = opts and opts.service, corpse = opts and opts.corpse}
+    self.probe = {name = label or T("Ziel"), mapID = mapID, x = x, y = y, service = opts and opts.service, corpse = opts and opts.corpse,
+        area = opts and opts.area}
     self.arrivedAt, self.leftAfterArrival = nil, nil
     self:SetDelegated(self:Delegate(mapID, x, y, self.probe.name))
     self.target = self.probe.name
@@ -266,7 +267,7 @@ function Arrow:StartWorld(label, continent, x, y, opts)
     if type(continent) ~= "number" or type(x) ~= "number" or type(y) ~= "number" then return false end
     self:Create()
     self:RememberForReturn(opts)
-    self.probe = {name = label or T("Ziel"), world = {continent, x, y}, service = opts and opts.service}
+    self.probe = {name = label or T("Ziel"), world = {continent, x, y}, service = opts and opts.service, area = opts and opts.area}
     self.arrivedAt, self.leftAfterArrival = nil, nil
     self:CancelDelegate() -- Weltkoordinaten (ohne Karte) kann Shortest Path Forever nicht annehmen
     self.target = self.probe.name
@@ -346,7 +347,7 @@ function Arrow:RememberForReturn(opts)
     if self.probe and (self.probe.service or self.probe.corpse) then return end -- Abstecher vom Abstecher: altes Ziel bleibt
     if self.probe then
         local p = self.probe
-        self.resume = {name = p.name, mapID = p.mapID, x = p.x, y = p.y, world = p.world}
+        self.resume = {name = p.name, mapID = p.mapID, x = p.x, y = p.y, world = p.world, area = p.area}
     elseif self.target then
         self.resume = {peer = self.target}
     end
@@ -357,8 +358,8 @@ function Arrow:Resume()
     if not r then self:Stop() return false end
     ONE:Print(T("Weiter zu %s.", r.peer and ShortName(r.peer) or r.name))
     if r.peer then return self:Start(r.peer) end
-    if r.world then return self:StartWorld(r.name, r.world[1], r.world[2], r.world[3], {quiet = true}) end
-    return self:StartPoint(r.name, r.mapID, r.x, r.y, {quiet = true})
+    if r.world then return self:StartWorld(r.name, r.world[1], r.world[2], r.world[3], {quiet = true, area = r.area}) end
+    return self:StartPoint(r.name, r.mapID, r.x, r.y, {quiet = true, area = r.area})
 end
 
 -- Ankunft: einmal melden (Ton + Chat), Abstecher -> nach dem Weggehen zurueck zum alten Ziel,
@@ -382,6 +383,20 @@ function Arrow:CheckArrival(advice, distance)
         return
     end
     if now - self.arrivedAt >= self.arrivedHold then self:Stop() end
+end
+
+-- Zielgebiet (Quest-Ziele): naechster Spawnpunkt {c, x, y} auf dem Kontinent des Spielers und seine Entfernung
+Arrow.areaRadius = 100
+function Arrow.AreaNearest(area, pc, px, py)
+    if type(area) ~= "table" or not pc then return nil end
+    local best, bd
+    for _, a in ipairs(area) do
+        if a[1] == pc then
+            local d = (a[2] - px) ^ 2 + (a[3] - py) ^ 2
+            if not bd or d < bd then best, bd = a, d end
+        end
+    end
+    if best then return best, math.sqrt(bd) end
 end
 
 -- Farbe: je naeher, desto gruener (die letzten 100 Yards)
@@ -449,7 +464,20 @@ function Arrow:Refresh()
     if peer.world then tc, tx, ty = peer.world[1], peer.world[2], peer.world[3]
     else tc, tx, ty = Travel.World(peer.mapID, peer.x, peer.y) end
     local player = pc and {continent = pc, x = px, y = py} or nil
+    -- Quest-Ziel als Gebiet: zum naechsten Spawnpunkt; mittendrin keine Wegfuehrung mehr
+    local spot, spotDist = self.AreaNearest(self.probe and self.probe.area, pc, px, py)
+    if spot then tc, tx, ty = spot[1], spot[2], spot[3] end
     local target = tc and {continent = tc, x = tx, y = ty} or nil
+    if spot and spotDist <= self.areaRadius then
+        self.route = nil
+        self.state = {player = player, target = target, advice = {kind = "area", distance = spotDist}}
+        self.title:SetText("Zu " .. ShortName(peer.name))
+        self.distance:SetText(Travel.FormatDistance(spotDist))
+        if self.arrow and self.arrow.SetVertexColor then self.arrow:SetVertexColor(Arrow.NearColor(spotDist)) end
+        self.hint:SetText(T("Im Zielgebiet"))
+        self.tip:SetText(T("Ziele sind hier in der Nähe · Richtung zum nächsten"))
+        return
+    end
     -- echter Laufweg (Wegenetz), wenn der gemerkte Weg zu diesem Ziel fuehrt
     local walk
     local r = self.route

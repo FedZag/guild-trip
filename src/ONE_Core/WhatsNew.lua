@@ -10,6 +10,13 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.7.3-alpha"] = {
+        "Dungeons: „Bosse & Beute“ – jeder Boss mit seiner Beute (Forever-Dungeons und alle klassischen), Umschalt+Klick verlinkt",
+        "Chat lässt sich viel schmaler ziehen: Reiter oben, Flüstern links als Wappen; eigenes Aussehen unter Optionen › Chat",
+        "ESC schließt den Chat nicht mehr; Dungeon-Quests zeigen die echte Quest-Stufe",
+        "Quest-Führung: im Zielgebiet zeigt der Pfeil zum nächsten Fundort",
+        "„Leisten automatisch aktuell halten“ ist jetzt standardmäßig aus (Optionen › Klasse)",
+    },
     ["0.7.2-alpha"] = {
         "Raid-Skillungen für alle 27 Ausrichtungen (vorläufig bis 9.12.) und ab Stufe 60 „Raid-Vorbereitung“ unter Leveln › Ausrüstung",
         "Navi-Pfeil folgt echten Wegen auch zu Quest-Zielgebieten und sagt, wie viel Fliegen spart",

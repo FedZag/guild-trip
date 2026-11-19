@@ -48,4 +48,5 @@ local build = assert(io.open(root .. "/../scripts/build_release_windows.py")):re
 assert(build:find("'ONE_Classes'", 1, true) and not build:find("ONE_Dev", 1, true), "ONE_Dev nicht im Paket")
 local install = assert(io.open(root .. "/../scripts/install-forever.sh")):read("*a")
 assert(install:find("ONE_Dev", 1, true), "lokal wird ONE_Dev installiert")
+assert(install:find("[w]ow.exe", 1, true) and install:find("exit 5", 1, true), "Installieren bricht ab, solange WoW laeuft")
 print("OK test_dev_055")

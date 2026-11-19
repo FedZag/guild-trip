@@ -34,20 +34,27 @@ Glass.skins = {
 Glass.order = { "azeroth", "glas", "horde", "alliance", "custom" }
 Glass.DEFAULT_ALPHA = .80
 
+-- Pruefen/ergaenzen einer Farb-Ablage {skin, tint, glow, alpha}
+local function Norm(g)
+    if g.skin ~= "custom" and not Glass.skins[g.skin or ""] then g.skin = "azeroth" end
+    if type(g.alpha) ~= "number" or g.alpha < .4 or g.alpha > 1 then g.alpha = Glass.DEFAULT_ALPHA end
+    return g
+end
 local function Store()
     if not ONE.db then return {} end
     if type(ONE.db.theme) ~= "table" then ONE.db.theme = {} end
     local t = ONE.db.theme
     if type(t.glass) ~= "table" then t.glass = {} end
-    local g = t.glass
-    if g.skin ~= "custom" and not Glass.skins[g.skin or ""] then g.skin = "azeroth" end
-    if type(g.alpha) ~= "number" or g.alpha < .4 or g.alpha > 1 then g.alpha = Glass.DEFAULT_ALPHA end
-    return g
+    return Norm(t.glass)
 end
 Glass.Store = Store
+-- Eigene Ablage (z. B. Chat mit eigenen Farben, Nutzer 19.11.2026); nil = Hauptfenster
+local function Pick(store) if type(store) == "table" then return Norm(store) end return Store() end
 
 -- Aussehen: "glass" (Standard ab 0.7.1) oder "native" (Blizzard-Fenster wie 0.7.0)
 function Glass:Active()
+    -- Ein Fenster mit eigener Wahl (Chat) setzt das beim Aufbau kurz um
+    if self.forceLook ~= nil then return self.forceLook == "glass" end
     if not ONE.db or type(ONE.db.theme) ~= "table" then return true end
     return ONE.db.theme.look ~= "native"
 end
@@ -59,8 +66,8 @@ local function Luma(c) return .2126 * c[1] + .7152 * c[2] + .0722 * c[3] end
 Glass.Luma = Luma
 
 -- Aktuelle Farben. Eigene Farben: Toenung wird gedeckelt, damit weisse Schrift lesbar bleibt.
-function Glass:Palette()
-    local g = Store()
+function Glass:Palette(store)
+    local g = Pick(store)
     local p
     if g.skin == "custom" then
         local tint = type(g.tint) == "table" and Copy(g.tint) or Copy(self.skins.azeroth.tint)
@@ -72,17 +79,19 @@ function Glass:Palette()
         if Luma(glow) < .45 then title = { glow[1] + (1 - glow[1]) * .5, glow[2] + (1 - glow[2]) * .5, glow[3] + (1 - glow[3]) * .5 } end
         p = { name = T("Eigene Farben"), tint = tint, glow = glow, title = title }
     else
-        p = self.skins[g.skin]
+        -- Kopie: Chat und Hauptfenster koennen verschiedene Deckkraft haben
+        local base = self.skins[g.skin]
+        p = { name = base.name, tint = base.tint, glow = base.glow, title = base.title }
     end
     p.alpha = g.alpha
     -- Schrift auf Leuchtfarbe (Hauptknopf): dunkel auf hellem Licht, sonst weiss
     p.onGlow = Luma(p.glow) > .5 and { .07, .06, .03 } or { 1, 1, 1 }
     return p
 end
-function Glass:SkinId() return Store().skin end
-function Glass:SetSkin(id)
+function Glass:SkinId(store) return Pick(store).skin end
+function Glass:SetSkin(id, store)
     if id ~= "custom" and not self.skins[id] then return false end
-    local g = Store()
+    local g = Pick(store)
     if id == "custom" and type(g.tint) ~= "table" then
         -- eigene Farben starten beim gerade gewaehlten Skin
         local base = self.skins[g.skin] or self.skins.azeroth
@@ -92,10 +101,10 @@ function Glass:SetSkin(id)
     self:ApplyAll()
     return true
 end
-function Glass:SetCustom(key, r, g, b)
+function Glass:SetCustom(key, r, g, b, store)
     if key ~= "tint" and key ~= "glow" then return false end
-    local s = Store()
-    if s.skin ~= "custom" then self:SetSkin("custom") end
+    local s = Pick(store)
+    if s.skin ~= "custom" then self:SetSkin("custom", store) end
     s[key] = { Clamp01(r), Clamp01(g), Clamp01(b) }
     self:ApplyAll()
     return true
@@ -186,7 +195,8 @@ function Glass:Surface(frame, kind, anchor)
 end
 local function Lift(c, k) return c[1] + (1 - c[1]) * k, c[2] + (1 - c[2]) * k, c[3] + (1 - c[3]) * k end
 function Glass:Paint(s)
-    local p = self:Palette()
+    -- s.store: Flaeche mit eigener Farb-Ablage (Funktion, liefert Tabelle oder nil)
+    local p = self:Palette(s.store and s.store() or nil)
     local t, g, a = p.tint, p.glow, p.alpha
     local k = s.kind
     if k == "window" then
@@ -663,16 +673,16 @@ function Glass:AlphaControl(row, w)
 end
 
 -- Farbwaehler des Spiels; Abbrechen stellt die alte Farbe wieder her
-function Glass:PickColor(key)
-    local p = self:Palette()
+function Glass:PickColor(key, store)
+    local p = self:Palette(store)
     local start = Copy(key == "tint" and p.tint or p.glow)
     local cpf = _G.ColorPickerFrame
     if not cpf then return false end
     local function Current()
         local r, g, b = cpf:GetColorRGB()
-        Glass:SetCustom(key, r, g, b)
+        Glass:SetCustom(key, r, g, b, store)
     end
-    local function Cancel() Glass:SetCustom(key, start[1], start[2], start[3]) end
+    local function Cancel() Glass:SetCustom(key, start[1], start[2], start[3], store) end
     if cpf.SetupColorPickerAndShow then
         cpf:SetupColorPickerAndShow({ r = start[1], g = start[2], b = start[3], hasOpacity = false,
             swatchFunc = Current, cancelFunc = Cancel })

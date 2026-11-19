@@ -397,7 +397,8 @@ function G:Navi(step, quiet)
     if step.kind == "dungeon" then label = (G.Catalog(step.key) or {}).name
     elseif step.kind == "travel" then label = step.via and step.via.dep and step.via.dep.name or "Abfahrt"
     else label = G.Title(step.actions[1].id) end
-    local ok = nav:PointTo(T(label or ""), step.mapID, step.x, step.y, quiet and {quiet = true} or nil)
+    local opts = (quiet or step.area) and {quiet = quiet or nil, area = step.area} or nil
+    local ok = nav:PointTo(T(label or ""), step.mapID, step.x, step.y, opts)
     local arrow = Nav() and Nav().Arrow
     if ok and arrow then self.autoKey, self.autoLabel = step.stopKey, arrow.target end
     return ok
@@ -435,6 +436,15 @@ function G:Distance(step)
         if tr then pc, px, py = tr.PlayerWorld() end
         if pc and pc == step.world[1] then return math.sqrt((px - step.world[2]) ^ 2 + (py - step.world[3]) ^ 2) end
         return nil
+    end
+    -- Quest-Ziel als Gebiet: Entfernung zum naechsten Spawnpunkt (wie der Pfeil)
+    if step and step.area then
+        local n = Nav()
+        local tr, A = n and n.Travel, n and n.Arrow
+        if tr and A and A.AreaNearest then
+            local _, d = A.AreaNearest(step.area, tr.PlayerWorld())
+            if d then return d end
+        end
     end
     if not (step and step.mapID and nav and nav.DistanceTo) then return nil end
     return Try(nav.DistanceTo, nav, step.mapID, step.x, step.y)

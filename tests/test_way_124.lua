@@ -125,4 +125,13 @@ for npc, t in pairs(q.trainers) do
 end
 assert(W.NpcFits(hordeOnly, "Horde") and not W.NpcFits(hordeOnly, "Alliance") and not W.NpcFits(allyOnly, "Horde"))
 assert(W.Money(12345) == "1 G 23 S" and W.Money(250) == "2 S" and W.Money(7) == "7 K")
+-- Nutzer 19.11.2026: Halle der Thanen (Eingang bei Eisenschmiede) nicht fuer die Horde vorschlagen,
+-- Ruinen von Lordaeron (vor Unterstadt) nicht fuer die Allianz
+assert(W.EnemyDungeon("thanes", "Horde") and not W.EnemyDungeon("thanes", "Alliance"))
+assert(W.EnemyDungeon("ruins", "Alliance") and not W.EnemyDungeon("ruins", "Horde"))
+assert(not W.EnemyDungeon("dm", "Horde") and not W.EnemyDungeon("thanes", nil))
+local function HasDungeon(id, faction, key)
+    for _, s in ipairs(W:Sources(id, {faction = faction, level = 15})) do if s.kind == "d" and s.dungeon == key then return true end end
+end
+assert(not HasDungeon(270227, "Horde", "thanes") and HasDungeon(270227, "Alliance", "thanes"), "Thanen-Beute nur fuer Allianz")
 print("OK test_way_124")

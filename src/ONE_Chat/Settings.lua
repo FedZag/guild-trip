@@ -23,8 +23,6 @@ UI.settingChecks = {
     {"stamps", "Uhrzeit vor jeder Nachricht", nil, function() UI:Render() end, 2},
     {"fadeLines", "Alte Zeilen verblassen", "Wie im WoW-Chat: Zeilen verschwinden nach einer Minute. Mausrad holt sie zurück.", Look, 2},
     {"locked", "Fenster festsetzen", "Nicht mehr verschieben oder in der Größe ändern.", Look, 2},
-    {"flat", "Schlichtes Aussehen (passend zu ElvUI & Co.)", "Flach und dunkel mit dünnem Rand statt Blizzard-Rahmen bzw. Pergament. Wirkt nach /reload.",
-        function() ONE:Print(T("Das Aussehen des Chats ändert sich nach /reload.")) end, 2},
 }
 UI.fontSizes = {12, 13, 14, 16, 18, 20}
 -- Auswahlfelder (Spalte Aussehen): {Schluessel, Beschriftung, Werte {Wert, Text}, nach dem Aendern}
@@ -44,7 +42,6 @@ UI.settingDrops = {
 function UI.SettingOn(key)
     local s = Chat:Settings()
     if key == "whisperHere" or key == "launcher" or key == "keepHistory" then return s[key] ~= false end
-    if key == "flat" then return Chat:Flat() end
     if key == "hideBlizzard" then return s.hideBlizzard == true and Chat:CanHideBlizzardChat() end
     return s[key] == true
 end
@@ -84,6 +81,7 @@ function UI:RegisterSettings()
             set = function(on) UI.SetSetting(key, on) end,
             onChange = after})
     end
+    self:RegisterLookSettings(Add, SECTION[2])
     for i, o in ipairs(self.settingDrops) do
         local key, values, after = o[1], o[3], o[4]
         Add({id = "chat." .. key, section = SECTION[2], order = 150 + i, kind = "dropdown", label = o[2], width = 180,
@@ -96,6 +94,78 @@ function UI:RegisterSettings()
             set = function(v) Chat:Settings()[key] = v if after then after(v) end end})
     end
     return true
+end
+
+-- Aussehen nur fuer den Chat (Nutzer 19.11.2026): Glas, Blizzard oder Schlicht – unabhaengig vom
+-- Hauptfenster – und im Glas eigene Farben. Ersetzt den frueheren Schalter "Schlichtes Aussehen".
+UI.lookOptions = {
+    {"auto", "Wie das Hauptfenster"}, {"glass", "Glas"}, {"native", "Blizzard"}, {"flat", "Schlicht (passend zu ElvUI & Co.)"},
+}
+function UI.LookSetting()
+    local s = Chat:Settings()
+    if s.look == "glass" or s.look == "native" or s.look == "flat" then return s.look end
+    if s.flat == true then return "flat" end
+    return "auto"
+end
+function UI.SetLook(v)
+    local s = Chat:Settings()
+    s.look = (v == "glass" or v == "native" or v == "flat") and v or nil
+    -- alter Schalter: "Wie das Hauptfenster" erkennt ElvUI & Co. wieder selbst
+    s.flat = nil
+end
+-- Eigene Glas-Farben anlegen: startet mit den Farben des Hauptfensters
+function UI.ChatGlass()
+    local s = Chat:Settings()
+    if type(s.glass) ~= "table" then
+        local main = ONE.Glass and ONE.Glass.Store and ONE.Glass.Store() or {}
+        local function Copy(c) return type(c) == "table" and {c[1], c[2], c[3]} or nil end
+        s.glass = {skin = main.skin, tint = Copy(main.tint), glow = Copy(main.glow), alpha = main.alpha}
+    end
+    return s.glass
+end
+function UI.GlassSkinSetting()
+    local g = Chat:GlassStore()
+    return g and g.skin or "main"
+end
+function UI.SetGlassSkin(v)
+    local G = ONE.Glass
+    if v == "main" or not G then
+        Chat:Settings().glass = nil
+        if G and G.ApplyAll then G:ApplyAll() end
+        return
+    end
+    G:SetSkin(v, UI.ChatGlass())
+end
+function UI:RegisterLookSettings(Add, section)
+    local function IsGlass() return Chat:Look() == "glass" end
+    Add({id = "chat.look", section = section, order = 140, kind = "dropdown", label = "Aussehen des Chats", width = 220,
+        tooltip = "Nur für das Chatfenster. Wirkt nach /reload.",
+        options = function()
+            local out = {}
+            for _, o in ipairs(UI.lookOptions) do out[#out + 1] = {value = o[1], text = T(o[2])} end
+            return out
+        end,
+        get = function() return UI.LookSetting() end,
+        set = function(v) UI.SetLook(v) end,
+        onChange = function() ONE:Print(T("Das Aussehen des Chats ändert sich nach /reload.")) end})
+    Add({id = "chat.glassSkin", section = section, order = 141, kind = "dropdown", label = "Glas-Farben des Chats", width = 220,
+        visible = IsGlass,
+        options = function()
+            local out = {{value = "main", text = T("Wie das Hauptfenster")}}
+            local G = ONE.Glass
+            for _, id in ipairs(G and G.order or {}) do
+                out[#out + 1] = {value = id, text = id == "custom" and T("Eigene Farben") or T(G.skins[id].name)}
+            end
+            return out
+        end,
+        get = function() return UI.GlassSkinSetting() end,
+        set = function(v) UI.SetGlassSkin(v) end})
+    Add({id = "chat.glassGlow", section = section, order = 142, kind = "button", label = "Leuchtfarbe des Chats …",
+        visible = IsGlass, tooltip = "Farbe für Auswahl, Linien und Knöpfe – nur im Chat.",
+        onClick = function() if ONE.Glass then ONE.Glass:PickColor("glow", UI.ChatGlass()) end end})
+    Add({id = "chat.glassTint", section = section, order = 143, kind = "button", label = "Glasfarbe des Chats …",
+        visible = IsGlass, tooltip = "Tönung des Chat-Glases. Die Deckkraft stellt „Hintergrund“ ein.",
+        onClick = function() if ONE.Glass then ONE.Glass:PickColor("tint", UI.ChatGlass()) end end})
 end
 
 -- Zahnrad im Chatfenster: Optionen › Chat

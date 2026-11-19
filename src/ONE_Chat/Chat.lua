@@ -81,9 +81,27 @@ function Chat:CanHideBlizzardChat()
 end
 -- Schlichtes Aussehen: eingestellt, sonst automatisch bei ElvUI & Co.
 function Chat:Flat()
-    local f = self:Settings().flat
+    local s = self:Settings()
+    if s.look == "flat" then return true end
+    if s.look == "glass" or s.look == "native" then return false end
+    local f = s.flat
     if f == nil then return self.OtherChatAddon() ~= nil end
     return f == true
+end
+-- Aussehen des Chats (Nutzer 19.11.2026: eigene Wahl nur fuer den Chat):
+-- "auto" = wie das Hauptfenster, sonst "glass", "native" oder "flat". Liefert das wirksame Aussehen.
+function Chat:Look()
+    if self:Flat() then return "flat" end
+    local look = self:Settings().look
+    if look == "glass" or look == "native" then return look end
+    local G = ONE.Glass
+    if not (G and G.Active) or not G:Active() then return "native" end
+    return "glass"
+end
+-- Glas-Farben nur fuer den Chat: nil = wie das Hauptfenster
+function Chat:GlassStore()
+    local g = self:Settings().glass
+    return type(g) == "table" and g or nil
 end
 
 -- ===== Einstellungen und Reiter =====

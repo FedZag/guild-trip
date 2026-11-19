@@ -19,6 +19,7 @@ P.HORIZON = 2            -- Stufen voraus planen
 P.MAX_STEPS = 60
 P.MAX_MINUTES = 150
 P.FAR_MIN = 12           -- anderer Kontinent / unbekannter Ort
+P.AREA_MAX = 40          -- Spawnpunkte je Quest-Ziel fuer Pfeil/Entfernung (Zielgebiet)
 P.VALUE_SLACK = .6       -- Mehrwert-Quests duerfen so viel langsamer sein
 P.UPGRADE_PCT = 10
 P.BUSY_WORK = 40         -- ab hier "viel Aufwand / seltene Drops"
@@ -580,8 +581,19 @@ function P:Plan(ctx)
             last.actions[#last.actions + 1] = {kind = s.kind, id = s.id}
         else
             local w = s.w
+            -- Quest-Ziel = Gebiet: alle Spawnpunkte (Weltkoordinaten), damit Pfeil und Entfernung den naechsten nehmen
+            local area
+            if s.kind == "obj" and Q.q[s.id] then
+                area = {}
+                for _, nr in ipairs(Q.q[s.id][8] or {}) do
+                    local a = World(nr)
+                    if a then area[#area + 1] = {a[1], a[2], a[3]} end
+                    if #area >= P.AREA_MAX then break end
+                end
+                if #area == 0 then area = nil end
+            end
             steps[#steps + 1] = {kind = s.kind, nr = s.nr, key = s.key, ids = s.ids, mapID = w and w[4], x = w and w[5], y = w and w[6],
-                walk = s.walk, actions = s.kind == "dungeon" and {} or {{kind = s.kind, id = s.id}}, stopKey = P.StopKey(s), cost = 0, gain = 0}
+                area = area, walk = s.walk, actions = s.kind == "dungeon" and {} or {{kind = s.kind, id = s.id}}, stopKey = P.StopKey(s), cost = 0, gain = 0}
         end
         steps[#steps].cost = steps[#steps].cost + (s.cost or 0)
         steps[#steps].gain = steps[#steps].gain + (s.gain or 0)

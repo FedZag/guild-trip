@@ -48,6 +48,30 @@ function Model:InLog(ids)
     return false
 end
 
+-- Quest-Stufe und Mindeststufe aus der Questdatenbank (QuestieDB, ONE_QuestDB). Die Dungeon-Questdaten
+-- (Forever Dungeon Quests) nennen meist die Mindeststufe als "level" (Nutzer 19.11.2026: Ruinen-Quests
+-- standen mit 15 da, sind aber Stufe 22). Rueckgabe: Stufe, ab Stufe (nil, wenn unbekannt).
+function Model:Levels(quest)
+    local db = rawget(_G, "GuildTripQuestDB")
+    local q = type(db) == "table" and db.q
+    if type(q) == "table" then
+        for _, id in ipairs(quest.ids or {}) do
+            local e = q[id]
+            if type(e) == "table" and tonumber(e[1]) and e[1] > 0 then
+                local min = tonumber(e[2])
+                return e[1], (min and min > 0 and min < e[1]) and min or nil
+            end
+        end
+    end
+    return quest.level, nil
+end
+
+function Model:LevelText(quest)
+    local level, min = self:Levels(quest)
+    if not level then return "" end
+    return min and (level .. " |cff9d9d9d(" .. min .. ")|r") or tostring(level)
+end
+
 -- Deutscher Titel, falls das Spiel ihn kennt (im Log oder nachgeladen), sonst Quelle.
 function Model:Title(quest)
     local store = self:Store()

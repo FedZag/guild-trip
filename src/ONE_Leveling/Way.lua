@@ -197,6 +197,11 @@ local function Catalog(key)
     for _, c in ipairs(dg and dg.Catalog or {}) do if c.key == key then return c end end
 end
 W.Catalog = Catalog
+-- Dungeon der anderen Fraktion (Katalog-Feld faction, z. B. Halle der Thanen = Allianz)?
+function W.EnemyDungeon(key, faction)
+    local c = Catalog(key)
+    return (c and c.faction and faction and (faction == "Alliance" or faction == "Horde") and c.faction ~= faction) and true or false
+end
 
 -- Faktion eines NPCs aus dem Verzeichnis (1 Allianz, 2 Horde, 3 beide; unbekannt = passt)
 local function NpcFits(npc, faction)
@@ -252,7 +257,7 @@ function W.LearnOptions(spell, faction)
             out[#out + 1] = {kind = "t", npc = l[2], skill = l[3], cost = l[4]}
         elseif k == "v" and NpcFits(l[2], faction) then
             out[#out + 1] = {kind = "v", npc = l[2], recipe = l[3], limited = l[4] == 1}
-        elseif k == "d" then
+        elseif k == "d" and not W.EnemyDungeon(l[2], faction) then
             out[#out + 1] = {kind = "d", dungeon = l[2], npc = l[3], recipe = l[4], chance = l[5]}
         elseif k == "w" then
             out[#out + 1] = {kind = "w", npc = l[2], recipe = l[3], chance = l[4]}
@@ -284,6 +289,8 @@ function W:Sources(id, ctx)
                 ok = P.Fits(s[2], e, ctx.me, ctx.done, ctx.inLog)
             elseif ok and ctx.done then ok = not ctx.done(s[2]) end
             if ok then list[#list + 1] = {kind = "q", quest = s[2], level = e and e[1], min = e and e[2], sure = true} end
+        elseif k == "d" and W.EnemyDungeon(s[2], ctx.faction) then
+            -- Eingang in der Hauptstadt der anderen Fraktion: nicht vorschlagen
         elseif k == "d" then
             local c = Catalog(s[2])
             local chance = s[4] or 0

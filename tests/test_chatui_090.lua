@@ -127,7 +127,8 @@ for _, o in ipairs(registered) do
     if o.kind == "dropdown" then drops = drops + 1 elseif o.kind ~= "text" then checks = checks + 1 end
     if o.label == "Ton bei Gildennachrichten" then guildBox = o end
 end
-assert(checks == #UI.settingChecks and drops == #UI.settingDrops, "alle Chat-Schalter angemeldet")
+-- 19.11.2026: dazu Aussehen + Glas-Farben (2 Auswahlfelder) und zwei Farbknoepfe
+assert(checks == #UI.settingChecks + 2 and drops == #UI.settingDrops + 2, "alle Chat-Schalter angemeldet")
 assert(guildBox and guildBox.get() == false and guildBox.section == "Verhalten & Töne")
 guildBox.set(true)
 assert(Chat:Settings().guildSound == true)

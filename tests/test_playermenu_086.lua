@@ -4,7 +4,7 @@ local did = {}
 UnitName = function() return "Hordi" end
 ChatFrame_SendTell = function(name) did.whisper = name end
 C_PartyInfo = {InviteUnit = function(name) did.invite = name end}
-DoEmote = function(token, name) did.emote = {token, name} end
+C_ChatInfo = {PerformEmote = function(token, name) did.emote = {token, name} end} -- DoEmote ist in Forever gesperrt
 local friends = {}
 C_FriendList = {AddFriend = function(name) did.friend = name friends[name] = true end,
     GetFriendInfo = function(name) return friends[name] and {name = name} or nil end}

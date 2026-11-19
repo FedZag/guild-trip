@@ -51,6 +51,15 @@ classes.LootPack = {
         slot = "INVTYPE_NON_EQUIP_IGNORE",
         sources = {c3207 = {count = 2, kind = "normal", mapID = 1411, name = "Verhexter Troll", x = 0.68, y = 0.841}},
     },
+    [3307] = {
+        ilvl = 15,
+        minLevel = 10,
+        q = 2,
+        slot = "INVTYPE_FEET",
+        sources = {
+            c3255 = {count = 1, kind = "normal", mapID = 1413, name = "Bluthornkreischer", x = 0.471, y = 0.257},
+        },
+    },
     [4408] = {
         ilvl = 15,
         minLevel = 0,

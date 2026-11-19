@@ -27,7 +27,8 @@ local function Store()
     return ONE.db.classGuide
 end
 
-function Ranks:Enabled() return Store().autoRank ~= false end
+-- Standard aus (Nutzer 19.11.2026: Automatiken erst auf Wunsch)
+function Ranks:Enabled() return Store().autoRank == true end
 function Ranks:SetEnabled(on) Store().autoRank = on and true or false end
 
 -- Name -> hoechster bekannter Rang

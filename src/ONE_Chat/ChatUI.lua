@@ -1,6 +1,8 @@
 -- Guild Trip Chat: Fenster wie ein Messenger.
--- Links: Reiter (Alle, Gilde, Gruppe, Handel, In der Naehe, eigene) und darunter die
--- Fluestergespraeche, je mit Zaehler fuer Ungelesenes (blinkt). Rechts: Kopfzeile, Verlauf
+-- Oben: Reiter als Tabs (Alle, Gilde, Gruppe, Handel, In der Naehe, eigene) – schmal nur farbige
+-- Kaestchen, breit mit Namen. Links: schmale Leiste mit den Fluestergespraechen als Wappen
+-- (Nutzer 19.11.2026, Vorschau C: Fenster soll so schmal werden koennen wie der WoW-Chat).
+-- Je Eintrag Zaehler fuer Ungelesenes (blinkt). Rechts: Kopfzeile, Verlauf
 -- (Blizzard-ScrollingMessageFrame: Links zu Gegenstaenden/Quests/Spielern klickbar) und
 -- Eingabe mit festem Ziel ("An: Thrall") – Enter schickt genau dorthin.
 -- Aussehen folgt dem Thema (Blizzard-Rahmen bzw. Pergamentblatt im Buch).
@@ -11,21 +13,24 @@ local UI = {rows = {}}
 chat.UI = UI
 local Chat = chat.Chat
 
-local LIST_W, ROW_H, HEAD_H, INPUT_H, TOP = 156, 24, 30, 28, 42
+local HEAD_H, INPUT_H, TOP = 30, 28, 42
 -- 0.6.8: Blizzard-Aussehen wie das Hauptfenster (Rahmen mit Titel, Kanaele mit Goldsymbolen,
 -- Wappenschilde beim Fluestern, grosse Kopfzeile, Senden-Knopf). Buch und schlichter Stil bleiben.
 local TEX = "Interface\\AddOns\\ONE_Chat\\Textures\\"
-local TAB_ICONS = "Interface\\AddOns\\ONE_Core\\Textures\\Common\\TabIcons"
-local TAB_ICON = {all = 9, guild = 1, group = 3, trade = 4, near = 7}
-local WHISPER_H, HEADROW_H = 32, 22
+-- Leiste links (Fluestern), Tab-Leiste oben, Wappen-Groesse, kleinste Fensterbreite
+local BAR_W, TABBAR_H, ICON, MIN_W = 34, 24, 26, 280
+UI.MIN_W, UI.BAR_W = MIN_W, BAR_W
+-- unter dieser Breite: kuerzeres "An:", Kopfzeile ohne Zusatzknoepfe
+local NARROW_W = 430
 local function Modern() return UI.modern == true end
 
-local function Text(parent, font, role)
+local function Text(parent, font, role, noTheme)
     local fs = parent:CreateFontString(nil, "OVERLAY", font)
     fs:SetJustifyH("LEFT")
-    if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(fs, role or "text") end
+    if not noTheme and ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(fs, role or "text") end
     return fs
 end
+UI.Text = Text
 local function Color(r, g, b) return r, g, b end
 local function Ink(text) return text end
 -- Hervorhebung (z. B. Ungelesen-Zaehler) in Blizzard-Gold
@@ -79,14 +84,50 @@ function UI.Title(view)
     return tab and T(tab.label) or "?"
 end
 
+-- Aussehen des Chats kann vom Hauptfenster abweichen (Optionen › Chat): beim Aufbau wird das
+-- Glas-Aussehen dafuer kurz umgestellt, damit Knoepfe und Flaechen passen; die Glas-Flaechen des
+-- Chats bekommen danach die eigene Farb-Ablage des Chats.
 function UI:Build()
     if self.frame then return self.frame end
+    local look = Chat:Look()
+    local G = ONE.Glass
+    local before = G and G.surfaces and #G.surfaces or 0
+    if G and look ~= "flat" then G.forceLook = look end
+    local ok, err = pcall(self.BuildFrame, self, look)
+    if G then G.forceLook = nil end
+    if G and G.surfaces then
+        for i = before + 1, #G.surfaces do
+            G.surfaces[i].store = function() return Chat:GlassStore() end
+            if G.Paint then G:Paint(G.surfaces[i]) end
+        end
+        if not self.glassHooked and G.OnChange then
+            self.glassHooked = true
+            G:OnChange(function() UI:PaintGlass() UI:Refresh() end)
+        end
+    end
+    if not ok then error(err, 0) end
+    self:PaintGlass()
+    return self.frame
+end
+-- Farben des Chats (eigene Glas-Farben oder Gold)
+function UI:Palette()
+    if self.glass and ONE.Glass and ONE.Glass.Palette then return ONE.Glass:Palette(Chat:GlassStore()) end
+    return {glow = {1, .82, 0}, title = {1, .82, 0}}
+end
+function UI:PaintGlass()
+    if not self.glass then return end
+    local p = self:Palette()
+    if self.title and self.title.SetTextColor then self.title:SetTextColor(p.title[1], p.title[2], p.title[3]) end
+end
+
+function UI:BuildFrame(look)
     local s = Chat:Settings()
-    self.flat = Chat:Flat() -- vor allem anderen: entscheidet ueber Tinte/Pergament
+    self.flat = look == "flat" -- vor allem anderen: entscheidet ueber Tinte/Pergament
     -- Glas-Aussehen: eigener Glasrahmen statt Blizzard-Rahmen (Spieltest 19.11.2026: Holzrahmen + rotes X
     -- passten nicht zum Glas-Inneren)
-    local glass = ONE.Glass and ONE.Glass.Active and ONE.Glass:Active()
-    local modern = not self.flat and not glass
+    local glass = look == "glass"
+    self.glass = glass
+    local modern = look == "native"
     local f
     if modern then
         local ok, fr = pcall(CreateFrame, "Frame", "GuildTripChatWindow", UIParent, "PortraitFrameTemplate")
@@ -115,7 +156,7 @@ function UI:Build()
     f:SetToplevel(true)
     f:SetMovable(true)
     f:SetResizable(true)
-    if f.SetResizeBounds then f:SetResizeBounds(440, 240, 1200, 900) end
+    if f.SetResizeBounds then f:SetResizeBounds(MIN_W, 220, 1200, 900) end
     f:EnableMouse(true)
     f:RegisterForDrag("LeftButton")
     f:SetClampedToScreen(true)
@@ -126,9 +167,11 @@ function UI:Build()
     background:SetPoint("TOPLEFT", f, "TOPLEFT", 4, -4)
     background:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -4, 4)
     background:SetColorTexture(.04, .05, .07, .92)
-    local title = Text(f, "GameFontNormal", "accent")
+    -- Glas: Titel in der Ueberschrift-Farbe des Chats (eigene Farben moeglich), nicht ueber das Thema
+    local title = Text(f, "GameFontNormal", "accent", glass)
     title:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -10)
     title:SetText(T("Guild Trip Chat"))
+    self.title = title
     if modern then
         background:Hide() title:Hide()
     else
@@ -175,7 +218,8 @@ function UI:Build()
         loot:ClearAllPoints()
         loot:SetPoint("RIGHT", gear, "LEFT", -6, 0)
     end
-    if UISpecialFrames then table.insert(UISpecialFrames, "GuildTripChatWindow") end
+    -- NICHT in UISpecialFrames: der Chat bleibt offen, wenn du ESC drueckst (Nutzer 19.11.2026);
+    -- ESC in der Eingabezeile verlaesst nur das Feld. Schliessen ueber "×", Taste oder /trip chat.
 
     -- Groesse aendern: Griff unten rechts
     local grip = CreateFrame("Button", nil, f)
@@ -191,24 +235,43 @@ function UI:Build()
         self.resize = ONE.Widgets:ResizeHandles(f, {size = 6, onStop = function() UI:SaveGeometry() UI:Refresh() end})
     end
 
-    -- Links: Liste der Reiter und Gespraeche
+    -- Oben: Reiter als Tabs (Vorschau C, 19.11.2026)
+    local tabBar = CreateFrame("Frame", nil, f)
+    tabBar:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -TOP)
+    tabBar:SetPoint("TOPRIGHT", f, "TOPRIGHT", modern and -12 or -14, -TOP)
+    tabBar:SetHeight(TABBAR_H)
+    self.tabBar = tabBar
+    local tabLine = tabBar:CreateTexture(nil, "ARTWORK")
+    tabLine:SetHeight(1)
+    tabLine:SetPoint("BOTTOMLEFT", tabBar, "BOTTOMLEFT", 0, 0)
+    tabLine:SetPoint("BOTTOMRIGHT", tabBar, "BOTTOMRIGHT", 0, 0)
+    tabLine:SetColorTexture(1, .82, 0, .45)
+    self.tabLine = tabLine
+
+    -- Links: schmale Leiste mit den Fluestergespraechen
     local list = CreateFrame("Frame", nil, f)
-    list:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -TOP)
+    list:SetPoint("TOPLEFT", tabBar, "BOTTOMLEFT", 0, -6)
     list:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, modern and 10 or 12)
-    list:SetWidth(modern and LIST_W + 14 or LIST_W)
+    list:SetWidth(BAR_W)
     self.list = list
 
     -- Rechts: Kopfzeile, Verlauf, Eingabe
     local head = CreateFrame("Frame", nil, f)
-    head:SetPoint("TOPLEFT", list, "TOPRIGHT", modern and 10 or 14, modern and -2 or 0)
-    head:SetPoint("TOPRIGHT", f, "TOPRIGHT", modern and -12 or -14, -TOP - (modern and 2 or 0))
+    head:SetPoint("TOPLEFT", list, "TOPRIGHT", modern and 10 or 10, modern and -2 or 0)
+    head:SetPoint("TOPRIGHT", tabBar, "BOTTOMRIGHT", 0, -6 - (modern and 2 or 0))
     head:SetHeight(modern and 40 or HEAD_H)
     self.headText = Text(head, modern and "GameFontNormalLarge" or "GameFontNormal", "accent")
     self.headText:SetPoint("LEFT", head, "LEFT", 4, 0)
+    -- Fluestern: Gespraech schliessen (frueher "×" in der breiten Liste)
+    self.headClose = ONE.Widgets:Button(head, "×", 24, modern and 22 or 20, "RIGHT", modern and -8 or 0, 0, function()
+        UI:CloseWhisper(UI.current)
+    end)
     self.headMenu = ONE.Widgets:Button(head, modern and "···" or T("Menü"), modern and 30 or 64, modern and 22 or 20, "RIGHT", modern and -8 or 0, 0, function(btn)
         local view = UI.current
         if view and view:sub(1, 2) == "w:" and ONE.PlayerMenu then ONE.PlayerMenu:Open(btn, view:sub(3)) end
     end)
+    self.headMenu:ClearAllPoints()
+    self.headMenu:SetPoint("RIGHT", self.headClose, "LEFT", -4, 0)
     if modern then
         -- Wappenschild (Fluestern), Zusatzangabe und Schnellknoepfe
         self.headShield = head:CreateTexture(nil, "ARTWORK")
@@ -217,10 +280,10 @@ function UI:Build()
         self.headShield:SetTexture(TEX .. "Shield")
         self.headContext = Text(head, "GameFontHighlightSmall", "soft")
         self.headContext:SetPoint("LEFT", self.headText, "RIGHT", 10, -1)
-        self.headInvite = ONE.Widgets:Button(head, T("Einladen"), 78, 22, "RIGHT", -42, 0, function()
+        self.headInvite = ONE.Widgets:Button(head, T("Einladen"), 78, 22, "RIGHT", -70, 0, function()
             UI:RunPlayerAction("invite")
         end)
-        self.headNavi = ONE.Widgets:Button(head, T("Navi"), 64, 22, "RIGHT", -124, 0, function()
+        self.headNavi = ONE.Widgets:Button(head, T("Navi"), 64, 22, "RIGHT", -152, 0, function()
             UI:RunPlayerAction("navi")
         end)
         local band = head:CreateTexture(nil, "BACKGROUND")
@@ -253,7 +316,9 @@ function UI:Build()
     self.log = log
 
     -- Eingabe: "An: …" + Feld; Enter sendet, Tab springt zum naechsten Fluestergespraech
-    local to = ONE.Widgets:Button(f, "", 110, modern and 24 or INPUT_H - 2, "BOTTOMLEFT", 10 + LIST_W + (modern and 14 + 16 or 14), modern and 16 or 13, function(btn) UI:ChooseTarget(btn) end)
+    local to = ONE.Widgets:Button(f, "", 110, modern and 24 or INPUT_H - 2, "BOTTOMLEFT", 0, 0, function(btn) UI:ChooseTarget(btn) end)
+    to:ClearAllPoints()
+    to:SetPoint("BOTTOMLEFT", list, "BOTTOMRIGHT", modern and 14 or 10, modern and 6 or 1)
     self.toButton = to
     if modern then
         self.sendButton = ONE.Widgets:Button(f, T("Senden"), 76, 24, "BOTTOMRIGHT", -18, 16, function()
@@ -385,7 +450,7 @@ function UI:Build()
         local file = log.GetFont and log:GetFont()
         if file then pcall(log.SetFont, log, file, Chat:Settings().fontSize, "") end
     end
-    f:SetScript("OnSizeChanged", function() UI:LayoutRows() end)
+    f:SetScript("OnSizeChanged", function() UI:LayoutRows() UI:LayoutNarrow() end)
     self.grip = grip
     self:ApplyLook()
     f:Hide()
@@ -408,6 +473,7 @@ function UI:BackgroundParts()
     end
     Collect(self.frame)
     Collect(self.list)
+    Collect(self.tabBar)
     return out
 end
 function UI:ApplyLook()
@@ -483,100 +549,6 @@ function UI:SaveGeometry()
     if point then s.point = {point, rel, math.floor(x + .5), math.floor(y + .5)} end
 end
 
--- ===== Liste links =====
--- Eintraege: Kopf "Reiter" (+), Reiter, Kopf "Fluestern" (+), Gespraeche
-function UI:Entries()
-    local out = {{head = true, text = T("Reiter"), add = "tab"}}
-    for _, t in ipairs(Chat:Tabs()) do out[#out + 1] = {view = t.id, text = T(t.label), tab = t} end
-    out[#out + 1] = {head = true, text = T("Flüstern"), add = "whisper"}
-    for _, w in ipairs(Chat.whispers) do out[#out + 1] = {view = Chat.WhisperView(w.name), text = w.name, whisper = w.name} end
-    return out
-end
-
-local function NewRow(list)
-    local b = CreateFrame("Button", nil, list)
-    b:SetHeight(ROW_H)
-    b.sel = b:CreateTexture(nil, "BACKGROUND")
-    b.sel:SetAllPoints(b)
-    b.sel:SetColorTexture(1, .82, 0, .10)
-    b.hl = b:CreateTexture(nil, "HIGHLIGHT")
-    b.hl:SetAllPoints(b)
-    b.hl:SetColorTexture(1, 1, 1, .06)
-    -- Blinken bei Ungelesenem
-    b.flash = b:CreateTexture(nil, "BORDER")
-    b.flash:SetAllPoints(b)
-    b.flash:SetColorTexture(1, .55, .1, .28)
-    b.flash:Hide()
-    if b.CreateAnimationGroup then
-        local g = b:CreateAnimationGroup()
-        local a = g:CreateAnimation("Alpha")
-        a:SetFromAlpha(1) a:SetToAlpha(.15) a:SetDuration(.6)
-        g:SetLooping("BOUNCE")
-        g.target = b.flash
-        a:SetTarget(b.flash)
-        b.pulse = g
-    end
-    -- Im Buch: Auswahl = rote Schrift mit feiner Linie darunter, Blinken = roter Hauch (statt Gold/Orange)
-    b.dot = b:CreateTexture(nil, "ARTWORK")
-    b.dot:SetSize(6, 6)
-    b.dot:SetPoint("LEFT", b, "LEFT", 9, 0)
-    b.bar = b:CreateTexture(nil, "ARTWORK")
-    b.bar:SetSize(2, ROW_H - 6)
-    b.bar:SetPoint("LEFT", b, "LEFT", 2, 0)
-    b.bar:SetColorTexture(1, .82, 0, .9)
-    b.bar:Hide()
-    b.pill = b:CreateTexture(nil, "ARTWORK")
-    b.pill:SetSize(20, 14)
-    b.pill:SetPoint("RIGHT", b, "RIGHT", -21, 0)
-    b.pill:SetColorTexture(.78, .22, .08, .95)
-    b.pill:Hide()
-    b.text = Text(b, "GameFontHighlightSmall", "text")
-    b.text:SetPoint("LEFT", b, "LEFT", 22, 0)
-    b.badge = Text(b, "GameFontNormalSmall", "accent")
-    b.badge:SetPoint("RIGHT", b, "RIGHT", -24, 0)
-    b.badge:SetJustifyH("RIGHT")
-    -- "+" bei Koepfen bzw. "×" bei Fluestergespraechen
-    b.side = CreateFrame("Button", nil, b)
-    b.side:SetSize(16, 16)
-    b.side:SetPoint("RIGHT", b, "RIGHT", -4, 0)
-    b.side.text = Text(b.side, "GameFontNormal", "accent")
-    b.side.text:SetPoint("CENTER", b.side, "CENTER", 0, 0)
-    if Modern() then
-        -- Symbol (Kanal: Goldsymbol, Fluestern: Wappenschild in Klassenfarbe), zweite Zeile,
-        -- Online-Punkt und Zahl-Pille aus eigenen Grafiken
-        b.icon = b:CreateTexture(nil, "ARTWORK")
-        b.icon:SetSize(16, 16)
-        b.icon:SetPoint("LEFT", b, "LEFT", 10, 0)
-        b.online = b:CreateTexture(nil, "OVERLAY")
-        b.online:SetSize(7, 7)
-        b.online:SetPoint("TOPLEFT", b, "TOPLEFT", 4, -4)
-        b.online:SetTexture(TEX .. "Dot")
-        b.online:SetVertexColor(.25, .85, .25)
-        b.sub = Text(b, "GameFontDisableSmall", "soft")
-        b.sub:SetPoint("TOPLEFT", b, "LEFT", 32, -1)
-        b.sub:SetPoint("RIGHT", b, "RIGHT", -28, 0)
-        if b.sub.SetWordWrap then b.sub:SetWordWrap(false) end
-        b.pill:SetTexture(TEX .. "Pill")
-        b.pill:SetSize(26, 14)
-        b.badge:ClearAllPoints()
-        b.badge:SetPoint("CENTER", b.pill, "CENTER", 0, 0)
-        b.badge:SetJustifyH("CENTER")
-        b.rule = b:CreateTexture(nil, "ARTWORK")
-        b.rule:SetHeight(1)
-        b.rule:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 6, 2)
-        b.rule:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -6, 2)
-        b.rule:SetColorTexture(.79, .64, .29, .4)
-        b.sel:SetColorTexture(1, .82, 0, .14)
-        b.flash:SetColorTexture(1, .82, 0, .12)
-        b.bar:SetSize(3, ROW_H)
-        b.bar:ClearAllPoints()
-        b.bar:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
-        b.bar:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
-    end
-    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    return b
-end
-
 -- Gildenliste: Klasse, Stufe, Gebiet und online fuer einen Namen (fuer Fluestern)
 function UI.MemberInfo(name)
     if type(GetNumGuildMembers) ~= "function" or type(GetGuildRosterInfo) ~= "function" then return nil end
@@ -595,128 +567,362 @@ local function ClassRGB(classFile)
     return .75, .75, .75
 end
 
--- Blizzard-Aussehen: Zeile fuer einen Eintrag einrichten; liefert die Zeilenhoehe
-function UI:StyleModernRow(b, e, selected, unread)
-    b.dot:Hide()
-    b.rule:SetShown(e.head == true)
-    b.online:Hide()
-    b.sub:SetText("")
-    b.text:ClearAllPoints()
-    if e.head then
-        b.icon:Hide()
-        b.text:SetPoint("LEFT", b, "LEFT", 8, 1)
-        -- string.upper kennt keine Umlaute (UTF-8): selbst ersetzen
-        local label = string.upper(e.add == "tab" and T("Kanäle") or T("Flüstern")):gsub("ä", "Ä"):gsub("ö", "Ö"):gsub("ü", "Ü")
-        b.text:SetText("|cffffd100" .. label .. "|r")
-        return HEADROW_H
-    end
-    b.icon:Show()
-    if e.whisper then
-        local info = UI.MemberInfo(e.whisper)
-        local r, g, bl = ClassRGB(info and info.classFile)
-        b.icon:SetTexture(TEX .. "Shield")
-        b.icon:SetTexCoord(0, 1, 0, 1)
-        b.icon:SetVertexColor(r, g, bl)
-        b.text:SetPoint("BOTTOMLEFT", b, "LEFT", 32, 1)
-        b.text:SetText(string.format("|cff%02x%02x%02x%s|r", r * 255, g * 255, bl * 255, e.text))
-        if info then
-            b.sub:SetText(info.online and string.format("%s %s · %s", info.class or "", tostring(info.level or ""), info.zone or "")
-                or T("offline"))
-            if info.online then b.online:Show() end
-        end
-        b:SetAlpha(info and not info.online and .6 or 1)
-        return WHISPER_H
-    end
-    b:SetAlpha(1)
-    local idx = TAB_ICON[e.view] or 9
-    local col, row = idx % 4, math.floor(idx / 4)
-    b.icon:SetTexture(TAB_ICONS)
-    b.icon:SetTexCoord(col / 4, (col + 1) / 4, row / 4, (row + 1) / 4)
-    local k = selected and 1 or .75
-    b.icon:SetVertexColor(k, k, k)
-    b.text:SetPoint("LEFT", b, "LEFT", 32, 0)
-    b.text:SetText(selected and ("|cffffd100" .. e.text .. "|r") or e.text)
-    return ROW_H
+-- ===== Reiter oben, Fluestern links (Vorschau C, Nutzer 19.11.2026) =====
+-- Eintraege: alle Reiter und alle Gespraeche (fuer Menues und Tests)
+function UI:Entries()
+    local out = {}
+    for _, t in ipairs(Chat:Tabs()) do out[#out + 1] = {view = t.id, text = T(t.label), tab = t} end
+    for _, w in ipairs(Chat.whispers) do out[#out + 1] = {view = Chat.WhisperView(w.name), text = w.name, whisper = w.name} end
+    return out
 end
+
+-- Gemeinsame Teile: Auswahl-Flaeche, Blinken, Zahl-Pille
+local function Decorate(b)
+    b.sel = b:CreateTexture(nil, "BACKGROUND")
+    b.sel:SetAllPoints(b)
+    b.sel:Hide()
+    b.hl = b:CreateTexture(nil, "HIGHLIGHT")
+    b.hl:SetAllPoints(b)
+    b.hl:SetColorTexture(1, 1, 1, .07)
+    b.flash = b:CreateTexture(nil, "BORDER")
+    b.flash:SetAllPoints(b)
+    b.flash:SetColorTexture(1, .82, 0, .16)
+    b.flash:Hide()
+    if b.CreateAnimationGroup then
+        local g = b:CreateAnimationGroup()
+        local a = g:CreateAnimation("Alpha")
+        a:SetFromAlpha(1) a:SetToAlpha(.15) a:SetDuration(.6)
+        g:SetLooping("BOUNCE")
+        a:SetTarget(b.flash)
+        b.pulse = g
+    end
+    b.pill = b:CreateTexture(nil, "OVERLAY")
+    b.pill:SetTexture(TEX .. "Pill")
+    b.pill:SetSize(18, 12)
+    b.pill:Hide()
+    b.badge = Text(b, "GameFontNormalSmall", "accent", true)
+    b.badge:SetPoint("CENTER", b.pill, "CENTER", 0, 0)
+    b.badge:SetJustifyH("CENTER")
+    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    return b
+end
+-- Ungelesen: Pille (Handel & Co. gedaempft, sonst rot), Blinken
+local function Mark(b, unread, quiet)
+    if unread > 0 then
+        b.pill:Show()
+        b.pill:SetVertexColor(quiet and .35 or .62, quiet and .29 or .1, quiet and .2 or .06)
+        b.badge:SetText("|cffffffff" .. tostring(math.min(unread, 99)) .. "|r")
+    else
+        b.pill:Hide()
+        b.badge:SetText("")
+    end
+    local blink = unread > 0 and Chat:Settings().blink
+    if blink then b.flash:Show() if b.pulse and not b.pulse:IsPlaying() then b.pulse:Play() end
+    else if b.pulse then b.pulse:Stop() end b.flash:Hide() end
+end
+local function Tip(owner, lines)
+    owner:SetScript("OnEnter", function(btn)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(btn, "ANCHOR_TOP")
+        for i, l in ipairs(lines()) do
+            if i == 1 then GameTooltip:SetText(l[1], l[2] or 1, l[3] or 1, l[4] or 1)
+            else GameTooltip:AddLine(l[1], l[2] or .8, l[3] or .8, l[4] or .8, true) end
+        end
+        GameTooltip:Show()
+    end)
+    owner:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+end
+local function ColorText(c, text)
+    return string.format("|cff%02x%02x%02x%s|r", math.floor(c[1] * 255 + .5), math.floor(c[2] * 255 + .5), math.floor(c[3] * 255 + .5), text or "")
+end
+-- Breite eines Textes (im Spiel gemessen, sonst geschaetzt)
+local function TextW(fs, text)
+    local w = fs.GetStringWidth and fs:GetStringWidth()
+    if type(w) == "number" and w > 0 then return w end
+    return #(text or "") * 6.5
+end
+
+-- Tab oben: farbiges Kaestchen, Name (wenn Platz), Zahl
+local function NewTab(bar)
+    local b = Decorate(CreateFrame("Button", nil, bar))
+    b:SetHeight(TABBAR_H - 2)
+    b.under = b:CreateTexture(nil, "ARTWORK")
+    b.under:SetHeight(2)
+    b.under:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 1, -1)
+    b.under:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -1, -1)
+    b.under:Hide()
+    b.sq = b:CreateTexture(nil, "ARTWORK")
+    b.sq:SetSize(9, 9)
+    b.sq:SetPoint("LEFT", b, "LEFT", 7, 0)
+    b.text = Text(b, "GameFontHighlightSmall", "text", true)
+    b.text:SetPoint("LEFT", b.sq, "RIGHT", 6, 0)
+    if b.text.SetWordWrap then b.text:SetWordWrap(false) end
+    b.pill:SetPoint("TOPRIGHT", b, "TOPRIGHT", 2, 3)
+    return b
+end
+-- "+" bzw. "»" (Menue) in Tab- oder Fluesterleiste
+local function NewSmall(parent, label)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(22, 22)
+    b.hl = b:CreateTexture(nil, "HIGHLIGHT")
+    b.hl:SetAllPoints(b)
+    b.hl:SetColorTexture(1, 1, 1, .08)
+    b.text = Text(b, "GameFontNormal", "accent", true)
+    b.text:SetPoint("CENTER", b, "CENTER", 0, 0)
+    b.text:SetJustifyH("CENTER")
+    b.text:SetText("|cffffd100" .. label .. "|r")
+    return b
+end
+
+-- Auswahl-Menue (Reiter oder Gespraeche, die nicht mehr in die Leiste passen)
+function UI:OverflowMenu(owner, entries)
+    if not (MenuUtil and MenuUtil.CreateContextMenu) then return false end
+    MenuUtil.CreateContextMenu(owner, function(_, root)
+        for _, e in ipairs(entries) do
+            local unread = Chat.unread[e.view] or 0
+            root:CreateButton(e.text .. (unread > 0 and (" (" .. unread .. ")") or ""), function() UI:Show(e.view) end)
+        end
+    end)
+    return true
+end
+
+function UI:LayoutTabs()
+    local bar = self.tabBar
+    if not bar then return end
+    self.tabButtons = self.tabButtons or {}
+    local p = self:Palette()
+    local g = p.glow
+    if self.tabLine then self.tabLine:SetColorTexture(g[1], g[2], g[3], .45) end
+    local tabs = Chat:Tabs()
+    -- Platz: ganze Leiste minus "+" (und ggf. "»")
+    local avail = (bar:GetWidth() or 300) - 26
+    local items = {}
+    for i, t in ipairs(tabs) do
+        local b = self.tabButtons[i] or NewTab(bar)
+        self.tabButtons[i] = b
+        local label = T(t.label)
+        b.text:SetText(label)
+        items[i] = {b = b, tab = t, label = label, unread = Chat.unread[t.id] or 0, textW = TextW(b.text, label)}
+    end
+    local function Width(it, named)
+        return (named and (22 + it.textW + 8) or 23) + (it.unread > 0 and 8 or 0)
+    end
+    -- 1) alle mit Namen? 2) sonst nur Kaestchen, der gewaehlte mit Namen
+    local total = 0
+    for _, it in ipairs(items) do total = total + Width(it, true) + 2 end
+    local named = total <= avail
+    self.tabsNamed = named
+    for _, it in ipairs(items) do it.named = named or it.tab.id == self.current it.w = Width(it, it.named) end
+    -- 3) passt es immer noch nicht: Rest ins Menue "»" (der gewaehlte bleibt sichtbar)
+    total = 0
+    for _, it in ipairs(items) do total = total + it.w + 2 end
+    local room = total <= avail and avail or avail - 24
+    local shown, hidden, used = {}, {}, 0
+    local sel
+    for _, it in ipairs(items) do if it.tab.id == self.current then sel = it end end
+    if sel then used = sel.w + 2 end
+    for _, it in ipairs(items) do
+        if it == sel then shown[#shown + 1] = it
+        elseif used + it.w + 2 <= room then shown[#shown + 1] = it used = used + it.w + 2
+        else hidden[#hidden + 1] = it end
+    end
+    local x = 0
+    for _, it in ipairs(items) do
+        local b, t = it.b, it.tab
+        local visible = false
+        for _, v in ipairs(shown) do if v == it then visible = true end end
+        b.entry = {view = t.id, text = it.label, tab = t}
+        if visible then
+            b:ClearAllPoints()
+            b:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x, 1)
+            b:SetWidth(it.w)
+            x = x + it.w + 2
+            local r, gg, bl = DotColor({tab = t})
+            b.sq:SetColorTexture(r, gg, bl, .95)
+            local selected = t.id == self.current
+            if it.named then b.text:Show() else b.text:Hide() end
+            b.text:SetText(selected and ColorText(g, it.label) or it.label)
+            b.sel:SetColorTexture(g[1], g[2], g[3], .14)
+            b.under:SetColorTexture(g[1], g[2], g[3], .95)
+            b.sel:SetShown(selected)
+            b.under:SetShown(selected)
+            b.pill:ClearAllPoints()
+            if it.named then b.pill:SetPoint("RIGHT", b, "RIGHT", -3, 0) else b.pill:SetPoint("TOPRIGHT", b, "TOPRIGHT", 3, 3) end
+            Mark(b, it.unread, t.id == "trade" or t.send == "trade" or t.send == "general")
+            b:SetScript("OnClick", function(_, button)
+                if button == "RightButton" and not t.builtin then UI:EditTab(t) return end
+                UI:Show(t.id)
+            end)
+            Tip(b, function()
+                local out = {{it.label, g[1], g[2], g[3]}}
+                local n = Chat.unread[t.id] or 0
+                if n > 0 then out[#out + 1] = {T("%d ungelesen", n)} end
+                if not t.builtin then out[#out + 1] = {T("Rechtsklick: Reiter bearbeiten")} end
+                return out
+            end)
+            b:Show()
+        else
+            b:Hide()
+        end
+    end
+    for i = #items + 1, #self.tabButtons do self.tabButtons[i]:Hide() end
+    -- "»" mit den uebrigen Reitern
+    self.tabMore = self.tabMore or NewSmall(bar, "»")
+    local more = self.tabMore
+    if #hidden > 0 then
+        local list, unread = {}, 0
+        for _, it in ipairs(hidden) do list[#list + 1] = {view = it.tab.id, text = it.label} unread = unread + it.unread end
+        more.hidden = list
+        more.text:SetText("|cffffd100»" .. (unread > 0 and (" " .. unread) or "") .. "|r")
+        more:ClearAllPoints()
+        more:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x, 1)
+        more:SetScript("OnClick", function(btn) UI:OverflowMenu(btn, btn.hidden) end)
+        more:Show()
+        x = x + 24
+    else
+        more.hidden = nil
+        more:Hide()
+    end
+    -- "+" neuer Reiter
+    self.tabAdd = self.tabAdd or NewSmall(bar, "+")
+    self.tabAdd:ClearAllPoints()
+    self.tabAdd:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x + 2, 1)
+    self.tabAdd:SetScript("OnClick", function() UI:EditTab() end)
+    Tip(self.tabAdd, function() return {{T("Neuer Reiter")}} end)
+    self.tabAdd:Show()
+end
+
+-- Wappen links: Klassenfarbe, Anfangsbuchstabe, online-Punkt, Zahl
+local function NewRow(list)
+    local b = Decorate(CreateFrame("Button", nil, list))
+    b:SetSize(ICON, ICON)
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetSize(ICON - 4, ICON - 2)
+    b.icon:SetPoint("CENTER", b, "CENTER", 0, 0)
+    b.icon:SetTexture(TEX .. "Shield")
+    b.letter = Text(b, "GameFontNormal", "text", true)
+    b.letter:SetPoint("CENTER", b, "CENTER", 0, 1)
+    b.letter:SetJustifyH("CENTER")
+    b.online = b:CreateTexture(nil, "OVERLAY")
+    b.online:SetSize(7, 7)
+    b.online:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0)
+    b.online:SetTexture(TEX .. "Dot")
+    b.online:SetVertexColor(.25, .85, .25)
+    b.online:Hide()
+    b.pill:SetPoint("TOPRIGHT", b, "TOPRIGHT", 6, 4)
+    return b
+end
+
+-- Erster Buchstabe (UTF-8, z. B. "Ä")
+local function First(name)
+    return (name or "?"):match("^[%z\1-\127\194-\244][\128-\191]*") or "?"
+end
+UI.First = First
 
 function UI:LayoutRows()
     if not self.list then return end
-    local entries = self:Entries()
-    local maxRows = math.max(1, math.floor((self.list:GetHeight() - 8) / ROW_H))
+    self:LayoutTabs()
+    local p = self:Palette()
+    local g = p.glow
+    local whispers = Chat.whispers
     local listH = (self.list:GetHeight() or 0) - 8
+    -- Platz fuer Wappen: Hoehe minus "+" (und ggf. "…")
+    local step = ICON + 6
+    local fit = math.max(1, math.floor((listH - 24) / step))
+    local overflow = #whispers > fit
+    if overflow then fit = math.max(1, fit - 1) end
     local y = 4
-    for i, e in ipairs(entries) do
+    for i, w in ipairs(whispers) do
         local b = self.rows[i] or NewRow(self.list)
         self.rows[i] = b
-        b:ClearAllPoints()
-        b:SetPoint("TOPLEFT", self.list, "TOPLEFT", 4, -y)
-        b:SetPoint("RIGHT", self.list, "RIGHT", -4, 0)
+        local view = Chat.WhisperView(w.name)
+        local e = {view = view, text = w.name, whisper = w.name}
         b.entry = e
-        local unread = e.view and Chat.unread[e.view] or 0
-        b.dot:SetShown(not e.head)
-        if not e.head then
-            local r, g, bl = Color(DotColor(e))
-            b.dot:SetColorTexture(r, g, bl, .95)
-        end
-        if e.head then
-            b.text:SetText("|cff9d9d9d" .. e.text .. "|r")
-            b.sel:Hide()
-            b.bar:Hide()
-            b.pill:Hide()
-            b.badge:SetText("")
-            b.side.text:SetText("+")
-            b.side:Show()
-            b.side:SetScript("OnClick", function() if e.add == "tab" then UI:EditTab() else UI:AskWhisper() end end)
+        if i <= fit then
+            b:ClearAllPoints()
+            b:SetPoint("TOP", self.list, "TOP", 0, -y)
+            y = y + step
+            local info = UI.MemberInfo(w.name)
+            local r, gg, bl = ClassRGB(info and info.classFile)
+            b.icon:SetVertexColor(r, gg, bl)
+            b.letter:SetText("|cff111111" .. First(w.name) .. "|r")
+            b.online:SetShown(info and info.online or false)
+            b:SetAlpha(info and not info.online and .6 or 1)
+            local selected = view == self.current
+            b.sel:SetColorTexture(g[1], g[2], g[3], .22)
+            b.sel:SetShown(selected)
+            Mark(b, Chat.unread[view] or 0, false)
+            b:SetScript("OnClick", function(_, button)
+                if button == "RightButton" and ONE.PlayerMenu then ONE.PlayerMenu:Open(b, w.name) return end
+                if IsShiftKeyDown and IsShiftKeyDown() then UI:CloseWhisper(view) return end
+                UI:Show(view)
+            end)
+            Tip(b, function()
+                local inf = UI.MemberInfo(w.name)
+                local cr, cg, cb = ClassRGB(inf and inf.classFile)
+                local out = {{w.name, cr, cg, cb}}
+                if inf then
+                    out[#out + 1] = {inf.online and string.format("%s %s · %s", inf.class or "", tostring(inf.level or ""), inf.zone or "") or T("offline")}
+                end
+                local n = Chat.unread[view] or 0
+                if n > 0 then out[#out + 1] = {T("%d ungelesen", n), 1, .82, 0} end
+                out[#out + 1] = {T("Rechtsklick: Menü · Umschalt+Klick: schließen"), .6, .6, .6}
+                return out
+            end)
+            b:Show()
         else
-            local selected = e.view == self.current
-            b.text:SetText(Ink(e.text))
-            if selected then b.sel:Show() else b.sel:Hide() end
-            if selected then b.bar:Show() else b.bar:Hide() end
-            if unread > 0 then
-                b.pill:Show()
-                b.badge:SetText("|cffffffff" .. tostring(math.min(unread, 99)) .. "|r")
-            else
-                b.pill:Hide()
-                b.badge:SetText(unread > 0 and (RedCode() .. tostring(unread)) or "")
-            end
-            if e.whisper then
-                b.side.text:SetText("×")
-                b.side:Show()
-                b.side:SetScript("OnClick", function() Chat:CloseWhisper(e.whisper) if UI.current == e.view then UI.current = "all" end UI:Refresh() end)
-            elseif e.tab and not e.tab.builtin then
-                b.side.text:SetText("…")
-                b.side:Show()
-                b.side:SetScript("OnClick", function() UI:EditTab(e.tab) end)
-            else
-                b.side:Hide()
-            end
+            b:Hide()
         end
-        if Modern() then
-            local h = self:StyleModernRow(b, e, e.view == self.current, unread)
-            if e.head then b.side.text:SetText("|cffc9b48a+|r") end
-            if not e.head and unread > 0 then
-                -- Handel & Co. gedaempft, sonst rot
-                local quiet = e.tab and (e.tab.id == "trade" or e.tab.send == "trade" or e.tab.send == "general")
-                if quiet then b.pill:SetVertexColor(.35, .29, .2) else b.pill:SetVertexColor(.62, .1, .06) end
-            end
-            b:SetHeight(h)
-            maxRows = (y + h <= listH + 4) and math.huge or 0
-            y = y + h + (e.head and 2 or 0)
-        else
-            y = y + ROW_H
-        end
-        local blink = unread > 0 and Chat:Settings().blink and not e.head
-        if blink then b.flash:Show() if b.pulse and not b.pulse:IsPlaying() then b.pulse:Play() end
-        else if b.pulse then b.pulse:Stop() end b.flash:Hide() end
-        b:SetScript("OnClick", function(_, button)
-            if e.head then return end
-            if button == "RightButton" and e.whisper and ONE.PlayerMenu then ONE.PlayerMenu:Open(b, e.whisper) return end
-            UI:Show(e.view)
-        end)
-        if Modern() then if maxRows > 0 then b:Show() else b:Hide() end
-        elseif i <= maxRows then b:Show() else b:Hide() end
     end
-    for i = #entries + 1, #self.rows do self.rows[i]:Hide() end
+    for i = #whispers + 1, #self.rows do self.rows[i]:Hide() end
+    -- "…" mit den uebrigen Gespraechen
+    self.rowMore = self.rowMore or NewSmall(self.list, "…")
+    if overflow then
+        local rest, unread = {}, 0
+        for i = fit + 1, #whispers do
+            local v = Chat.WhisperView(whispers[i].name)
+            rest[#rest + 1] = {view = v, text = whispers[i].name}
+            unread = unread + (Chat.unread[v] or 0)
+        end
+        self.rowMore.hidden = rest
+        self.rowMore.text:SetText("|cffffd100…" .. (unread > 0 and unread or "") .. "|r")
+        self.rowMore:ClearAllPoints()
+        self.rowMore:SetPoint("TOP", self.list, "TOP", 0, -y)
+        self.rowMore:SetScript("OnClick", function(btn) UI:OverflowMenu(btn, btn.hidden) end)
+        self.rowMore:Show()
+        y = y + 26
+    else
+        self.rowMore.hidden = nil
+        self.rowMore:Hide()
+    end
+    -- "+" neues Gespraech
+    self.rowAdd = self.rowAdd or NewSmall(self.list, "+")
+    self.rowAdd:ClearAllPoints()
+    self.rowAdd:SetPoint("TOP", self.list, "TOP", 0, -y)
+    self.rowAdd:SetScript("OnClick", function() UI:AskWhisper() end)
+    Tip(self.rowAdd, function() return {{T("Flüstern an …")}, {T("Neues Gespräch: Name eingeben")}} end)
+    self.rowAdd:Show()
+end
+
+-- Gespraech schliessen (Kopfzeile "×" oder Umschalt+Klick aufs Wappen)
+function UI:CloseWhisper(view)
+    if type(view) ~= "string" or view:sub(1, 2) ~= "w:" then return false end
+    Chat:CloseWhisper(view:sub(3))
+    if self.current == view then self.current = "all" self:Show("all") else self:Refresh() end
+    return true
+end
+
+-- Schmales Fenster: kuerzeres "An:", Kopfzeile ohne Navi/Einladen
+function UI:IsNarrow()
+    local w = self.frame and self.frame:GetWidth()
+    return type(w) == "number" and w < NARROW_W
+end
+function UI:LayoutNarrow()
+    if not self.toButton then return end
+    local narrow = self:IsNarrow()
+    self.toButton:SetWidth(narrow and 74 or 110)
+    if self.sendButton then self.sendButton:SetWidth(narrow and 58 or 76) end
+    if self.headContext then self.headContext:SetShown(not narrow) end
 end
 
 -- ===== Verlauf =====
@@ -792,9 +998,19 @@ function UI:RefreshHead()
     local chatType, target = Chat:Target(view)
     local whisper = view:sub(1, 2) == "w:"
     self.headText:SetText(UI.Title(view))
-    if whisper then self.headMenu:Show() else self.headMenu:Hide() end
+    if whisper then self.headMenu:Show() self.headClose:Show() else self.headMenu:Hide() self.headClose:Hide() end
     local to = whisper and view:sub(3) or (chatType and UI.Title(view)) or T("nur lesen")
-    self.toButton:SetText(T("An: %s", to))
+    -- schmal: Ziel gekuerzt (volle Angabe im Platzhalter des Eingabefelds)
+    local short = to
+    if self:IsNarrow() and #to > 7 then
+        local cut, n = "", 0
+        for ch in to:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+            if n >= 5 then break end
+            cut, n = cut .. ch, n + 1
+        end
+        short = cut .. "…"
+    end
+    self.toButton:SetText(T("An: %s", short))
     if Modern() then self:RefreshModernHead(view, whisper, to, chatType ~= nil) end
 end
 
@@ -839,7 +1055,9 @@ function UI:RefreshModernHead(view, whisper, to, canSend)
     local inviteShown = Offer(self.headInvite, "invite")
     Offer(self.headNavi, "navi")
     self.headNavi:ClearAllPoints()
-    self.headNavi:SetPoint("RIGHT", self.headNavi:GetParent(), "RIGHT", inviteShown and -124 or -42, 0)
+    self.headNavi:SetPoint("RIGHT", self.headNavi:GetParent(), "RIGHT", inviteShown and -152 or -70, 0)
+    -- schmal: kein Platz fuer Navi/Einladen (bleiben im Menue "···")
+    if self:IsNarrow() then self.headInvite:Hide() self.headNavi:Hide() end
     if self.placeholder then
         self.placeholder:SetText(canSend and T("Nachricht an %s …", to) or T("Hier kann man nur lesen."))
     end
@@ -856,6 +1074,7 @@ end
 function UI:Refresh()
     if not (self.frame and self.frame:IsShown()) then return end
     self:LayoutRows()
+    self:LayoutNarrow()
     self:RefreshHead()
 end
 
@@ -928,8 +1147,9 @@ function UI:AskWhisper()
     if not self.askBox then
         local ok, b = pcall(CreateFrame, "EditBox", nil, self.frame, "InputBoxTemplate")
         if not ok or not b then b = CreateFrame("EditBox", nil, self.frame) end
-        b:SetSize(LIST_W - 16, 20)
-        b:SetPoint("BOTTOMLEFT", self.list, "BOTTOMLEFT", 10, 6)
+        b:SetSize(150, 20)
+        b:SetPoint("TOPLEFT", self.rowAdd or self.list, "TOPRIGHT", 8, 0)
+        if b.SetFrameLevel and self.frame.GetFrameLevel then b:SetFrameLevel((self.frame:GetFrameLevel() or 1) + 30) end
         b:SetAutoFocus(true)
         b:SetScript("OnEnterPressed", function(self)
             local name = (self:GetText() or ""):match("^%s*(.-)%s*$")

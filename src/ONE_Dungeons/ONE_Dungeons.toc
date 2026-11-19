@@ -3,13 +3,16 @@
 ## Notes: Dungeons mit Quests, Vorquests, Klassenquests und gildeninternem Gruppenfinder
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later
-## Version: 0.7.2-alpha
+## Version: 0.7.3-alpha
 ## Dependencies: ONE_Core
 ## OptionalDeps: ONE_Nav
+## X-Credits: Forever Dungeon Quests (Sundee, MIT); Dungeon Codex by Baxter × DLDVLPR (bosses and loot, with permission); cmangos classic-db (GPL-3)
 
 Locale_enUS.lua
 QuestData.lua
 Catalog.lua
+BossData.lua
+BossDataClassic.lua
 Model.lua
 Share.lua
 Trips.lua
@@ -18,6 +21,7 @@ EntranceData.lua
 Entrances.lua
 Art.lua
 Page.lua
+Bosses.lua
 Groups.lua
 TripsPlanner.lua
 TripsPage.lua

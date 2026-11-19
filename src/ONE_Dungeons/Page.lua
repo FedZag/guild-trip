@@ -60,7 +60,7 @@ function Page:Build(panel)
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local leftW, gap = 290, 12
     local rightX, rightW = leftW + gap, W - leftW - gap
-    local state = {selected = nil, quest = nil, list = {}}
+    local state = {selected = nil, quest = nil, list = {}, view = "quests"}
 
     -- ===== Linke Spalte: Dungeonliste =====
     if not self.embedded then Text(panel, "GameFontNormalLarge", 0, -4, leftW, "accent", T("Dungeons")) end
@@ -196,20 +196,26 @@ function Page:Build(panel)
         GameTooltip:Show()
     end)
     guildHover:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
-    local keyNote = Text(card, "GameFontHighlightSmall", 16, -78, inner, "soft")
+    local keyNote = Text(card, "GameFontHighlightSmall", 16, -78, inner - 136, "soft")
     if keyNote.SetWordWrap then keyNote:SetWordWrap(false) end
     local seek = ONE.Widgets:Button(card, T("Gruppe suchen"), 124, 22, "TOPRIGHT", -12, -56, function()
         if dungeons.Share and dungeons.Share.myAd then ONE.UI:OpenLink("groups")
         elseif state.selected then Page:OpenSeekDialog(state.selected) end
     end)
+    -- 19.11.2026: Umschalter Quests <-> Bosse & Beute (nur bei Dungeons mit Bossdaten, Bosses.lua)
+    local viewBtn = ONE.Widgets:Button(card, T("Bosse & Beute"), 124, 18, "TOPRIGHT", -12, -75, function()
+        state.view = state.view == "bosses" and "quests" or "bosses"
+        Page:Refresh()
+    end)
+    viewBtn:Hide()
     local questList = ONE.Kit:List(card, {x = 8, y = -94, width = rightW - 16, height = 22 * 7 + 22, rowHeight = 22,
         columns = false and {
             {key = "name", title = "QUEST", width = rightW - 16 - 24 - 6 - 46 - 46 - 16, indent = 20},
             {key = "level", title = "STUFE", width = 46, align = "CENTER"},
             {key = "guild", title = "GILDE", width = 46, align = "CENTER"},
         } or {
-            {key = "name", title = "QUEST", width = rightW - 16 - 24 - 6 - 40 - 92 - 34 - 24, indent = 20},
-            {key = "level", title = "STUFE", width = 40, align = "CENTER"},
+            {key = "name", title = "QUEST", width = rightW - 16 - 24 - 6 - 56 - 92 - 34 - 24, indent = 20},
+            {key = "level", title = "STUFE", width = 56, align = "CENTER"},
             {key = "tag", title = "HINWEIS", width = 92},
             {key = "guild", title = "GILDE", width = 34, align = "CENTER"},
         },
@@ -219,7 +225,7 @@ function Page:Build(panel)
             cells.name:SetText(M:Title(q))
             local done = status == "done"
             cells.name:SetTextColor(done and .55 or 1, done and .55 or .82, done and .55 or 0)
-            cells.level:SetText(q.level and tostring(q.level) or "")
+            cells.level:SetText(M:LevelText(q))
             cells.level:SetTextColor(.9, .9, .9)
             if cells.tag then
                 cells.tag:SetText(Page:QuestTag(q))
@@ -244,6 +250,8 @@ function Page:Build(panel)
             GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
             GameTooltip:SetText(M:Title(q))
             GameTooltip:AddLine(T(STATUS_TEXT[M:Status(q)] or ""), 1, 1, 1)
+            local lv, minLv = M:Levels(q)
+            if lv then GameTooltip:AddLine(minLv and T("Stufe %d · annehmbar ab %d", lv, minLv) or T("Stufe %d", lv), .9, .9, .9) end
             if dungeons.Share and state.selected then
                 for _, n in ipairs(dungeons.Share:QuestNeeders(state.selected.key, q)) do
                     GameTooltip:AddLine(T("Braucht auch: %s (%d)", dungeons.Share.Short(n.name), n.level), .5, .9, .5)
@@ -291,6 +299,26 @@ function Page:Build(panel)
     if credit.SetWordWrap then credit:SetWordWrap(true) end
     if credit.SetMaxLines then credit:SetMaxLines(2) end
 
+    local bossView = dungeons.Bosses and dungeons.Bosses:Build(card, {x = 8, y = -94, width = rightW - 16, height = H - 94 - 40})
+    local questCredit = T("Quest-Daten: Forever Dungeon Quests (Sundee, MIT)")
+    local function ApplyView(d)
+        local hasBosses = d and dungeons.Bosses and dungeons.Bosses:For(d.key) ~= nil
+        if not hasBosses then state.view = "quests" end
+        if hasBosses then viewBtn:Show() else viewBtn:Hide() end
+        local bosses = state.view == "bosses" and bossView ~= nil
+        viewBtn:SetText(bosses and T("Quests") or T("Bosse & Beute"))
+        if bosses then
+            questList.box:Hide() scroll:Hide() guide:Hide()
+            noData:SetText("")
+            bossView:Show(d.key)
+            credit:SetText(dungeons.Bosses:Credit(d.key))
+        else
+            if bossView then bossView:Hide() end
+            questList.box:Show() scroll:Show()
+            credit:SetText(questCredit)
+        end
+    end
+
     local function Changed() Page:Refresh() end
     if search.HookScript then search:HookScript("OnTextChanged", Changed) end
     check:SetScript("OnClick", function(self)
@@ -305,6 +333,8 @@ function Page:Build(panel)
         if q.name and q.name ~= M:Title(q) then lines[#lines + 1] = "|cff9d9d9d(" .. q.name .. ")|r" end
         local where = q.location or "?"
         if q.x then where = where .. string.format("  (%.0f, %.0f)", q.x * 100, q.y * 100) end
+        local lv, minLv = M:Levels(q)
+        if lv then lines[#lines + 1] = minLv and T("Stufe %d · annehmbar ab %d", lv, minLv) or T("Stufe %d", lv) end
         lines[#lines + 1] = T("Questgeber: %s", q.giver or "?")
         lines[#lines + 1] = T("Ort: %s", where)
         if q.classOnly then lines[#lines + 1] = T("Nur für: %s", T(CLASS_NAMES[q.classOnly] or q.classOnly)) end
@@ -363,6 +393,7 @@ function Page:Build(panel)
             noData:SetText("")
             detail:SetText("")
             guide:Hide()
+            ApplyView(nil)
             return
         end
         title:SetText(d.name)
@@ -428,6 +459,7 @@ function Page:Build(panel)
             ONE.Kit.ShowScrollBar(scroll, false)
             guide:Hide()
         end
+        ApplyView(d)
     end
     return self.refresh
 end

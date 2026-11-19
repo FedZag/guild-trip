@@ -3,7 +3,7 @@
 ## Notes: Quest-Datenbank für Guild Trip (Questgeber, Abgabe, Ziele, EP) – aus QuestieDB Forever (GPLv3)
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later (Daten: QuestieDB, GPLv3 mit Erlaubnis des Questie-Teams)
-## Version: 0.7.2-alpha
+## Version: 0.7.3-alpha
 ## Dependencies: ONE_Core
 
 Data.lua

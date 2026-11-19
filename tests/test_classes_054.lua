@@ -327,7 +327,9 @@ assert(printed[#printed]:find("keine gemerkte"))
 -- 3b) Neue Raenge automatisch: nur bisher hoechster Rang, nie Makros, nach dem Kampf
 local R = c.Ranks
 ONE.check = ONE.check or {get = function() return R:Enabled() end, set = function(on) R:SetEnabled(on) end} -- Haekchen steht in Optionen › Spielhilfen
-assert(R:Enabled() and ONE.check.get(), "Haekchen standardmaessig an")
+assert(not R:Enabled() and not ONE.check.get(), "Haekchen standardmaessig aus (Nutzer 19.11.2026)")
+ONE.check.set(true)
+assert(R:Enabled(), "einschaltbar")
 R.last = nil
 R:OnSpellsChanged() -- Ausgangsstand
 actions = {[1] = {"spell", 8102}, [2] = {"spell", 8092}, [3] = {"macro", 7}, [13] = {"spell", 8102}}

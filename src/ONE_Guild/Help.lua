@@ -212,7 +212,7 @@ function Help:Initialize()
     f:SetScript("OnEvent", function(_, _, ...) Help:Receive(...) end)
     self.events = f
     if ONE.RegisterSlash then
-        ONE:RegisterSlash("sos", function(rest) Help:Slash(rest) end, T("Hilferuf an die Gilde: /trip sos [Text], /trip sos aus"))
+        ONE:RegisterSlash("sos", function(rest, raw) Help:Slash(raw or rest) end, T("Hilferuf an die Gilde: /trip sos [Text], /trip sos aus"))
     end
 end
 

@@ -227,7 +227,7 @@ nav.Pack = {
             faction = "Horde",
             mapID = 1413,
             name = "Sergra Darkthorn",
-            quests = {[844] = {title = "Ebenenschreiter-Bedrohung"}},
+            quests = {[844] = {title = "Ebenenschreiter-Bedrohung"}, [845] = {title = "Die Zhevras"}},
             x = 0.522,
             y = 0.31,
         },

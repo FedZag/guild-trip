@@ -4,6 +4,34 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.7.3-alpha (veröffentlicht 19.11.2026)
+
+```
+## 0.7.3-alpha
+
+**English**
+- Dungeons: new "Bosses & loot" view for Hall of Thanes, Ruins of Lordaeron, Excavation Site and Dalaran – every boss with its loot, item tooltip, shift-click links it in chat. Data from "Dungeon Codex" by Baxter × DLDVLPR, used with his kind permission. All classic dungeons too (bosses, loot with drop chance, from cmangos classic-db; Forever loot changes not included yet). The five newest dungeons follow once data is available. Until then Guild Trip quietly notes which green-or-better items you loot from dungeon bosses (only on your PC) and shows them there – including items new in Forever.
+- Gear and dungeon list: Hall of Thanes (entrance at Ironforge) is no longer suggested to the Horde, Ruins of Lordaeron (in front of Undercity) no longer to the Alliance – the city guards would kill you.
+- Dungeon quests now show their real quest level from the quest database plus the level you can accept them from, e.g. "22 (15)" – before, mostly only the lower value was shown.
+- `/trip sos <text>`: your help call now reaches the guild exactly as typed (it used to arrive in lower case). `/trip modules` opens the options.
+- "Keep action bars up to date" (new ranks swapped in automatically) is now off by default – switch it on in Options › Class if you want it.
+- Chat: ESC no longer closes the Guild Trip chat (in the input line it only leaves the field).
+- Chat can now be dragged much narrower (from 280 wide): channel tabs sit on top (narrow: small boxes, more in a "»" menu), whispers appear as class-coloured crests on the left. The chat can have its own look (like the main window, glass, Blizzard or plain) and its own glass colours – Options › Chat › Look (after /reload).
+- Quest guide: when a quest objective is an area (kill/collect "somewhere around here"), the arrow no longer leads you along roads once you are inside the area – it points to the nearest spawn spot.
+
+**Deutsch**
+- Dungeons: neue Ansicht „Bosse & Beute“ für Halle der Thanen, Ruinen von Lordaeron, Ausgrabungsstätte und Dalaran – jeder Boss mit seiner Beute, Gegenstands-Tooltip, Umschalt+Klick verlinkt im Chat. Daten aus „Dungeon Codex“ von Baxter × DLDVLPR, mit freundlicher Erlaubnis. Auch alle klassischen Dungeons (Bosse, Beute mit Dropchance, aus cmangos classic-db; Forever-Änderungen an der Beute noch nicht dabei). Die fünf neuesten Dungeons folgen, sobald es Daten gibt. Bis dahin merkt sich Guild Trip still, welche Teile ab grün du bei Dungeon-Bossen plünderst (nur bei dir), und zeigt sie dort an – auch Teile, die neu in Forever sind.
+- Ausrüstung und Dungeonliste: Halle der Thanen (Eingang bei Eisenschmiede) wird der Horde nicht mehr vorgeschlagen, Ruinen von Lordaeron (vor Unterstadt) nicht mehr der Allianz – die Stadtwachen würden dich töten.
+- Dungeon-Quests zeigen jetzt die echte Quest-Stufe aus der Questdatenbank und in Klammern, ab wann man sie annehmen kann, z. B. „22 (15)“ – vorher stand meist nur der niedrigere Wert da.
+- `/trip sos <Text>`: Der Hilferuf kommt jetzt so bei der Gilde an, wie du ihn getippt hast (vorher alles kleingeschrieben). `/trip modules` öffnet die Optionen.
+- „Leisten automatisch aktuell halten“ (neue Ränge automatisch tauschen) ist jetzt standardmäßig aus – bei Bedarf in Optionen › Klasse einschalten.
+- Chat: ESC schließt den Guild-Trip-Chat nicht mehr (in der Eingabezeile verlässt ESC nur das Feld).
+- Chat lässt sich jetzt viel schmaler ziehen (ab 280 breit): Reiter oben (schmal als kleine Kästchen, weitere im Menü „»“), Flüstergespräche links als Wappen in Klassenfarbe. Eigenes Aussehen nur für den Chat (wie Hauptfenster, Glas, Blizzard oder schlicht) und eigene Glas-Farben – Optionen › Chat › Aussehen (nach /reload).
+- Quest-Führung: Ist ein Quest-Ziel ein Gebiet („irgendwo hier töten/sammeln“), führt der Pfeil im Gebiet nicht mehr über Wege, sondern zeigt zum nächsten Fundort.
+```
+
+---
+
 ## 0.7.2-alpha (veröffentlicht 19.11.2026)
 
 ```
