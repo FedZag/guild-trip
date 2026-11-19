@@ -45,6 +45,9 @@ end
 
 function Page:RequestText(entry, crafter)
     local R = crafting.Recipes
+    if entry.trade then
+        return T("Hallo %s, ich habe deinen Link (%s) im Chat gesehen. Könntest du mir etwas herstellen?", Short(crafter.name), entry.prof)
+    end
     local what = R:ItemLink(entry.itemID) or R:ItemName(entry.itemID) or R:Name(entry.recipeID)
     return T("Hallo %s, könntest du mir %s herstellen? Die Materialien bringe ich gern mit.", Short(crafter.name), what)
 end
@@ -122,6 +125,7 @@ function Page:Build(panel)
             local icon = e.itemID and e.itemID > 0 and C_Item and type(C_Item.GetItemIconByID) == "function"
                 and select(2, pcall(C_Item.GetItemIconByID, e.itemID))
             row.icon:SetTexture(type(icon) == "number" and icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+            if ONE.Glass and ONE.Glass.RoundIcon then ONE.Glass:RoundIcon(row, row.icon) end
             cells.item:SetText(e.label)
             cells.item:SetTextColor(1, .82, 0)
             cells.prof:SetText(e.prof)
@@ -170,7 +174,12 @@ function Page:Build(panel)
             local c = rows[i].crafter
             if c and state.entry then Page:Ask(state.entry, c) end
         end)
-        rows[i] = {name = name, info = info, ask = ask}
+        -- 0.7.2: Berufsfenster eines Spielers aus dem Chat ansehen (wie Klick auf seinen Link)
+        local view = ONE.Widgets:Button(card, T("Ansehen"), 76, 22, "TOPRIGHT", -94, y + 2, function()
+            local c = rows[i].crafter
+            if c and c.link then crafting.ChatLinks:Open(c.link) end
+        end)
+        rows[i] = {name = name, info = info, ask = ask, view = view}
     end
     local more = Text(card, "GameFontDisableSmall", 14, -74 - self.rows * 40, inner, "soft")
 
@@ -194,8 +203,8 @@ function Page:Build(panel)
         local items = {}
         for _, e in ipairs(R:Catalog()) do
             if not store.filter or e.prof == store.filter then
-                e.label = R:ItemName(e.itemID) or R:Name(e.recipeID)
-                local hay = string.lower(e.label .. " " .. R:Name(e.recipeID))
+                e.label = e.trade and T("%s (ganzer Beruf)", e.prof) or R:ItemName(e.itemID) or R:Name(e.recipeID)
+                local hay = string.lower(e.label .. " " .. (e.trade and e.prof or R:Name(e.recipeID)))
                 if query == "" or hay:find(query, 1, true) then
                     e.online = 0
                     for _, c in ipairs(e.crafters) do
@@ -204,6 +213,8 @@ function Page:Build(panel)
                     end
                     table.sort(e.crafters, function(a, b)
                         if a.online ~= b.online then return a.online end
+                        if (a.chat or false) ~= (b.chat or false) then return not a.chat end
+                        if a.chat then return (a.stamp or 0) > (b.stamp or 0) end
                         return (a.skill or 0) > (b.skill or 0)
                     end)
                     items[#items + 1] = e
@@ -226,21 +237,32 @@ function Page:Build(panel)
         for _, e in ipairs(items) do if state.entry and e.recipeID == state.entry.recipeID then still = e end end
         state.entry = still or items[1]
         local e = state.entry
-        for _, r in ipairs(rows) do r.name:SetText("") r.info:SetText("") r.ask:Hide() r.crafter = nil end
+        for _, r in ipairs(rows) do r.name:SetText("") r.info:SetText("") r.ask:Hide() r.view:Hide() r.crafter = nil end
         more:SetText("")
         if not e then title:SetText("") recipe:SetText("") head:SetText("") return end
         title:SetText(e.label)
-        recipe:SetText(R:Name(e.recipeID) .. "  ·  " .. e.prof)
-        head:SetText(T("WER KANN ES HERSTELLEN?"))
+        recipe:SetText(e.trade and T("Im Chat verlinkt – „Ansehen“ öffnet das Berufsfenster")
+            or (R:Name(e.recipeID) .. "  ·  " .. e.prof))
+        head:SetText(e.trade and T("WER HAT DEN BERUF VERLINKT?") or T("WER KANN ES HERSTELLEN?"))
         for i, c in ipairs(e.crafters) do
             if i > #rows then more:SetText(T("+%d weitere", #e.crafters - #rows)) break end
             local row = rows[i]
             row.crafter = c
             row.name:SetText(c.me and T("%s (du)", Short(c.name)) or Short(c.name))
             row.name:SetTextColor(c.online and 1 or .6, c.online and 1 or .6, c.online and 1 or .6)
-            row.info:SetText((c.online and ("|cff80e680" .. T("online") .. "|r") or T("offline · Stand %s", Page:Date(c.stamp)))
-                .. "  ·  " .. T("Fertigkeit %s", tostring(c.skill or "?")))
+            if c.chat then
+                -- aus dem Chat: "hat verlinkt", nicht sicher; online nur bei Gildenmitgliedern bekannt
+                local where = T(crafting.ChatLinks.SOURCE_NAMES[c.src] or "Chat")
+                row.info:SetText((c.online and ("|cff80e680" .. T("online") .. "|r  ·  ") or "")
+                    .. T("hat am %s im Chat verlinkt (%s)", Page:Date(c.stamp), where))
+                row.name:SetTextColor(c.online and 1 or .8, c.online and 1 or .8, c.online and 1 or .8)
+            else
+                row.info:SetText((c.online and ("|cff80e680" .. T("online") .. "|r") or T("offline · Stand %s", Page:Date(c.stamp)))
+                    .. "  ·  " .. T("Fertigkeit %s", tostring(c.skill or "?")))
+            end
             if not c.me then row.ask:Show() end
+            if c.link then row.view:Show() end
+            row.name:SetWidth(c.link and inner - 170 or inner - 86)
         end
     end
     return self.refresh

@@ -260,3 +260,10 @@ EN["1 Stufe"] = "1 level"
 EN["Heute: %s"] = "Today: %s"
 EN["Ø %s EP pro Stunde"] = "avg %s XP per hour"
 EN["%d Stufen"] = "%d levels"
+-- Quest-EP messen (19.11.2026)
+EN["Quest-EP gemessen: %d Quests, davon %d anders als in der Datenbank."] = "Quest XP measured: %d quests, %d of them differ from the database."
+EN["Datenbank"] = "database"
+EN["Gemessene Quest-EP anzeigen"] = "Show measured quest XP"
+-- Raid-Vorbereitung ab 60 (19.11.2026)
+EN["Raid-Vorbereitung: das Beste vor dem ersten Raid – %d von %d Plätzen kannst du noch verbessern"] = "Raid preparation: the best before your first raid – you can still improve %d of %d slots"
+EN["Raid-Vorbereitung"] = "Raid preparation"

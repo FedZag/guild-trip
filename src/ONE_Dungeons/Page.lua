@@ -496,7 +496,10 @@ function Page:OpenSeekDialog(d)
     if not f then
         -- Eigenes Blizzard-Fenster UEBER dem ONE-Fenster (hoehere Ebene), mit
         -- deckendem Hintergrund und Mausfang, damit nichts durchscheint oder durchklickt.
-        local ok, frame = pcall(CreateFrame, "Frame", "ProjectONEGroupDialog", UIParent, "BasicFrameTemplateWithInset")
+        -- Im Glas-Aussehen Glasfenster statt Blizzard-Holzrahmen (Nutzer 19.11.2026)
+        local glass = ONE.Glass and ONE.Glass.Active and ONE.Glass:Active() and ONE.Themes and ONE.Themes.RegisterWindow
+        local ok, frame = false, nil
+        if not glass then ok, frame = pcall(CreateFrame, "Frame", "ProjectONEGroupDialog", UIParent, "BasicFrameTemplateWithInset") end
         f = ok and frame or CreateFrame("Frame", "ProjectONEGroupDialog", UIParent)
         f:SetSize(340, 236)
         f:SetPoint("CENTER", ONE.UI.frame or UIParent, "CENTER", 0, 0)
@@ -508,6 +511,7 @@ function Page:OpenSeekDialog(d)
         shade:SetPoint("TOPLEFT", f, "TOPLEFT", 3, -3)
         shade:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -3, 3)
         shade:SetColorTexture(.05, .04, .03, .97)
+        if glass then shade:Hide() end
         if UISpecialFrames then table.insert(UISpecialFrames, "ProjectONEGroupDialog") end
         if ONE.UI.frame and ONE.UI.frame.HookScript then
             ONE.UI.frame:HookScript("OnHide", function() f:Hide() end)
@@ -546,6 +550,11 @@ function Page:OpenSeekDialog(d)
             ONE.UI:OpenLink("groups")
         end)
         ONE.Widgets:Button(f, T("Abbrechen"), 120, 26, "BOTTOMRIGHT", -14, 14, function() f:Hide() end)
+        if glass then
+            ONE.Themes:RegisterWindow(f, nil, f.title)
+            if ONE.Widgets.CloseButton then ONE.Widgets:CloseButton(f, "TOPRIGHT", -6, -6, function() f:Hide() end) end
+            if ONE.Themes.StyleTree then ONE.Themes:StyleTree(f) end
+        end
         self.dialog = f
     end
     f.dungeon = d

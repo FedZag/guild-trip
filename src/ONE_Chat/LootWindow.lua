@@ -122,7 +122,7 @@ end
 function Loot:Build()
     if self.frame then return self.frame end
     -- 0.6.8: im Blizzard-Aussehen derselbe Rahmen wie Hauptfenster und Chat
-    local modern = not chat.Chat:Flat() and not (false)
+    local modern = not chat.Chat:Flat() and not (ONE.Glass and ONE.Glass.Active and ONE.Glass:Active()) -- Glas: eigener Rahmen
     local f
     if modern then
         local ok, fr = pcall(CreateFrame, "Frame", "GuildTripLootWindow", UIParent, "PortraitFrameTemplate")

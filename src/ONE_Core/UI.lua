@@ -1161,14 +1161,8 @@ function UI:Initialize()
     frame:SetClampedToScreen(true)
     -- An jeder Kante/Ecke ziehen = Fenster samt Inhalt groesser/kleiner (Nutzer 18.11.2026); Groesse/Lage
     -- verwaltet weiter WindowScale (Grenzen, Speichern, Einrasten auf Bildpunkte)
-    if ONE.Widgets and ONE.Widgets.ScaleHandles then
-        local WS=ONE.WindowScale
-        local minS,maxS=WS:Bounds()
-        ONE.Widgets:ScaleHandles(frame,nil,{noRestore=true,min=minS,max=maxS,onStop=function(scale)
-            WS.scale=scale
-            WS:SavePosition(frame)
-        end})
-    end
+    -- Groesse nur ueber Optionen › Darstellung (Prozent), nicht per Ziehen an den Kanten (Nutzer 19.11.2026:
+    -- Ziehen aenderte immer beide Richtungen, das Hauptfenster hat ein festes Seitenverhaeltnis)
     -- Titel und rundes Portrait (ONE-Logo) wie bei Blizzard-Fenstern.
     -- Titel: "Guild Trip" plus der Name der eigenen Gilde (fuer jede Gilde passend).
     local function TitleText()

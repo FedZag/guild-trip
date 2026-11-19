@@ -137,6 +137,10 @@ r = A({continent = 1, x = 10, y = 10}, {continent = 1, x = -5050, y = 2050}, nod
 assert(r.kind == "far" and r.tip:find("Flugkarte", 1, true), "ohne bekannte Flugpunkte: Hinweis auf Flugmeister")
 r = A({continent = 1, x = 10, y = 10}, {continent = 1, x = -5050, y = 2050}, nodes, known)
 assert(r.kind == "flight" and r.text == "Flugpunkt: Orgrimmar › Crossroads", r.text)
+assert(r.tip and r.tip:find("spart etwa", 1, true) and r.flyMinutes < r.walkMinutes, "Zeitvorteil genannt")
+-- kurzer echter Laufweg (Wegenetz): dann lohnt Fliegen nicht
+local short = A({continent = 1, x = 10, y = 10}, {continent = 1, x = -5050, y = 2050}, nodes, known, 1500)
+assert(short.kind == "far", "echter Weg kurz -> laufen")
 r = A({continent = 1, x = 10, y = 10}, {continent = 1, x = -5000, y = 5900}, nodes, known)
 assert(r.tip and r.tip:find("Thunder Bluff", 1, true) and r.tip:find("nicht entdeckt", 1, true),
     "naeherer, unbekannter Flugpunkt als Tipp")

@@ -31,11 +31,13 @@ function Routes:Net(continent)
     if cached ~= nil then return cached or nil end
     local d = self.Data()
     local raw = d and d.R[continent]
-    if not (raw and type(raw.nodes) == "string" and type(raw.edges) == "table") then
+    if not (raw and type(raw.nodes) == "string" and (type(raw.edges) == "table" or type(raw.edges) == "string")) then
         self.cache[continent] = false
         return nil
     end
-    local net = {x = {}, y = {}, adj = {}, edges = raw.edges, grid = {}}
+    -- Kanten: kompakt als Text (eine Zeile "a b kosten:zwischenpunkte", seit 19.11.2026 – spart Speicher,
+    -- entpackt wird nur der Kontinent, auf dem man ist, in schlanke Listen) oder als Tabelle {a, b, kosten, punkte}
+    local net = {x = {}, y = {}, adj = {}, ea = {}, eb = {}, ep = {}, grid = {}}
     local i = 0
     for a, b in raw.nodes:gmatch("(%-?%d+) (%-?%d+)") do
         i = i + 1
@@ -47,13 +49,27 @@ function Routes:Net(continent)
         cell[#cell + 1] = i
     end
     net.count = i
-    for e, edge in ipairs(raw.edges) do
-        local a, b, cost = edge[1], edge[2], edge[3]
-        if net.adj[a] and net.adj[b] then
-            local la, lb = net.adj[a], net.adj[b]
+    local ea, eb, ep, adj = net.ea, net.eb, net.ep, net.adj
+    local e = 0
+    local function Add(a, b, cost, pts)
+        e = e + 1
+        ea[e], eb[e], ep[e] = a, b, pts ~= "" and pts or false
+        if adj[a] and adj[b] then
+            local la, lb = adj[a], adj[b]
             la[#la + 1], la[#la + 2], la[#la + 3] = b, cost, e
             lb[#lb + 1], lb[#lb + 2], lb[#lb + 3] = a, cost, -e
         end
+    end
+    if type(raw.edges) == "string" then
+        -- Zwischenpunkte nicht ausschneiden, nur ihre Stelle im Text merken (spart rund 13.000 kleine Texte)
+        local text = raw.edges
+        net.text = text
+        for a, b, c, p1, p2 in text:gmatch("(%d+) (%d+) (%d+):()[^\n]*()") do
+            Add(tonumber(a), tonumber(b), tonumber(c), "")
+            if p2 > p1 then ep[e] = p1 * 65536 + (p2 - p1) end
+        end
+    else
+        for _, edge in ipairs(raw.edges) do Add(edge[1], edge[2], edge[3], edge[4] or "") end
     end
     self.cache[continent] = net
     return net
@@ -115,11 +131,13 @@ end
 -- Punkte einer Kante in Laufrichtung (ohne Anfangsknoten, mit Endknoten)
 function Routes.EdgePoints(net, e, out)
     local forward = e > 0
-    local edge = net.edges[forward and e or -e]
-    local a, b = edge[1], edge[2]
+    local k = forward and e or -e
+    local a, b = net.ea[k], net.eb[k]
     local pts = {}
     local x, y = net.x[a], net.y[a]
-    for dx, dy in (edge[4] or ""):gmatch("(%-?%d+) (%-?%d+)") do
+    local p = net.ep[k]
+    if type(p) == "number" then p = net.text:sub(floor(p / 65536), floor(p / 65536) + p % 65536 - 1) end
+    for dx, dy in (p or ""):gmatch("(%-?%d+) (%-?%d+)") do
         x, y = x + tonumber(dx), y + tonumber(dy)
         pts[#pts + 1] = {x, y}
     end
@@ -203,8 +221,8 @@ function Routes:Find(continent, fx, fy, tx, ty)
     while via[n] do
         local e = via[n]
         chain[#chain + 1] = e
-        local edge = net.edges[e > 0 and e or -e]
-        n = e > 0 and edge[1] or edge[2]
+        local k = e > 0 and e or -e
+        n = e > 0 and net.ea[k] or net.eb[k]
     end
     local points = {{x = fx, y = fy}, {x = net.x[n], y = net.y[n]}}
     for k = #chain, 1, -1 do self.EdgePoints(net, chain[k], points) end

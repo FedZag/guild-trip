@@ -14,6 +14,7 @@ ONE:RegisterModule("leveling", {
         lev.Guide:Initialize()
         lev.AutoQuest:Initialize()
         lev.Journal:Initialize()
+        if lev.XPLog then lev.XPLog:Initialize() end
     end,
     -- ONE_Nav: Reiter "Quests" nur ohne Fuehrung
     OwnsQuestTab = function() return not ONE.IsEnabled or ONE:IsEnabled("leveling") end,

@@ -11,6 +11,11 @@ if ONE.RegisterFeature then
         tooltip = "Liest beim Öffnen eines Berufsfensters deine Rezepte ein (für die Rezeptsuche und zum Teilen)."})
     ONE:RegisterFeature("crafting.trainers", {module = "crafting", label = "Lehrer merken",
         tooltip = "Lehrer, die du ansprichst, kommen ins Lehrer-Verzeichnis."})
+    -- 0.7.2: Berufs-Links aus dem Chat – neue Automatik, darum Standard AUS
+    ONE:RegisterFeature("crafting.chatLinks", {module = "crafting", label = "Berufs-Links aus dem Chat merken",
+        tooltip = "Merkt still, wer in Gilde, Handel oder Flüstern Berufe oder Rezepte verlinkt (nur auf deinem Rechner, 30 Tage). Guild Trip sendet dabei nie etwas.",
+        get = function() return crafting.ChatLinks:Enabled() end,
+        set = function(on) crafting.ChatLinks:SetEnabled(on) end})
 end
 
 ONE:RegisterModule("crafting", {
@@ -37,6 +42,8 @@ ONE:RegisterModule("crafting", {
             if C_Timer and C_Timer.After then C_Timer.After(.5, RefreshNow) else RefreshNow() end
         end
         crafting.Share.onChange = RefreshIfVisible
+        crafting.ChatLinks.onChange = RefreshIfVisible
+        crafting.ChatLinks:Initialize()
         -- Eigene Rezepte beim Oeffnen eines Berufsfensters merken und (falls freigegeben) teilen.
         local events = CreateFrame("Frame")
         for _, ev in ipairs({"TRADE_SKILL_SHOW", "NEW_RECIPE_LEARNED", "ITEM_DATA_LOAD_RESULT", "GUILD_ROSTER_UPDATE"}) do

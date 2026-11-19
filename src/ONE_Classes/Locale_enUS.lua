@@ -761,3 +761,11 @@ EN["%d Waffenarten kannst du noch beim Waffenmeister lernen."] = "You can still 
 EN["* = laut Classic, in Forever noch nicht bestätigt – sprich den Waffenmeister einmal an."] = "* = per Classic, not yet confirmed in Forever – talk to the weapon master once."
 EN["Ratgeber"] = "Advisor"
 EN["Prüfen, warum „Buffen in der Nähe“ niemanden zeigt"] = "Check why \"Buff players nearby\" shows nobody"
+-- Danke fuer Buffs (19.11.2026)
+EN["Für Buffs bedanken (Emote)"] = "Thank players for buffs (emote)"
+EN["Bufft dich ein anderer Spieler, antwortet Guild Trip mit einem WoW-Emote an ihn – z. B. „Kaboom dankt Bodra.“, „verbeugt sich“, „jubelt“ oder „winkt“. Das sehen alle in der Nähe. Höchstens einmal je Spieler in 15 Minuten, nicht für deine Gruppe, nicht im Kampf."] = "When another player buffs you, Guild Trip answers with a WoW emote at them – e.g. \"Kaboom thanks Bodra.\", bows, cheers or waves. Everyone nearby sees it. At most once per player in 15 minutes, not for your group, not in combat."
+-- Raid-Skillungen (19.11.2026)
+EN["Raid-Skillung vorläufig – Stand vor der Raid-Öffnung am 9.12."] = "Raid build provisional – as of before raids open on 9 Dec."
+EN["Raid-Skillung vorläufig – Stand vor der Raid-Öffnung am 9.12. (Bär/Tank)"] = "Raid build provisional – as of before raids open on 9 Dec. (bear/tank)"
+EN["Raid-Skillung vorläufig – Stand vor der Raid-Öffnung am 9.12. (Schutz/Tank)"] = "Raid build provisional – as of before raids open on 9 Dec. (protection/tank)"
+EN["Stufe-60-Skillung (keine eigene Raid-Skillung bekannt) – vorläufig bis zur Raid-Öffnung am 9.12."] = "Level 60 build (no raid build known yet) – provisional until raids open on 9 Dec."

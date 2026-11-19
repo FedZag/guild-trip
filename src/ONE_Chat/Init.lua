@@ -10,9 +10,15 @@ ONE:RegisterModule("chat", {
     Initialize = function()
         local s = Chat:Settings()
         -- Nachrichten empfangen (auch bei geschlossenem Fenster: Verlauf und Zaehler)
+        -- Verlauf vom letzten Mal zurueckholen (Optionen › Chat › "Verlauf nach Neustart behalten")
+        pcall(Chat.LoadHistory, Chat)
         local frame = CreateFrame("Frame")
         for event in pairs(Chat.kindByEvent) do pcall(frame.RegisterEvent, frame, event) end
-        frame:SetScript("OnEvent", function(_, event, ...) Chat:OnEvent(event, ...) end)
+        pcall(frame.RegisterEvent, frame, "PLAYER_LOGOUT")
+        frame:SetScript("OnEvent", function(_, event, ...)
+            if event == "PLAYER_LOGOUT" then pcall(Chat.SaveHistory, Chat) return end
+            Chat:OnEvent(event, ...)
+        end)
         chat.eventFrame = frame
         Chat.listeners[#Chat.listeners + 1] = function(entry, views) UI:OnMessage(entry, views) end
 

@@ -300,5 +300,6 @@ do
     ONE.UI.viewSets.probe=nil
     ONE.UI.activeTab=before
 end
+assert(not ONE.UI.frame.__oneScaleHandles, "Hauptfenster: Groesse nur ueber Optionen (Prozent), nicht per Ziehen")
 print("OK: 0.5.0 - Fenstertitel Guild Trip mit Gildenname")
 print("OK: 0.4.4a - natives Fenster, Reiter, Migration, Optionen, Guild, Navigation, Kacheln und Buttons")

@@ -7,7 +7,7 @@
 -- „Derived data, GPL-3.0-or-later“). Ins Addon kommen nur die Ergebnisse: Knoten (feste Ziele) und
 -- vereinfachte Wege zwischen Nachbarn. Braucht luajit (SPF entpackt seine Karten über ffi/zlib).
 --
--- Knoten: Questgeber/Abgaben (ONE_QuestDB), Startpaket (Questgeber, Händler, Lehrer), Lehrer-Grundliste,
+-- Knoten: Questgeber/Abgaben (ONE_QuestDB), Quest-Zielgebiete (ONE_QuestDB, gerastert), Startpaket (Questgeber, Händler, Lehrer), Lehrer-Grundliste,
 -- Eingänge, Flugmeister/Anleger/Portale (SPF Data). Kanten: je Knoten die K nächsten Nachbarn (Luftlinie) auf
 -- derselben Landmasse, danach Brücken zwischen getrennten Teilnetzen.
 local spf = assert(arg[1], "Aufruf: luajit scripts/bake_routes.lua <shortest-path-forever-Ordner> [Ziel]")
@@ -77,6 +77,33 @@ do
         end
     end
 end
+-- Quest-Zielgebiete (Wegenetz 2, 19.11.2026): Ziel-NPCs/-Objekte (q[8]) als Gebiets-Mittelpunkte,
+-- je Karte in einem Raster von OBJ_CELL Promille zusammengefasst; aufgenommen werden sie erst nach dem
+-- Verschmelzen und nur, wo im Umkreis OBJ_GAP Yards noch kein Knoten liegt (siehe unten).
+local OBJ_CELL, OBJ_GAP = 35, 200
+local objectives = {}
+do
+    local env = Sandbox("src/ONE_QuestDB/Data.lua")
+    local D = env.GuildTripQuestDB
+    local cells = {}
+    for _, q in pairs(D.q) do
+        for _, nr in ipairs(type(q[8]) == "table" and q[8] or {}) do
+            local n = D.n[nr]
+            if n then
+                for i = 2, #n - 2, 3 do
+                    local key = n[i] .. ":" .. math.floor(n[i + 1] / OBJ_CELL) .. ":" .. math.floor(n[i + 2] / OBJ_CELL)
+                    local cell = cells[key]
+                    if not cell then cell = {map = n[i], sx = 0, sy = 0, k = 0} cells[key] = cell end
+                    cell.sx, cell.sy, cell.k = cell.sx + n[i + 1], cell.sy + n[i + 2], cell.k + 1
+                end
+            end
+        end
+    end
+    for _, cell in pairs(cells) do
+        local c, x, y = World(cell.map, cell.sx / cell.k / 1000, cell.sy / cell.k / 1000)
+        if c then objectives[#objectives + 1] = {c = c, x = x, y = y, kind = "objective"} end
+    end
+end
 -- Startpaket Navi (Questgeber, Händler)
 do
     local nav = {}
@@ -141,6 +168,19 @@ for _, n in ipairs(nodes) do
         if not dup then list[#list + 1] = n end
     end
 end
+-- Quest-Zielgebiete dazu, wo noch kein fester Knoten in der Naehe ist
+local objAdded = 0
+for _, o in ipairs(objectives) do
+    local list = byC[o.c]
+    if list then
+        local near = false
+        for _, m in ipairs(list) do
+            if math.abs(m.x - o.x) < OBJ_GAP and math.abs(m.y - o.y) < OBJ_GAP then near = true break end
+        end
+        if not near then list[#list + 1] = o objAdded = objAdded + 1 end
+    end
+end
+io.stderr:write(("Quest-Zielgebiete: %d Zellen, %d neu als Knoten\n"):format(#objectives, objAdded))
 -- Füllpunkte: regelmäßiges Raster über alle Gebiete, damit das Netz auch abseits der Ziele erreichbar ist
 -- (Punkte im Wasser/Fels finden keinen Weg und fallen am Ende wieder raus)
 local fills = 0
@@ -273,7 +313,7 @@ for _, c in ipairs(CONTINENTS) do
                 if have[key] == nil then tries, sectorTries[s] = tries + 1, (sectorTries[s] or 0) + 1 end
                 if Bake(n, p.m) then got, sector[s] = got + 1, true end
                 -- Füllpunkt, von dem aus nichts geht (Wasser, Fels): nicht weiter probieren
-                if n.kind == "fill" and tries >= 3 and got == 0 then break end
+                if (n.kind == "fill" or n.kind == "objective") and tries >= 3 and got == 0 then break end
             end
         end
         if i % 200 == 0 then
@@ -336,7 +376,8 @@ for _, c in ipairs(CONTINENTS) do
     -- Ausgabe: Knoten "x y x y …" (ganze Yards), Kanten {a, b, Kosten, "Zwischenpunkte als Abstände"}
     local xs = {}
     for _, n in ipairs(list) do xs[#xs + 1] = Round(n.x) .. " " .. Round(n.y) end
-    W(("R[%d] = {\nnodes = \"%s\",\nedges = {\n"):format(c, table.concat(xs, " ")))
+    -- Kanten als Text (eine Zeile je Kante "a b kosten:zwischenpunkte"), entpackt erst im Spiel bei Bedarf
+    W(("R[%d] = {\nnodes = \"%s\",\nedges = [[\n"):format(c, table.concat(xs, " ")))
     for _, e in ipairs(edges) do
         local d = {}
         local px, py = Round(list[e.a].x), Round(list[e.a].y)
@@ -345,9 +386,9 @@ for _, c in ipairs(CONTINENTS) do
             d[#d + 1] = (x - px) .. " " .. (y - py)
             px, py = x, y
         end
-        W(("{%d,%d,%d,\"%s\"},\n"):format(e.a, e.b, Round(e.cost), table.concat(d, " ")))
+        W(("%d %d %d:%s\n"):format(e.a, e.b, Round(e.cost), table.concat(d, " ")))
     end
-    W("}}\n")
+    W("]]}\n")
 end
 
 local f = assert(io.open(dest, "w"))
@@ -355,7 +396,7 @@ f:write("-- Guild Trip Wegenetz – ERZEUGT von scripts/bake_routes.lua, NICHT v
 f:write("-- Laufwege berechnet mit Shortest Path Forever von cjber (GPL-3.0-or-later, github.com/cjber/shortest-path-forever),\n")
 f:write(("-- Stand %s; Wegsucher und Laufkarten von dort, Ziele aus Guild Trip. Siehe THIRD_PARTY.md.\n"):format(Commit(spf)))
 for _, s in ipairs(stats) do f:write("-- ", s, "\n") end
-f:write(("-- Knoten: Welt-X Welt-Y (Yards) je Kontinent; Kante: Knoten a, Knoten b, Laufweg (Yards), Zwischenpunkte als\n"))
+f:write(("-- Knoten: Welt-X Welt-Y (Yards) je Kontinent; Kanten als Text je Zeile: Knoten a, Knoten b, Laufweg (Yards), Zwischenpunkte als\n"))
 f:write("-- Abstände zum vorigen Punkt (ab Knoten a). Gilt in beide Richtungen.\n")
 f:write(("GuildTripRoutes = {source = \"Shortest Path Forever %s\", R = {}}\nlocal R = GuildTripRoutes.R\n"):format(Commit(spf)))
 f:write(table.concat(out))

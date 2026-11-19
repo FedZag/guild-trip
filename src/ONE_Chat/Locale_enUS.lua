@@ -119,3 +119,6 @@ EN["%d von %d online"] = "%d of %d online"
 EN["Nachricht an %s …"] = "Message to %s …"
 EN["Hier kann man nur lesen."] = "Read only here."
 EN["Diese Sitzung"] = "This session"
+-- Verlauf ueber Neustart (19.11.2026)
+EN["Verlauf nach Neustart behalten"] = "Keep history after restart"
+EN["Die letzten 100 Nachrichten je Reiter und 50 je Flüstergespräch (höchstens 10 Gespräche, nicht älter als 7 Tage) bleiben nach /reload und Neueinloggen erhalten – je Charakter, nur auf diesem PC. Ausschalten löscht den gespeicherten Verlauf beim nächsten Ausloggen."] = "The last 100 messages per tab and 50 per whisper conversation (at most 10 conversations, no older than 7 days) stay after /reload and logging in again – per character, only on this PC. Switching it off deletes the saved history at your next logout."

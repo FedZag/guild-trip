@@ -13,6 +13,7 @@ UI.settingChecks = {
         function() if chat.Launcher then chat.Launcher:Update() end end, 1},
     {"hideBlizzard", "WoW-Chat durch diesen ersetzen", "Blendet das WoW-Chatfenster aus; Enter und / öffnen dann dieses Fenster. Nicht angezeigt werden dabei u. a. Beute, Erfahrung und das Kampflog. Jederzeit zurück: Haken raus oder /trip wowchat. Gesperrt bei ElvUI & Co.",
         function() if chat.Hider then chat.Hider:Apply() end end, 1},
+    {"keepHistory", "Verlauf nach Neustart behalten", "Die letzten 100 Nachrichten je Reiter und 50 je Flüstergespräch (höchstens 10 Gespräche, nicht älter als 7 Tage) bleiben nach /reload und Neueinloggen erhalten – je Charakter, nur auf diesem PC. Ausschalten löscht den gespeicherten Verlauf beim nächsten Ausloggen.", nil, 1},
     {"whisperHere", "Flüstern im Guild-Trip-Chat öffnen", "„Flüstern“ im Namens-Menü öffnet das Gespräch im Guild-Trip-Chat statt im WoW-Chat.", nil, 1},
     {"blink", "Neue Nachrichten blinken", "Gespräche mit ungelesenen Nachrichten blinken; bei Flüstern blinkt auch das WoW-Symbol in der Taskleiste.", function() UI:Refresh() end, 1},
     {"whisperSound", "Ton bei Flüsternachrichten", "Nur, wenn das Gespräch gerade nicht offen ist.", nil, 1},
@@ -42,7 +43,7 @@ UI.settingDrops = {
 -- Wert lesen (whisperHere ist "an", solange nicht ausdruecklich aus)
 function UI.SettingOn(key)
     local s = Chat:Settings()
-    if key == "whisperHere" or key == "launcher" then return s[key] ~= false end
+    if key == "whisperHere" or key == "launcher" or key == "keepHistory" then return s[key] ~= false end
     if key == "flat" then return Chat:Flat() end
     if key == "hideBlizzard" then return s.hideBlizzard == true and Chat:CanHideBlizzardChat() end
     return s[key] == true

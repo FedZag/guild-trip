@@ -164,4 +164,13 @@ do
     assert(travel and travel.via.kind == "flight" and travel.world and travel.via.to.name == "Sturmwind, Elwynn", "Flug-Schritt im Plan")
     ctx.flights, ctx.world = nil, oldWorld
 end
+-- gemessene Quest-EP (XPLog) ersetzt die Schaetzung aus der Datenbank (19.11.2026)
+do
+    local base = P:Plan(ctx)
+    local id, o = next(base.info)
+    ctx.measured = {[id] = 12345}
+    local m = P:Plan(ctx).info[id]
+    assert(m and m.xp ~= o.xp and m.xp == P.QuestXP(12345, o.e[1] > 0 and o.e[1] or ctx.me.level, ctx.me.level), "gemessene EP zaehlt")
+    ctx.measured = nil
+end
 print("OK: Quest-Fuehrung Planer")

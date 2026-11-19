@@ -767,7 +767,8 @@ function Page:Refresh()
         self.talentName:SetText(s.name or "?")
         self.talentRank:SetText((p.free or 0) > 0 and T("Rang %d / %d · %d frei", t.ranks, step[2], p.free)
             or T("Rang %d / %d", t.ranks, step[2]))
-        self.talentNote:SetText(t.canBuy == false and T("Noch gesperrt – erst weiter oben Punkte setzen.") or "")
+        self.talentNote:SetText(t.canBuy == false and T("Noch gesperrt – erst weiter oben Punkte setzen.")
+            or (build.talentsNote and T(build.talentsNote)) or "")
     end
     local canSpend = classes.Talents and classes.Talents:CanSpend(p, step, t) and p.level >= 10
     for _, button in ipairs({self.spendButton, self.treeView and self.treeView.spend}) do

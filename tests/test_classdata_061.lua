@@ -82,3 +82,24 @@ do
     for _, tip in ipairs(c.Data.raceTips) do assert(type(tip[1]) == "number" and tip[2] ~= "") end
 end
 print("OK: Volksfaehigkeiten")
+
+-- Raid-Skillungen Stufe 60 (19.11.2026, vorlaeufig): Heiler und Tanks, je 51 Punkte, nur in der Situation Raid
+do
+    local raid = {}
+    for _, cls in ipairs(expected) do for spec = 1, 3 do raid[#raid + 1] = {cls, spec} end end  -- alle 27
+    for _, r in ipairs(raid) do
+        local def = c.Data.classes[r[1]]
+        local b = c.Data:Build(def, r[2], "raid")
+        local solo = c.Data:Build(def, r[2], "solo")
+        local sum, seen = 0, {}
+        for _, step in ipairs(b.talents) do
+            assert(not seen[step[1]], r[1] .. " " .. r[2] .. ": Talent doppelt " .. step[1])
+            seen[step[1]] = true
+            sum = sum + step[2]
+        end
+        assert(sum == 51, r[1] .. " " .. r[2] .. ": " .. sum .. " Punkte")
+        assert(b.talentsNote and b.talentsNote:find("vorläufig"), r[1] .. " " .. r[2] .. ": als vorlaeufig gekennzeichnet")
+        assert(solo.talents ~= b.talents and not solo.talentsNote, "Leveln behaelt seinen Plan")
+    end
+end
+print("OK: Raid-Skillungen")

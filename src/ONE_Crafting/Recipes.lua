@@ -125,6 +125,8 @@ function Recipes:Prune(rosterNames)
     for _, t in pairs(type(s.trainers) == "table" and s.trainers or {}) do
         if t.by and now - (t.seen or 0) > self.maxGuildAge then t.by = nil end
     end
+    -- Berufs-Links aus dem Chat verfallen ebenfalls nach 30 Tagen
+    if crafting.ChatLinks then crafting.ChatLinks:Prune(now) end
 end
 
 -- Alle Herstellbaren: {key = recipeID, name, itemID, prof, crafters = {{name, skill, stamp, me}}}
@@ -145,6 +147,40 @@ function Recipes:Catalog()
     for prof, data in pairs(self:Mine()) do Add(Me(), prof, data, true) end
     for owner, profs in pairs(s.guild) do
         if owner ~= Me() then for prof, data in pairs(profs) do Add(owner, prof, data, false) end end
+    end
+    -- 0.7.2: Berufs-Links aus dem Chat (nur lokal gemerkt, "hat verlinkt" statt sicher)
+    local function Has(entry, owner)
+        for _, c in ipairs(entry.crafters) do
+            if (c.name:match("^[^-]+") or c.name):lower() == (owner:match("^[^-]+") or owner):lower() then return true end
+        end
+    end
+    for owner, p in pairs(type(s.chat) == "table" and s.chat or {}) do
+        if type(p) == "table" and owner ~= Me() then
+            for id, r in pairs(type(p.recipes) == "table" and p.recipes or {}) do
+                local entry = byRecipe[id]
+                if not entry then
+                    entry = {recipeID = id, itemID = 0, prof = r.prof, crafters = {}}
+                    byRecipe[id] = entry
+                    list[#list + 1] = entry
+                end
+                if not Has(entry, owner) then
+                    local trade = type(p.profs) == "table" and p.profs[r.prof]
+                    entry.crafters[#entry.crafters + 1] = {name = owner, stamp = r.stamp, chat = true, src = r.src,
+                        link = trade and trade.link or nil}
+                end
+            end
+            -- ganzer Beruf verlinkt: eigener Eintrag "Schneiderei (ganzer Beruf)"
+            for prof, t in pairs(type(p.profs) == "table" and p.profs or {}) do
+                local key = "trade:" .. prof
+                local entry = byRecipe[key]
+                if not entry then
+                    entry = {recipeID = key, itemID = 0, prof = prof, trade = true, crafters = {}}
+                    byRecipe[key] = entry
+                    list[#list + 1] = entry
+                end
+                entry.crafters[#entry.crafters + 1] = {name = owner, stamp = t.stamp, chat = true, src = t.src, link = t.link}
+            end
+        end
     end
     return list
 end

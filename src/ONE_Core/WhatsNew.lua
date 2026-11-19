@@ -10,6 +10,13 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.7.2-alpha"] = {
+        "Raid-Skillungen für alle 27 Ausrichtungen (vorläufig bis 9.12.) und ab Stufe 60 „Raid-Vorbereitung“ unter Leveln › Ausrüstung",
+        "Navi-Pfeil folgt echten Wegen auch zu Quest-Zielgebieten und sagt, wie viel Fliegen spart",
+        "Chat behält seinen Verlauf nach /reload; Glas-Aussehen fertig (Häkchen, Regler, Auswahlfelder, runde Symbole)",
+        "Für Buffs bedanken per WoW-Emote (Optionen › Klasse); Berufs-Links aus dem Chat merken (Optionen › Berufe, aus)",
+        "Weniger Speicher; Quest-EP und Dungeon-Gegner werden still mitgeschrieben (/trip epdaten, /trip dungeondaten)",
+    },
     ["0.7.1-alpha"] = {
         "Neues Aussehen „Glas“: durchsichtig, drei Spalten, runde leuchtende Symbole – Farben unter Optionen › Darstellung (Blizzard-Look bleibt wählbar)",
         "Kasten der Quest-Führung neu: Gebietszeile, „Jetzt“ groß mit Ort, Entfernung und Zeit, „Als Nächstes“ mit drei Schritten; plant mit Flugrouten",

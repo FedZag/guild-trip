@@ -27,6 +27,7 @@ ONE:RegisterModule("dungeons", {
         dungeons.Entrances:Initialize()
         dungeons.Trips:Initialize()
         if dungeons.Recap then dungeons.Recap:Initialize() end
+        if dungeons.Roster then dungeons.Roster:Initialize() end
         -- Neue Daten aus der Gilde / nachgeladene Questtitel: sichtbare Seite neu
         -- aufbauen, aber gebuendelt (hoechstens alle 0,5 s) – jede Gildennachricht
         -- und jeder Questtitel einzeln war bei grossen Gilden zu viel.

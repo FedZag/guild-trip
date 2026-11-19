@@ -209,6 +209,82 @@ function Chat:Store(entry)
     for _, fn in ipairs(self.listeners) do pcall(fn, entry, views) end
 end
 
+-- ===== Verlauf ueber Neustart (Nutzer 19.11.2026) =====
+-- Beim Ausloggen/Neuladen: die letzten HIST_TAB Nachrichten je Reiter, HIST_WHISPER je Fluestergespraech
+-- (hoechstens HIST_CONVOS Gespraeche), nichts aelter als HIST_DAYS Tage. Je Charakter, nur auf diesem PC
+-- (ONE.db.chatHistory). Jede Nachricht steht nur einmal drin, die Reiter verweisen auf sie.
+Chat.HIST_TAB, Chat.HIST_WHISPER, Chat.HIST_CONVOS, Chat.HIST_DAYS = 100, 50, 10, 7
+local function Now() return (type(time) == "function" and time()) or 0 end
+function Chat.CharKey()
+    local name = type(UnitName) == "function" and UnitName("player") or "?"
+    local realm = type(GetRealmName) == "function" and GetRealmName() or ""
+    return (name or "?") .. "-" .. (realm or "")
+end
+function Chat:KeepHistory() return self:Settings().keepHistory ~= false end
+function Chat:SaveHistory()
+    if not ONE.db then return nil end
+    ONE.db.chatHistory = type(ONE.db.chatHistory) == "table" and ONE.db.chatHistory or {}
+    local key = Chat.CharKey()
+    if not self:KeepHistory() then ONE.db.chatHistory[key] = nil return nil end
+    local oldest = Now() - self.HIST_DAYS * 86400
+    local entries, index, views = {}, {}, {}
+    local convos = {}
+    for i, w in ipairs(self.whispers) do if i <= self.HIST_CONVOS then convos[Chat.WhisperView(w.name)] = true end end
+    for view, buf in pairs(self.buffers) do
+        local whisper = tostring(view):sub(1, 2) == "w:"
+        if not whisper or convos[view] then
+            local limit = whisper and self.HIST_WHISPER or self.HIST_TAB
+            local list = {}
+            for i = math.max(1, #buf - limit + 1), #buf do
+                local e = buf[i]
+                if e and (e.time or 0) >= oldest then
+                    local n = index[e]
+                    if not n then
+                        entries[#entries + 1] = {t = e.time, k = e.kind, ev = e.event, x = e.text, a = e.author, c = e.channel, i = e.inform or nil}
+                        n = #entries
+                        index[e] = n
+                    end
+                    list[#list + 1] = n
+                end
+            end
+            if #list > 0 then views[view] = list end
+        end
+    end
+    local whispers = {}
+    for i, w in ipairs(self.whispers) do if i <= self.HIST_CONVOS then whispers[#whispers + 1] = {name = w.name, last = w.last} end end
+    ONE.db.chatHistory[key] = {saved = Now(), entries = entries, views = views, whispers = whispers}
+    return ONE.db.chatHistory[key]
+end
+function Chat:LoadHistory()
+    local all = ONE.db and type(ONE.db.chatHistory) == "table" and ONE.db.chatHistory
+    local h = all and all[Chat.CharKey()]
+    if not (type(h) == "table" and self:KeepHistory()) then return 0 end
+    local oldest = Now() - self.HIST_DAYS * 86400
+    local made = {}
+    local function Entry(n)
+        if made[n] ~= nil then return made[n] end
+        local r = h.entries and h.entries[n]
+        local e = false
+        if type(r) == "table" and (r.t or 0) >= oldest then
+            e = {time = r.t, kind = r.k, event = r.ev, text = r.x or "", author = r.a or "", channel = r.c, inform = r.i, restored = true}
+        end
+        made[n] = e
+        return e
+    end
+    local count = 0
+    for view, list in pairs(h.views or {}) do
+        local buf = self:Buffer(view)
+        for _, n in ipairs(list) do
+            local e = Entry(n)
+            if e then buf[#buf + 1] = e count = count + 1 end
+        end
+    end
+    for _, w in ipairs(h.whispers or {}) do
+        if type(w) == "table" and w.name then self.whispers[#self.whispers + 1] = {name = w.name, last = w.last or 0} end
+    end
+    return count
+end
+
 -- Fluestergespraeche: zuletzt aktive zuerst
 function Chat:TouchWhisper(name, incoming)
     for i, w in ipairs(self.whispers) do

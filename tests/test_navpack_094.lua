@@ -107,34 +107,16 @@ assert(not W:TrackerNavi(42) and navied == 1, "kein Doppelstart")
 now = now + 5
 assert(W:TrackerNavi(42) and navied == 2)
 assert(not W:TrackerNavi(0) and not W:TrackerNavi(99))
--- 8) Shortest Path Forever installiert: Ziel wird uebergeben, eigener Pfeil unsichtbar; Abbruch dort beendet auch hier
-local calls, ended = {}, nil
+-- 8) Wegenetz 2 (19.11.2026): auch mit installiertem Shortest Path Forever fuehrt Guild Trip selbst
+local calls = {}
 ShortestPathForever = {API = {version = 2,
-    Navigate = function(owner, m, x, y, title) calls[#calls + 1] = {"nav", owner, m, x, y, title} return true end,
-    Cancel = function(owner) calls[#calls + 1] = {"cancel", owner} return true end,
-    Ended = function() return ended end}}
-function A.frame:SetAlpha(a) self.alpha = a end
+    Navigate = function() calls[#calls + 1] = "nav" return true end,
+    Cancel = function() calls[#calls + 1] = "cancel" return true end,
+    Ended = function() end}}
 px, py = 0, 0
 A:StartPoint("Quest", 1, .5, 0)
-assert(A.delegated and calls[#calls][1] == "nav" and calls[#calls][2] == "GuildTrip" and calls[#calls][6] == "Quest")
-assert(A.frame.alpha == 0 and printed[#printed]:find("Shortest Path Forever"), "eigener Pfeil unsichtbar")
--- Abstecher: wird ebenfalls uebergeben, danach zurueck (wieder uebergeben)
-A:StartPoint("Händler", 1, .1, 0, {service = true})
-assert(calls[#calls][6] == "Händler" and A.resume.name == "Quest")
-px = 100 A:Refresh() px = 140 A:Refresh()
-assert(A.probe.name == "Quest" and calls[#calls][6] == "Quest", "Rueckweg ueber SPF")
--- Spieler beendet die Reise in SPF -> unser Navi aus
-ended = "cleared"
-A:Refresh()
-assert(not A.active and A.frame.alpha == 1, "aus und Pfeil wieder sichtbar fuer spaeter")
-ended = nil
--- Stop raeumt dort auf
-A:StartPoint("Quest", 1, .5, 0)
+assert(not A.delegated and #calls == 0, "keine Weitergabe an SPF")
 A:Stop()
-assert(calls[#calls][1] == "cancel")
--- Leichenlauf macht SPF selbst
-ONE.FeatureOn = function() return true end
-A:Stop() W:OnDeath() W:OnGhost()
-assert(not A.active, "Geist: SPF fuehrt selbst")
+assert(#calls == 0)
 ShortestPathForever = nil
 print("OK test_navpack_094")

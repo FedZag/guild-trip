@@ -4,9 +4,37 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
-## 0.7.2-alpha (in Sammlung)
+## 0.7.2-alpha (veröffentlicht 19.11.2026)
 
-(noch nichts)
+```
+## 0.7.2-alpha
+
+**English**
+- Raid talent builds for all 27 specs at level 60 (shown in the "Raid" situation, inside raids automatically). Marked provisional until raids open on 9 December – taken from foreverspec.com and checked point by point against Forever's live talent trees (1.60.1.70959).
+- At level 60 Levelling › Gear becomes "Raid preparation": the best piece per slot before your first raid (from BRD, Blackrock Spire, Scholomance, Stratholme, Dire Maul, quests and crafting) and how many slots you can still improve.
+- Chat keeps its history after /reload and logging in: the last 100 messages per tab and 50 per whisper conversation (at most 10, no older than 7 days), per character, only on your PC. Switch in Options › Chat.
+- Less memory: the road network is stored compactly and only the continent you are on is unpacked – about 4 MB less while playing, same routes.
+- Dungeons: Guild Trip quietly notes which enemies and bosses you meet in each dungeon (names in your language) – the basis for boss and loot lists of the new Forever dungeons. `/trip dungeondaten` shows what has been collected. Stays on your PC.
+- Quest guide learns real quest XP: every turn-in quietly records the XP you really got; the guide then uses it instead of the estimate. `/trip epdaten` shows how many quests are measured and where the database was off. Stays on your PC.
+- Road network 2: the guide arrow now also follows real paths to quest objective areas out in the wild (876 new waypoints; routes found far more often). It also compares flying with the real walking route and says how many minutes flying saves. The optional hand-off to Shortest Path Forever is gone – Guild Trip guides on its own.
+- New: thank players who buff you. Guild Trip answers with a WoW emote at them – "thanks", "bows", "cheers" or "waves" – which everyone nearby sees. Several buffs from the same player get one emote; at most once per player in 15 minutes; not for your group, not in combat. On by default, switch in Options › Class.
+- Main window: size only via Options › Display (percent), no more dragging at the edges (it always scaled both ways). Chat and quest guide box can still be resized by dragging.
+- Glass look finished: chat, loot and bug report windows have a glass frame; checkboxes, sliders, scroll bars, input fields and drop-downs (with their own menu) are in glass style; item icons in Gear and Professions are round with a glowing ring.
+- Professions: Guild Trip can quietly remember profession and recipe links posted in guild, trade or whispers – e.g. [Tailoring] or [Tailoring: Bolt of Woolen Cloth] – and shows on the Professions page who linked what ("linked in chat on …"), with "Ask" and "View" (opens their profession window). Only on your PC, kept 30 days, never sends anything. Off by default, switch in Options › Professions; `/trip berufslinks` shows what was collected.
+
+**Deutsch**
+- Raid-Skillungen für alle 27 Ausrichtungen auf Stufe 60 (in der Situation „Raid“, in Schlachtzügen automatisch). Gekennzeichnet als vorläufig bis zur Raid-Öffnung am 9. Dezember – nach foreverspec.com, Punkt für Punkt gegen die Live-Talentbäume von Forever (1.60.1.70959) geprüft.
+- Ab Stufe 60 wird Leveln › Ausrüstung zur „Raid-Vorbereitung“: je Platz das Beste vor dem ersten Raid (aus Blackrocktiefen, Blackrockspitze, Scholomance, Stratholme, Düsterbruch, Quests und Herstellung) und wie viele Plätze du noch verbessern kannst.
+- Der Chat behält seinen Verlauf nach /reload und Neueinloggen: die letzten 100 Nachrichten je Reiter und 50 je Flüstergespräch (höchstens 10, nicht älter als 7 Tage), je Charakter, nur auf deinem PC. Schalter unter Optionen › Chat.
+- Weniger Speicher: Das Wegenetz ist kompakt gespeichert, entpackt wird nur der Kontinent, auf dem du bist – rund 4 MB weniger beim Spielen, gleiche Wege.
+- Dungeons: Guild Trip merkt sich still, welche Gegner und Bosse dir in jedem Dungeon begegnen (Namen in deiner Sprache) – Grundlage für Boss- und Beutelisten der neuen Forever-Dungeons. `/trip dungeondaten` zeigt, was schon gesammelt ist. Bleibt auf deinem PC.
+- Die Quest-Führung lernt echte Quest-EP: Jede Abgabe schreibt still mit, wie viele EP du wirklich bekommen hast; die Führung nimmt dann diese statt der Schätzung. `/trip epdaten` zeigt, wie viele Quests gemessen sind und wo die Datenbank daneben lag. Bleibt auf deinem PC.
+- Wegenetz 2: Der Navi-Pfeil folgt jetzt auch zu Quest-Zielgebieten in der Wildnis echten Wegen (876 neue Wegpunkte; deutlich öfter ein Weg gefunden). Außerdem vergleicht er Fliegen mit dem echten Laufweg und sagt, wie viele Minuten Fliegen spart. Die Weitergabe an Shortest Path Forever entfällt – Guild Trip führt selbst.
+- Neu: Bedanken für Buffs. Bufft dich jemand, antwortet Guild Trip mit einem WoW-Emote an ihn – „dankt“, „verbeugt sich“, „jubelt“ oder „winkt“ –, das alle in der Nähe sehen. Mehrere Buffs derselben Person bekommen ein Emote; höchstens einmal je Spieler in 15 Minuten; nicht für deine Gruppe, nicht im Kampf. Standardmäßig an, Schalter unter Optionen › Klasse.
+- Hauptfenster: Größe nur noch über Optionen › Darstellung (Prozent), kein Ziehen an den Kanten mehr (es änderte immer beide Richtungen). Chat und Kasten der Quest-Führung lassen sich weiter ziehen.
+- Glas-Aussehen fertig: Chat-, Beute- und Fehlerbericht-Fenster mit Glasrahmen; Häkchen, Regler, Scrollleisten, Eingabefelder und Auswahlfelder (mit eigenem Menü) im Glas-Stil; Gegenstandssymbole in Ausrüstung und Berufen rund mit Leuchtring.
+- Berufe: Guild Trip kann sich still Berufs- und Rezept-Links aus Gilde, Handel und Flüstern merken – z. B. [Schneiderei] oder [Schneiderei: Wollstoffballen] – und zeigt auf der Berufe-Seite, wer was verlinkt hat („hat am … im Chat verlinkt“), mit „Anfragen“ und „Ansehen“ (öffnet sein Berufsfenster). Nur auf deinem PC, 30 Tage, sendet nie etwas. Standardmäßig aus, Schalter unter Optionen › Berufe; `/trip berufslinks` zeigt, was gesammelt ist.
+```
 
 ---
 

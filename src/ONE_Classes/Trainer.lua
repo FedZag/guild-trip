@@ -229,12 +229,15 @@ end
 -- ===== Anzeige neben dem Lehrerfenster =====
 function Trainer:Frame()
     if self.frame then return self.frame end
-    local ok, f = pcall(CreateFrame, "Frame", "GuildTripTrainerAdvice", UIParent, "BasicFrameTemplateWithInset")
+    -- Im Glas-Aussehen ohne Blizzard-Holzrahmen: Glasfenster wie Fehlerbericht/Beute (Nutzer 19.11.2026)
+    local glass = ONE.Glass and ONE.Glass.Active and ONE.Glass:Active() and ONE.Themes and ONE.Themes.RegisterWindow
+    local ok, f = false, nil
+    if not glass then ok, f = pcall(CreateFrame, "Frame", "GuildTripTrainerAdvice", UIParent, "BasicFrameTemplateWithInset") end
     if not ok or not f then f = CreateFrame("Frame", "GuildTripTrainerAdvice", UIParent) end
     f:SetSize(300, 90 + self.maxRows * 16)
     if f.SetFrameStrata then f:SetFrameStrata("HIGH") end
     local title = rawget(f, "TitleText")
-    if type(title) ~= "table" then
+    if glass or type(title) ~= "table" then
         title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         title:SetPoint("TOP", 0, -6)
     end
@@ -261,6 +264,11 @@ function Trainer:Frame()
         buy:SetScript("OnClick", function() Trainer:AskAndBuy() end)
     end
     f.buy = buy
+    if glass then
+        ONE.Themes:RegisterWindow(f, nil, title)
+        if ONE.Widgets and ONE.Widgets.CloseButton then ONE.Widgets:CloseButton(f, "TOPRIGHT", -6, -6, function() f:Hide() end) end
+        if ONE.Themes.StyleTree then ONE.Themes:StyleTree(f) end
+    end
     f:Hide()
     self.frame = f
     return f

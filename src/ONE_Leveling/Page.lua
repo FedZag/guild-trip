@@ -155,8 +155,10 @@ function Page:Build(parent, W, H, getMode)
         G.goalText = T("Stufe %d von 60", plan.level) .. "  ·  " .. T("Tempo: %s", T(G.TEMPO_NAMES[db.tempo] or db.tempo)) .. nextText
         local items = Items(plan, mode)
         local journal = mode == "journal"
-        if list.SetShown then list:SetShown(not journal) end
-        if jlist.SetShown then jlist:SetShown(journal) end
+        -- Kit:List ist eine Tabelle; sichtbar/unsichtbar ist ihr Rahmen .box (Spieltest 19.11.2026: beide Listen
+        -- lagen uebereinander)
+        if list.box and list.box.SetShown then list.box:SetShown(not journal) end
+        if jlist.box and jlist.box.SetShown then jlist.box:SetShown(journal) end
         if list.headers and list.headers.text and list.headers.text.SetText then list.headers.text:SetText(T(Page.COL_TITLE[mode] or "")) end
         if journal then
             jlist:SetItems(items) list:SetItems({}) card:Hide()
@@ -220,12 +222,22 @@ function Page:BuildGear(parent, W, H)
     local list = ONE.Kit:List(parent, {x = 0, y = -22, width = W, height = H - 46, rowHeight = 24,
         columns = {
             {key = "slot", title = "PLATZ", width = 74, indent = 4},
-            {key = "item", title = "BESTES FÜR DICH", width = 198},
+            {key = "item", title = "BESTES FÜR DICH", width = 198, indent = 22},
             {key = "plus", title = "BESSER", width = 50, align = "RIGHT"},
             {key = "src", title = "WOHER", width = 262},
             {key = "holds", title = "HÄLT BIS", width = 64, align = "RIGHT"},
         },
-        render = function(_, row, cells)
+        render = function(frame, row, cells)
+            -- Symbol des Gegenstands vor dem Namen (Glas: rund mit Ring) – 19.11.2026
+            if not frame.icon then
+                frame.icon = frame:CreateTexture(nil, "ARTWORK")
+                frame.icon:SetSize(18, 18)
+                frame.icon:SetPoint("LEFT", frame, "LEFT", 88, 0)
+                if ONE.Glass and ONE.Glass.RoundIcon then ONE.Glass:RoundIcon(frame, frame.icon) end
+            end
+            local tex = row.now and C_Item and type(C_Item.GetItemIconByID) == "function" and select(2, pcall(C_Item.GetItemIconByID, row.now.item.id))
+            if tex then frame.icon:SetTexture(tex) frame.icon:Show() else frame.icon:Hide() end
+            if frame.icon.__oneRing then frame.icon.__oneRing:SetShown(tex and true or false) end
             cells.slot:SetText(T(row.slot.name))
             cells.slot:SetTextColor(.8, .8, .8)
             if not row.now then
@@ -304,8 +316,19 @@ function Page:BuildGear(parent, W, H)
             local ctx = Way:Context()
             plan, stamp, level = Way:Plan(ctx), now, L
             local ranks = ctx.ranks and #ctx.ranks > 0 and table.concat(ctx.ranks, " › ") or nil
-            head:SetText(T("Stufe %d", L) .. (ctx.spec ~= "" and (" · " .. T(ctx.spec)) or "")
-                .. (ranks and (" · " .. T("wichtig: %s", ranks)) or ""))
+            local text = T("Stufe %d", L) .. (ctx.spec ~= "" and (" · " .. T(ctx.spec)) or "")
+                .. (ranks and (" · " .. T("wichtig: %s", ranks)) or "")
+            -- ab 60: Raid-Vorbereitung (Nutzer 19.11.2026) – wie viele Plaetze lassen sich noch verbessern?
+            if L >= 60 then
+                local up, all = 0, 0
+                for _, row in ipairs(plan or {}) do
+                    all = all + 1
+                    if row.upgrade then up = up + 1 end
+                end
+                text = T("Raid-Vorbereitung: das Beste vor dem ersten Raid – %d von %d Plätzen kannst du noch verbessern", up, all)
+                    .. (ctx.spec ~= "" and (" · " .. T(ctx.spec)) or "")
+            end
+            head:SetText(text)
         end
         list:SetItems(plan or {})
         if foot then foot:Show() end
@@ -370,6 +393,7 @@ function Page:BuildTab(panel)
         elseif mode == "gear" then gear()
         else guide() end
         local name = ({guide = "Plan", zones = "Gebiete", skipped = "Ausgelassen", journal = "Tagebuch", log = "Questlog", gear = "Ausrüstung"})[mode]
+        if mode == "gear" and ((UnitLevel and UnitLevel("player")) or 1) >= 60 then name = "Raid-Vorbereitung" end
         -- Kopfzeile: Seitenname steht schon links (Glas), daneben Stufe/Tempo/naechste Stufe
         local glass = ONE.Glass and ONE.Glass:Active()
         if ONE.UI.SetContext then ONE.UI:SetContext("leveling", (glass and "" or (T(name) .. "  ·  ")) .. (G.goalText or "")) end

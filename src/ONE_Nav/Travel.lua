@@ -173,7 +173,15 @@ end
 -- Reisehinweis aus reinen Daten (testbar ohne Spiel).
 -- player/target = {continent=, x=, y=}; nodes = {[id]={name,continent,x,y}};
 -- known = {[id]=true}. Ergebnis: {kind=..., text=..., tip=...}
-function Travel.Advice(player, target, nodes, known)
+-- Fliegen oder laufen (Wegenetz 2, 19.11.2026): echte Zeiten statt Faustregel. walk = Laenge des echten
+-- Laufwegs in Yards (Wegenetz), sonst Luftlinie × DETOUR. Fliegen = zum Flugmeister laufen + Flug + vom
+-- Flugmeister laufen + Auf-/Absteigen; lohnt sich, wenn es hoechstens FLY_SHARE der Laufzeit braucht.
+Travel.DETOUR, Travel.FLY_SPEED, Travel.FLY_DETOUR, Travel.FLY_EXTRA, Travel.FLY_SHARE = 1.3, 30, 1.15, .7, .8
+function Travel.Speed()
+    local mounted = type(IsMounted) == "function" and IsMounted()
+    return mounted and 11 or 7
+end
+function Travel.Advice(player, target, nodes, known, walk)
     if not player then
         return {kind = "noself", text = T("Deine Position ist hier nicht verfügbar (Instanz?)")}
     end
@@ -205,10 +213,19 @@ function Travel.Advice(player, target, nodes, known)
     local from, fromDistance = Nearest(nodes, player.continent, player.x, player.y, isKnown)
     local to, toDistance = Nearest(nodes, target.continent, target.x, target.y, isKnown)
     local result = {kind = "far", text = T("Gleicher Kontinent · weite Strecke"), distance = distance}
-    if from and to and from ~= to and fromDistance + toDistance < distance * .6 then
-        result.kind = "flight"
-        result.text = T("Flugpunkt: %s › %s", ShortName(nodes[from].name), ShortName(nodes[to].name))
-        result.from, result.to = from, to
+    if from and to and from ~= to then
+        local speed = Travel.Speed()
+        local walkMin = (walk or distance * Travel.DETOUR) / speed / 60
+        local leg = Travel.Distance(nodes[from].x, nodes[from].y, nodes[to].x, nodes[to].y)
+        local flyMin = (fromDistance + toDistance) * Travel.DETOUR / speed / 60
+            + leg * Travel.FLY_DETOUR / Travel.FLY_SPEED / 60 + Travel.FLY_EXTRA
+        result.walkMinutes, result.flyMinutes = walkMin, flyMin
+        if flyMin <= walkMin * Travel.FLY_SHARE then
+            result.kind = "flight"
+            result.text = T("Flugpunkt: %s › %s", ShortName(nodes[from].name), ShortName(nodes[to].name))
+            result.tip = T("Fliegen spart etwa %d min", math.max(1, math.floor(walkMin - flyMin + .5)))
+            result.from, result.to = from, to
+        end
     end
     local unknownNear, unknownDistance = Nearest(nodes, target.continent, target.x, target.y,
         function(id) return not known[id] end)

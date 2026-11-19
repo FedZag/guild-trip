@@ -135,6 +135,7 @@ function G:Context()
         tempo = db.tempo,
         override = db.override,
         speed = (Try(IsMounted) and 11) or 7,
+        measured = lev.XPLog and lev.XPLog:Measured() or nil,
         catalog = G.Catalog,
         entrance = function(key)
             local dg = Dungeons()

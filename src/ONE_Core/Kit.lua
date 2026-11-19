@@ -356,8 +356,19 @@ function Kit:Dropdown(parent, opts)
     function dd:Text() return CurrentText() end
 
     local width = opts.width or 170
-    local ok, frame = pcall(CreateFrame, "DropdownButton", nil, parent, "WowStyle1DropdownTemplate")
-    if ok and frame and type(frame.SetupMenu) == "function" and type(MenuUtil) == "table" then
+    -- Glas-Aussehen: eigener Knopf mit Pfeil und eigenes Menue (GlassControls.lua)
+    local glass = ONE.Glass and ONE.Glass.Dropdown and ONE.Glass:Active() and ONE.Widgets
+    local ok, frame
+    if glass then
+        dd.kind = "glass"
+        frame = ONE.Glass:Dropdown(parent, opts, Options, CurrentText, function(v) dd:Select(Wrap(v)) end)
+        function dd:Refresh() frame:SetText(CurrentText()) end
+    else
+        ok, frame = pcall(CreateFrame, "DropdownButton", nil, parent, "WowStyle1DropdownTemplate")
+    end
+    if glass then
+        -- schon fertig
+    elseif ok and frame and type(frame.SetupMenu) == "function" and type(MenuUtil) == "table" then
         dd.kind = "menu"
         frame:SetPoint(opts.point or "TOPLEFT", parent, opts.point or "TOPLEFT", opts.x or 0, opts.y or 0)
         frame:SetWidth(width)

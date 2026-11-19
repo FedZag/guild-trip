@@ -305,3 +305,7 @@ EN["Beute: %s"] = "Loot: %s"
 EN["Dungeon-Rückblick"] = "Dungeon recap"
 EN["In den Gildenchat"] = "Post to guild chat"
 EN["Schließen"] = EN["Schließen"] or "Close"
+-- Dungeon-Gegner sammeln (19.11.2026)
+EN["Noch keine Dungeon-Daten gesammelt."] = "No dungeon data collected yet."
+EN["%s: %d Gegner, davon %d Bosse"] = "%s: %d enemies, %d of them bosses"
+EN["Gesammelte Dungeon-Gegner und Bosse anzeigen"] = "Show collected dungeon enemies and bosses"

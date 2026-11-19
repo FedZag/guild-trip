@@ -95,13 +95,20 @@ PlayerMenu:Register({id = "invite", order = 20, label = "In Gruppe einladen",
         if C_PartyInfo and type(C_PartyInfo.InviteUnit) == "function" then return C_PartyInfo.InviteUnit(name) end
         return InviteUnit(name)
     end})
+-- Emotes: C_ChatInfo.PerformEmote (das alte DoEmote sperrt der Forever-Client, Spieltest 19.11.2026)
+function PlayerMenu.EmoteFn()
+    local ci = rawget(_G, "C_ChatInfo")
+    if type(ci) == "table" and type(ci.PerformEmote) == "function" then return ci.PerformEmote end
+    local old = rawget(_G, "DoEmote")
+    if type(old) == "function" then return old end
+end
 PlayerMenu:Register({id = "poke", order = 30, label = "Anstupsen",
     tooltip = "Das Spiel-Emote /anstupsen – wirkt nur, wenn ihr nah beieinander seid.",
-    available = function(name, ctx) return Online(name, ctx) and type(DoEmote) == "function" end,
+    available = function(name, ctx) return Online(name, ctx) and PlayerMenu.EmoteFn() ~= nil end,
     run = function(name)
         -- ist die Person dein Ziel, sicher ueber "target"; sonst ueber den Namen (Gruppe/Naehe)
         local target = Call(UnitName, "target")
-        return DoEmote("POKE", target and target == Short(name) and "target" or name)
+        return PlayerMenu.EmoteFn()("POKE", target and target == Short(name) and "target" or name)
     end})
 PlayerMenu:Register({id = "friend", order = 40, label = "Als Freund hinzufügen",
     available = function(name)

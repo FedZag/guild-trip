@@ -143,7 +143,10 @@ function BugReport:Build()
 end
 
 function BugReport:CreateFrame()
-    local ok, frame = pcall(CreateFrame, "Frame", "GuildTripBugReport", UIParent, "BasicFrameTemplateWithInset")
+    -- Glas-Aussehen: eigener Glasrahmen statt Blizzard-Vorlage (19.11.2026)
+    local glass = ONE.Glass and ONE.Glass.Active and ONE.Glass:Active() and ONE.Themes and ONE.Themes.RegisterWindow
+    local ok, frame
+    if not glass then ok, frame = pcall(CreateFrame, "Frame", "GuildTripBugReport", UIParent, "BasicFrameTemplateWithInset") end
     if not ok or not frame then frame = CreateFrame("Frame", "GuildTripBugReport", UIParent) end
     frame:SetSize(560, 360)
     frame:SetPoint("CENTER")
@@ -205,6 +208,18 @@ function BugReport:CreateFrame()
         ONE:Print(T("Fehlerliste geleert."))
     end)
     Button(T("Schließen"), 396, function() frame:Hide() end)
+    if glass then
+        ONE.Themes:RegisterWindow(frame, nil, title)
+        -- Textfeld auf einer eingelassenen Karte; das mehrzeilige Feld selbst bleibt ohne eigenen Rahmen
+        edit.__oneGlassCtl = "skip"
+        local card = CreateFrame("Frame", nil, frame)
+        card:SetPoint("TOPLEFT", scroll, "TOPLEFT", -6, 6)
+        card:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT", 26, -6)
+        if card.SetFrameLevel and frame.GetFrameLevel then card:SetFrameLevel(math.max(0, frame:GetFrameLevel())) end
+        ONE.Themes:RegisterPanel(card)
+        if ONE.Widgets and ONE.Widgets.CloseButton then ONE.Widgets:CloseButton(frame, "TOPRIGHT", -6, -6, function() frame:Hide() end) end
+        if ONE.Themes.StyleTree then ONE.Themes:StyleTree(frame) end
+    end
     self.frame = frame
     return frame
 end

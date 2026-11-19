@@ -107,7 +107,7 @@ crafting.TrainerPack = {
         map = 1454,
         weapons = {axe1 = true, fist = true},
         what = "Waffenmeister",
-        x = 0.815,
+        x = 0.816,
         y = 0.193,
     },
     Shenthul = {

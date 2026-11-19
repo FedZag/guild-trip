@@ -73,8 +73,6 @@ if ONE.RegisterFeature then
         tooltip = "Folgt der Pfeil dem Wegenetz, zeigen goldene Punkte den Weg auf Minimap und Weltkarte, ein Ring die nächste Abbiegung."})
     ONE:RegisterFeature("nav.routeWaypoint", {module = "nav", section = "Weg", order = 23, label = "Nächste Abbiegung als WoW-Wegpunkt",
         tooltip = "Setzt die nächste Abbiegung als WoW-Wegpunkt – so siehst du sie auch in der Spielwelt. Einen eigenen Wegpunkt von dir überschreibt Guild Trip nicht."})
-    ONE:RegisterFeature("nav.spf", {module = "nav", section = "Weg", order = 24, label = "Wegführung über Shortest Path Forever (wenn installiert)",
-        tooltip = "Ist das kostenlose Addon Shortest Path Forever installiert, übernimmt es die Wegführung: echte Wege, Flugrouten, Schiffe und die Route auf den Karten. Ohne es zeigt der Guild-Trip-Pfeil die Richtung."})
     ONE:RegisterFeature("nav.trackerNavi", {module = "nav", section = "Quests", order = 34, label = "Klick auf ? oder … in der Zielverfolgung startet das Navi",
         tooltip = "Klickst du in der Quest-Zielverfolgung auf das Fragezeichen oder die drei Punkte, zeigt der Pfeil zur Quest (Ziel bzw. Abgabe)."})
     ONE:RegisterFeature("nav.corpse", {module = "nav", section = "Pfeil", order = 14, label = "Nach dem Tod: Pfeil zur Leiche",

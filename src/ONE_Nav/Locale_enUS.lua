@@ -237,3 +237,4 @@ EN["Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests ange
 -- 0.7.1: Questgeber auf der Minimap
 EN["Alle Questgeber auf der Minimap"] = "All quest givers on the minimap"
 EN["Aus: Auf der Minimap stehen nur die Questgeber, die die Quest-Führung als Nächstes vorschlägt (höchstens 3, die nächsten zuerst). Alle anderen „!“ zeigt die Weltkarte. An: alle passenden Questgeber auch auf der Minimap."] = "Off: the minimap shows only the quest givers the quest guide suggests next (at most 3, nearest first). The world map shows all other “!”. On: all matching quest givers on the minimap too."
+EN["Fliegen spart etwa %d min"] = "Flying saves about %d min"

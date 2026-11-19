@@ -302,7 +302,9 @@ function P:Plan(ctx)
     local function Rate(id)
         local e, rew = Q.q[id], P.Rew(R, id)
         local qlvl = e[1] > 0 and e[1] or L
-        local xp, f = P.QuestXP(e[11] or 0, qlvl, L)
+        -- gemessene Grund-EP (XPLog, echte Abgaben) vor der Schaetzung aus der Datenbank
+        local base = (ctx.measured and ctx.measured[id]) or e[11] or 0
+        local xp, f = P.QuestXP(base, qlvl, L)
         local work = rew and rew[2] or 0
         local kind = rew and rew[3] or 0
         local dungeon = DungeonOf(e)

@@ -252,13 +252,7 @@ function Arrow:StartPoint(label, mapID, x, y, opts)
     self.frame:Show()
     self:Refresh()
     self:Rotate()
-    -- Einmal je Sitzung: Tipp, wie es echte Wegfuehrung gibt (Shortest Path Forever ist auf CurseForge Abhaengigkeit)
     local routed = not self.delegated and self.RoutesOn()
-    if not self.delegated and not routed and not self.spfHinted and not (opts and opts.quiet) and not rawget(_G, "ShortestPathForever")
-        and not (ONE.FeatureOn and not ONE:FeatureOn("nav.spf")) then
-        self.spfHinted = true
-        ONE:Print(T("Tipp: Mit dem kostenlosen Addon „Shortest Path Forever“ führt dich das Navi über echte Wege, Flugrouten und Schiffe."))
-    end
     if not (opts and opts.quiet) then
         if self.delegated then ONE:Print(T("Navi zu %s – Wegführung über Shortest Path Forever.", self.probe.name))
         elseif routed then ONE:Print(T("Navi zu %s – der Pfeil folgt dem Weg. Beenden: × oder /trip navi aus", self.probe.name))
@@ -291,12 +285,9 @@ end
 -- Flugrouten, Schiffe) und zeigt seinen eigenen Pfeil + Route auf den Karten. Unser Pfeil wird dann unsichtbar,
 -- rechnet aber weiter (Ankunft, hin und zurueck, Gildenmitglied bewegt sich).
 Arrow.spfOwner = "GuildTrip"
-function Arrow.SPF()
-    if ONE.FeatureOn and not ONE:FeatureOn("nav.spf") then return nil end
-    local spf = rawget(_G, "ShortestPathForever")
-    local api = type(spf) == "table" and spf.API or nil
-    if type(api) == "table" and (api.version == 1 or api.version == 2) and type(api.Navigate) == "function" then return api end
-end
+-- Wegenetz 2 (19.11.2026): Guild Trip fuehrt selbst (eigenes Wegenetz + Flugzeiten); die Weitergabe an
+-- Shortest Path Forever und sein Schalter sind entfallen. SPF() bleibt als "nie", damit alte Pfade ruhen.
+function Arrow.SPF() return nil end
 function Arrow:Delegate(mapID, x, y, label)
     local api = self.SPF()
     if not (api and type(mapID) == "number" and type(x) == "number" and type(y) == "number") then return false end
@@ -459,7 +450,11 @@ function Arrow:Refresh()
     else tc, tx, ty = Travel.World(peer.mapID, peer.x, peer.y) end
     local player = pc and {continent = pc, x = px, y = py} or nil
     local target = tc and {continent = tc, x = tx, y = ty} or nil
-    local advice = Travel.Advice(player, target, nav.Flights:Nodes(), nav.Flights:Known())
+    -- echter Laufweg (Wegenetz), wenn der gemerkte Weg zu diesem Ziel fuehrt
+    local walk
+    local r = self.route
+    if r and target and r.length and r.tx and math.abs(r.tx - target.x) < 60 and math.abs(r.ty - target.y) < 60 then walk = r.length end
+    local advice = Travel.Advice(player, target, nav.Flights:Nodes(), nav.Flights:Known(), walk)
     -- Anderer Kontinent: erst zum Zeppelin/Schiff (Etappe 1), drueben automatisch weiter
     local leg = Travel.Departure and Travel.Departure(player, target)
     if leg then

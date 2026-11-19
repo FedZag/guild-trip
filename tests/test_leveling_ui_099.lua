@@ -169,6 +169,12 @@ local refresh = lev.Page:Build(Stub(), 726, 437, function() return mode end)
 refresh()
 local items = lists[#lists - 1].items -- letzte Liste = Tagebuch
 assert(items[1].header and items[2].step and items[2].current, "Gebiet als Kopf, dann aktueller Schritt")
+-- nur EINE Liste sichtbar (Spieltest 19.11.2026: Plan und Tagebuch lagen uebereinander)
+local planList, journalList = lists[#lists - 1], lists[#lists]
+assert(planList.box.shown and not journalList.box.shown, "Plan: Tagebuch-Liste versteckt")
+mode = "journal" refresh()
+assert(not planList.box.shown and journalList.box.shown, "Tagebuch: Plan-Liste versteckt")
+mode = "guide" refresh()
 -- Warum? fuer die Todesminen-Quest
 local rows, verdict = G:Why(166)
 assert(#rows >= 2 and verdict:find("Todesminen"), verdict)
@@ -203,6 +209,15 @@ end
 assert(logRefreshed == 1 and ctx[2]:find("^Questlog"), ctx[2])
 G:DB().view = "settings" tab() assert(ctx[2]:find("^Plan  ·  Stufe"), "alte Ansicht Einstellungen -> Plan; Ziel in der Kopfzeile: " .. ctx[2])
 G:DB().view = "unsinn" tab() assert(ctx[2]:find("^Plan"), "unbekannte Ansicht -> Plan")
+-- ab Stufe 60 heisst die Ausruestung "Raid-Vorbereitung"
+do
+    local oldLevel = UnitLevel
+    UnitLevel = function() return 60 end
+    G:DB().view = "gear" tab()
+    assert(ctx[2]:find("^Raid%-Vorbereitung"), ctx[2])
+    UnitLevel = oldLevel
+    G:DB().view = "guide" tab()
+end
 -- Reise-Schritt: Text, "bei wem", Navi ueber Weltkoordinaten (Flugmeister)
 local startedWorld
 ONE.ns.nav.Arrow = {StartWorld = function(_, label, c, x, y, opts) startedWorld = {label, c, x, y, opts} return true end, target = "Späherkuppe"}

@@ -123,7 +123,8 @@ for _, addon in ipairs(ADDONS) do
     end
 end
 local ONE = _G.ProjectONE
-assert(ONE and ONE.version == "0.7.1-alpha", "Kern geladen")
+local tocVersion = assert(io.open(root .. "/ONE_Core/ONE_Core.toc")):read("*a"):match("## Version:%s*(%S+)")
+assert(ONE and ONE.version == tocVersion, "Kern geladen (Version wie in der TOC)")
 
 -- ===== Kern starten (ADDON_LOADED) =====
 local errors = {}

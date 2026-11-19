@@ -213,6 +213,21 @@ Data.classes.PRIEST.build[2].talents = {
     {1225132, 5}, {18551, 5}, {14751, 1}, {14521, 3}, {14748, 1}, {402000, 1}, {14520, 2},
 }
 
+-- Raid-Skillung Heilig (vorlaeufig, siehe DataClasses.lua „Raid-Skillungen Stufe 60“): 18/33/0
+Data.classes.PRIEST.build[2].situations = Data.classes.PRIEST.build[2].situations or {}
+Data.classes.PRIEST.build[2].situations.raid = Data.classes.PRIEST.build[2].situations.raid or {}
+Data.classes.PRIEST.build[2].situations.raid.talents = {{1225132, 5}, {14908, 3}, {14889, 5}, {18551, 5}, {18530, 5}, {14751, 1}, {14748, 3}, {14521, 3}, {15237, 1}, {14892, 3}, {402000, 1}, {14912, 3}, {1328569, 1}, {1317006, 2}, {20711, 1}, {14901, 5}, {14898, 3}, {401859, 1}}
+Data.classes.PRIEST.build[2].situations.raid.talentsNote = "Raid-Skillung vorläufig – Stand vor der Raid-Öffnung am 9.12."
+
+for spec, plan in pairs({[1] = {{1225132, 5}, {14908, 3}, {14889, 5}, {18551, 5}, {18530, 5}, {14520, 3}, {14751, 1}, {14748, 3}, {14521, 3}, {14892, 3}, {402000, 1}, {14912, 3}, {1328569, 1}, {402174, 1}, {425280, 5}, {431622, 3}, {10060, 1}}, -- Disziplin 31/20/0
+    [3] = {{1225132, 5}, {15260, 5}, {14523, 3}, {18551, 5}, {15273, 5}, {15275, 2}, {14751, 1}, {14521, 3}, {15407, 1}, {1225139, 2}, {1326159, 5}, {15286, 1}, {15257, 3}, {15487, 1}, {1309950, 1}, {1310076, 2}, {15259, 5}, {15473, 1}}}) do -- Schatten 17/0/34
+    local b = Data.classes.PRIEST.build[spec]
+    b.situations = b.situations or {}
+    b.situations.raid = b.situations.raid or {}
+    b.situations.raid.talents = plan
+    b.situations.raid.talentsNote = "Raid-Skillung vorläufig – Stand vor der Raid-Öffnung am 9.12."
+end
+
 -- Situationen (Leveln allein, Dungeon, Raid)
 Data.situations = {"solo", "dungeon", "raid"}
 -- Vorbereitung fuer Dungeon/Raid je Rolle: Essen, Elixier/Flaeschchen, Trank (Gruppen von

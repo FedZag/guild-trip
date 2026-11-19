@@ -83,7 +83,10 @@ function UI:Build()
     if self.frame then return self.frame end
     local s = Chat:Settings()
     self.flat = Chat:Flat() -- vor allem anderen: entscheidet ueber Tinte/Pergament
-    local modern = not self.flat and not (false)
+    -- Glas-Aussehen: eigener Glasrahmen statt Blizzard-Rahmen (Spieltest 19.11.2026: Holzrahmen + rotes X
+    -- passten nicht zum Glas-Inneren)
+    local glass = ONE.Glass and ONE.Glass.Active and ONE.Glass:Active()
+    local modern = not self.flat and not glass
     local f
     if modern then
         local ok, fr = pcall(CreateFrame, "Frame", "GuildTripChatWindow", UIParent, "PortraitFrameTemplate")
