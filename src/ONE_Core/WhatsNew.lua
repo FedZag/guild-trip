@@ -10,6 +10,13 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.7.1-alpha"] = {
+        "Neues Aussehen „Glas“: durchsichtig, drei Spalten, runde leuchtende Symbole – Farben unter Optionen › Darstellung (Blizzard-Look bleibt wählbar)",
+        "Kasten der Quest-Führung neu: Gebietszeile, „Jetzt“ groß mit Ort, Entfernung und Zeit, „Als Nächstes“ mit drei Schritten; plant mit Flugrouten",
+        "Leveln › Ausrüstung und Tagebuch mit Steckbrief",
+        "Buffen in der Nähe ohne Strg+V, nur Spieler in Reichweite, Klick bufft zuverlässig",
+        "Hauptfenster, Chat und Kasten an jeder Kante ziehbar; schärfere Schrift",
+    },
     ["0.7.0-alpha"] = {
         "Spieler in der Nähe buffen: Liste aller Spieler in Reichweite, ein Klick wirkt den Buff im passenden Rang",
         "Gilde: Questpartner in der Nähe, Hilferuf (/trip sos), Auftragsbrett (/trip auftrag), wer braucht die Beute?",
@@ -43,7 +50,6 @@ WhatsNew.notes = {
         "Klassen-Seite: Bewaffnung – welche Waffen du kannst und wo du sie lernst",
         "Klick auf einen Charakternamen öffnet ein Menü (Navi, Flüstern, Einladen …)",
         "Ausrüstung bewerten im Tooltip, Klassen-Ratgeber für Krieger, Paladin, Schamane nachgeschärft",
-        "Buch-Aussehen: Daumenregister, gealterte Tinte, Blättern auf vollen Seiten",
     },
 }
 
@@ -170,6 +176,13 @@ end
 function WhatsNew:Initialize()
     if ONE.RegisterSlash then
         ONE:RegisterSlash("neu", function() WhatsNew:Show() end, T("Neuigkeiten dieser Version zeigen"))
+        ONE:RegisterSlash("speicher", function()
+            -- erst aufraeumen: sonst zaehlt WoW auch schon freigegebenen, noch nicht weggeraeumten Speicher mit
+            local gc = rawget(_G, "collectgarbage")
+            if gc then pcall(gc, "collect") end
+            local line = ONE.BugReport and ONE.BugReport.MemoryLine and ONE.BugReport.MemoryLine()
+            ONE:Print(line and (line:gsub("^Memory:", T("Speicher:"))) or T("Speicheranzeige ist hier nicht verfügbar."))
+        end, T("Speicherbedarf von Guild Trip anzeigen"))
         ONE:RegisterSlash("teilen", function()
             if ONE.UI then ONE.UI:Navigate("sharing") end
         end, T("Teilen-Einstellungen öffnen"))

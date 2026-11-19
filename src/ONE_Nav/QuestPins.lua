@@ -50,8 +50,6 @@ function P:Points(viewed)
         if (not loc or loc.edge) and nav.QuestDB and nav.QuestDB:Available() then loc = nav.QuestDB:Location(q, here) or loc end
         if loc then out[#out + 1] = {q = q, mapID = loc.mapID, x = loc.x, y = loc.y, from = loc.from} end
     end
-    -- 0.7.0: Lager der Questgegner (kleine Ringe, Klick = Farm-Runde)
-    if nav.Camps then for _, p in ipairs(nav.Camps:Points(Q:Log())) do out[#out + 1] = p end end
     if self:ShowGivers() then
         local maps = {}
         if here then maps[#maps + 1] = here end
@@ -110,14 +108,6 @@ local function Tooltip(pin)
         GameTooltip:AddLine(T("Klick: Navi starten"), .6, .8, 1)
         return GameTooltip:Show()
     end
-    if p.camp then
-        GameTooltip:SetText(p.camp.name, 1, .82, 0)
-        GameTooltip:AddLine(T("Lager mit %d Gegnern – für „%s“", p.camp.count, p.q.title), 1, 1, 1, true)
-        local progress = nav.Quests:Progress(p.q)
-        if progress ~= "" then GameTooltip:AddLine(progress, .8, .8, .8, true) end
-        GameTooltip:AddLine(T("Klick: Farm-Runde über alle Lager starten"), .6, .8, 1)
-        return GameTooltip:Show()
-    end
     GameTooltip:SetText(p.q.title, 1, .82, 0)
     if p.q.complete then GameTooltip:AddLine(T("fertig – abgeben"), .4, 1, .4)
     else
@@ -132,7 +122,6 @@ end
 local function NewPin(parent, size)
     local pin = CreateFrame("Frame", nil, parent)
     pin:SetSize(size, size)
-    pin.baseSize = size
     pin:EnableMouse(true)
     pin.icon = pin:CreateTexture(nil, "ARTWORK")
     pin.icon:SetAllPoints()
@@ -142,25 +131,19 @@ local function NewPin(parent, size)
         if button == "LeftButton" and self.point then
             local navi = ONE.modules and ONE.modules.nav
             local p = self.point
-            if p.camp and nav.Camps then nav.Camps:StartRound(p.q) return end
             local label = p.giver and (p.giver.name ~= "" and p.giver.name or T("Questgeber")) or p.q.title
             if navi and navi.PointTo then navi:PointTo(label, p.mapID, p.x, p.y) end
         end
     end)
     return pin
 end
-local function Style(pin, point)
+local function Style(pin, point, mini)
     pin.point = point
-    pin.icon:SetTexture(TEX .. (point.giver and "QuestAvailable.tga" or point.q.complete and "QuestDone.tga" or "QuestGoal.tga"))
+    -- Minimap: Questgeber als schlichtes "!" ohne Ring (0.7.1, weniger Unruhe)
+    local giverTex = mini and "QuestAvailableSmall.tga" or "QuestAvailable.tga"
+    pin.icon:SetTexture(TEX .. (point.giver and giverTex or point.q.complete and "QuestDone.tga" or "QuestGoal.tga"))
     pin:SetAlpha(point.from and .65 or 1)
-    -- Lager: kleiner, rotbraun – damit sie sich vom Zielring abheben
-    if pin.icon.SetVertexColor then
-        if point.camp then pin.icon:SetVertexColor(1, .45, .3) else pin.icon:SetVertexColor(1, 1, 1) end
-    end
-    if pin.baseSize then
-        local s = point.camp and math.floor(pin.baseSize * .7 + .5) or pin.baseSize
-        pin:SetSize(s, s)
-    end
+
 end
 
 -- ===== Weltkarte =====
@@ -191,6 +174,26 @@ function P:RefreshMap()
 end
 
 -- ===== Minimap =====
+-- 0.7.1 (Nutzer: zu viele "!" auf der Minimap): Questgeber dort nur, wenn die Quest-Fuehrung
+-- eine ihrer Quests als Naechstes annehmen laesst, hoechstens MINI_GIVERS, die naechsten zuerst.
+-- Ohne Quest-Fuehrung: die naechsten MINI_GIVERS. Alle zeigen: Funktion "nav.giversMinimapAll".
+P.MINI_GIVERS = 3
+P.MINI_GIVER_SIZE = 12
+-- Quest-IDs, die der Plan annehmen laesst (nil = keine Quest-Fuehrung aktiv)
+function P.PlannedAccepts()
+    local lev = ONE.ns and ONE.ns.leveling
+    local plan = lev and lev.Guide and lev.Guide.plan
+    if not (plan and plan.steps) or (ONE.IsEnabled and not ONE:IsEnabled("leveling")) then return nil end
+    local set = {}
+    for _, s in ipairs(plan.steps) do
+        for _, a in ipairs(s.actions or {}) do if a.kind == "accept" and a.id then set[a.id] = true end end
+    end
+    return set
+end
+function P.GiverPlanned(giver, set)
+    for _, q in ipairs(giver.quests or {}) do if q.id and set[q.id] then return true end end
+    return false
+end
 local function Indoors()
     -- Trick wie bei vielen Addons: drinnen weicht minimapInsideZoom vom aktuellen Zoom ab
     if type(GetCVar) ~= "function" or not _G.Minimap then return false end
@@ -218,6 +221,17 @@ function P:RefreshMinimap()
     local facing = rotate and Travel.Facing() or nil
     local size, diameter = mm:GetWidth(), self:Diameter()
     local n = 0
+    local givers = {}
+    local function Place(i, point, sx, sy, pinSize)
+        local pin = self.miniPool[i] or NewPin(mm, pinSize)
+        self.miniPool[i] = pin
+        pin:SetSize(pinSize, pinSize)
+        pin:SetFrameLevel((mm.GetFrameLevel and mm:GetFrameLevel() or 1) + 5)
+        pin:ClearAllPoints()
+        pin:SetPoint("CENTER", mm, "CENTER", sx, sy)
+        Style(pin, point, true)
+        pin:Show()
+    end
     self.worldCache = self.worldCache or {}
     for _, point in ipairs(self.points or {}) do
         local key = point.mapID .. ":" .. point.x .. ":" .. point.y
@@ -234,15 +248,25 @@ function P:RefreshMinimap()
         -- (sah als "Punkt ueber dem Pfeil" unschoen aus – der WoW-Pfeil bleibt frei)
         if sx and sx * sx + sy * sy < P.clearRadius * P.clearRadius then sx = nil end
         if sx then
-            n = n + 1
-            local pin = self.miniPool[n] or NewPin(mm, 14)
-            self.miniPool[n] = pin
-            pin:SetFrameLevel((mm.GetFrameLevel and mm:GetFrameLevel() or 1) + 5)
-            pin:ClearAllPoints()
-            pin:SetPoint("CENTER", mm, "CENTER", sx, sy)
-            Style(pin, point)
-            pin:Show()
+            -- Minimap: nur Questgeber-"!". Ziel-/Abgabe-Ringe nicht (Nutzer 18.11.2026: "die gelben Ringe sind
+            -- nicht erwuenscht") – die Wegpunkte des Navis zeigen den Weg; auf der Weltkarte bleiben die Ringe.
+            if point.giver then
+                givers[#givers + 1] = {point = point, sx = sx, sy = sy, d = sx * sx + sy * sy}
+            end
         end
+    end
+    -- Questgeber: nur aus dem Plan (oder alle, wenn eingeschaltet), die naechsten zuerst
+    local all = ONE.FeatureOn and ONE:FeatureOn("nav.giversMinimapAll")
+    local planned = not all and P.PlannedAccepts() or nil
+    local shown = {}
+    for _, g in ipairs(givers) do
+        if all or not planned or P.GiverPlanned(g.point.giver, planned) then shown[#shown + 1] = g end
+    end
+    table.sort(shown, function(a, b) return a.d < b.d end)
+    for i, g in ipairs(shown) do
+        if not all and i > P.MINI_GIVERS then break end
+        n = n + 1
+        Place(n, g.point, g.sx, g.sy, P.MINI_GIVER_SIZE)
     end
     for i = n + 1, #self.miniPool do self.miniPool[i]:Hide() end
 end

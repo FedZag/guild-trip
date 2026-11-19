@@ -13,10 +13,6 @@ UI.Layout = Layout
 
 -- Keine mehrfachen, voneinander abweichenden Spalten-Berechnungen mehr.
 function Layout:Columns(weights)
-    if #weights==2 and ONE.Book and ONE.Book.Spread then
-        local L,R=ONE.Book:Spread()
-        if L then return {{x=L.x,width=L.width},{x=R.x,width=R.width}} end
-    end
     return ONE.Geometry:Columns(self.width,weights,self.gutter)
 end
 function Layout:Actions(card,weights)
@@ -39,8 +35,10 @@ UI.NATIVE_WINDOW=NATIVE_WINDOW
 -- Unterseiten markieren in der Leiste ihren Hauptbereich
 local VIEW_PARENT={["guild-members"]="guild",today="home"}
 UI.VIEW_PARENT=VIEW_PARENT
-local function BookActive() return ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() end
-local ICONS="Interface\\AddOns\\ONE_Core\\Textures\\Book\\TabIcons"
+local function BookActive() return false end
+-- 0.7.1: Glas-Look (Glass.lua): drei Spalten, eigene runde Bereichsknoepfe
+local function GlassActive() return ONE.Glass and ONE.Glass:Active() end
+local ICONS="Interface\\AddOns\\ONE_Core\\Textures\\Common\\TabIcons"
 local ICON_INDEX={home=0,guild=1,calendar=2,dungeons=3,groups=3,crafting=4,classes=5,quests=6,nav=7,options=8,leveling=10}
 local NAV_LABEL={home="Startseite",guild="Gilde",calendar="Kalender",today="Heute",
     dungeons=T("Dungeons"),groups=T("Gruppen"),crafting=T("Berufe"),classes=T("Klasse"),quests=T("Quests"),leveling=T("Leveln"),nav=T("Navi"),options=T("Optionen")}
@@ -76,6 +74,11 @@ end
 -- Reiter unten am Fenster, sortiert nach NAV_ORDER.
 -- Knopf der Symbolleiste: Goldsymbol oben, Name darunter, Auswahl mit goldener Kante links
 function UI:SideButton(id,title)
+    if GlassActive() then
+        local idx=ICON_INDEX[id] or 9
+        local col,row=idx%4,math.floor(idx/4)
+        return ONE.Glass:NavButton(self.sidebar,id,T(NAV_LABEL[id] or title),ICONS,{col/4,(col+1)/4,row/4,(row+1)/4})
+    end
     local parent=self.sidebar or self.frame
     local b=CreateFrame("Button","ProjectONEMainWindowTab"..id,parent)
     local W=NATIVE_WINDOW
@@ -111,6 +114,7 @@ function UI:SideButton(id,title)
     return b
 end
 function UI:StyleSideButton(b,selected)
+    if b and b.__oneGlassNav then ONE.Glass:StyleNav(b,selected) return end
     local r=b and b.__oneSide
     if not r then return end
     if selected then r.sel:Show() r.bar:Show() else r.sel:Hide() r.bar:Hide() end
@@ -130,12 +134,16 @@ function UI:RelayoutNavigation()
         local tab=self.sidebarButtons[id]
         if tab.SetID then tab:SetID(i) end
         if tab.ClearAllPoints then tab:ClearAllPoints() end
-        if self.sidebar then
+        if self.sidebar and GlassActive() then
+            local G=ONE.Glass.WINDOW
+            if id=="options" then tab:SetPoint("BOTTOMLEFT",self.sidebar,"BOTTOMLEFT",6,26)
+            else tab:SetPoint("TOPLEFT",self.sidebar,"TOPLEFT",6,-56-row*(G.navH+G.navGap)) row=row+1 end
+        elseif self.sidebar then
             -- Optionen unten in der Leiste, alles andere von oben
             if id=="options" then tab:SetPoint("BOTTOMLEFT",self.sidebar,"BOTTOMLEFT",4,22)
             else tab:SetPoint("TOPLEFT",self.sidebar,"TOPLEFT",4,-6-row*(W.navHeight+W.navGap)) row=row+1 end
         elseif i==1 then tab:SetPoint("TOPLEFT",self.frame,"BOTTOMLEFT",12,2)
-        else tab:SetPoint("LEFT",tabs[i-1],"RIGHT",(ONE.Book and ONE.Book:IsActive()) and 2 or -14,0) end
+        else tab:SetPoint("LEFT",tabs[i-1],"RIGHT",(false) and 2 or -14,0) end
         tabs[i]=tab
         tab.__oneSelected=(id==self.activeTab)
     end
@@ -158,7 +166,6 @@ function UI:SelectNativeTab()
     elseif not selected and type(PanelTemplates_DeselectTab)=="function" then
         for _,tab in ipairs(self.frame.Tabs or {}) do pcall(PanelTemplates_DeselectTab,tab) end
     end
-    if ONE.Book then ONE.Book:UpdateTabs(self) end
 end
 function UI:AddNavButton(id,title)
     if not NAV_ORDER[id] or self.sidebarButtons[id] then return end
@@ -185,7 +192,6 @@ function UI:AddTab(id,title,builder)
     local button=self:AddNavButton(id,title)
     self.tabs[id]={button=button,panel=panel,refresh=builder(panel) or function() end}
     self.order[#self.order+1]=id
-    if ONE.Book then ONE.Book:PanelAdded(self) end
     return true
 end
 function UI:RegisterView(id,builder)
@@ -198,7 +204,6 @@ function UI:RegisterView(id,builder)
     panel.__oneTopPanel=true
     self.views[id]={panel=panel,refresh=builder(panel) or function() end}
     self:AddNavButton(id,id)
-    if ONE.Book then ONE.Book:PanelAdded(self) end
     return true
 end
 -- Alles, was an die Gilde geteilt wird, als Haekchen gesammelt unter
@@ -249,8 +254,8 @@ function UI:UpdateBackButton()
         self.backButton:SetEnabled(can)
         if can then self.backButton:Show() else self.backButton:Hide() end
     end
+    self:FitContext()
     if self.forwardButton then self.forwardButton:SetEnabled(#self.forwardHistory>0) end
-    if ONE.Book then ONE.Book:UpdateBack(self) end
 end
 function UI:GoBack()
     local handler=self.backHandlers[self.activeTab]
@@ -314,18 +319,9 @@ function UI:Navigate(id,origin)
     for key,view in pairs(self.views) do
         if key==id then view.panel:Show() else view.panel:Hide() end
     end
-    if ONE.Book then
-        local entry=self.tabs[id] or self.views[id]
-        if self.__hasNavigated and self.frame:IsShown() then ONE.Book:TurnPage(entry and entry.panel) end
-        if entry and entry.panel then ONE.Book:InkTree(entry.panel,0) end
-    end
     if self.pathLabel then self.pathLabel:SetText(T(NAV_LABEL[id] or (self.sidebar and NAV_LABEL[VIEW_PARENT[id] or ""]) or "")) end
     self:UpdateContext()
     self:UpdateViews()
-    -- Buch: "Guild Trip · Gildenname" links oben nur auf der Startseite (Nutzer-Wunsch 15.11.2026)
-    if ONE.Book and ONE.Book.leftHead then
-        if id=="home" then ONE.Book.leftHead:Show() else ONE.Book.leftHead:Hide() end
-    end
     for key,btn in pairs(self.sidebarButtons) do btn.__oneSelected=(key==id) end
     self:SelectNativeTab()
     self:Show()
@@ -380,7 +376,19 @@ function UI:UpdateViews()
     local set=self.viewSets and (self.viewSets[self.activeTab] or self.viewSets[VIEW_PARENT[self.activeTab] or ""])
     local items=set and set.items or {}
     -- Ansichten, die eigene Seiten sind, folgen der offenen Seite
-    if set then for _,it in ipairs(items) do if it.key==self.activeTab then set.active=it.key end end end
+    -- (nur fuer echte Unterseiten: heisst eine Ansicht wie ihr Reiter, z. B. "dungeons", blieb sonst
+    -- immer diese markiert – Spieltest 18.11.2026)
+    if set and not self.viewSets[self.activeTab] then for _,it in ipairs(items) do if it.key==self.activeTab then set.active=it.key end end end
+    if GlassActive() then
+        -- Glas: Unterseiten als Liste in der mittleren Spalte, rechts oben ihr Name
+        local parent=VIEW_PARENT[self.activeTab] or self.activeTab
+        local title=T(NAV_LABEL[parent] or "")
+        local activeLabel
+        if set then for _,it in ipairs(items) do if it.key==set.active then activeLabel=T(it.label) end end end
+        ONE.Glass:ShowViews(self,set,title,self.contexts and self.contexts[self.activeTab])
+        if self.pathLabel then self.pathLabel:SetText(activeLabel or T(NAV_LABEL[self.activeTab] or title)) end
+        return
+    end
     local right=-118
     for i=#items,1,-1 do
         local it=items[i]
@@ -423,15 +431,39 @@ function UI:SetContext(id,text)
     self.contexts[id]=text
     if id==self.activeTab then self:UpdateContext() end
 end
+-- Zusatzangabe oben endet vor "Zurück" (bzw. vor dem Schliessen-Knopf), bricht notfalls in eine 2. Zeile um
+-- (Spieltest 18.11.2026: Gildenzeile lief unter "Zurück")
+function UI:FitContext()
+    local c,p=self.contextLabel,self.pathLabel
+    if not (c and p and c.SetWidth and p.GetRight and self.frame and self.frame.GetRight) then return end
+    -- bis zu zwei Zeilen (Nutzer 18.11.2026: lieber umbrechen als kuerzen); oben buendig, damit die
+    -- zweite Zeile nach unten waechst
+    if c.SetWordWrap then c:SetWordWrap(true) end
+    if c.SetMaxLines then c:SetMaxLines(2) end
+    if c.ClearAllPoints and not c.__oneTopAnchored then
+        c.__oneTopAnchored=true
+        c:ClearAllPoints()
+        c:SetPoint("TOPLEFT",p,"TOPRIGHT",10,-4)
+    end
+    local b=self.backButton
+    local right=(b and b.IsShown and b:IsShown() and b.GetLeft and b:GetLeft()) or nil
+    if not right then
+        local fr=self.frame:GetRight()
+        right=fr and (fr-(GlassActive() and 48 or 12)) or nil
+    end
+    local left=p:GetRight()
+    if type(right)=="number" and type(left)=="number" then c:SetWidth(math.max(40,right-left-24)) end
+end
 function UI:UpdateContext()
     if not self.contextLabel then return end
     local text=self.contexts and self.contexts[self.activeTab]
     self.contextLabel:SetText(text or "")
+    self:FitContext()
+    if GlassActive() and ONE.Glass.colSub then ONE.Glass.colSub:SetText(text or "") end
 end
 function UI:Refresh()
     local active=self.tabs[self.activeTab] or self.views[self.activeTab]
     if active and active.refresh then active.refresh() end
-    if ONE.Book then ONE.Book:InkPages(self) end
     -- Angabe der tatsaechlich aktiven gespeicherten Farbpalette.
     if self.themeStatus then self.themeStatus:SetText("v" .. ONE.version) end
     if ONE.Themes and self.frame then ONE.Themes:StyleTree(self.frame) end
@@ -439,21 +471,42 @@ end
 function UI:Show()
     if not self.frame then return end
     self.frame:Show()
+    if GlassActive() then self:UpdateViews() end
     self:Refresh()
 end
 function UI:Toggle()
     if self.frame:IsShown() then self.frame:Hide() else self:Show() end
 end
 
+-- Freche Sprueche (Quips.lua): jeden Tag ein neuer; jeder Charakter hat einen eigenen
+-- Startpunkt in der Liste, so sieht jeder einen anderen und 100 Tage wiederholt sich nichts.
+-- Als Geist gibt es immer den Geist-Spruch.
+function UI:Quip()
+    if type(UnitIsDeadOrGhost)=="function" and UnitIsDeadOrGhost("player") and ONE.QUIP_GHOST then return ONE.QUIP_GHOST end
+    local list=ONE.QUIPS
+    if type(list)~="table" or #list==0 then return "" end
+    local now=(type(time)=="function" and time()) or 0
+    -- Tag nach Ortszeit (Wechsel um Mitternacht)
+    local offset=0
+    if type(date)=="function" then
+        local u, l = date("!*t", now), date("*t", now)
+        if type(u)=="table" and type(l)=="table" and type(time)=="function" then
+            l.isdst=false offset=time(l)-time(u)
+        end
+    end
+    local day=math.floor((now+offset)/86400)
+    local name=UnitName and UnitName("player") or ""
+    local realm=type(GetRealmName)=="function" and GetRealmName() or ""
+    return list[ONE.QuipIndex(day, (name or "").."-"..(realm or ""), #list)]
+end
+
 local function BuildHome(panel)
     -- Buch-Aussehen: eigene Doppelseite (Initiale, Siegel, Inhaltsverzeichnis)
-    if ONE.Book and ONE.Book:Spread() then return ONE.Book:BuildHome(panel) end
     local W=UI.Layout.width
     local cols=UI.Layout:Columns({5,4})
     -- Einheitliche Seiteneinfuehrung; alle Karten liegen innerhalb der 726er Spur.
     -- Buch-Aussehen: Doppelseite – links Begruessung, rechts die Kacheln
     local L,R=nil,nil
-    if ONE.Book then L,R=ONE.Book:Spread() end
     local LW=L and L.width or W
     if not UI:LiftPage(panel) then
         Label(panel,T("Deine Zentrale"),"GameFontNormalLarge",0,-4,LW)
@@ -489,7 +542,6 @@ local function BuildHome(panel)
         if artReady then return end
         art:SetTexture(heroTexture)
         -- im Buch-Aussehen kein dunkles Bild hinter der Tinte
-        if ONE.Book and ONE.Book:IsActive() then art:Hide() end
         art:ClearAllPoints()
         art:SetPoint("TOPLEFT",hero,"TOPLEFT",4,-4)
         art:SetPoint("BOTTOMRIGHT",hero,"BOTTOMRIGHT",-4,4)
@@ -497,10 +549,10 @@ local function BuildHome(panel)
     end
     RefreshArt()
     Label(hero,"DEIN TAG IN AZEROTH","GameFontNormalSmall",heroHeader.x,heroHeader.y,textW)
+    -- Begruessung mit Namen und einem frechen Spruch (wechselt je Sitzung, manche passen zur Lage)
     local heading=Label(hero,T("Willkommen zurück!"),"GameFontNormalHuge",heroHeader.x,-54,textW)
-    local playerName=Label(hero,"","GameFontHighlight",heroHeader.x,-90,textW)
-    Label(hero,T("Termine und Gilde – übersichtlich an einem Ort."),
-        "GameFontHighlight",heroHeader.x,-114,L and textW or 430,"soft")
+    local quip=Label(hero,"","GameFontHighlight",heroHeader.x,-90,L and textW or 430,"soft")
+    if quip.SetWordWrap then quip:SetWordWrap(true) end
     Action(hero,T("Heutige Termine ansehen"),{
         x=heroHeader.x,y=ONE.Geometry:BottomActionY(heroH),width=heroHeader.width,
     },function() ONE.UI:OpenLink("today") end,"primary","primary","left")
@@ -549,7 +601,8 @@ local function BuildHome(panel)
 
     return function()
         local name=UnitName and UnitName("player") or nil
-        playerName:SetText(name or T("Dein Abenteuer geht weiter"))
+        heading:SetText(name and T("Na %s!",name) or T("Willkommen zurück!"))
+        quip:SetText(UI:Quip())
         RefreshArt()
         BuildTiles()
         for _,card in ipairs(tileCards) do
@@ -864,7 +917,9 @@ local function BuildOptions(panel)
     local W=UI.Layout.width
     local H=ONE.Geometry.tokens.contentHeight or 437
     local L,R
-    if ONE.Book and ONE.Book.Spread then L,R=ONE.Book:Spread() end
+    -- Glas: die Bereiche stehen in der mittleren Spalte, rechts nur die Einstellungen
+    local glass=GlassActive()
+    if glass then R={x=0,width=W} end
     -- Buch: links die Bereiche, rechts die Einstellungen; sonst Liste 150 breit links
     local listX,listW=L and L.x or 0,L and math.min(L.width,220) or 150
     local paneX=R and R.x or listW+10
@@ -878,6 +933,10 @@ local function BuildOptions(panel)
     if L then list:SetPoint("TOPLEFT",panel,"TOPLEFT",listX,top) list:SetSize(listW,H+top) end
     local pane=R and CreateFrame("Frame",nil,panel) or Panel(panel,paneX,0,paneW,H)
     if R then pane:SetPoint("TOPLEFT",panel,"TOPLEFT",paneX,0) pane:SetSize(paneW,H) end
+    if glass then
+        list:Hide()
+        ONE.Themes:RegisterPanel(pane)
+    end
     -- rechts scrollbar (Mausrad); die Leiste der Vorlage sitzt rechts innen
     local innerW=paneW-44
     local ok,scroll=pcall(CreateFrame,"ScrollFrame",nil,pane,"UIPanelScrollFrameTemplate")
@@ -987,6 +1046,13 @@ local function BuildOptions(panel)
             if c.id==cat then title=c.title end
         end
         for i=#cats+1,#catButtons do catButtons[i]:Hide() end
+        if glass then
+            local items={}
+            for _,c in ipairs(cats) do
+                items[#items+1]={key=c.id,label=c.title,onClick=function(id) UI.optionsCategory=id UI:Refresh() end}
+            end
+            UI:SetViews("options",items,cat)
+        end
         UI:SetContext("options",T(title))
         Layout(cat)
     end
@@ -1047,16 +1113,11 @@ local function RegisterCoreSettings()
         options=function() return {{value=nil,text="Automatisch (Spielsprache)"},{value="de",text="Deutsch"},{value="en",text="English"}} end,
         get=function() return ONE.db.language end,set=function(v) ONE.db.language=v end,
         onChange=function() UI:AskReload() end})
-    Set("look","Sprache und Aussehen",{id="lookChoice",kind="dropdown",label="Aussehen",order=31,width=220,
-        options=function() return {{value="native",text=T("Blizzard")},{value="book",text=T("Altes Buch (Probe)")}} end,
-        get=function() return ONE.db.theme and ONE.db.theme.selected=="book" and "book" or "native" end,
-        set=function(v) if ONE.Book then ONE.Book:SetEnabled(v=="book") end end})
 end
 -- Kern-Funktionen in ihre Bereiche lenken (stehen in Core.lua/Vendor.lua/Book.lua)
 local CORE_FEATURE_PLACE={
     ["core.loginSummary"]={"general","Hinweise",12},
     ["core.sounds"]={"look","Klänge",40},
-    ["core.agedInk"]={"look","Sprache und Aussehen",35},
     ["core.autoRepair"]={"general","Händler",30},
     ["core.autoRepairGuild"]={"general","Händler",31,1},
     ["core.sellJunk"]={"general","Händler",32},
@@ -1070,10 +1131,18 @@ function UI:PlaceFeatures()
 end
 
 function UI:Initialize()
-    local ok,frame=pcall(CreateFrame,"Frame","ProjectONEMainWindow",UIParent,"PortraitFrameTemplate")
+    local glass=GlassActive()
+    local ok,frame
+    if glass then ok,frame=pcall(CreateFrame,"Frame","ProjectONEMainWindow",UIParent)
+    else ok,frame=pcall(CreateFrame,"Frame","ProjectONEMainWindow",UIParent,"PortraitFrameTemplate") end
     if not ok or not frame then frame=CreateFrame("Frame","ProjectONEMainWindow",UIParent) end
     self.frame=frame
-    if not BookActive() then
+    if glass then
+        for k,v in pairs(ONE.Glass.WINDOW) do WINDOW[k]=v end
+        ONE.WindowScale.WIDTH,ONE.WindowScale.HEIGHT=WINDOW.width,WINDOW.height
+        -- das Glasfenster ist breiter (drei Spalten): ohne gespeicherte Groesse etwas kleiner starten
+        ONE.WindowScale.DEFAULT=.85
+    elseif not BookActive() then
         for k,v in pairs(NATIVE_WINDOW) do WINDOW[k]=v end
         ONE.WindowScale.WIDTH,ONE.WindowScale.HEIGHT=WINDOW.width,WINDOW.height
     end
@@ -1090,6 +1159,16 @@ function UI:Initialize()
         ONE.WindowScale:SavePosition(self)
     end)
     frame:SetClampedToScreen(true)
+    -- An jeder Kante/Ecke ziehen = Fenster samt Inhalt groesser/kleiner (Nutzer 18.11.2026); Groesse/Lage
+    -- verwaltet weiter WindowScale (Grenzen, Speichern, Einrasten auf Bildpunkte)
+    if ONE.Widgets and ONE.Widgets.ScaleHandles then
+        local WS=ONE.WindowScale
+        local minS,maxS=WS:Bounds()
+        ONE.Widgets:ScaleHandles(frame,nil,{noRestore=true,min=minS,max=maxS,onStop=function(scale)
+            WS.scale=scale
+            WS:SavePosition(frame)
+        end})
+    end
     -- Titel und rundes Portrait (ONE-Logo) wie bei Blizzard-Fenstern.
     -- Titel: "Guild Trip" plus der Name der eigenen Gilde (fuer jede Gilde passend).
     local function TitleText()
@@ -1099,6 +1178,7 @@ function UI:Initialize()
     end
     local fallbackTitle
     local function ApplyTitle()
+        if glass then return end
         local text=TitleText()
         if type(frame.SetTitle)=="function" and pcall(frame.SetTitle,frame,text) then return end
         if not fallbackTitle then
@@ -1110,6 +1190,7 @@ function UI:Initialize()
     ApplyTitle()
     if frame.HookScript then frame:HookScript("OnShow",ApplyTitle) end
     self.ApplyTitle=ApplyTitle
+    if glass then return self:InitializeGlass(frame) end
     local logo="Interface\\AddOns\\ONE_Core\\Textures\\Common\\Emblem.tga"
     local portrait=false
     for _,method in ipairs({"SetPortraitToAsset","SetPortraitTextureRaw"}) do
@@ -1179,6 +1260,9 @@ function UI:Initialize()
         self.themeStatus=Label(frame,"","GameFontDisableSmall",WINDOW.width-262,-(WINDOW.height-WINDOW.insetBottom+7),220)
         if self.themeStatus.SetJustifyH then self.themeStatus:SetJustifyH("RIGHT") end
     end
+    self:FinishInitialize(frame)
+end
+function UI:FinishInitialize(frame)
     if UISpecialFrames then table.insert(UISpecialFrames,"ProjectONEMainWindow") end
     if ONE.Kit then
         ONE.Kit:RegisterTile("termine",{title="TERMINE",order=10,build=TermineTile})
@@ -1189,9 +1273,39 @@ function UI:Initialize()
     for old,cat in pairs({modules="general",assists="general",sharing="sharing",["guild-reminder-settings"]="reminders"}) do
         self:AddAlias(old,"options",function() UI.optionsCategory=cat end)
     end
+    if ONE.Glass then ONE.Glass:RegisterSettings(self) end
     self:AddTab("options",T("Optionen"),BuildOptions)
     self:SelectTab("home")
     self:UpdateBackButton()
-    if ONE.Book then ONE.Book:Attach(self) end
     frame:Hide()
+end
+-- Glas-Fenster: Rahmen und Spalten aus Glass.lua, Kopfzeile rechts ueber dem Inhalt
+function UI:InitializeGlass(frame)
+    local col1,col2=ONE.Glass:BuildWindow(self,frame)
+    self.sidebar=col1
+    self.viewColumn=col2
+    self.closeButton=ONE.Widgets:CloseButton(frame,"TOPRIGHT",-12,-12,function() frame:Hide() end)
+    self.pathLabel=Label(frame,T("Startseite"),"GameFontNormalLarge",WINDOW.contentX,-24,360)
+    self.pathLabel:SetWidth(0)
+    if self.pathLabel.SetWordWrap then self.pathLabel:SetWordWrap(false) end
+    self.contextLabel=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+    self.contextLabel:SetPoint("BOTTOMLEFT",self.pathLabel,"BOTTOMRIGHT",10,1)
+    self.contextLabel:SetJustifyH("LEFT")
+    if ONE.Themes and ONE.Themes.RegisterText then ONE.Themes:RegisterText(self.contextLabel,"soft") end
+    ONE.Glass:PaintTitles()
+    self.backButton=ONE.Widgets:Button(frame,T("Zurück"),90,24,"TOPRIGHT",-48,-14,function() self:GoBack() end)
+    self.forwardButton=ONE.Widgets:Button(frame,T("Weiter"),90,24,"TOPRIGHT",-142,-14,function() self:GoForward() end)
+    self.forwardButton:Hide()
+    self.themeStatus=col1:CreateFontString(nil,"OVERLAY","GameFontDisableSmall")
+    self.themeStatus:SetPoint("BOTTOM",col1,"BOTTOM",0,8)
+    self.themeStatus:SetWidth(WINDOW.col1W-6)
+    self.themeStatus:SetJustifyH("CENTER")
+    if frame.RegisterEvent then
+        pcall(frame.RegisterEvent,frame,"GUILD_ROSTER_UPDATE")
+        frame:SetScript("OnEvent",function() if frame:IsShown() then UI:UpdateViews() end end)
+    end
+    if frame.HookScript then
+        frame:HookScript("OnShow",function() if type(C_GuildInfo)=="table" and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) end end)
+    end
+    self:FinishInitialize(frame)
 end

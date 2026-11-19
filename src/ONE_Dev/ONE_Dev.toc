@@ -3,7 +3,7 @@
 ## Notes: Nur für die Entwicklung: Testbefehle und Auslese-Werkzeuge. Nicht für Spieler, nicht im CurseForge-Paket.
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later
-## Version: 0.7.0-alpha
+## Version: 0.7.1-alpha
 ## Dependencies: ONE_Core
 ## OptionalDeps: ONE_Guild, ONE_Nav, ONE_Dungeons, ONE_Crafting, ONE_Classes
 ## SavedVariables: GuildTripDevDB
@@ -19,4 +19,5 @@ DevShare.lua
 QuestCheck.lua
 EntranceCheck.lua
 LootCheck.lua
+ArtCheck.lua
 Commands.lua

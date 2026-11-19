@@ -22,6 +22,11 @@ P.FAR_MIN = 12           -- anderer Kontinent / unbekannter Ort
 P.VALUE_SLACK = .6       -- Mehrwert-Quests duerfen so viel langsamer sein
 P.UPGRADE_PCT = 10
 P.BUSY_WORK = 40         -- ab hier "viel Aufwand / seltene Drops"
+P.FLY_SPEED = 30         -- Flugtier, Yards je Sekunde (Classic ~ 30)
+P.FLY_EXTRA = .7         -- Minuten fuer Flugmeister ansprechen, Auf-/Absteigen
+P.FLY_DETOUR = 1.15      -- Flugrouten sind keine Luftlinie
+P.BOAT_MIN = 6           -- Warten + Ueberfahrt Schiff/Zeppelin (Minuten)
+P.UNKNOWN_TRIP = 30      -- anderer Kontinent ohne bekannte Verbindung (z. B. neue Forever-Gebiete)
 -- Gebietsbloecke (0.7.0): ein Gebietswechsel "kostet" so viele Minuten extra. So wird ein Gebiet
 -- erst fertig gemacht, bevor es weitergeht. Aendert NUR die Reihenfolge, nie die Auswahl.
 P.ZONE_SWITCH = 4
@@ -45,6 +50,32 @@ function P.Data()
     local q, r = rawget(_G, "GuildTripQuestDB"), rawget(_G, "GuildTripLeveling")
     if type(q) ~= "table" or type(q.q) ~= "table" then return nil end
     return q, type(r) == "table" and r or {r = {}, i = {}, dz = {}}
+end
+
+-- ===== Belohnungsdaten (kompakt als Text, Rewards.lua) =====
+local function Nums(text)
+    local out = {}
+    for v in (text or ""):gmatch("[^,]+") do out[#out + 1] = tonumber(v) end
+    return #out > 0 and out or false
+end
+-- Quest: {kupfer, aufwand, art, {feste}|false, {auswahl}|false} oder nil
+function P.Rew(R, id)
+    local s = R and R.r and R.r[id]
+    if type(s) ~= "string" then return s end
+    local m, w, k, f, c = s:match("^(%d+)|(%d+)|(%d+)|([^|]*)|([^|]*)$")
+    if not m then return nil end
+    return {tonumber(m), tonumber(w), tonumber(k), Nums(f), Nums(c)}
+end
+-- Gegenstand: {platz, qualitaet, stufe, mindeststufe, klasse, unterklasse, taschenplaetze, verkauf, klassenmaske, {werte}|false}
+function P.Item(R, id)
+    local s = R and R.i and R.i[id]
+    if type(s) ~= "string" then return s end
+    local out, k = {}, 0
+    for part in (s .. "|"):gmatch("([^|]*)|") do
+        k = k + 1
+        out[k] = k < 10 and (tonumber(part) or 0) or Nums(part)
+    end
+    return out
 end
 
 -- ===== EP =====
@@ -84,6 +115,68 @@ function P.NodePoint(Q, nr, mapID)
     if best then return n[best], n[best + 1] / 1000, n[best + 2] / 1000 end
 end
 
+-- EP bis zur naechsten Stufe (Classic-Tabelle; aktuelle Stufe liest der Kasten aus dem Spiel)
+P.XP_NEED = {400, 900, 1400, 2100, 2800, 3600, 4500, 5400, 6500, 7600, 8800, 10100, 11400, 12900, 14400, 16000,
+    17700, 19400, 21300, 23200, 25200, 27300, 29400, 31700, 34000, 36400, 38900, 41400, 44300, 47400, 50800, 54500,
+    58600, 62800, 67100, 71600, 76100, 80800, 85700, 90700, 95800, 101000, 106300, 111800, 117500, 123200, 129100,
+    135100, 141200, 147500, 153900, 160400, 167100, 173900, 180800, 187900, 195000, 202300, 209800}
+
+-- Stufe nach gain EP: level, xp (bisher in dieser Stufe), max (noetig fuer diese Stufe)
+function P.LevelAfter(level, xp, max, gain)
+    while level < 60 and xp + gain >= max do
+        gain = gain - (max - xp)
+        level, xp = level + 1, 0
+        max = P.XP_NEED[level] or max
+    end
+    return level
+end
+
+-- ===== Reisezeit: zu Fuss, mit Flug oder mit Schiff/Zeppelin =====
+-- a, b = {kontinent, x, y} (Welt-Yards); net = {speed, flights = {{c, x, y, name}}, departures = {{from, to, c, x, y, name}}}
+-- Ergebnis: Minuten, Weg (nil = zu Fuss; {kind = "flight", from = Knoten, to = Knoten} | {kind = "boat", dep = Abfahrt, rest = Weg})
+local function Dist(a, b) return math.sqrt((a[2] - b[2]) ^ 2 + (a[3] - b[3]) ^ 2) end
+local function NearestOn(list, c, p)
+    local best, bd
+    for _, n in ipairs(list or {}) do
+        if n[1] == c then
+            local d = Dist(n, p)
+            if not bd or d < bd then best, bd = n, d end
+        end
+    end
+    return best, bd
+end
+function P.Travel(a, b, net)
+    net = net or {}
+    local speed = net.speed or 7
+    if not (a and b) then return P.FAR_MIN end
+    local function Walk(x, y) return Dist(x, y) * P.DETOUR / speed / 60 end
+    if a[1] == b[1] then
+        local walk = Walk(a, b)
+        local fa, da = NearestOn(net.flights, a[1], a)
+        local fb, db = NearestOn(net.flights, b[1], b)
+        if fa and fb and fa ~= fb then
+            local fly = da * P.DETOUR / speed / 60 + Dist(fa, fb) * P.FLY_DETOUR / P.FLY_SPEED / 60 + P.FLY_EXTRA + db * P.DETOUR / speed / 60
+            if fly < walk * .8 then return fly, {kind = "flight", from = fa, to = fb} end
+        end
+        return walk
+    end
+    -- anderer Kontinent: zur naechsten Abfahrt, drueben vom Ankunftsort (naechste Abfahrt zurueck) weiter
+    local best, bm
+    for _, d in ipairs(net.departures or {}) do
+        if d.from == a[1] and d.to == b[1] and d[1] == a[1] then
+            local m = Walk(a, d)
+            if not bm or m < bm then best, bm = d, m end
+        end
+    end
+    if not best then return P.UNKNOWN_TRIP end
+    local back = {}
+    for _, d in ipairs(net.departures) do if d.from == b[1] and d.to == a[1] then back[#back + 1] = d end end
+    local arrive = NearestOn(back, b[1], b)
+    if not arrive then return bm + P.BOAT_MIN + P.FAR_MIN / 2, {kind = "boat", dep = best} end
+    local rest, via = P.Travel(arrive, b, net)
+    return bm + P.BOAT_MIN + rest, {kind = "boat", dep = best, rest = via}
+end
+
 -- ===== Hilfen =====
 local function Fits(id, e, me, done, inLog)
     if done(id) then return false end
@@ -114,7 +207,7 @@ function P.Value(qid, rew, R, ctx, plvl)
     local best
     for _, list in ipairs({rew[4] or {}, rew[5] or {}}) do
         for _, item in ipairs(list) do
-            local it = R.i and R.i[item]
+            local it = P.Item(R, item)
             if it and it[5] == 1 and (it[7] or 0) > (ctx.smallestBag or 99) then
                 out[#out + 1] = {kind = "bag", item = item, slots = it[7]}
             end
@@ -141,7 +234,7 @@ function P:Plan(ctx)
     local override = ctx.override or {}
     local factor = P.TEMPO[ctx.tempo or "need"] or P.TEMPO.need
     local grind = P.GrindEPM(L)
-    local rewards, dz = R.r or {}, R.dz or {}
+    local dz = R.dz or {}
 
     -- Weltposition je Knoten (gemerkt fuer diesen Durchlauf)
     local wcache = {}
@@ -163,6 +256,21 @@ function P:Plan(ctx)
         if not (a and b) or a[1] ~= b[1] then return P.FAR_MIN end
         local d = math.sqrt((a[2] - b[2]) ^ 2 + (a[3] - b[3]) ^ 2)
         return d * P.DETOUR / (ctx.speed or 7) / 60, d
+    end
+    -- Reisezeit mit Flug/Schiff (gemerkt je Punktepaar)
+    local net = {speed = ctx.speed or 7, flights = ctx.flights, departures = ctx.departures}
+    local tcache = setmetatable({}, {__mode = "k"})
+    local function Trip(a, b)
+        if not (a and b) then return P.FAR_MIN end
+        local row = tcache[a]
+        if not row then row = setmetatable({}, {__mode = "k"}) tcache[a] = row end
+        local r = row[b]
+        if not r then
+            local m, via = P.Travel(a, b, net)
+            r = {m, via}
+            row[b] = r
+        end
+        return r[1], r[2]
     end
     local here = pc and {pc, px, py} or nil
     -- naechster Punkt aus einer Knotenliste (zum Bezugspunkt)
@@ -192,7 +300,7 @@ function P:Plan(ctx)
     -- 2) bewerten
     local info = {}
     local function Rate(id)
-        local e, rew = Q.q[id], rewards[id]
+        local e, rew = Q.q[id], P.Rew(R, id)
         local qlvl = e[1] > 0 and e[1] or L
         local xp, f = P.QuestXP(e[11] or 0, qlvl, L)
         local work = rew and rew[2] or 0
@@ -204,9 +312,11 @@ function P:Plan(ctx)
         local target = Nearest(e[8], giver and giver.w or here)
         local ender = Nearest(e[7], target and target.w or giver and giver.w)
         local travel = 0
-        if giver and target then travel = travel + Minutes(giver.w, target.w) end
-        if target and ender then travel = travel + Minutes(target.w, ender.w)
-        elseif giver and ender then travel = travel + Minutes(giver.w, ender.w) end
+        if giver and target then travel = travel + Trip(giver.w, target.w) end
+        if target and ender then travel = travel + Trip(target.w, ender.w)
+        elseif giver and ender then travel = travel + Trip(giver.w, ender.w) end
+        -- erste Anreise (vom Spieler) zaehlt mit: weit weg = teurer, Flug macht es billiger
+        if giver and here and not inLog(id) then travel = travel + math.min(P.FAR_MIN, (Trip(here, giver.w))) * .5 end
         if not giver then travel = travel + P.FAR_MIN end
         local minutes = P.TALK_MIN + travel + work * P.KILL_SEC / 60
         local totalXP = xp + (dungeon and 0 or work * mobXP)
@@ -404,27 +514,28 @@ function P:Plan(ctx)
         if s.kind == "dungeon" then s.idsSet = {} for _, id in ipairs(s.ids) do s.idsSet[id] = true end end
     end
     local order, pos, minutes, xpSum = {}, here, 0, 0
-    local fieldXP, fieldMin = 0, 0 -- ohne Dungeon-Quests (fuer den Vergleich mit Monster hauen)
     local prefer = ctx.prefer
     local zone = me.mapID
     local switch = ctx.zoneBlocks == false and 0 or P.ZONE_SWITCH
     while #order < P.MAX_STEPS and minutes < P.MAX_MINUTES do
-        local best, bm, bwalk
+        local best, bm, bwalk, best_via
         for _, s in ipairs(stops) do
             if not s.used and Ready(s) then
-                local walk = s.w and pos and Minutes(pos, s.w) or (s.w and 0) or P.FAR_MIN
+                local walk, via = P.FAR_MIN, nil
+                if s.w and pos then walk, via = Trip(pos, s.w) elseif s.w then walk = 0 end
                 if s.kind == "dungeon" then walk = walk + 1 end
                 local m = walk
                 -- im Gebiet bleiben, solange dort noch etwas Passendes in der Naehe ist (nur fuer die Wahl)
                 if zone and s.w and s.w[4] and s.w[4] ~= zone then m = m + switch end
                 -- Reihenfolge ruhig halten: der bisherige erste Schritt bleibt, solange er nicht deutlich weiter weg ist
                 if prefer and #order == 0 and prefer == P.StopKey(s) then m = m * .5 end
-                if not bm or m < bm then best, bm, bwalk = s, m, walk end
+                if not bm or m < bm then best, bm, bwalk, best_via = s, m, walk, via end
             end
         end
         if not best then break end
         best.used = true
         best.walk = bwalk
+        best.via = best_via
         bm = bwalk
         local before, xpBefore = minutes, xpSum
         order[#order + 1] = best
@@ -448,15 +559,20 @@ function P:Plan(ctx)
         -- echte Zeit dieses Halts (die Wechsel-Strafe zaehlt nicht mit)
         best.cost = minutes - before
         best.gain = xpSum - xpBefore
-        if not (best.kind == "dungeon" or (best.id and info[best.id] and info[best.id].dungeon)) then
-            fieldXP, fieldMin = fieldXP + (xpSum - xpBefore), fieldMin + best.cost
-        end
     end
     local left = {}
     for _, s in ipairs(stops) do if not s.used then left[#left + 1] = s end end
     -- 6) Schritte: aufeinanderfolgende Halte am selben NPC zusammenfassen
     local steps = {}
     for _, s in ipairs(order) do
+        -- Reise-Schritt davor: zum Flugmeister bzw. zur Abfahrt (Navi dorthin, Welt-Koordinaten)
+        if s.via then
+            local v = s.via
+            local first = v.kind == "flight" and v.from or v.dep
+            steps[#steps + 1] = {kind = "travel", via = v, world = first and {first[1], first[2], first[3]},
+                mapID = first and first.mapID, x = first and first.mx, y = first and first.my,
+                actions = {}, stopKey = "t:" .. P.StopKey(s)}
+        end
         local last = steps[#steps]
         if last and s.nr and last.nr == s.nr and s.kind ~= "obj" and last.kind ~= "obj" and s.kind ~= "dungeon" then
             last.actions[#last.actions + 1] = {kind = s.kind, id = s.id}
@@ -488,39 +604,7 @@ function P:Plan(ctx)
     end
     table.sort(skipped, function(a, b) if a.totalXP ~= b.totalXP then return a.totalXP > b.totalXP end return a.id < b.id end)
     return {steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left,
-        fieldXP = fieldXP, fieldMinutes = fieldMin,
         grind = grind, factor = factor, level = L}
-end
-
--- Quests, die erst ab Stufe "level" angenommen werden koennen (Mindeststufe = level) und sonst fuer
--- dich passen (Volk, Klasse, Vorquests, nicht erledigt) – fuer "was schaltet die naechste Stufe frei?"
-function P.UnlockedQuests(ctx, level)
-    local Q = P.Data()
-    if not Q then return {} end
-    local me = ctx.me
-    local done = ctx.done or function() return false end
-    local inLog = ctx.inLog or function() return false end
-    local probe = {}
-    for k, v in pairs(me) do probe[k] = v end
-    probe.level = level
-    -- nur Quests auf deinem Kontinent (Questgeber), wenn die Lage bekannt ist
-    local myC = me.mapID and ctx.world and ctx.world(me.mapID, me.x or .5, me.y or .5)
-    local out = {}
-    for id, e in pairs(Q.q) do
-        if (e[2] or 0) == level and not inLog(id) and Fits(id, e, probe, done, inLog) then
-            local ok = true
-            if myC then
-                local giver = e[6] and e[6][1]
-                local m, x, y
-                if giver then m, x, y = P.NodePoint(Q, giver, me.mapID) end
-                local c = m and ctx.world(m, x, y)
-                ok = c == myC
-            end
-            if ok then out[#out + 1] = id end
-        end
-    end
-    table.sort(out)
-    return out
 end
 
 -- ===== Gebietsuebersicht (0.7.0) – NUR Anzeige, aendert den Plan nicht =====

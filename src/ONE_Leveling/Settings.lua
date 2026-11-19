@@ -16,7 +16,7 @@ S.SECTIONS = {
         {key = "trackerBare", label = "Ohne Rahmen (nur Text)",
             tip = "Zeigt nur den Text; der Rahmen erscheint kurz, wenn die Maus darüber ist (zum Verschieben)."},
         {key = "replaceBlizzard", label = "WoW-Questliste durch den Kasten ersetzen",
-            tip = "Blendet die WoW-Liste „Alle Ziele / Quests“ aus – deine Quests stehen dann im Kasten unter „Deine Quests“. Ausschalten stellt alles wieder her."},
+            tip = "Blendet die WoW-Liste „Alle Ziele / Quests“ aus. Alle Quests siehst du weiter mit L, den Fortschritt der aktuellen Quest im Kasten unter „Jetzt“. Ausschalten stellt alles wieder her."},
     }},
     {title = "Navi und Quests", options = {
         {key = "autoNavi", label = "Navi-Pfeil folgt der Führung", default = true,
@@ -25,6 +25,10 @@ S.SECTIONS = {
             tip = "Nimmt eingeplante Quests an und gibt fertige Quests aus deinem Questlog ab (Folgequests inklusive). Bei mehreren Belohnungen wählst du selbst. Shift gedrückt halten = für dieses Gespräch nicht."},
         {key = "autoQuestAll", label = "… auch Quests außerhalb der Führung annehmen", indent = 1,
             tip = "Nimmt alle nicht-grauen, nicht wiederholbaren Quests an."},
+    }},
+    {title = "Reisetagebuch", options = {
+        {key = "journal", label = "Reisetagebuch führen", default = true,
+            tip = "Merkt sich abgegebene Quests, Stufenaufstiege, neue Gebiete und Dungeon-Läufe mit Datum und Ort (Leveln › Tagebuch). Nur bei dir gespeichert."},
     }},
 }
 

@@ -113,10 +113,6 @@ end
 
 function Page:Build(panel)
     self.panel = panel
-    if ONE.Book and ONE.Book.Spread and ONE.Book:Spread() then
-        local L, R = ONE.Book:Spread()
-        LEFT_W, RIGHT_X, RIGHT_W = L.width, R.x, R.width
-    end
     local _, sub
     self.heading, sub = ONE.Widgets:PageHeader(panel, "", "", 290, true)
     self.sub = sub
@@ -140,14 +136,11 @@ function Page:Build(panel)
     self.weaponView = self:BuildWeapons(content)
     -- Umschalter rechts oben in einer Zeile mit dem Auswahlfeld (Ausrichtung);
     -- Lage je nach Klasse in Page:LayoutViews (Druide hat zusaetzlich "Gestalten")
-    local inBook0 = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
-    self.viewBars = ONE.Widgets:Button(content, "Leisten", inBook0 and 64 or 72, 24, "TOPRIGHT", -344, -6, function()
+    self.viewBars = ONE.Widgets:Button(content, "Leisten", 72, 24, "TOPRIGHT", -344, -6, function()
         Store().view = "bars" Page:Refresh() end)
-    self.viewTree = ONE.Widgets:Button(content, "Talente", inBook0 and 64 or 72, 24, "TOPRIGHT", -270, -6, function()
+    self.viewTree = ONE.Widgets:Button(content, "Talente", 72, 24, "TOPRIGHT", -270, -6, function()
         Store().view = "talents" Page:Refresh() end)
-    -- im Buch ist die Tintenschrift breiter: "Bewaffnung" braucht dort mehr Platz
-    local inBook = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
-    self.viewWeapons = ONE.Widgets:Button(content, "Bewaffnung", inBook and 100 or 84, 24, "TOPRIGHT", -196, -6, function()
+    self.viewWeapons = ONE.Widgets:Button(content, "Bewaffnung", 84, 24, "TOPRIGHT", -196, -6, function()
         Store().view = "weapons" Page:Refresh() end)
     -- Druide: Katzen- und Baerenleiste (nur sichtbar, wenn der Bauplan Gestalten hat)
     self.viewForms = ONE.Widgets:Button(content, "Gestalten", 88, 24, "TOPRIGHT", -196, -6, function()
@@ -300,17 +293,6 @@ function Page:LayoutViews(forms)
     if forms then order[#order + 1] = self.viewForms end
     -- Buch: rechts ist nur Platz fuer die Spielstil-Auswahl – die Knoepfe stehen links
     -- unter der Ueberschrift (sonst ragt "Talente" ueber die Falz)
-    local bookL = ONE.Book and ONE.Book.Spread and ONE.Book:Spread()
-    if bookL then
-        local x = bookL.x
-        for _, b in ipairs(order) do
-            local w = b.GetWidth and b:GetWidth() or 72
-            if b.ClearAllPoints then b:ClearAllPoints() end
-            b:SetPoint("TOPLEFT", self.content, "TOPLEFT", x, -30)
-            x = x + w + 4
-        end
-        return
-    end
     local right = -196
     for i = #order, 1, -1 do
         local b = order[i]
@@ -326,24 +308,19 @@ function Page:BuildWeapons(parent)
     local wv = CreateFrame("Frame", nil, parent)
     wv:SetPoint("TOPLEFT", 0, 0)
     wv:SetSize(W, H)
-    local bookL, bookR
-    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
-    wv.book = bookL ~= nil
     local NAVI_W = 26
     -- Buch: Liste auf der linken Seite (Lehrer im Tooltip), Erklaerung rechts.
     -- Sonst: volle Breite, Erklaerung unter der Liste.
-    local listX, listW = bookL and bookL.x or 0, bookL and bookL.width or W
+    local listX, listW = 0, W
     -- Buch: unter der Knopfzeile (Leisten | Talente | Bewaffnung) auf der linken Seite
-    local listY = bookL and -62 or -44
-    local listH = bookL and (H - 62 - 8) or (H - 44 - 52)
-    local nameW, stateW = bookL and 130 or 180, bookL and 100 or 180
+    local listY = -44
+    local listH = (H - 44 - 52)
+    local nameW, stateW = 180, 180
     local columns = {
         {key = "name", title = "WAFFE", width = nameW},
         {key = "state", title = "STAND", width = stateW},
     }
-    if not bookL then
-        columns[#columns + 1] = {key = "trainer", title = "LEHRER", width = listW - 24 - 18 - nameW - stateW - NAVI_W}
-    end
+    columns[#columns + 1] = {key = "trainer", title = "LEHRER", width = listW - 24 - 18 - nameW - stateW - NAVI_W}
     wv.list = ONE.Kit:List(wv, {x = listX, y = listY, width = listW, height = listH, rowHeight = 22, columns = columns,
         render = function(frame, row, cells)
             cells.name:SetText(T(row.weapon.name))
@@ -378,8 +355,8 @@ function Page:BuildWeapons(parent)
             GameTooltip:Show()
         end,
     })
-    local infoX, infoW = bookR and bookR.x or 8, bookR and bookR.width or W - 16
-    wv.info = Text(wv, "GameFontHighlightSmall", infoX + (bookR and 8 or 0), bookR and -50 or (listY - listH - 8), infoW - (bookR and 16 or 0), "soft")
+    local infoX, infoW = 8, W - 16
+    wv.info = Text(wv, "GameFontHighlightSmall", infoX + (0), (listY - listH - 8), infoW - (0), "soft")
     if wv.info.SetWordWrap then wv.info:SetWordWrap(true) end
     return wv
 end
@@ -399,8 +376,7 @@ function Page:RefreshWeapons(p)
         or T("Du beherrschst alle Waffen, die deine Klasse tragen kann.")
     if unknown > 0 then parts[#parts + 1] = T("Ob du eine Waffe schon kannst, verrät das Spiel hier nicht.") end
     if guess then parts[#parts + 1] = T("* = laut Classic, in Forever noch nicht bestätigt – sprich den Waffenmeister einmal an.") end
-    if wv.book then parts[#parts + 1] = T("Welcher Waffenmeister die Waffe lehrt, steht im Tooltip der Zeile.") end
-    wv.info:SetText(table.concat(parts, wv.book and "\n\n" or "  ·  "))
+    wv.info:SetText(table.concat(parts, "  ·  "))
 end
 
 -- Zeichnet alle Talentbaeume nebeneinander; Plan-Reihenfolge und naechster Punkt markiert.
@@ -414,25 +390,14 @@ function Page:RefreshTree(p, def, build)
     local cols = {}
     for _, t in pairs(p.talents) do cols[t.group] = math.max(cols[t.group] or 0, t.col + 1) end
     -- Buch: kein Baum auf der Falz – Baum 1 und 2 links (etwas enger), Baum 3 rechts
-    local bookL, bookR
-    if ONE.Book and ONE.Book.Spread then bookL, bookR = ONE.Book:Spread() end
-    local book = bookL and bookR and #p.points == 3
-    local dx = book and 39 or TREE.dx
+    local dx = TREE.dx
     local widths, total = {}, 0
     for g = 1, #p.points do
         widths[g] = ((cols[g] or 1) - 1) * dx + TREE.icon
         total = total + widths[g] + (g > 1 and TREE.gap or 0)
     end
     local x, starts = math.floor((W - total) / 2), {}
-    if book then
-        local gap = math.max(12, bookL.width - widths[1] - widths[2] - 8)
-        gap = math.min(gap, 40)
-        local left = bookL.x + math.floor((bookL.width - widths[1] - widths[2] - gap) / 2)
-        starts[1], starts[2] = left, left + widths[1] + gap
-        starts[3] = bookR.x + math.floor((bookR.width - widths[3]) / 2)
-    else
-        for g = 1, #p.points do starts[g] = x; x = x + widths[g] + TREE.gap end
-    end
+    for g = 1, #p.points do starts[g] = x; x = x + widths[g] + TREE.gap end
     -- Ueberschriften
     for g = 1, #p.points do
         local h = tv.headers[g] or Text(tv, "GameFontNormal", 0, -60, 160, "accent", "", "CENTER")

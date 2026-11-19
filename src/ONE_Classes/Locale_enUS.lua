@@ -127,23 +127,17 @@ EN["Läuft bald aus"] = "Expiring soon"
 EN["Fehlt"] = "Missing"
 EN["Klicken zum Wirken · Alt + Ziehen: verschieben"] = "Click to cast · Alt + drag: move"
 EN["Buffs fehlen"] = "Buffs missing"
-
--- Wer braucht die Beute? (0.7.0)
-EN["Wer braucht die Beute? (Gruppe)"] = "Who needs the loot? (group)"
-EN["Fällt in der Gruppe Ausrüstung, rechnet jeder mit Guild Trip aus, ob sie für ihn besser ist. Ein kleines Fenster und der Tooltip zeigen: „Bob (+12 %), Gildi (Platz frei)“ – so geht die Beute an den, der sie wirklich braucht."] =
-    "When gear drops in your group, everyone with Guild Trip works out whether it is better for them. A small window and the tooltip show: \"Bob (+12 %), Gildi (empty slot)\" – so the loot goes to whoever really needs it."
-EN["Wer braucht die Beute?"] = "Who needs the loot?"
-EN["%s (Platz frei)"] = "%s (empty slot)"
-EN["%s (+%d %%)"] = "%s (+%d %%)"
-EN["Guild Trip: Upgrade für %s"] = "Guild Trip: upgrade for %s"
-
 -- Spieler in der Naehe buffen
 EN["Spieler in der Nähe buffen"] = "Buff players nearby"
 EN["Kleines Fenster mit allen Spielern in Reichweite, denen einer deiner Buffs fehlt – Gruppe, Gilde, Freunde und Fremde. Ein Klick auf einen Namen wirkt den Buff im passenden Rang für die Stufe – sobald er sitzt, verschwindet der Spieler aus der Liste (Rechtsklick / Umschalt + Linksklick: weitere Buffs). Nur außerhalb des Kampfes."] =
     "Small window with every player in range who is missing one of your buffs – group, guild, friends and strangers. One click on a name casts the buff in the right rank for their level – once it lands, the player drops off the list (right-click / Shift + left-click: more buffs). Out of combat only."
 EN["… alle Spieler in der Nähe automatisch erkennen"] = "… detect every player nearby automatically"
-EN["Jeder, der an dir vorbeiläuft, kommt in die Liste. Dafür schaltet Guild Trip die freundlichen Namensplaketten ein (bis 40 m), macht sie aber unsichtbar und nicht anklickbar. Abschalten stellt deine alten Einstellungen wieder her."] =
-    "Everyone who walks past you lands on the list. For this Guild Trip turns on friendly nameplates (up to 40 yards) but makes them invisible and click-through. Turning it off restores your previous settings."
+EN["Addons sehen andere Spieler nur über Namensplaketten – die blauen Namen über den Köpfen bleiben für sie unsichtbar. Darum schaltet Guild Trip die freundlichen Namensplaketten ein und macht sie unsichtbar. Umschalt + V blendet sie ein und wieder aus – die Liste sieht die Spieler so oder so. Mit Plater & Co. fasst Guild Trip die Plaketten nicht an."] =
+    "Add-ons only see other players through nameplates – the blue names above heads are invisible to them. So Guild Trip turns on friendly nameplates and makes them invisible. Shift + V shows and hides them – the list sees the players either way. With Plater & co. Guild Trip leaves nameplates alone."
+EN["Freundliche Namensplaketten sichtbar. Umschalt + V blendet sie wieder aus – die Buff-Liste sieht die Spieler in der Nähe so oder so."] =
+    "Friendly nameplates visible. Shift + V hides them again – the buff list sees players nearby either way."
+EN["Freundliche Namensplaketten ausgeblendet. Die Buff-Liste sieht die Spieler in der Nähe trotzdem."] =
+    "Friendly nameplates hidden. The buff list still sees players nearby."
 EN["Buffen in der Nähe (%d)"] = "Buff nearby (%d)"
 EN["Linksklick"] = "Left-click"
 EN["Rechtsklick"] = "Right-click"
@@ -766,3 +760,4 @@ EN["Laut Classic – in Forever noch nicht bestätigt."] = "Per Classic – not 
 EN["%d Waffenarten kannst du noch beim Waffenmeister lernen."] = "You can still learn %d weapon types at a weapon master."
 EN["* = laut Classic, in Forever noch nicht bestätigt – sprich den Waffenmeister einmal an."] = "* = per Classic, not yet confirmed in Forever – talk to the weapon master once."
 EN["Ratgeber"] = "Advisor"
+EN["Prüfen, warum „Buffen in der Nähe“ niemanden zeigt"] = "Check why \"Buff players nearby\" shows nobody"

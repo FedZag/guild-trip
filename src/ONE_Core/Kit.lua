@@ -3,7 +3,7 @@
 -- ONE eigene, groessere Schriftobjekte mit Schatten. Eine Aenderung der
 -- Schriftgroesse wirkt sofort auf alle Texte, weil WoW Schriftobjekte teilt.
 local _, ONE = ...
-local function Paint(tex, r, g, b, a) if ONE.Book and ONE.Book.Paint then return ONE.Book.Paint(tex, r, g, b, a) end tex:SetColorTexture(r, g, b, a) end
+local function Paint(tex, r, g, b, a) tex:SetColorTexture(r, g, b, a) end
 local Kit = {fonts = {}}
 ONE.Kit = Kit
 
@@ -60,12 +60,6 @@ function Kit:ApplyFont(level)
     if not (font and def and font.SetFont) then return end
     local size = def.size * Settings().fontScale
     -- Buch-Aussehen: alte Druckschrift, etwas groesser, ohne Schatten (Pergament)
-    if ONE.Book and ONE.Book:IsActive() then
-        font:SetFont(ONE.Book.bodyFont, size * ONE.Book.bodyScale, "")
-        if font.SetShadowOffset then font:SetShadowOffset(0, 0) end
-        if font.SetShadowColor then font:SetShadowColor(0, 0, 0, 0) end
-        return
-    end
     font:SetFont(BaseFontFile(), size, def.outline)
     if font.SetShadowOffset then font:SetShadowOffset(1, -1) end
     if font.SetShadowColor then font:SetShadowColor(0, 0, 0, .95) end
@@ -129,8 +123,7 @@ end
 -- Textfarben mit Kontrast-Modus: Nebentext wird fast so hell wie Fliesstext.
 function Kit:TextColor(palette, role)
     local c = palette[role] or palette.text
-    -- auf Pergament (Aussehen "Altes Buch") nie weisse Schrift
-    if self:IsHighContrast() and palette.skin ~= "book" then
+    if self:IsHighContrast() then
         if role == "soft" then return palette.text end
         if role == "text" then return {1, 1, 1} end
     end
@@ -199,9 +192,7 @@ local function CreateScroll(box)
 end
 
 function Kit:List(parent, opts)
-    -- Buch: Texte brechen zweizeilig um statt abgeschnitten zu werden ("alles vollstaendig lesbar")
-    local book = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive()
-    local list = setmetatable({opts = opts, items = {}, rows = {}, rowHeight = book and math.max(opts.rowHeight or 22, 32) or opts.rowHeight or 22}, List)
+    local list = setmetatable({opts = opts, items = {}, rows = {}, rowHeight = opts.rowHeight or 22}, List)
     local box = CreateFrame("Frame", nil, parent)
     box:SetPoint("TOPLEFT", parent, "TOPLEFT", opts.x or 0, opts.y or 0)
     box:SetSize(opts.width, opts.height)
@@ -252,11 +243,7 @@ function Kit:List(parent, opts)
         local stripe = row:CreateTexture(nil, "BACKGROUND")
         stripe:SetAllPoints(row)
         Paint(stripe, 1, 1, 1, i % 2 == 0 and .04 or 0)
-        if ONE.Book and ONE.Book:IsActive() then
-            local hl = row:CreateTexture(nil, "HIGHLIGHT")
-            hl:SetAllPoints(row)
-            hl:SetColorTexture(ONE.Book.red[1], ONE.Book.red[2], ONE.Book.red[3], .12)
-        elseif row.SetHighlightTexture then
+        if row.SetHighlightTexture then
             pcall(row.SetHighlightTexture, row, "Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
         end
         if row.EnableMouseWheel then
@@ -269,10 +256,7 @@ function Kit:List(parent, opts)
             cell:SetPoint("LEFT", row, "LEFT", col.x + (col.indent or 0), 0)
             cell:SetWidth(col.width - (col.indent or 0))
             cell:SetJustifyH(col.align or "LEFT")
-            if book and (col.width or 0) >= 60 then
-                if cell.SetWordWrap then cell:SetWordWrap(true) end
-                if cell.SetMaxLines then cell:SetMaxLines(2) end
-            elseif cell.SetWordWrap then cell:SetWordWrap(false) end
+            if cell.SetWordWrap then cell:SetWordWrap(false) end
             row.cells[col.key] = cell
         end
         if row.RegisterForClicks then row:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
@@ -372,21 +356,8 @@ function Kit:Dropdown(parent, opts)
     function dd:Text() return CurrentText() end
 
     local width = opts.width or 170
-    local book = ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() and ONE.Book.OpenMenu
-    local ok, frame
-    if not book then ok, frame = pcall(CreateFrame, "DropdownButton", nil, parent, "WowStyle1DropdownTemplate") end
-    if book then
-        -- Buch: eigenes Auswahlfeld (Tinte, Unterstrich) mit Pergament-Menue (Book:OpenMenu)
-        dd.kind = "book"
-        frame = ONE.Book:MenuButton(parent, width)
-        frame:SetPoint(opts.point or "TOPLEFT", parent, opts.point or "TOPLEFT", opts.x or 0, opts.y or 0)
-        frame:SetScript("OnClick", function(self)
-            local list = {}
-            for i, o in ipairs(Options()) do list[i] = {value = Wrap(o.value), text = o.text, tooltip = o.tooltip} end
-            ONE.Book:OpenMenu(self, list, Wrap(opts.get()), function(v) dd:Select(v) end)
-        end)
-        function dd:Refresh() frame:SetLabel(CurrentText()) end
-    elseif ok and frame and type(frame.SetupMenu) == "function" and type(MenuUtil) == "table" then
+    local ok, frame = pcall(CreateFrame, "DropdownButton", nil, parent, "WowStyle1DropdownTemplate")
+    if ok and frame and type(frame.SetupMenu) == "function" and type(MenuUtil) == "table" then
         dd.kind = "menu"
         frame:SetPoint(opts.point or "TOPLEFT", parent, opts.point or "TOPLEFT", opts.x or 0, opts.y or 0)
         frame:SetWidth(width)
@@ -447,7 +418,6 @@ function Kit:Dropdown(parent, opts)
     end
     dd.frame = frame
     frame.__oneDropdown = dd
-    if dd.kind ~= "button" and dd.kind ~= "book" and ONE.Book and ONE.Book.StyleDropdown then ONE.Book:StyleDropdown(frame) end
     dd:Refresh()
     return dd
 end

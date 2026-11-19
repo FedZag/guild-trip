@@ -259,6 +259,10 @@ for iid in sorted(used_items):
                   stats)
 
 
+def S(t):
+    return ",".join(str(v) for v in t) if t else ""
+
+
 def L(t):
     return "{" + ",".join(str(v) for v in t) + "}" if t else "false"
 
@@ -270,23 +274,24 @@ with open(os.path.join(dest, "Rewards.lua"), "w", encoding="utf-8") as fh:
              " NICHT von Hand aendern.\n")
     fh.write("-- Quellen: QuestieDB Forever %s (GPLv3, Erlaubnis Questie/Questie#8365), cmangos classic-db e4825cf"
              " (GPL-3.0),\n-- wago.tools ItemSparse Forever-Build 1.60.1.70938 (Spieltabelle).\n" % qrev)
-    fh.write("-- r[quest] = {kupfer, aufwand (Toetungen/Aktionen), art (1 Gruppe/Elite, 2 Dungeon, 4 Schlachtzug,"
-             " 8 PvP, 16 Gruppe empfohlen), {feste Gegenstaende}, {Auswahl}}\n")
-    fh.write("-- i[gegenstand] = {platz (InventoryType), qualitaet, gegenstandsstufe, mindeststufe, klasse, unterklasse,"
-             " taschenplaetze, verkauf (kupfer), klassenmaske (0 = alle), {werte-arten}}\n")
+    fh.write("-- Kompakt als Text (spart Speicher im Spiel, gelesen erst bei Bedarf ueber Planner.Rew/Planner.Item):\n")
+    fh.write("-- r[quest] = \"kupfer|aufwand (Toetungen/Aktionen)|art (1 Gruppe/Elite, 2 Dungeon, 4 Schlachtzug, 8 PvP,"
+             " 16 Gruppe empfohlen)|feste Gegenstaende (a,b)|Auswahl (a,b)\"\n")
+    fh.write("-- i[gegenstand] = \"platz (InventoryType)|qualitaet|gegenstandsstufe|mindeststufe|klasse|unterklasse|"
+             "taschenplaetze|verkauf (kupfer)|klassenmaske (0 = alle)|werte-arten (a,b)\"\n")
     fh.write("GuildTripLeveling = GuildTripLeveling or {}\nlocal D = GuildTripLeveling\n")
     fh.write("D.source = %s\n" % ('"QuestieDB %s + cmangos classic-db e4825cf + ItemSparse 1.60.1.70938"' % qrev))
     fh.write("D.r = {\n")
     for qid in sorted(rewards):
         m, w, k, fx, ch = rewards[qid]
-        fh.write("[%d]={%d,%d,%d,%s,%s},\n" % (qid, m, w, k, L(fx), L(ch)))
+        fh.write('[%d]="%d|%d|%d|%s|%s",\n' % (qid, m, w, k, S(fx), S(ch)))
     fh.write("}\n-- Dungeon-Gebiet (zoneOrSort der Quest) -> Schluessel in ONE_Dungeons/Catalog.lua\nD.dz = {\n")
     for area in sorted(dungeon_area):
         fh.write("[%d]=%s,\n" % (area, '"%s"' % dungeon_area[area]))
     fh.write("}\nD.i = {\n")
     for iid in sorted(items):
         e = items[iid]
-        fh.write("[%d]={%d,%d,%d,%d,%d,%d,%d,%d,%d,%s},\n" % ((iid,) + e[:9] + (L(e[9]),)))
+        fh.write('[%d]="%d|%d|%d|%d|%d|%d|%d|%d|%d|%s",\n' % ((iid,) + e[:9] + (S(e[9]),)))
     fh.write("}\n")
 
 size = os.path.getsize(os.path.join(dest, "Rewards.lua"))

@@ -272,19 +272,6 @@ local hasGuild=false
 for _,t in ipairs(Titles()) do if t=="Guild Trip  ·  Die Testgilde" then hasGuild=true end end
 assert(hasGuild, "Titel mit Gildenname fehlt")
 GetGuildInfo=oldGuildInfo
--- 15.11.2026: im Buch steht "Guild Trip · Gildenname" links oben nur auf der Startseite
-do
- local head={shown=true}
- function head:Show() self.shown=true end
- function head:Hide() self.shown=false end
- local oldBook=ONE.Book
- ONE.Book=setmetatable({leftHead=head},{__index=function() return function() end end}) -- sonst alles leer
- ONE.UI:Navigate("calendar")
- assert(not head.shown,"Buchtitel nur auf der Startseite")
- ONE.UI:Navigate("home")
- assert(head.shown,"Startseite zeigt den Buchtitel")
- ONE.Book=oldBook
-end
 -- 0.6.9: lange Bereiche scrollen statt blaettern; Bereichsliste links, Module mit Hauptschalter
 do
  for i=1,40 do ONE:RegisterFeature("core.scrolltest"..i,{label="Scrolltest "..i}) end
@@ -303,6 +290,15 @@ do
  assert(btn,"Bereich Teilen in der Liste")
  btn.scripts.OnClick(btn)
  assert(ONE.UI.optionsCategory=="sharing" and not Visible(master))
+end
+-- Ansicht, die wie ihr Reiter heisst (Dungeons › Dungeons): Wechsel zu einer anderen Ansicht bleibt markiert
+do
+    local before=ONE.UI.activeTab
+    ONE.UI.activeTab="probe"
+    ONE.UI:SetViews("probe",{{key="probe",label="Probe"},{key="b",label="B"}},"b")
+    assert(ONE.UI.viewSets.probe.active=="b","aktive Ansicht springt nicht auf den Reiternamen zurueck")
+    ONE.UI.viewSets.probe=nil
+    ONE.UI.activeTab=before
 end
 print("OK: 0.5.0 - Fenstertitel Guild Trip mit Gildenname")
 print("OK: 0.4.4a - natives Fenster, Reiter, Migration, Optionen, Guild, Navigation, Kacheln und Buttons")

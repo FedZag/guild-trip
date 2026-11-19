@@ -95,4 +95,11 @@ for i = 1, 25 do log[#log + 1] = {questID = 10000 + i, title = "Q" .. i, level =
 local msgs = QS:Messages()
 assert(#msgs >= 3, "aufgeteilt")
 for _, m in ipairs(msgs) do assert(#m <= 250, #m) end
+-- 7) Reiter: Navi laedt vor der Fuehrung -> trotzdem kein "Quests"-Reiter, wenn ONE_Leveling kommt
+local oldC = rawget(_G, "C_AddOns")
+_G.C_AddOns = {GetAddOnEnableState = function(name) return name == "ONE_Leveling" and 2 or 0 end}
+assert(nav.Quests.LevelingComing(), "Fuehrung wird geladen")
+_G.C_AddOns = {GetAddOnEnableState = function() return 0 end}
+assert(not nav.Quests.LevelingComing(), "Fuehrung nicht installiert")
+_G.C_AddOns = oldC
 print("OK test_questshare_066")

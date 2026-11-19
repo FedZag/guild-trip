@@ -4,6 +4,50 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.7.2-alpha (in Sammlung)
+
+(noch nichts)
+
+---
+
+## 0.7.1-alpha (veröffentlicht 19.11.2026)
+
+```
+## 0.7.1-alpha
+
+**English**
+- New look "Glass": a see-through, tinted window with three columns – areas on the left as round glowing icons, the sub-pages of each area in the middle (plus who of your guild is online), the content on the right. Colour sets Azeroth (gold), Glass (blue), Horde, Alliance, or your own glow and glass colour with an opacity slider (Options › Display). The Blizzard look of 0.7.0 stays selectable.
+- Quest guide box redesigned: on top the area line (quests left here, estimated time, level when you leave); "Now" in large print with what to do and with whom, zone, nearby place and coordinates, distance and time; "Up next" with the next three steps. Your quest log stays on L and is no longer repeated in the box.
+- Quest guide plans with flight paths and boats: travel time is the fastest of walking, flying (every flight master you know) and ship/zeppelin. If flying is faster, the plan gets its own step "Fly: A › B" with the Navi to the flight master. It only recalculates when something really changes – never in combat.
+- New: Levelling › Gear. For every slot the best piece you can get at your level – from quests, dungeons and crafting – how much better it is and up to which level it lasts. Crafted gear says whether you can make it, will soon be able to, or which guild member can make it for you.
+- Levelling › Journal with a profile on top: quests completed (in total and today), zones visited, today's XP, levels and money, XP per hour.
+- Buff players nearby works out of combat without Ctrl+V: Guild Trip turns on friendly player nameplates itself (invisible, restored when you log out). Only players within your spell range are listed; anyone walking away turns grey. Clicking a name now buffs reliably, and the window remembers its place. New: `/trip buffcheck`.
+- Main window, chat and the quest guide box can be resized at every edge and corner (the edge glows gold under the mouse).
+- Home page: a calm picture and a cheeky line of the day. Dungeon pages show the real loading screen.
+- Minimap: at most 3 plain "!" for the next quest givers, no more yellow objective rings.
+- Sharper text: the main window snaps to whole pixels; text on light buttons no longer smudges; header text no longer runs under "Back".
+- Less memory (about 2 MB less); `/trip speicher` shows how much Guild Trip uses.
+- Fixed: "Levelling" tab missing for some players (old "Quests" tab instead); sub-page marker stuck on "Dungeons"; replaced WoW quest list came back after /reload; Lua error when clicking a guild event in the calendar.
+- Removed: the "old book" look.
+
+**Deutsch**
+- Neues Aussehen „Glas“: durchsichtig getöntes Fenster mit drei Spalten – links die Bereiche als runde, leuchtende Symbole, in der Mitte die Unterseiten des Bereichs (dazu, wer aus der Gilde online ist), rechts der Inhalt. Farbsätze Azeroth (Gold), Glas (Blau), Horde, Allianz oder eigene Leucht- und Glasfarbe mit Deckkraft-Regler (Optionen › Darstellung). Der Blizzard-Look von 0.7.0 bleibt wählbar.
+- Kasten der Quest-Führung neu: oben die Gebietszeile (Quests hier, geschätzte Zeit, Stufe beim Verlassen); „Jetzt“ groß mit was und bei wem, Gebiet, Ort in der Nähe und Koordinaten, Entfernung und Zeit; „Als Nächstes“ mit den nächsten drei Schritten. Dein Questlog bleibt auf L und steht nicht mehr doppelt im Kasten.
+- Die Quest-Führung plant mit Flugrouten und Schiffen: Die Reisezeit ist das Schnellste aus Laufen, Fliegen (alle Flugmeister, die du kennst) und Schiff/Zeppelin. Ist Fliegen schneller, bekommt der Plan einen eigenen Schritt „Fliegen: A › B“ mit Navi zum Flugmeister. Neu gerechnet wird nur, wenn sich wirklich etwas ändert – nie im Kampf.
+- Neu: Leveln › Ausrüstung. Für jeden Platz das Beste, was du auf deiner Stufe bekommen kannst – aus Quests, Dungeons und Herstellung –, wie viel besser es ist und bis zu welcher Stufe es hält. Bei Hergestelltem steht, ob du es kannst, bald kannst oder wer aus der Gilde es dir herstellt.
+- Leveln › Tagebuch mit Steckbrief oben: erledigte Quests (insgesamt und heute), besuchte Gebiete, heutige EP, Stufen und Geld, EP pro Stunde.
+- Buffen in der Nähe funktioniert außerhalb des Kampfes ohne Strg+V: Guild Trip schaltet die freundlichen Spieler-Plaketten selbst ein (unsichtbar, beim Ausloggen zurückgestellt). In der Liste stehen nur Spieler in Zauber-Reichweite; wer wegläuft, wird grau. Ein Klick auf den Namen bufft jetzt zuverlässig, und das Fenster merkt sich seinen Platz. Neu: `/trip buffcheck`.
+- Hauptfenster, Chat und Kasten der Quest-Führung lassen sich an jeder Kante und Ecke ziehen (die Kante leuchtet unter der Maus golden).
+- Startseite: ruhiges Bild und ein frecher Tagesspruch. Dungeon-Seiten zeigen den echten Ladebildschirm.
+- Minimap: höchstens 3 schlichte „!“ für die nächsten Questgeber, keine gelben Ziel-Ringe mehr.
+- Schärfere Schrift: Das Hauptfenster rastet auf ganze Bildpunkte ein; Schrift auf hellen Knöpfen verschmiert nicht mehr; die Kopfzeile läuft nicht mehr unter „Zurück“.
+- Weniger Speicher (rund 2 MB); `/trip speicher` zeigt, wie viel Guild Trip braucht.
+- Behoben: Reiter „Leveln“ fehlte bei manchen (stattdessen alter Reiter „Quests“); Markierung blieb bei „Dungeons“ hängen; ersetzte WoW-Questliste kam nach /reload zurück; Lua-Fehler beim Anklicken eines Gildentermins.
+- Entfernt: das Aussehen „Altes Buch“.
+```
+
+---
+
 ## 0.7.0-alpha (gebaut 17.11.2026)
 
 ```
@@ -40,7 +84,7 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
-## 0.6.9-alpha (gebaut 17.11.2026)
+## 0.6.9-alpha (gebaut + hochgeladen 17.11.2026)
 
 ```
 ## 0.6.9-alpha

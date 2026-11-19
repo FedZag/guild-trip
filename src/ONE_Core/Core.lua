@@ -4,7 +4,7 @@ local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select(
 
 -- Andere AddOns haben eigene Namespace-Tabellen. Die Bruecke ist nur das Core-API.
 _G.ProjectONE = ONE
-ONE.version = "0.7.0-alpha"
+ONE.version = "0.7.1-alpha"
 ONE.modules = {}
 ONE.moduleOrder = {}
 ONE.slashCommands = {}
@@ -157,6 +157,7 @@ function ONE:Initialize()
     self.Welcome:Initialize()
     if self.WhatsNew then self.WhatsNew:Initialize() end
     if self.Vendor then self.Vendor:Initialize() end
+    -- alle eigenen Fenster durch Ziehen an Kanten/Ecken vergroesserbar (sobald es sie gibt)
 
     SLASH_PROJECTONE1 = "/trip"
     SLASH_PROJECTONE2 = "/one" -- alter Befehl bleibt fuer bisherige Tester

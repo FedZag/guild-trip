@@ -58,6 +58,23 @@ ONE:RegisterModule("crafting", {
             crafting.Recipes:Prune(names)
         end
         crafting.PruneGuildData = PruneGuildData
+        function crafting.AskShare()
+            local store = crafting.Recipes:Store()
+            local me = crafting.Recipes.Me()
+            store.askedShare = type(store.askedShare) == "table" and store.askedShare or {}
+            if crafting.Share:IsSharing() or store.askedShare[me] then return false end
+            if type(IsInGuild) == "function" and not IsInGuild() then return false end
+            if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then return false end
+            store.askedShare[me] = true
+            StaticPopupDialogs.GUILDTRIP_SHARE_RECIPES = {
+                text = T("Guild Trip: Sollen deine Gildenmitglieder sehen, was du herstellen kannst?\n\nDann kann dich die Gilde um Ausrüstung bitten – und du siehst umgekehrt, wer dir etwas herstellen kann. Änderbar unter Optionen › Teilen."),
+                button1 = T("Ja, teilen"), button2 = T("Nein"),
+                OnAccept = function() crafting.Share:SetSharing(true) end,
+                timeout = 0, whileDead = 1, hideOnEscape = 1, preferredIndex = 3,
+            }
+            StaticPopup_Show("GUILDTRIP_SHARE_RECIPES")
+            return true
+        end
         events:SetScript("OnEvent", function(_, event)
             if event == "GUILD_ROSTER_UPDATE" then pcall(PruneGuildData) RefreshIfVisible() return end
             if event == "ITEM_DATA_LOAD_RESULT" then RefreshIfVisible() return end
@@ -75,6 +92,9 @@ ONE:RegisterModule("crafting", {
                         crafting.announced = true
                         ONE:Print(T("Berufe: %s gemerkt (%d gelernte Rezepte).", prof, count))
                     end
+                    -- 0.7.1: beim ersten Berufsfenster einmal fragen, ob die Gilde sehen darf,
+                    -- was du herstellen kannst (sonst kennt "Ausruestung auf deinem Weg" keine Hersteller)
+                    if event == "TRADE_SKILL_SHOW" and crafting.AskShare then pcall(crafting.AskShare) end
                 end
             end
             if C_Timer and C_Timer.After then C_Timer.After(1, Go) else Go() end

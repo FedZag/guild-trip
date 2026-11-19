@@ -71,4 +71,11 @@ assert(B.frame.edit.text == B.text, "Tippen veraendert den Bericht nicht")
 B:Record("lua", "ONE_Core/y.lua:1: neu")
 B:Slash("leeren")
 assert(#ONE.db.bugLog == 0 and printed[#printed]:find("geleert"), "leeren")
+-- Speicher je Teil (fuer Bericht und /trip speicher)
+local mem = {ONE_Core = 2048, ONE_Leveling = 512}
+UpdateAddOnMemoryUsage = function() end
+GetAddOnMemoryUsage = function(n) return mem[n] or 0 end
+local line = B.MemoryLine()
+assert(line == "Memory: 2.5 MB (Core 2.0, Leveling 0.5)", line)
+assert(B:Build():find("Memory: 2.5 MB", 1, true), "im Bericht")
 print("OK test_bugreport_053")

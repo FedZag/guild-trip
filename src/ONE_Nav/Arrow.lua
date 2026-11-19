@@ -280,6 +280,7 @@ function Arrow:StartWorld(label, continent, x, y, opts)
     self.frame:Show()
     self:Refresh()
     self:Rotate()
+    if opts and opts.quiet then return true end -- Quest-Fuehrung: Pfeil springt still weiter
     if self.RoutesOn() then ONE:Print(T("Navi zu %s – der Pfeil folgt dem Weg. Beenden: × oder /trip navi aus", self.probe.name))
     else ONE:Print(T("Navi zu %s. Richtung, keine Wegführung. Beenden: × oder /trip navi aus", self.probe.name)) end
     return true

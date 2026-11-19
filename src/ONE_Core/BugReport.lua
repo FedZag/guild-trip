@@ -79,6 +79,32 @@ local function Try(fn, ...)
     if ok then return a, b, c, d end
 end
 
+-- Speicher je Guild-Trip-Teil (KB) – fuer Fehlerbericht und /trip speicher. {{name, kb}}, Summe
+BugReport.ADDONS = {"ONE_Core", "ONE_Guild", "ONE_Nav", "ONE_Dungeons", "ONE_Crafting", "ONE_Classes", "ONE_Chat",
+    "ONE_QuestDB", "ONE_Routes", "ONE_Leveling", "ONE_Dev"}
+function BugReport.Memory()
+    local update = rawget(_G, "UpdateAddOnMemoryUsage")
+    local get = rawget(_G, "GetAddOnMemoryUsage")
+    if type(update) ~= "function" or type(get) ~= "function" then return nil end
+    pcall(update)
+    local out, sum = {}, 0
+    for _, name in ipairs(BugReport.ADDONS) do
+        local ok, kb = pcall(get, name)
+        if ok and type(kb) == "number" and kb > 0 then
+            out[#out + 1] = {name, kb}
+            sum = sum + kb
+        end
+    end
+    return out, sum
+end
+function BugReport.MemoryLine()
+    local list, sum = BugReport.Memory()
+    if not list then return nil end
+    local parts = {}
+    for _, e in ipairs(list) do parts[#parts + 1] = ("%s %.1f"):format(e[1]:gsub("^ONE_", ""), e[2] / 1024) end
+    return ("Memory: %.1f MB (%s)"):format(sum / 1024, table.concat(parts, ", "))
+end
+
 function BugReport:Build()
     local lines = {}
     local function Add(text) lines[#lines + 1] = text end
@@ -93,6 +119,8 @@ function BugReport:Build()
         modules[#modules + 1] = id .. "=" .. state
     end
     Add("Modules: " .. (#modules > 0 and table.concat(modules, ", ") or "-"))
+    local mem = BugReport.MemoryLine()
+    if mem then Add(mem) end
     for _, id in ipairs(ONE.moduleOrder or {}) do
         local def = ONE.modules[id]
         if def.error then Add("Start error " .. id .. ": " .. def.error) end

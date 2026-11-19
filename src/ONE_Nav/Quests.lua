@@ -189,7 +189,6 @@ end
 function Q:Build(panel, embedded)
     local W, H = ONE.UI.Layout.width, ONE.Geometry.tokens.contentHeight
     local L, R
-    if ONE.Book and ONE.Book.Spread then L, R = ONE.Book:Spread() end
     local leftW = L and L.width or 380
     local rightX, rightW = R and R.x or (leftW + 14), R and R.width or (W - leftW - 14)
     local state = {}
@@ -211,7 +210,7 @@ function Q:Build(panel, embedded)
             if not row.selection then
                 row.selection = row:CreateTexture(nil, "BACKGROUND", nil, 1)
                 row.selection:SetAllPoints(row)
-                if ONE.Book and ONE.Book.Paint then ONE.Book.Paint(row.selection, 1, .82, 0, .14) else row.selection:SetColorTexture(1, .82, 0, .14) end
+                row.selection:SetColorTexture(1, .82, 0, .14)
             end
             if state.q and state.q.id == q.id then row.selection:Show() else row.selection:Hide() end
         end,
@@ -295,6 +294,19 @@ function Q:Build(panel, embedded)
     end
 end
 
+-- Wird die Quest-Fuehrung (ONE_Leveling) fuer diesen Charakter noch geladen und ist sie an?
+function Q.LevelingComing()
+    if ONE.IsEnabled and not ONE:IsEnabled("leveling") then return false end
+    local who = type(UnitName) == "function" and UnitName("player") or nil
+    local C = rawget(_G, "C_AddOns")
+    local ok, state
+    if C and C.GetAddOnEnableState then ok, state = pcall(C.GetAddOnEnableState, "ONE_Leveling", who)
+    elseif type(rawget(_G, "GetAddOnEnableState")) == "function" then ok, state = pcall(GetAddOnEnableState, who, "ONE_Leveling") end
+    if not ok then return false end
+    if type(state) == "boolean" then return state end
+    return type(state) == "number" and state > 0
+end
+
 function Q:Register()
     if not (ONE.UI and ONE.UI.AddTab and ONE.Kit) then return false end
     -- Seite bei Quest-Aenderungen auffrischen (nur wenn sie offen ist)
@@ -314,7 +326,10 @@ function Q:Register()
         if ONE.UI.frame and ONE.UI.frame:IsShown() and (tab == "quests" or tab == "leveling") then ONE.UI:Refresh() end
     end
     -- Quest-Fuehrung an: der Questlog ist dort eine Ansicht (Reiter "Leveln"), kein eigener Reiter
+    -- Das Navi kann VOR der Fuehrung laden (Spieltest 18.11.2026: "Quests" statt "Leveln", danach war
+    -- kein Platz mehr fuer den Reiter). Darum auch fragen, ob ONE_Leveling noch geladen wird.
     local lev = ONE.modules and ONE.modules.leveling
     if lev and lev.OwnsQuestTab and lev:OwnsQuestTab() then return true end
+    if not lev and Q.LevelingComing() then return true end
     return ONE.UI:AddTab("quests", T("Quests"), function(panel) return self:Build(panel) end)
 end

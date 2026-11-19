@@ -7,10 +7,14 @@ local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select(
 -- denen einer DEINER Buffs fehlt – Gruppe, Gilde, Freunde und Fremde.
 --  * Woher die Spieler kommen: Gruppe/Schlachtzug, dein Ziel, freundliche
 --    Namensplaketten und wen du kurz mit der Maus beruehrt hast.
---  * Automatisch erkennen (Standard): Guild Trip schaltet die freundlichen
---    Namensplaketten ein (Reichweite 40 m), macht sie aber unsichtbar und
---    nicht anklickbar – so landet JEDER, der an dir vorbeilaeuft, in der
---    Liste. Abschalten stellt deine alten Einstellungen wieder her.
+--  * Automatisch erkennen (Standard): Addons sehen andere Spieler NUR ueber Namensplaketten
+--    (die blauen Namen ueber den Koepfen sind fuer Addons unsichtbar). Guild Trip schaltet
+--    deshalb die freundlichen Namensplaketten ein, macht sie aber unsichtbar und nicht
+--    anklickbar – so landet jeder, der an dir vorbeilaeuft, in der Liste.
+--    0.7.1: Umschalt+V (oder das Menue) heisst nur noch sichtbar/unsichtbar – die Plaketten bleiben
+--    technisch an, die Liste verliert nie die Spieler. Laeuft ein Namensplaketten-Addon (Plater, Kui …),
+--    fasst Guild Trip die Plaketten gar nicht an. Die Reichweite bleibt, wie du sie hast.
+--    Abschalten und Ausloggen stellen deine Einstellung wieder her.
 --  * Klick auf eine Zeile wirkt den Buff: Linksklick = erster Buff,
 --    Rechtsklick = zweiter, Umschalt+Linksklick = dritter. Blizzard-Knopf
 --    (SecureActionButtonTemplate) – erlaubt, weil du selbst klickst.
@@ -87,38 +91,92 @@ local function GetCV(name)
     return v ~= nil and tostring(v) or nil
 end
 local function SetCV(name, value)
+    -- eigene Aenderung markieren (damit sie nicht als "du hast umgeschaltet" zaehlt)
+    Nearby.ownChange = true
     local cv = rawget(_G, "C_CVar")
-    if cv and type(cv.SetCVar) == "function" then return Call(cv.SetCVar, name, value) end
-    return Call(rawget(_G, "SetCVar"), name, value)
+    local r
+    if cv and type(cv.SetCVar) == "function" then r = Call(cv.SetCVar, name, value)
+    else r = Call(rawget(_G, "SetCVar"), name, value) end
+    Nearby.ownChange = nil
+    return r
 end
-Nearby.range = 40
+
+-- Namensplaketten-Addons: dann fasst Guild Trip die Plaketten nicht an
+Nearby.PLATE_ADDONS = {"Plater", "Kui_Nameplates", "TidyPlates", "TidyPlates_ThreatPlates", "NeatPlates", "Platynator", "KkthnxUI", "ElvUI"}
+function Nearby.PlateAddon()
+    local loaded = (rawget(_G, "C_AddOns") or {}).IsAddOnLoaded or rawget(_G, "IsAddOnLoaded")
+    for _, name in ipairs(Nearby.PLATE_ADDONS) do
+        if Call(loaded, name) then return name end
+    end
+end
+
+-- Name der Einstellung "freundliche Spieler-Plaketten": im Forever-Client nameplateShowFriendlyPlayers
+-- (Umschalt+V/Strg+V schalten diese; /trip buffcheck 19.11.2026), sonst nameplateShowFriends
+function Nearby.FriendCV()
+    if GetCV("nameplateShowFriendlyPlayers") ~= nil then return "nameplateShowFriendlyPlayers" end
+    return "nameplateShowFriends"
+end
+local FriendCV = Nearby.FriendCV
 
 -- Plaketten an/aus je nach Zustand; alte Werte werden gemerkt und zurueckgestellt.
+-- Sichtbar oder unsichtbar? Deine Wahl (Umschalt+V) gilt; sonst wie vor Guild Trip
+-- (hattest du freundliche Plaketten schon an, bleiben sie sichtbar).
+function Nearby:Visible()
+    local store = Store()
+    if store.nearbyVisible ~= nil then return store.nearbyVisible end
+    local old = store.nearbyCVars
+    return (old and old.friends or GetCV(FriendCV())) == "1"
+end
+
+-- Plaketten sichtbar/unsichtbar und durchklickbar setzen
+function Nearby:ApplyVisibility()
+    self.hidePlates = self.autoOn and not self:Visible() or false
+    local np = rawget(_G, "C_NamePlate")
+    if np and type(np.SetNamePlateFriendlyClickThrough) == "function" then Call(np.SetNamePlateFriendlyClickThrough, self.hidePlates) end
+    for i = 1, 40 do self:StylePlate("nameplate" .. i) end
+end
+
 function Nearby:ApplyAuto(want)
     if InCombat() then return end
     local store = Store()
+    -- anderes Namensplaketten-Addon: nichts anfassen (dort selbst einschalten)
+    if want and Nearby.PlateAddon() then want = false end
     if want then
-        if not store.nearbyCVars then
-            store.nearbyCVars = {friends = GetCV("nameplateShowFriends") or "0", dist = GetCV("nameplateMaxDistance")}
-        end
-        if GetCV("nameplateShowFriends") ~= "1" then SetCV("nameplateShowFriends", "1") end
-        local d = tonumber(GetCV("nameplateMaxDistance") or "")
-        if d and d < self.range then SetCV("nameplateMaxDistance", tostring(self.range)) end
-        -- Hattest du die Plaketten selbst schon an, bleiben sie sichtbar
-        self.hidePlates = store.nearbyCVars.friends ~= "1"
+        if not store.nearbyCVars then store.nearbyCVars = {friends = GetCV(FriendCV()) or "0"} end
+        -- "Immer zeigen" (Strg+V): ohne das zeigt WoW Plaketten nur im Kampf -> Liste bliebe leer (Nutzer 18.11.2026)
+        if store.nearbyCVars.all == nil then store.nearbyCVars.all = GetCV("nameplateShowAll") or "0" end
+        if GetCV(FriendCV()) ~= "1" then SetCV(FriendCV(), "1") end
+        if GetCV("nameplateShowAll") ~= "1" then SetCV("nameplateShowAll", "1") end
     else
         local old = store.nearbyCVars
         if old then
-            if old.friends then SetCV("nameplateShowFriends", old.friends) end
+            -- zurueck: deine letzte eigene Wahl (sichtbar = an, unsichtbar = aus), sonst wie vor Guild Trip
+            local friends = store.nearbyVisible == true and "1" or store.nearbyVisible == false and "0" or old.friends
+            if friends then SetCV(FriendCV(), friends) end
+            -- aus 0.7.0: dort wurde noch die Reichweite verstellt
             if old.dist then SetCV("nameplateMaxDistance", old.dist) end
+            if old.all then SetCV("nameplateShowAll", old.all) end
             store.nearbyCVars = nil
         end
-        self.hidePlates = false
     end
-    local np = rawget(_G, "C_NamePlate")
-    if np and type(np.SetNamePlateFriendlyClickThrough) == "function" then Call(np.SetNamePlateFriendlyClickThrough, self.hidePlates) end
     self.autoOn = want
-    for i = 1, 40 do self:StylePlate("nameplate" .. i) end
+    self:ApplyVisibility()
+end
+
+-- Du hast die freundlichen Plaketten selbst umgeschaltet (Umschalt+V, Menue): sichtbar <-> unsichtbar.
+function Nearby:UserToggled()
+    if not self.autoOn or self.ownChange then return false end
+    -- Umschalt+V heisst jetzt nur noch sichtbar/unsichtbar: technisch bleiben die Plaketten an,
+    -- sonst verliert die Buff-Liste die Spieler in der Naehe.
+    local visible = not self:Visible()
+    Store().nearbyVisible = visible
+    if GetCV(FriendCV()) ~= "1" then SetCV(FriendCV(), "1") end
+    self:ApplyVisibility()
+    if ONE.Print then
+        ONE:Print(visible and T("Freundliche Namensplaketten sichtbar. Umschalt + V blendet sie wieder aus – die Buff-Liste sieht die Spieler in der Nähe so oder so.")
+            or T("Freundliche Namensplaketten ausgeblendet. Die Buff-Liste sieht die Spieler in der Nähe trotzdem."))
+    end
+    return true
 end
 
 -- Freundliche Spieler-Plakette unsichtbar (nur wenn wir sie eingeschaltet haben).
@@ -218,6 +276,16 @@ function Nearby:Units()
     return units
 end
 
+-- Sicher in Zauber-Reichweite? true/false/nil. Meldet WoW nichts (nil), hilft "Folgen"-Abstand (28 m).
+function Nearby.InRange(rangeFn, spellName, unit)
+    local r = Plain((Call(rangeFn, spellName, unit)))
+    if r == 1 or r == true then return true end
+    if r == 0 or r == false then return false end
+    local close = Plain((Call(rawget(_G, "CheckInteractDistance"), unit, 4)))
+    if close == true or close == 1 then return true end
+    return nil
+end
+
 -- Spieler in Reichweite, denen mindestens einer deiner Buffs fehlt.
 -- Eintrag: {name, unit (oder nil = nur per Name), level, classFile, tag, missing = {Angebot ...}, range}
 function Nearby:Scan(offers)
@@ -229,9 +297,9 @@ function Nearby:Scan(offers)
             and U("UnitCanAssist", "player", unit) and not U("UnitIsDeadOrGhost", unit) and U("UnitIsConnected", unit) ~= false then
             local name = U("GetUnitName", unit, true)
             if type(name) == "string" and not byName[name] then
-                local range = Plain((Call(rangeFn, offers[1].name, unit)))
-                if range == 1 then range = true elseif range == 0 then range = false end
-                if range ~= false then
+                local range = Nearby.InRange(rangeFn, offers[1].name, unit)
+                -- nur wer sicher in Reichweite ist (Nutzer 18.11.2026: Spieler in der Liste waren teils zu weit weg)
+                if range == true then
                     local _, classFile = Call(rawget(_G, "UnitClass"), unit)
                     local guid = U("UnitGUID", unit)
                     local e = {name = name, unit = unit, level = U("UnitLevel", unit), classFile = Plain(classFile),
@@ -242,15 +310,11 @@ function Nearby:Scan(offers)
             end
         end
     end
-    -- Zuletzt beruehrte Spieler ohne Einheit: nur per Name (Buffs unbekannt)
+    -- Zuletzt beruehrte Spieler ohne Einheit kommen NICHT mehr in die Liste: ihre Entfernung ist unbekannt,
+    -- der Buff scheiterte oft an der Reichweite (18.11.2026). Gemerkt bleiben sie nur fuer kurze Zeit.
     local now = Now()
     for name, s in pairs(self.seen or {}) do
-        if now - s.at > self.keep then self.seen[name] = nil
-        elseif not byName[name] then
-            local e = {name = name, level = s.level, classFile = s.classFile, tag = s.tag}
-            byName[name] = e
-            out[#out + 1] = e
-        end
+        if now - s.at > self.keep then self.seen[name] = nil end
     end
     -- Was fehlt jedem? Wer gerade von dir gebufft wurde, ist raus.
     local keep = {}
@@ -357,32 +421,49 @@ function Nearby:Bind(b, e)
         b:SetAttribute(m .. "spell" .. s[2], nil)
         b:SetAttribute(m .. "unit" .. s[2], nil)
         b:SetAttribute(m .. "macrotext" .. s[2], nil)
+        b:SetAttribute(m .. "onespell" .. s[2], nil)
+        b:SetAttribute(m .. "oneunit" .. s[2], nil)
     end
     for i, m in ipairs(e.missing) do
         local s = SLOTS[i]
         if not s then break end
         local mod, btn = s[1], s[2]
-        if e.unit then
-            b:SetAttribute(mod .. "type" .. btn, "spell")
-            b:SetAttribute(mod .. "spell" .. btn, m.spell)
-            b:SetAttribute(mod .. "unit" .. btn, e.unit)
-        else
-            -- nur per Name: kurz anvisieren, wirken, altes Ziel zurueck
-            local back = U("UnitExists", "target") and "/targetlasttarget" or "/cleartarget"
-            b:SetAttribute(mod .. "type" .. btn, "macro")
-            b:SetAttribute(mod .. "macrotext" .. btn, "/targetexact " .. e.name .. "\n/cast " .. SpellText(m.spell, m.offer.name) .. "\n" .. back)
-        end
+        -- Immer per Name: kurz anvisieren, wirken, altes Ziel zurueck. Zauber direkt auf "nameplateN" wirkt
+        -- dieser Client nicht – ohne Fehlermeldung (Spieltest 19.11.2026, /trip buffcheck).
+        local back = U("UnitExists", "target") and "/targetlasttarget" or "/cleartarget"
+        b:SetAttribute(mod .. "type" .. btn, "macro")
+        b:SetAttribute(mod .. "macrotext" .. btn, "/targetexact " .. e.name .. "\n/cast " .. SpellText(m.spell, m.offer.name) .. "\n" .. back)
+        b:SetAttribute(mod .. "onespell" .. btn, m.spell)   -- nur zum Nachsehen (buffcheck, Tests)
+        b:SetAttribute(mod .. "oneunit" .. btn, e.unit)
     end
 end
 
 local TAGS = {group = "Gruppe", guild = "Gilde", friend = "Freund"}
 local CLICKS = {"Linksklick", "Rechtsklick", "Umschalt + Linksklick"}
 
+-- Fenster im Blizzard-Aussehen, Texte in Theme-Farben
+local function Ink(text) return text end
+local function Themed(frame, bg, title, texts)
+    local th = ONE.Themes
+    if not th then return end
+    if th.RegisterWindow then pcall(th.RegisterWindow, th, frame, bg, title) end
+    for fs, role in pairs(texts or {}) do if th.RegisterText then pcall(th.RegisterText, th, fs, role) end end
+end
+
+-- Lage merken: echte linke untere Ecke (GetPoint lieferte nach dem Ziehen oft eine andere Bezugsecke,
+-- beim Laden landete das Fenster dann links – Spieltest 19.11.2026)
 local function SavePos(f)
     f:StopMovingOrSizing()
-    local _, _, _, x, y = f:GetPoint()
-    Store().nearbyPos = {x = x, y = y}
+    local x, y = f.GetLeft and f:GetLeft(), f.GetBottom and f:GetBottom()
+    if type(x) ~= "number" or type(y) ~= "number" then local _, _, _, px, py = f:GetPoint() x, y = px, py end
+    if type(x) == "number" and type(y) == "number" then
+        Store().nearbyPos = {x = math.floor(x + .5), y = math.floor(y + .5), v = 2}
+        if f.SetUserPlaced then pcall(f.SetUserPlaced, f, false) end   -- nur Guild Trip merkt sich die Lage
+        f:ClearAllPoints()
+        f:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", Store().nearbyPos.x, Store().nearbyPos.y)
+    end
 end
+Nearby.SavePos = SavePos
 
 local function NewRow(parent, width, height)
     local ok, b = pcall(CreateFrame, "Button", nil, parent, "SecureActionButtonTemplate")
@@ -394,6 +475,7 @@ local function NewRow(parent, width, height)
     if hl.SetColorTexture then hl:SetColorTexture(1, 1, 1, .12) end
     b.label = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     b.label:SetPoint("LEFT", b, "LEFT", 4, 0)
+    if ONE.Themes and ONE.Themes.RegisterText then pcall(ONE.Themes.RegisterText, ONE.Themes, b.label, "text") end
     if b.label.SetJustifyH then b.label:SetJustifyH("LEFT") end
     b.icons = {}
     for i = 1, 3 do
@@ -422,6 +504,16 @@ local function NewRow(parent, width, height)
         GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    -- fuer /trip buffcheck: was hat der letzte Klick ausgeloest? (Spieltest 18.11.2026: Klick tat nichts)
+    if b.HookScript then
+        b:HookScript("PostClick", function(self, button, down)
+            local function A(k) local ok, v = pcall(self.GetAttribute, self, k) return ok and v or nil end
+            local key = (button == "RightButton") and "2" or "1"
+            Nearby.lastClick = {button = tostring(button), down = down, t = Now(), err = nil,
+                type = A("type" .. key) or A("type"), spell = A("onespell" .. key), unit = A("oneunit" .. key),
+                name = self.entry and self.entry.name}
+        end)
+    end
     if b.RegisterForDrag then b:RegisterForDrag("LeftButton") end
     b:SetScript("OnDragStart", function()
         if type(IsAltKeyDown) == "function" and IsAltKeyDown() and not InCombat() then Nearby.frame:StartMoving() end
@@ -436,7 +528,12 @@ function Nearby:Frame()
     local f = CreateFrame("Frame", "GuildTripBuffNearby", UIParent)
     f:SetSize(self.width, self.rowH)
     local pos = Store().nearbyPos
-    f:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", pos and pos.x or 40, pos and pos.y or 320)
+    if pos and pos.v ~= 2 then
+        -- alter Wert (bis 0.7.1): bezog sich auf die Bildschirmmitte unten (wie WoWs eigene Fensterliste)
+        f:SetPoint("BOTTOM", UIParent, "BOTTOM", pos.x or 0, pos.y or 320)
+    else
+        f:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", pos and pos.x or 40, pos and pos.y or 320)
+    end
     if f.SetMovable then f:SetMovable(true) end
     if f.SetClampedToScreen then f:SetClampedToScreen(true) end
     if f.EnableMouse then f:EnableMouse(true) end
@@ -449,6 +546,8 @@ function Nearby:Frame()
     f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     f.title:SetPoint("TOPLEFT", f, "TOPLEFT", 4, -4)
     f.rows = {}
+    f.bg = bg
+    Themed(f, bg, f.title)
     -- Im Kampf ausblenden – ueber Blizzards sichere Zustandssteuerung
     if type(RegisterStateDriver) == "function" then pcall(RegisterStateDriver, f, "visibility", "[combat] hide; show") end
     self.frame = f
@@ -456,12 +555,36 @@ function Nearby:Frame()
 end
 
 -- Fenster neu aufbauen (nur ausserhalb des Kampfes).
+-- Maus ueber der Liste: nicht umsortieren, aber wer aus der Reichweite laeuft, wird grau und
+-- nicht mehr klickbar (Nutzer 19.11.2026: nur wer im Wirkradius ist)
+function Nearby:Recheck()
+    local f = self.frame
+    if not (f and f.rows) or InCombat() then return end
+    local rangeFn = classes.Player.Path("C_Spell.IsSpellInRange") or rawget(_G, "IsSpellInRange")
+    for _, b in ipairs(f.rows) do
+        local e = b.entry
+        if e and (not b.IsShown or b:IsShown()) and e.missing and e.missing[1] then
+            local ok = e.unit and U("UnitExists", e.unit) and Nearby.InRange(rangeFn, e.missing[1].offer.name, e.unit) == true
+            if ok and b.__oneOut then
+                b.__oneOut = nil
+                if b.SetAlpha then b:SetAlpha(1) end
+                self:Bind(b, e)
+            elseif not ok and not b.__oneOut then
+                b.__oneOut = true
+                if b.SetAlpha then b:SetAlpha(.35) end
+                self:Bind(b, {name = e.name, missing = {}})
+            end
+        end
+    end
+end
+
 function Nearby:Update()
     if InCombat() then self.dirty = true return end
     -- Maus auf der Liste: nichts umsortieren (sonst rutscht ein anderer Spieler unter den Mauszeiger).
     -- Ausnahme: gerade erfolgreich gebufft – dann darf der Spieler raus.
     local f0 = self.frame
     if f0 and not self.forceNext and f0.IsMouseOver and f0:IsShown() and (f0:GetAlpha() or 0) > 0 and f0:IsMouseOver() then
+        self:Recheck()
         return self.shown
     end
     self.forceNext = nil
@@ -474,6 +597,11 @@ function Nearby:Update()
     else
         self.myOffers = {}
     end
+    -- Plaketten sind aus, obwohl wir sie eingeschaltet hatten: das warst du (Umschalt+V)
+    if self.autoOn and GetCV(FriendCV()) == "0" then self:UserToggled() end
+    -- "Immer zeigen" wieder aus (Strg+V oder WoW-Einstellung): ohne das bleibt die Liste ausserhalb des
+    -- Kampfes leer -> still wieder an (Spieltest 18.11.2026: "jetzt muss ich doch Strg+V druecken")
+    if self.autoOn and not InCombat() and GetCV("nameplateShowAll") ~= "1" then SetCV("nameplateShowAll", "1") self.reAll = (self.reAll or 0) + 1 end
     local want = self:Enabled() and self:AutoEnabled() and #self.myOffers > 0
     if want ~= (self.autoOn or false) then self:ApplyAuto(want)
     elseif self.hidePlates then for i = 1, 40 do self:StylePlate("nameplate" .. i) end end
@@ -495,7 +623,8 @@ function Nearby:Update()
         local text = c and c.colorStr and ("|c" .. c.colorStr .. short .. "|r") or short
         if e.level then text = text .. " |cffaaaaaa" .. e.level .. "|r" end
         if e.tag then text = text .. " |cff66ccff" .. T(TAGS[e.tag]) .. "|r" end
-        b.label:SetText(text)
+        b.label:SetText(Ink(text))
+        b.__oneOut = nil
         if b.SetAlpha then b:SetAlpha(e.unit and 1 or .7) end
         for k = 1, 3 do
             local m = e.missing[k]
@@ -512,11 +641,69 @@ function Nearby:Update()
     return list
 end
 
+-- Pruefung im Spiel: wo reisst die Kette? (/trip buffcheck – Nutzer 18.11.2026: Fenster kam nicht)
+function Nearby:Diagnose()
+    local say = function(t) ONE:Print("|cffffd100Buffcheck:|r " .. t) end
+    local p = classes.Player:Read(Store().spec)
+    local offers = self:MyOffers(p)
+    local names = {}
+    for _, o in ipairs(offers) do names[#names + 1] = (o.name or "?") .. " (" .. tostring(o.best) .. ")" end
+    say(("an=%s, automatisch=%s, Klasse=%s, deine Buffs: %s"):format(tostring(self:Enabled()), tostring(self:AutoEnabled()),
+        tostring(p.classFile), #names > 0 and table.concat(names, ", ") or "KEINE erkannt"))
+    say(("Namensplaketten Freunde (" .. FriendCV() .. ")=%s, immer zeigen=%s, Reichweite=%s, Plaketten-Addon=%s, im Kampf=%s"):format(tostring(GetCV(FriendCV())),
+        tostring(GetCV("nameplateShowAll")), tostring(GetCV("nameplateMaxDistance")), tostring(self.PlateAddon() or "nein"), tostring(InCombat() and true or false)))
+    say(("Automatik: an=%s, gewollt=%s, eigene Buffs=%d, „immer zeigen“ neu gesetzt=%dx"):format(tostring(self.autoOn or false),
+        tostring(self:AutoEnabled()), #(self.myOffers or {}), self.reAll or 0))
+    -- alle Plaketten-Einstellungen, die dieser Client kennt (Namen weichen je Client ab)
+    local found = {}
+    local cons = rawget(_G, "C_Console")
+    local all = cons and Call(cons.GetAllCommands)
+    if type(all) == "table" then
+        for _, c in ipairs(all) do
+            local n = type(c) == "table" and c.command
+            if type(n) == "string" and n:lower():find("plate") and (n:lower():find("show") or n:lower():find("friend")) then
+                found[#found + 1] = n .. "=" .. tostring(GetCV(n))
+            end
+        end
+    end
+    say(#found > 0 and ("Plaketten-Werte: " .. table.concat(found, ", ")) or "Plaketten-Werte: Liste nicht abrufbar")
+    local bind = rawget(_G, "GetBindingAction")
+    say(("Tasten: Strg+V=%s, Umschalt+V=%s, V=%s · zuletzt geändert: %s"):format(tostring(Call(bind, "CTRL-V")), tostring(Call(bind, "SHIFT-V")),
+        tostring(Call(bind, "V")), self.cvarLog and table.concat(self.cvarLog, ", ") or "nichts"))
+    local lc = self.lastClick
+    if lc then
+        say(("Letzter Klick: %s auf %s (%s, gedrückt=%s): %s %s auf %s · WoW: %s"):format(tostring(lc.button), tostring(lc.name),
+            ("vor %ds"):format(math.floor(Now() - lc.t)), tostring(lc.down), tostring(lc.type), tostring(lc.spell), tostring(lc.unit), lc.err or "kein Fehler"))
+    else say("Letzter Klick: noch keiner auf die Liste") end
+    local rangeFn = classes.Player.Path("C_Spell.IsSpellInRange") or rawget(_G, "IsSpellInRange")
+    local plates, players = 0, 0
+    for _, unit in ipairs(self:Units()) do
+        if U("UnitExists", unit) then
+            if unit:find("^nameplate") then plates = plates + 1 end
+            if U("UnitIsPlayer", unit) and not U("UnitIsUnit", unit, "player") then
+                players = players + 1
+                local why = {}
+                if not U("UnitCanAssist", "player", unit) then why[#why + 1] = "nicht unterstuetzbar" end
+                if U("UnitIsDeadOrGhost", unit) then why[#why + 1] = "tot" end
+                local range = offers[1] and Plain((Call(rangeFn, offers[1].name, unit)))
+                if range == false or range == 0 then why[#why + 1] = "zu weit" end
+                local e = {name = U("GetUnitName", unit, true), level = U("UnitLevel", unit), auras = UnitAuras(unit),
+                    classFile = select(2, Call(rawget(_G, "UnitClass"), unit))}
+                if #self:MissingFor(e, offers) == 0 then why[#why + 1] = "hat schon alle Buffs" end
+                say(("%s (%s, Stufe %s): %s"):format(tostring(e.name), unit, tostring(e.level), #why > 0 and table.concat(why, ", ") or "PASST – sollte in der Liste stehen"))
+            end
+        end
+    end
+    say(("Plaketten sichtbar: %d, Spieler gefunden: %d, Fenster-Liste: %d"):format(plates, players, #(self.shown or {})))
+end
+
 function Nearby:Initialize()
+    if ONE.RegisterSlash then ONE:RegisterSlash("buffcheck", function() Nearby:Diagnose() end, T("Prüfen, warum „Buffen in der Nähe“ niemanden zeigt")) end
     local events = CreateFrame("Frame")
     for _, ev in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "SPELLS_CHANGED", "GROUP_ROSTER_UPDATE",
         "PLAYER_TARGET_CHANGED", "NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED", "UPDATE_MOUSEOVER_UNIT", "UNIT_AURA",
-        "UNIT_SPELLCAST_SENT", "UNIT_SPELLCAST_SUCCEEDED", "PLAYER_LOGOUT"}) do
+        "UNIT_SPELLCAST_SENT", "UNIT_SPELLCAST_SUCCEEDED", "PLAYER_LOGOUT", "CVAR_UPDATE", "UI_ERROR_MESSAGE",
+        "UNIT_SPELLCAST_FAILED"}) do
         pcall(events.RegisterEvent, events, ev)
     end
     local pending = false
@@ -524,6 +711,18 @@ function Nearby:Initialize()
         if event == "UPDATE_MOUSEOVER_UNIT" then Nearby:Remember("mouseover") end
         -- Ausloggen: Namensplaketten wieder wie vorher (falls das Addon mal fehlt, bleibt nichts verstellt)
         if event == "PLAYER_LOGOUT" then if Nearby.autoOn then Nearby:ApplyAuto(false) end return end
+        if event == "CVAR_UPDATE" then
+            Nearby.cvarLog = Nearby.cvarLog or {}
+            table.insert(Nearby.cvarLog, tostring(a) .. "=" .. tostring(b))
+            while #Nearby.cvarLog > 6 do table.remove(Nearby.cvarLog, 1) end
+            if type(a) == "string" and a:lower() == FriendCV():lower() then Nearby:UserToggled() end
+            return
+        end
+        if event == "UI_ERROR_MESSAGE" or event == "UNIT_SPELLCAST_FAILED" then
+            local lc = Nearby.lastClick
+            if lc and Now() - lc.t <= 2 and not lc.err then lc.err = event == "UI_ERROR_MESSAGE" and tostring(b or a) or "Zauber fehlgeschlagen" end
+            if event == "UI_ERROR_MESSAGE" then return end
+        end
         if event == "UNIT_SPELLCAST_SENT" then Nearby:OnSent(a, b, c, d) return end
         if event == "NAME_PLATE_UNIT_ADDED" then Nearby:StylePlate(a) end
         if event == "UNIT_SPELLCAST_SUCCEEDED" then
@@ -535,9 +734,9 @@ function Nearby:Initialize()
         local function Go() pending = false Nearby:Update() end
         if C_Timer and C_Timer.After then C_Timer.After(.3, Go) else Go() end
     end)
-    -- Reichweite aendert sich beim Laufen: jede Sekunde nachsehen
+    -- Reichweite aendert sich beim Laufen: zweimal je Sekunde nachsehen
     if C_Timer and type(C_Timer.NewTicker) == "function" then
-        C_Timer.NewTicker(1, function() if not InCombat() and not pending then Nearby:Update() end end)
+        C_Timer.NewTicker(.5, function() if not InCombat() and not pending then Nearby:Update() end end)
     end
     self.events = events
 end

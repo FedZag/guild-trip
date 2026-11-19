@@ -97,8 +97,10 @@ assert(f and f.title.text == "Buffen in der Nähe (3)" and drivers[1].rule == "[
 
 -- 2) Klick wirkt den Buff im passenden Rang: Stufe 30 -> Rang 3, Stufe 10 -> Rang 2 (Rang 3 braucht 24-10)
 local r1, r3 = f.rows[1], f.rows[3]
-assert(r1.template == "SecureActionButtonTemplate" and r1.attr.type1 == "spell" and r1.attr.spell1 == 1245 and r1.attr.unit1 == "party1", "Gruppe")
-assert(r3.attr.type1 == "spell" and r3.attr.spell1 == 1244 and r3.attr.unit1 == "target", "niedriger Rang fuer Stufe 10")
+-- immer per Name (Zauber direkt auf nameplateN wirkt der Forever-Client nicht, 19.11.2026)
+assert(r1.template == "SecureActionButtonTemplate" and r1.attr.type1 == "macro" and r1.attr.onespell1 == 1245 and r1.attr.oneunit1 == "party1"
+    and r1.attr.macrotext1:find("^/targetexact Bob\n/cast ") and (r1.attr.macrotext1:find("\n/targetlasttarget$") or r1.attr.macrotext1:find("\n/cleartarget$")), "Gruppe")
+assert(r3.attr.type1 == "macro" and r3.attr.onespell1 == 1244 and r3.attr.oneunit1 == "target", "niedriger Rang fuer Stufe 10")
 assert(r3.attr.type2 == nil, "nur ein Buff -> kein Rechtsklick")
 assert(r1.label.text:find("Bob", 1, true) and r1.label.text:find("ff3fc7eb", 1, true) and r1.label.text:find("Gruppe", 1, true))
 assert(r1.icons[1].shown and not r1.icons[2].shown)
@@ -114,23 +116,26 @@ UNITS.party1.auras = {{name = "GEHEIM"}}
 assert(Names(N:Update()) == "Bob,Gildi,Fremder")
 Reset()
 
--- 4) Mit der Maus beruehrt (ohne Plakette): nur per Name -> Makro, Ziel zurueck
+-- 4) Mit der Maus beruehrt (ohne Plakette): Entfernung unbekannt -> NICHT in der Liste (18.11.2026:
+--    solche Spieler waren oft ausser Reichweite, der Buff scheiterte)
 UNITS.mouseover = {name = "Wanderer", class = "MAGE", level = 40, range = true, auras = {}}
 N:Remember("mouseover")
 UNITS.mouseover = nil
 list = N:Update()
-assert(Names(list) == "Bob,Gildi,Fremder,Wanderer", Names(list))
-local r4 = f.rows[4]
-assert(r4.attr.type1 == "macro" and r4.attr.macrotext1 == "/targetexact Wanderer\n/cast Machtwort: Seelenstärke(Rang 3)\n/targetlasttarget", r4.attr.macrotext1)
-assert(r4.alpha == .7)
-GetTime = function() return 1031 end -- nach 30 Sekunden vergessen
-assert(Names(N:Update()) == "Bob,Gildi,Fremder")
-GetTime = function() return 1000 end
-
+assert(Names(list) == "Bob,Gildi,Fremder", Names(list))
+-- Reichweite unbekannt (nil): nur mit "Folgen"-Abstand (28 m) in der Liste
+UNITS.nameplate3.range = nil
+local close = false
+CheckInteractDistance = function(u, i) return u == "nameplate3" and i == 4 and close end
+assert(not Names(N:Update()):find("Weitweg"), "unbekannt + weit: raus")
+close = true
+assert(Names(N:Update()):find("Weitweg"), "unbekannt + nah: drin")
+UNITS.nameplate3.range = false
+CheckInteractDistance = nil
 -- 5) Zwei Buffs: Linksklick erster, Rechtsklick zweiter
 book = {1243, 14752}
 list = N:Update()
-assert(f.rows[1].attr.spell1 == 1243 and f.rows[1].attr.spell2 == 14752 and f.rows[1].attr.unit2 == "party1", "Rechtsklick = zweiter Buff")
+assert(f.rows[1].attr.onespell1 == 1243 and f.rows[1].attr.onespell2 == 14752 and f.rows[1].attr.oneunit2 == "party1", "Rechtsklick = zweiter Buff")
 book = {1243, 1244, 1245}
 
 -- 6) Paladin: ein Segen je Ziel – Krieger bekommt Macht, Magier Weisheit; schon gesegnet = fehlt nicht
@@ -139,8 +144,8 @@ book = {19742, 19740, 19834}
 list = N:Update()
 local byName = {}
 for i, e in ipairs(list) do byName[e.name] = f.rows[i] end
-assert(byName.Fremder.attr.spell1 == 19834 and byName.Fremder.attr.spell2 == 19742, "Krieger: Macht zuerst")
-assert(byName.Bob.attr.spell1 == 19742 and byName.Bob.attr.spell2 == 19834, "Magier: Weisheit zuerst")
+assert(byName.Fremder.attr.onespell1 == 19834 and byName.Fremder.attr.onespell2 == 19742, "Krieger: Macht zuerst")
+assert(byName.Bob.attr.onespell1 == 19742 and byName.Bob.attr.onespell2 == 19834, "Magier: Weisheit zuerst")
 UNITS.party1.auras = {{name = "Segen der Macht", expirationTime = 0}}
 assert(not Names(N:Update()):find("Bob"), "hat schon einen Segen")
 myClass, book = "PRIEST", {1243, 1244, 1245}
@@ -197,7 +202,7 @@ assert(Names(N:Update()) == "Bob,Gildi", "Wanderer raus")
 GetTime = function() return 1000 end
 
 -- 11) Automatisch erkennen: Plaketten an (unsichtbar, durchklickbar), alte Werte zurueck
-local cvars = {nameplateShowFriends = "0", nameplateMaxDistance = "20"}
+local cvars = {nameplateShowFriends = "0", nameplateMaxDistance = "20", nameplateShowAll = "0"}
 C_CVar = {GetCVar = function(k) return cvars[k] end, SetCVar = function(k, v) cvars[k] = v end}
 local plates, clickThrough = {}, nil
 C_NamePlate = {
@@ -210,14 +215,19 @@ N.autoOn = nil
 N.done, N.seen = nil, nil
 ONE.db.classGuide.nearbyCVars = nil
 N:Update()
-assert(cvars.nameplateShowFriends == "1" and cvars.nameplateMaxDistance == "40", "Plaketten an, 40 m")
+assert(cvars.nameplateShowFriends == "1" and cvars.nameplateMaxDistance == "20", "Plaketten an, Reichweite unveraendert")
+assert(cvars.nameplateShowAll == "1", "immer zeigen an (sonst nur im Kampf, 18.11.2026)")
 assert(clickThrough == true and plates.nameplate1.UnitFrame.alpha == 0 and plates.nameplate5.UnitFrame.alpha == 1, "unsichtbar")
-assert(ONE.db.classGuide.nearbyCVars.friends == "0" and ONE.db.classGuide.nearbyCVars.dist == "20")
+assert(ONE.db.classGuide.nearbyCVars.friends == "0" and ONE.db.classGuide.nearbyCVars.dist == nil)
 N:Update() -- zweites Mal: alte Werte nicht ueberschreiben
 assert(ONE.db.classGuide.nearbyCVars.friends == "0")
+cvars.nameplateShowAll = "0" -- Strg+V gedrueckt / von WoW zurueckgestellt
+N:Update()
+assert(cvars.nameplateShowAll == "1" and ONE.db.classGuide.nearbyCVars.all == "0", "immer zeigen wieder an, alter Wert bleibt gemerkt")
 N:SetAuto(false)
 assert(cvars.nameplateShowFriends == "0" and cvars.nameplateMaxDistance == "20" and clickThrough == false
     and plates.nameplate1.UnitFrame.alpha == 1 and ONE.db.classGuide.nearbyCVars == nil, "alles zurueck")
+assert(cvars.nameplateShowAll == "0", "immer zeigen zurueck")
 assert(Names(N:Update()) == "Bob,Gildi", "Liste bleibt trotzdem")
 -- Plaketten hattest du schon an: bleiben sichtbar
 cvars.nameplateShowFriends = "1"
@@ -238,6 +248,15 @@ f.IsShown = function() return true end
 f.GetAlpha = function() return 1 end
 UNITS.party1.auras = {{name = "Machtwort: Seelenstärke", expirationTime = 0}}
 assert(Names(N:Update()) == "Bob,Gildi,Fremder", "eingefroren, solange die Maus drueber ist")
+-- wer waehrenddessen aus der Reichweite laeuft: grau und nicht klickbar (19.11.2026)
+UNITS.party1.range = false
+N:Update()
+local rowBob
+for _, r in ipairs(f.rows) do if r.entry and r.entry.name == "Bob" then rowBob = r end end
+assert(rowBob.alpha == .35 and rowBob.attr.type1 == nil, "ausser Reichweite: grau, kein Klick")
+UNITS.party1.range = true
+N:Update()
+assert(rowBob.alpha == 1 and rowBob.attr.type1 == "macro", "wieder in Reichweite")
 N:OnSent("player", "Gildi", "cast-9", 1245) N:OnSucceeded("player", "cast-9")
 assert(Names(N:Update()) == "Fremder", "nach dem Buff aktualisiert")
 f.IsMouseOver = function() return false end
@@ -257,4 +276,81 @@ local logout = N.events and N.events.scripts and N.events.scripts.OnEvent
 assert(N.autoOn and cvars.nameplateShowFriends == "1")
 N:ApplyAuto(false)
 assert(cvars.nameplateShowFriends == "0" and cvars.nameplateMaxDistance == "20")
+-- 15) 0.7.1: Umschalt+V heisst sichtbar/unsichtbar – technisch bleiben die Plaketten an
+cvars.nameplateShowFriends = "0"
+ONE.db.classGuide.nearbyCVars, ONE.db.classGuide.nearbyAuto, ONE.db.classGuide.nearbyVisible = nil, nil, nil
+N.autoOn = nil
+local printed = {}
+ONE.Print = function(_, t) printed[#printed + 1] = t end
+N:Update()
+assert(N.autoOn and N.hidePlates and cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 0, "unsichtbar")
+-- a) Umschalt+V (Spiel schaltet "aus") -> sichtbar, bleibt an
+cvars.nameplateShowFriends = "0"
+assert(N:UserToggled())
+assert(cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 1 and clickThrough == false and N.autoOn, "sichtbar")
+assert(ONE.db.classGuide.nearbyVisible == true and printed[#printed]:find("sichtbar", 1, true))
+N:Update()
+assert(plates.nameplate1.UnitFrame.alpha == 1 and N.autoOn, "bleibt sichtbar")
+-- b) nochmal Umschalt+V (ueber den Abgleich, ohne Ereignis) -> wieder unsichtbar, Liste laeuft weiter
+cvars.nameplateShowFriends = "0"
+N:Update()
+assert(cvars.nameplateShowFriends == "1" and plates.nameplate1.UnitFrame.alpha == 0 and clickThrough == true and N.autoOn, "wieder unsichtbar")
+assert(ONE.db.classGuide.nearbyVisible == false and printed[#printed]:find("ausgeblendet", 1, true))
+assert(Names(N:Update()) ~= "", "Liste funktioniert weiter")
+-- c) eigene Aenderungen zaehlen nicht
+N.ownChange = true
+assert(N:UserToggled() == false)
+N.ownChange = nil
+-- d) Wahl wird gemerkt: sichtbar gewaehlt, ausloggen -> Plaketten bleiben an
+cvars.nameplateShowFriends = "0" N:UserToggled()
+assert(ONE.db.classGuide.nearbyVisible == true)
+N:ApplyAuto(false)
+assert(cvars.nameplateShowFriends == "1", "sichtbar gewaehlt: bleibt an")
+-- unsichtbar gewaehlt: ausloggen -> wie vor Guild Trip (aus)
+N:ApplyAuto(true)
+cvars.nameplateShowFriends = "0" N:UserToggled()
+assert(ONE.db.classGuide.nearbyVisible == false)
+N:ApplyAuto(false)
+assert(cvars.nameplateShowFriends == "0", "unsichtbar gewaehlt: beim Ausloggen aus")
+-- Einloggen: Wahl gilt wieder
+N:ApplyAuto(true)
+assert(N.hidePlates and cvars.nameplateShowFriends == "1")
+-- 16) Namensplaketten-Addon aktiv: nichts anfassen
+N:ApplyAuto(false)
+ONE.db.classGuide.nearbyAuto, ONE.db.classGuide.nearbyVisible = nil, nil
+ONE.db.classGuide.nearbyCVars = nil
+cvars.nameplateShowFriends = "0"
+N.autoOn = nil
+C_AddOns = {IsAddOnLoaded = function(name) return name == "Plater" end}
+N:Update()
+assert(cvars.nameplateShowFriends == "0" and not N.hidePlates and ONE.db.classGuide.nearbyCVars == nil, "Plater: nichts verstellt")
+C_AddOns = nil
+-- 17) Aus 0.7.0 gemerkte Reichweite wird beim Zurueckstellen noch korrigiert
+ONE.db.classGuide.nearbyCVars = {friends = "0", dist = "20"}
+cvars.nameplateMaxDistance = "40"
+N.autoOn = true
+N:ApplyAuto(false)
+assert(cvars.nameplateMaxDistance == "20" and ONE.db.classGuide.nearbyCVars == nil)
+-- Forever-Client: Einstellung heisst nameplateShowFriendlyPlayers (Umschalt+V/Strg+V, buffcheck 19.11.2026)
+do
+    cvars.nameplateShowFriends = nil
+    cvars.nameplateShowFriendlyPlayers = "0"
+    ONE.db.classGuide.nearbyCVars, ONE.db.classGuide.nearbyVisible = nil, nil
+    N.autoOn = nil
+    assert(N.FriendCV() == "nameplateShowFriendlyPlayers")
+    N:ApplyAuto(true)
+    assert(cvars.nameplateShowFriendlyPlayers == "1" and N.hidePlates == true, "an, aber unsichtbar")
+    N:ApplyAuto(false)
+    assert(cvars.nameplateShowFriendlyPlayers == "0" and ONE.db.classGuide.nearbyCVars == nil, "wieder wie vorher")
+end
+-- Lage: echte linke untere Ecke merken (19.11.2026: nach Neustart stand es links)
+do
+    local g = Region("Frame")
+    g.GetLeft = function() return 812.4 end
+    g.GetBottom = function() return 233.6 end
+    g.GetPoint = function() return "TOPLEFT", nil, "TOPLEFT", -5, -7 end
+    N.SavePos(g)
+    local pos = ONE.db.classGuide.nearbyPos
+    assert(pos.x == 812 and pos.y == 234, pos.x .. "," .. pos.y)
+end
 print("OK test_nearby_103")

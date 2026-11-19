@@ -63,10 +63,58 @@ _G.Minimap = Obj()
 nav.Travel = {PlayerWorld = function() return 1, 1000, 2000 end,
     World = function(map, px, py) if map == 10 then return 1, 1000 + (px - .5) * 200, 2000 + (py - .5) * 200 end end,
     Facing = function() return 0 end}
-P.points = {{mapID = 10, x = .5, y = .1, q = {id = 1, title = "Nord"}}, {mapID = 10, x = .5, y = .5, q = {id = 3, title = "Hier"}}}
+-- Ziel-Ringe gibt es auf der Minimap nicht mehr (18.11.2026) – nur Questgeber-"!"
+P.points = {{mapID = 10, x = .5, y = .3, q = {id = 9, title = "Ziel"}}}
+P.worldCache = nil
+P:RefreshMinimap()
+assert(not P.miniPool[1], "kein Ziel-Ring auf der Minimap")
+local function G0(id, y) return {mapID = 10, x = .5, y = y, giver = {name = "G" .. id, quests = {{id = id, title = "Q" .. id}}}} end
+P.points = {G0(1, .1), G0(3, .5)}
 P.worldCache = nil
 P:RefreshMinimap()
 assert(P.miniPool[1] and P.miniPool[1].points[1], "Symbol gezeichnet")
 assert(type(P.miniPool[1].points[1][4]) == "number" and type(P.miniPool[1].points[1][5]) == "number", "beide Koordinaten")
 assert(not P.miniPool[2], "Punkt unter dem Spielerpfeil bleibt frei")
+
+-- 5) 0.7.1: Questgeber auf der Minimap nur aus dem Plan, hoechstens 3, die naechsten zuerst
+local function Giver(id, y) return {mapID = 10, x = .5, y = y, giver = {name = "G" .. id, quests = {{id = id, title = "Q" .. id}}}} end
+P.points = {Giver(101, .70), Giver(102, .30), Giver(103, .20), Giver(104, .15), Giver(105, .25), {mapID = 10, x = .5, y = .1, q = {id = 1, title = "Ziel"}}}
+P.worldCache = nil
+local function Shown()
+    local n, givers = 0, 0
+    for _, pin in ipairs(P.miniPool) do
+        if pin.shownState ~= false and pin.point then n = n + 1 if pin.point.giver then givers = givers + 1 end end
+    end
+    return n, givers
+end
+for _, pin in ipairs(P.miniPool) do pin.Hide = function(self) self.shownState = false end pin.Show = function(self) self.shownState = true end end
+local mt = getmetatable(Obj())
+CreateFrame = function()
+    local o = Obj()
+    o.Hide = function(self) self.shownState = false end
+    o.Show = function(self) self.shownState = true end
+    return o
+end
+-- Plan laesst 102, 103, 104, 105 annehmen (101 nicht)
+ONE.ns = {leveling = {Guide = {plan = {steps = {{actions = {{kind = "accept", id = 102}, {kind = "accept", id = 103}}},
+    {actions = {{kind = "accept", id = 104}, {kind = "accept", id = 105}, {kind = "turnin", id = 101}}}}}}}}
+P:RefreshMinimap()
+local planned = {}
+for _, pin in ipairs(P.miniPool) do
+    if pin.shownState and pin.point and pin.point.giver then planned[pin.point.giver.quests[1].id] = true end
+end
+local count = 0 for _ in pairs(planned) do count = count + 1 end
+assert(count == 3, "hoechstens 3 Questgeber, waren " .. count)
+assert(not planned[101], "nicht im Plan -> nur Weltkarte")
+assert(planned[105] and planned[102] and planned[103] and not planned[104], "die naechsten zuerst")
+local goal = false
+for _, pin in ipairs(P.miniPool) do if pin.shownState and pin.point and pin.point.q then goal = true end end
+assert(not goal, "keine Ziel-Ringe auf der Minimap (18.11.2026)")
+-- Schalter "Alle Questgeber": alle 5
+ONE.FeatureOn = function(_, id) return id == "nav.giversMinimapAll" end
+P:RefreshMinimap()
+local all = 0
+for _, pin in ipairs(P.miniPool) do if pin.shownState and pin.point and pin.point.giver then all = all + 1 end end
+assert(all == 5, "Schalter an: alle Questgeber")
+ONE.FeatureOn = nil
 print("OK test_questpins_068")

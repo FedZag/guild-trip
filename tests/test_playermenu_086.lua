@@ -47,12 +47,4 @@ built.buttons[4][2]() assert(did.friend == "Thrall", "Freund ohne Realm")
 assert(Ids(PM:Items("Thrall")) == "navi,whisper,invite,poke", "schon Freund -> kein Eintrag mehr")
 assert(not PM:Open({}, "Hordi"), "kein Menue fuer sich selbst")
 
--- 5) Buch-Aussehen: Pergament-Menue, Auswahl fuehrt aus
-local opened
-ONE.Book = {IsActive = function() return true end,
-    OpenMenu = function(_, owner, list, current, onSelect) opened = {list = list, pick = onSelect} end}
-assert(PM:Open({}, "Thrall"))
-assert(opened.list[1].text == "Navi zu Thrall" and opened.list[4].tooltip and opened.list[4].tooltip:find("anstupsen"))
-opened.pick(1)
-assert(did.navi == "Thrall")
 print("OK test_playermenu_086")

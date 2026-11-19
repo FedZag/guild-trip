@@ -32,7 +32,7 @@ end
 function WindowScale:ClampState(scale,x,y,w,h)
     if not Finite(w) or not Finite(h) then w,h=self:ScreenSize() end
     local minScale,maxScale=self:Bounds(w,h)
-    scale=Clamp(Finite(scale) and scale or 1,minScale,maxScale)
+    scale=Clamp(Finite(scale) and scale or (self.DEFAULT or 1),minScale,maxScale)
     x=Finite(x) and x or 0
     y=Finite(y) and y or 0
     local halfW=self.WIDTH*scale/2
@@ -45,8 +45,24 @@ function WindowScale:Read()
     local saved=ONE.db and ONE.db.window or {}
     return self:ClampState(saved.scale,saved.x,saved.y)
 end
+-- Auf ganze Bildpunkte einrasten: liegt das Fenster zwischen zwei Bildpunkten, zeichnet WoW die Schrift unscharf
+-- (Nutzer 18.11.2026, gespeichert war x = -24.0001). Linke und obere Kante liegen danach auf einem Bildpunkt.
+function WindowScale:Snap(scale,x,y)
+    local factor=PixelUtil and PixelUtil.GetPixelToUIUnitFactor and PixelUtil.GetPixelToUIUnitFactor()
+    local s=UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
+    if not (Finite(factor) and factor>0 and Finite(s) and s>0) then
+        return math.floor(x+.5),math.floor(y+.5)
+    end
+    local unit=factor/s
+    local halfW,halfH=self.WIDTH*scale/2,self.HEIGHT*scale/2
+    local left=math.floor((x-halfW)/unit+.5)*unit
+    local top=math.floor((y+halfH)/unit+.5)*unit
+    return left+halfW,top-halfH
+end
 function WindowScale:Apply(scale,x,y,save)
     scale,x,y=self:ClampState(scale,x,y)
+    -- beim Ziehen (jedes Bild) nicht einrasten, nur beim Festlegen/Speichern und beim Laden
+    if save or not self.drag then x,y=self:Snap(scale,x,y) end
     if self.frame then
         self.frame:SetScale(scale)
         self.frame:ClearAllPoints()

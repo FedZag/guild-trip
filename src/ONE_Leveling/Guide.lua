@@ -52,6 +52,12 @@ function G.Title(id)
     return d and d.titles and d.titles[id] or ("#" .. id)
 end
 
+-- Titel mit Stufe davor ("[12] Die Volksmiliz"), wenn eingeschaltet (Optionen › Navi)
+function G.LevelTitle(id, level)
+    local QL = Nav() and Nav().QuestLevels
+    return (QL and QL.Prefix(id, level) or "") .. G.Title(id)
+end
+
 function G.Catalog(key)
     local dg = Dungeons()
     for _, c in ipairs(dg and dg.Catalog or {}) do if c.key == key then return c end end
@@ -68,23 +74,36 @@ local function SmallestBag()
     return small
 end
 
--- Kontext ohne Rueckfragen (fuer UnlockedQuests)
-function G:BaseContext()
-    local _, race = Try(UnitRace, "player")
-    local _, class = Try(UnitClass, "player")
+-- Bekannte Flugmeister dieses Charakters (vom Navi beim Oeffnen einer Flugkarte gemerkt): {{c, x, y, name = …}}
+function G.FlightNodes()
     local nav = Nav()
-    local mapID, x, y
-    if nav and nav.Travel then mapID, x, y = nav.Travel.PlayerMapPosition() end
-    return {
-        me = {level = Try(UnitLevel, "player") or 1, class = class and G.CLASS[class], race = race and G.RACE[race],
-            faction = Try(UnitFactionGroup, "player") or "?", mapID = mapID, x = x, y = y},
-        world = nav and nav.Travel and nav.Travel.World,
-        done = function(id) return Try(C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted, id) == true end,
-        inLog = function(id)
-            local i = Try(C_QuestLog and C_QuestLog.GetLogIndexForQuestID, id)
-            return type(i) == "number" and i > 0
-        end,
-    }
+    local F = nav and nav.Flights
+    if not F then return {} end
+    local out = {}
+    local nodes, known = F:Nodes() or {}, F:Known() or {}
+    for id in pairs(known) do
+        local n = nodes[id]
+        if type(n) == "table" and type(n.x) == "number" and type(n.continent) == "number" then
+            out[#out + 1] = {n.continent, n.x, n.y, name = n.name}
+        end
+    end
+    return out
+end
+
+-- Schiffe/Zeppeline der eigenen Fraktion: {{c, x, y, from, to, name, mapID, mx, my}}
+function G.Departures()
+    local nav = Nav()
+    local tr = nav and nav.Travel
+    if not (tr and tr.departures and tr.World) then return {} end
+    local faction = tr.Faction and tr.Faction()
+    local out = {}
+    for _, d in ipairs(tr.departures) do
+        if not d.faction or d.faction == faction then
+            local c, wx, wy = tr.World(d.mapID, d.x, d.y)
+            if c then out[#out + 1] = {c, wx, wy, from = d.from, to = d.to, name = d.name, mapID = d.mapID, mx = d.x, my = d.y} end
+        end
+    end
+    return out
 end
 
 function G:Context()
@@ -123,10 +142,8 @@ function G:Context()
             if e then return {e.mapID, e.x, e.y} end
         end,
         prefer = self.plan and self.plan.steps[1] and self.plan.steps[1].stopKey,
-        -- fehlende EP bis zur naechsten Stufe (fuer "Monster hauen oder Quests?")
-        xpNeed = (Try(UnitXPMax, "player") or 0) - (Try(UnitXP, "player") or 0),
-        -- was schaltet Stufe "lvl" frei? (Monster hauen nur, wenn es sich dafuer lohnt)
-        unlocks = function(lvl) return G:Unlocks(lvl, level) end,
+        flights = G.FlightNodes(),
+        departures = G.Departures(),
     }
 end
 
@@ -148,7 +165,12 @@ function G:OnChange(fn) self.listeners[#self.listeners + 1] = fn end
 function G:Later(delay)
     if self.pending then return end
     self.pending = true
-    local function Go() self.pending = false self:Replan() end
+    local function Go()
+        self.pending = false
+        -- im Kampf nicht rechnen: nach dem Kampf (PLAYER_REGEN_ENABLED) nachholen
+        if Try(InCombatLockdown) then self.deferred = true return end
+        self:Replan()
+    end
     if C_Timer and C_Timer.After then C_Timer.After(delay or 1, Go) else Go() end
 end
 
@@ -170,8 +192,22 @@ function G.NodeName(nr)
 end
 
 -- short = nur Questnamen; plain = ohne NPC-Namen (Kasten zeigt ihn in eigener Zeile)
+G.ICON.travel = "|TInterface\\Icons\\Ability_Mount_Gryphon_01:14:14|t"
+G.ICON.boat = "|TInterface\\Icons\\INV_Misc_Spyglass_02:14:14|t"
+
+-- Reise-Schritt: "Fliegen: A › B" bzw. "Schiff ab Auberdine nehmen"
+function G.TravelText(via)
+    if not via then return "" end
+    if via.kind == "flight" then
+        local S = Nav() and Nav().Travel and Nav().Travel.ShortName or function(n) return n end
+        return G.ICON.travel .. " " .. T("Fliegen: %s › %s", S(via.from.name or "?"), S(via.to.name or "?"))
+    end
+    return G.ICON.boat .. " " .. T("%s nehmen", T(via.dep and via.dep.name or "Schiff"))
+end
+
 function G:StepText(step, short, plain)
     if not step then return "" end
+    if step.kind == "travel" then return G.TravelText(step.via) end
     if step.kind == "dungeon" then
         local c = G.Catalog(step.key)
         return G.ICON.dungeon .. " " .. T("Dungeon %s: %d Quests", c and T(c.name) or step.key, #(step.ids or {}))
@@ -179,7 +215,7 @@ function G:StepText(step, short, plain)
     local who = G.NodeName(step.nr)
     local parts = {}
     for _, a in ipairs(step.actions) do
-        local title = G.Title(a.id)
+        local title = G.LevelTitle(a.id)
         if a.kind == "accept" then parts[#parts + 1] = G.ICON.accept .. " " .. (short and title or T("%s annehmen", title))
         elseif a.kind == "turnin" then parts[#parts + 1] = G.ICON.turnin .. " " .. (short and title or T("%s abgeben", title))
         else parts[#parts + 1] = G.ICON.obj .. " " .. (short and title or T("%s erledigen", title)) end
@@ -197,6 +233,11 @@ end
 function G:StepWho(step)
     if not step then return nil end
     if step.kind == "dungeon" then return T("Gruppe suchen – Eingang im Navi") end
+    if step.kind == "travel" then
+        local v = step.via
+        if v and v.kind == "flight" then return T("Zum Flugmeister – lohnt sich gegenüber Laufen") end
+        return T("Zur Abfahrt – anderer Kontinent")
+    end
     local who = G.NodeName(step.nr)
     if not who then return nil end
     if step.kind == "obj" then return T("Ziel: %s", who) end
@@ -208,7 +249,7 @@ end
 function G:AutoNavi(plan)
     local db = self:DB()
     local step = plan and plan.steps[1]
-    if not (step and step.mapID and db.autoNavi ~= false and db.tracker) then return false end
+    if not (step and (step.mapID or step.world) and db.autoNavi ~= false and db.tracker) then return false end
     if ONE.IsEnabled and not ONE:IsEnabled("leveling") then return false end
     if self.autoKey == step.stopKey then return false end
     local navMod = ONE.modules and ONE.modules.nav
@@ -237,126 +278,6 @@ end
 function G.ZoneName(mapID)
     local info = mapID and Try(C_Map and C_Map.GetMapInfo, mapID)
     return info and info.name or ""
-end
-
--- Was bringt dir Stufe "lvl"? {spells = {Namen}, quests = {ids}, dungeons = {Namen}}
---  * Zauber/Raenge beim Klassenlehrer (Wissen der Klassen-Seite: eigener Besuch oder Startpaket)
---  * Quests, die erst ab dieser Stufe gehen (Questdatenbank)
---  * Dungeons, deren Mindeststufe genau diese ist (Katalog, eigene Fraktion)
-function G:Unlocks(lvl, level)
-    local out = {spells = {}, quests = {}, dungeons = {}}
-    local classes = ONE.ns and ONE.ns.classes
-    if classes and classes.Trainer and classes.Player then
-        local p = Try(classes.Player.Read, classes.Player, ONE.db and ONE.db.classGuide and ONE.db.classGuide.spec)
-        if p then
-            p.level = level or p.level
-            local _, nextLevel, nextList = Try(classes.Trainer.Upcoming, classes.Trainer, p)
-            if nextLevel == lvl then
-                for _, s in ipairs(nextList or {}) do
-                    out.spells[#out.spells + 1] = s.name .. ((type(s.rank) == "string" and s.rank ~= "") and (" (" .. s.rank .. ")") or "")
-                end
-            end
-        end
-    end
-    local ok, ids = pcall(P.UnlockedQuests, self:BaseContext(), lvl)
-    out.quests = ok and ids or {}
-    local faction = Try(UnitFactionGroup, "player")
-    for _, d in ipairs((Dungeons() or {}).Catalog or {}) do
-        if d.min == lvl and (not d.faction or d.faction == faction) and not tostring(d.key):match("^raid") then
-            out.dungeons[#out.dungeons + 1] = d.name
-        end
-    end
-    return out
-end
-
--- Kurztext: "Tier zähmen, Arkane Geschosse (Rang 2) · 3 neue Quests · Dungeon: Die Todesminen"
-function G.UnlockText(u)
-    if not u then return "" end
-    local parts = {}
-    if #u.spells > 0 then
-        local names = {}
-        for i, n in ipairs(u.spells) do if i > 3 then names[#names + 1] = "+" .. (#u.spells - 3) break end names[#names + 1] = n end
-        parts[#parts + 1] = table.concat(names, ", ")
-    end
-    if #u.quests > 0 then parts[#parts + 1] = #u.quests == 1 and T("1 neue Quest") or T("%d neue Quests", #u.quests) end
-    if #u.dungeons > 0 then parts[#parts + 1] = T("Dungeon: %s", table.concat(u.dungeons, ", ")) end
-    return table.concat(parts, " · ")
-end
-
--- ===== Monster hauen (Grind.lua) – Hinweis, aendert den Plan nicht =====
-function G:Grind(plan)
-    plan = plan or self.plan
-    local Gr = lev.Grind
-    if not (Gr and plan) then return nil end
-    if self.grindPlan ~= plan then
-        local ok, advice = pcall(Gr.Advice, Gr, self:Context(), plan)
-        self.grind, self.grindPlan = ok and advice or nil, plan
-    end
-    return self.grind
-end
-
--- Lager als "Schritt" fuer Navi und Liste
-function G.CampStep(c)
-    return {kind = "grind", camp = c, mapID = c.mapID, x = c.x, y = c.y, actions = {}, stopKey = "g:" .. c.npc .. ":" .. c.mapID}
-end
-
-function G.CampText(c)
-    local lvl = c.min == c.max and tostring(c.min) or (c.min .. "–" .. c.max)
-    return T("%s (Stufe %s) · %s %d/%d", c.name, lvl, G.ZoneName(c.mapID), math.floor(c.x * 100 + .5), math.floor(c.y * 100 + .5))
-end
-
--- Listeneintraege: Ueberschrift + bis zu drei Lager – NUR wenn Monster hauen schneller zur
--- naechsten Stufe bringt als die Quests (Nutzer 17.11.2026)
-function G:GrindItems(advice)
-    local out = {}
-    if not (advice and advice.worth) then return out end
-    local head
-    if advice.reason == "empty" then head = T("MONSTER HAUEN – GERADE KEINE PASSENDEN QUESTS")
-    elseif advice.reason == "noLevel" then head = T("MONSTER HAUEN – DIE QUESTS REICHEN NICHT BIS ZUR NÄCHSTEN STUFE")
-    elseif advice.questMinutes then head = T("MONSTER HAUEN IST SCHNELLER: NÄCHSTE STUFE IN ~%d STATT ~%d MIN.",
-        math.max(1, math.floor(advice.camps[1].minutes + .5)), math.floor(advice.questMinutes + .5))
-    else head = T("MONSTER HAUEN LOHNT SICH GERADE") end
-    out[#out + 1] = {key = "gh", header = true, text = head}
-    -- wofuer? "Auf Stufe 20: Tier zähmen · 3 neue Quests"
-    local unlock = G.UnlockText(advice.unlocks)
-    if unlock ~= "" then
-        out[#out + 1] = {key = "gu", header = true, text = "|cff9d9d9d" .. T("Auf Stufe %d: %s", advice.level, unlock) .. "|r"}
-    end
-    for _, c in ipairs(advice.camps) do
-        local tag = c.minutes and T("Stufe in ~%d Min.", math.max(1, math.floor(c.minutes + .5))) or T("~%d EP/Min", math.floor(c.epm + .5))
-        out[#out + 1] = {key = "g" .. c.npc .. ":" .. c.mapID, camp = c, step = G.CampStep(c),
-            text = G.CampText(c), tags = "|cff40ff40" .. tag .. "|r"}
-    end
-    return out
-end
-
--- Warum dieses Lager? Zeilen {{links, rechts}}, Urteil
-function G:CampWhy(c, advice)
-    local P = lev.Planner
-    local plan = self.plan
-    local L = plan and plan.level or 1
-    local avg = (c.min + c.max) / 2
-    local xp = P.MobXP(L, math.floor(avg + .5))
-    local secs = lev.Grind.KillSeconds(L, avg, c.count)
-    local rows = {
-        {T("EP je Gegner (für Stufe %d)", L), tostring(math.floor(xp + .5))},
-        {T("Zeit je Gegner (Kampf + Laufen)"), T("~%d s", math.floor(secs + .5))},
-        {T("EP pro Minute"), tostring(math.floor(c.epm + .5))},
-        {T("Weg dorthin"), T("~%d min", math.max(1, math.floor(c.travel + .5)))},
-    }
-    if c.minutes then rows[#rows + 1] = {T("nächste Stufe durch Farmen"), T("~%d min", math.max(1, math.floor(c.minutes + .5)))} end
-    if advice and advice.questMinutes then
-        rows[#rows + 1] = {T("nächste Stufe mit Quests"), T("~%d min", math.floor(advice.questMinutes + .5))}
-    elseif advice and advice.reason == "noLevel" then
-        rows[#rows + 1] = {T("nächste Stufe mit Quests"), T("reicht nicht")}
-    end
-    local verdict
-    if advice and advice.reason == "empty" then verdict = T("Gerade keine passenden Quests – hier geht es am schnellsten weiter.")
-    elseif advice and advice.reason == "noLevel" then verdict = T("Die Quests im Plan reichen nicht bis zur nächsten Stufe – hier holst du den Rest am schnellsten.")
-    else verdict = T("Hier kommst du schneller zur nächsten Stufe als mit den Quests. Danach geht es mit dem Plan weiter.") end
-    local unlock = advice and G.UnlockText(advice.unlocks) or ""
-    if unlock ~= "" then verdict = verdict .. "\n" .. T("Auf Stufe %d: %s", advice.level, unlock) end
-    return rows, verdict
 end
 
 -- ===== Gebietsuebersicht (Ansicht "Gebiete") – nur Anzeige =====
@@ -460,12 +381,21 @@ end
 
 -- Navi zu einem Schritt
 function G:Navi(step, quiet)
+    local ns = Nav()
+    -- Reise-Schritt zum Flugmeister: nur Weltkoordinaten bekannt
+    if step and not step.mapID and step.world and ns and ns.Arrow and ns.Arrow.StartWorld then
+        local label = step.via and step.via.kind == "flight" and (step.via.from.name or T("Flugmeister")) or T("Abfahrt")
+        local ok = ns.Arrow:StartWorld(label, step.world[1], step.world[2], step.world[3], quiet and {quiet = true} or nil)
+        if ok then self.autoKey, self.autoLabel = step.stopKey, ns.Arrow.target end
+        return ok
+    end
     if not (step and step.mapID) then ONE:Print(T("Für diesen Schritt kennt Guild Trip keinen Ort.")) return false end
     local nav = ONE.modules and ONE.modules.nav
     if not (nav and nav.PointTo) then return false end
-    local label = step.kind == "dungeon" and (G.Catalog(step.key) or {}).name
-        or step.kind == "grind" and step.camp and T("Monster hauen: %s", step.camp.name)
-        or G.Title(step.actions[1].id)
+    local label
+    if step.kind == "dungeon" then label = (G.Catalog(step.key) or {}).name
+    elseif step.kind == "travel" then label = step.via and step.via.dep and step.via.dep.name or "Abfahrt"
+    else label = G.Title(step.actions[1].id) end
     local ok = nav:PointTo(T(label or ""), step.mapID, step.x, step.y, quiet and {quiet = true} or nil)
     local arrow = Nav() and Nav().Arrow
     if ok and arrow then self.autoKey, self.autoLabel = step.stopKey, arrow.target end
@@ -498,6 +428,13 @@ end
 -- Entfernung zum Schritt (Yards) fuer den Kasten
 function G:Distance(step)
     local nav = ONE.modules and ONE.modules.nav
+    if step and not step.mapID and step.world then
+        local tr = Nav() and Nav().Travel
+        local pc, px, py
+        if tr then pc, px, py = tr.PlayerWorld() end
+        if pc and pc == step.world[1] then return math.sqrt((px - step.world[2]) ^ 2 + (py - step.world[3]) ^ 2) end
+        return nil
+    end
     if not (step and step.mapID and nav and nav.DistanceTo) then return nil end
     return Try(nav.DistanceTo, nav, step.mapID, step.x, step.y)
 end
@@ -528,9 +465,48 @@ function G:Initialize()
     local events = {"PLAYER_ENTERING_WORLD", "QUEST_ACCEPTED", "QUEST_TURNED_IN", "QUEST_REMOVED", "PLAYER_LEVEL_UP",
         "QUEST_LOG_UPDATE", "GROUP_ROSTER_UPDATE", "ZONE_CHANGED_NEW_AREA", "BAG_UPDATE_DELAYED", "GET_ITEM_INFO_RECEIVED"}
     for _, e in ipairs(events) do pcall(f.RegisterEvent, f, e) end
-    f:SetScript("OnEvent", function(_, event)
-        if event == "GET_ITEM_INFO_RECEIVED" or event == "QUEST_LOG_UPDATE" or event == "BAG_UPDATE_DELAYED" then G:Later(3)
-        else G:Later(1) end
+    pcall(f.RegisterEvent, f, "PLAYER_REGEN_ENABLED")
+    f:SetScript("OnEvent", function(_, event, a)
+        if not G:Wants(event, a) then return end
+        G:Later(event == "QUEST_LOG_UPDATE" and 2 or 1)
     end)
     G:Later(2)
+end
+
+-- Lohnt sich Neuplanen? (Spart Rechenzeit beim Questen: WoW meldet QUEST_LOG_UPDATE nach fast jedem Kill.)
+-- Fortschritt "3/8" zeigt der Kasten selbst an – neu geplant wird nur, wenn sich am Plan etwas aendern kann.
+function G.LogSignature()
+    local QL = C_QuestLog
+    local n = Try(QL and QL.GetNumQuestLogEntries) or 0
+    local parts = {}
+    for i = 1, n do
+        local info = Try(QL.GetInfo, i)
+        if type(info) == "table" and info.questID and not info.isHeader then
+            parts[#parts + 1] = info.questID .. (Try(QL.IsComplete, info.questID) and "+" or "")
+        end
+    end
+    table.sort(parts)
+    return table.concat(parts, ",")
+end
+
+function G:Wants(event, arg)
+    if event == "PLAYER_REGEN_ENABLED" then
+        local was = self.deferred
+        self.deferred = nil
+        return was == true
+    end
+    if event == "QUEST_LOG_UPDATE" then
+        local sig = G.LogSignature()
+        if sig == self.logSig then return false end
+        self.logSig = sig
+    elseif event == "BAG_UPDATE_DELAYED" then
+        local small = SmallestBag()
+        if small == self.lastBag then return false end
+        self.lastBag = small
+    elseif event == "GET_ITEM_INFO_RECEIVED" then
+        -- nur Belohnungen der Fuehrung (fuer "Upgrade") sind interessant
+        local R = rawget(_G, "GuildTripLeveling")
+        if not (R and R.i and arg and R.i[arg]) then return false end
+    end
+    return true
 end

@@ -24,8 +24,6 @@ for id, e in pairs((function() assert(loadfile(root .. "/ONE_QuestDB/Data.lua"))
     if e[1] > 0 and e[1] < 10 then done[id] = true end
 end
 assert(loadfile(root .. "/ONE_QuestDB/Names_deDE.lua"))()
-assert(loadfile(root .. "/ONE_QuestDB/Mobs.lua"))()
-assert(loadfile(root .. "/ONE_QuestDB/MobNames_deDE.lua"))()
 C_QuestLog = {IsQuestFlaggedCompleted = function(id) return done[id] end,
     GetLogIndexForQuestID = function(id) return log[id] end, IsComplete = function() return false end}
 UnitLevel = function() return 15 end
@@ -51,10 +49,13 @@ ONE.ns.dungeons = {Catalog = {{key = "dm", name = "Todesminen", min = 17}}, Entr
 -- Bausteine der Oberflaeche
 local lists = {}
 ONE.Widgets = {Button = function() return Stub() end, NaviArrow = function() return Stub() end}
+assert(loadfile(root .. "/ONE_Core/Widgets.lua")) -- Baustein ResizeHandles (echte Fassung unten geprueft)
+local resizeOpts
+ONE.Widgets.ResizeHandles = function(_, frame, opts) resizeOpts = opts local out = {} for i = 1, 8 do out[i] = Stub() end return out end
 ONE.Kit = {List = function(_, _, opts) local l = {box = Stub(), opts = opts} function l:SetItems(items) self.items = items end lists[#lists + 1] = l return l end}
 ONE.UI = {Refresh = function() end}
 local lev = {}
-for _, f in ipairs({"Rewards", "Planner", "Grind", "Guide", "Page", "Tracker", "Settings", "AutoQuest", "Init"}) do assert(loadfile(root .. "/ONE_Leveling/" .. f .. ".lua"))("ONE_Leveling", lev) end
+for _, f in ipairs({"Rewards", "Planner", "Guide", "Journal", "Page", "Tracker", "Settings", "AutoQuest", "Init"}) do assert(loadfile(root .. "/ONE_Leveling/" .. f .. ".lua"))("ONE_Leveling", lev) end
 assert(ONE.modules.leveling and ONE.modules.leveling:OwnsQuestTab())
 ONE.modules.leveling.Initialize()
 local G, Tr = lev.Guide, lev.Tracker
@@ -75,26 +76,35 @@ for _, st in ipairs(G.plan.steps) do
 end
 assert(named, "Questgeber im Schritt")
 assert(#plan.steps > 5 and plan.chosen[166] == "dungeon")
--- Kasten: Liste Jetzt / Danach / Dann
+-- Kasten: an allen Kanten/Ecken ziehbar
 local f = Tr.frame
+assert(f and #f.resize == 8 and resizeOpts.onStop, "8 Griffe (4 Kanten, 4 Ecken)")
+resizeOpts.onStart() assert(Tr.sizing) resizeOpts.onStop() assert(not Tr.sizing)
 local function Shown()
     local out = {}
     for _, fs in ipairs(Tr.lines) do if fs.shown then out[#out + 1] = fs.text end end
     return out
 end
 local rows = Shown()
-assert(f.shown and rows[1] == "JETZT" and rows[2]:find("annehmen") and not rows[2]:find("bei ", 1, true) and rows[3]:find("^bei "), "jetzt gross, darunter bei wem")
-assert(rows[5] == "NOCH ANNEHMEN" and rows[6]:find("AvailableQuestIcon"), "danach: noch annehmen")
-assert(f.dist.text == "140 m")
-local function Steps() local n = 0 for _, fs in ipairs(Tr.lines) do if fs.shown and fs.text and fs.text:find("AvailableQuestIcon") then n = n + 1 end end return n end
--- Hoehe bestimmt die Zahl der Schritte (Stub-Fenster liefert keine Groesse -> gemerkte Hoehe zaehlt)
+-- ueber allem: Gebiet · Quests · Zeit (Nutzer 18.11.2026)
+assert(rows[1]:find("^%d+ Quests") and rows[2]:find("nächste Stufe") and rows[1]:find("min") and rows[1]:find("·"), "Gebietszeile oben: " .. tostring(rows[1]))
+while rows[1] ~= "JETZT" do table.remove(rows, 1) end
+-- JETZT gross: Name, dann "annehmen bei …", Gebiet/Ort, Entfernung + Zeit (Nutzer 18.11.2026)
+assert(f.shown and rows[1] == "JETZT" and not rows[2]:find("annehmen") and rows[3]:find("annehmen bei ", 1, true), "jetzt: Name gross, darunter was/bei wem")
+assert(rows[4]:find("%(%d+, %d+%)") and rows[5]:find("140 m") and rows[5]:find("min"), "Ort + Entfernung/Zeit: " .. tostring(rows[4]) .. " / " .. tostring(rows[5]))
+assert(f.dist.text == "", "Entfernung nicht mehr im Kopf")
+assert(Tr.blockTex and Tr.blockTex[1].bg.shown and Tr.blockTex[2] and Tr.blockTex[2].bg.shown, "JETZT und naechste Schritte hinterlegt")
+local label
+for i, t in ipairs(rows) do if t == "ALS NÄCHSTES" then label = i end end
+assert(label, "Abschnitt Als naechstes")
+for i = label + 1, #rows do assert(not (rows[i] or ""):find(" min") and not (rows[i] or ""):find("%(%d+, %d+%)") or (rows[i] or ""):find("Stufe"), "Als naechstes ohne Zeit/Weg: " .. rows[i]) end
+local function Steps() local n = 0 for _, t in ipairs(Tr.blockTex) do if t.bg.shown then n = n + 1 end end return n - 1 end
 local n0 = Steps()
-assert(n0 >= 3, "Standardhoehe zeigt mehrere Schritte: " .. n0)
+assert(n0 >= 1 and n0 <= Tr.MAX_NEXT, "hoechstens 3 naechste Schritte: " .. n0)
 G:DB().trackerHeight = 500 Tr:Update(G.plan)
-local n1 = Steps()
-G:DB().trackerHeight = 120 Tr:Update(G.plan)
-local n2 = Steps()
-assert(n1 > n0 and n2 < n0 and n2 >= 2, "groesser gezogen = mehr Schritte " .. n0 .. "/" .. n1 .. "/" .. n2)
+assert(Steps() <= Tr.MAX_NEXT, "auch gross gezogen hoechstens 3")
+G:DB().trackerHeight = 60 Tr:Update(G.plan)
+assert(Steps() >= 1, "mindestens einer")
 G:DB().trackerHeight = nil Tr:Update(G.plan)
 -- Schriftgroesse in Grenzen
 assert(Tr:SetScale(5) == Tr.MAX_SCALE and Tr:SetScale(.1) == Tr.MIN_SCALE and Tr:SetScale(1.23) == 1.25)
@@ -133,20 +143,11 @@ C_QuestLog.GetInfo = function() return {questID = 99001, title = "Testquest"} en
 C_QuestLog.GetQuestObjectives = function() return {{text = "Eber: 2/5", numFulfilled = 2, numRequired = 5}} end
 lev.Settings:Set("replaceBlizzard", true)
 assert(ObjectiveTrackerFrame.p ~= parent, "WoW-Liste ausgeblendet")
+ObjectiveTrackerFrame.p = parent   -- WoW haengt sie wieder ein (z. B. nach /reload)
+Tr:Update(G.plan)
+assert(ObjectiveTrackerFrame.p ~= parent, "wieder ausgeblendet")
 local all = table.concat(Shown(), "\n")
-local rights = {}
-for _, fs in ipairs(Tr.rights) do if fs.shown then rights[#rights + 1] = fs.text end end
-assert(all:find("DEINE QUESTS %(1%)") and all:find("Testquest") and table.concat(rights, " "):find("2/5"), all)
--- nicht eingeplante Quest: grau, Tooltip mit Grund, Klick = Navi
-local hit
-for i, fs in ipairs(Tr.lines) do if fs.shown and fs.text and fs.text:find("Testquest") then hit = Tr.hits[i] end end
-assert(hit and hit.tip and hit.tip:find("Nicht eingeplant") and hit.nav.qid == 99001)
--- einklappen
-Tr.toggle.__click = true
-G:DB().trackerLogOpen = false Tr:Update(G.plan)
-all = table.concat(Shown(), "\n")
-assert(all:find("+ DEINE QUESTS") and not all:find("Testquest"), "eingeklappt")
-G:DB().trackerLogOpen = nil
+assert(not all:find("DEINE QUESTS") and not all:find("Testquest"), "keine Questliste im Kasten (alle Quests mit L)")
 lev.Settings:Set("replaceBlizzard", false)
 assert(ObjectiveTrackerFrame.p == parent, "WoW-Liste zurück")
 log[99001] = nil
@@ -166,28 +167,15 @@ assert(pointed and pointed[2] == 1436)
 local mode = "guide"
 local refresh = lev.Page:Build(Stub(), 726, 437, function() return mode end)
 refresh()
-local items = lists[#lists].items
--- 0.7.0: lohnt sich Monster hauen, steht der Hinweis oben (Kopf + Lager), danach Gebiet + aktueller Schritt
-local advice = G:Grind(plan)
-local first = 1
-if advice and advice.worth then
-    assert(items[1].header and items[1].text:find("MONSTER") and items[2].camp and items[2].step.kind == "grind", "Farm-Hinweis oben")
-    first = 2 + #advice.camps
-end
-assert(items[first].header and items[first + 1].step and items[first + 1].current, "Gebiet als Kopf, dann aktueller Schritt")
--- Navi zum Lager
-if advice and advice.camps[1] then
-    pointed = nil
-    G:Navi(G.CampStep(advice.camps[1]))
-    assert(pointed and pointed[1]:find("Monster hauen") and pointed[2] == advice.camps[1].mapID, "Navi zum Lager")
-end
+local items = lists[#lists - 1].items -- letzte Liste = Tagebuch
+assert(items[1].header and items[2].step and items[2].current, "Gebiet als Kopf, dann aktueller Schritt")
 -- Warum? fuer die Todesminen-Quest
 local rows, verdict = G:Why(166)
 assert(#rows >= 2 and verdict:find("Todesminen"), verdict)
 -- Ausgelassen-Ansicht hat Gruende
 mode = "skipped"
 refresh()
-items = lists[#lists].items
+items = lists[#lists - 1].items
 assert(#items > 0 and items[1].text:find("|cff9d9d9d"))
 -- Abwaehlen / Tempo
 local xpQuest
@@ -206,13 +194,53 @@ ONE.ns.nav.Quests = {Build = function(_, panel, embedded) logBuilt = embedded re
 ONE.UI.SetContext = function(_, id, text) ctx = {id, text} end
 local tab = lev.Page:BuildTab(Stub())
 assert(logBuilt == true, "Questlog ohne eigene Kopfzeile eingebettet")
-assert(#lev.Page.VIEWS == 4 and lev.Page.VIEWS[2][1] == "zones", "Plan | Gebiete | Ausgelassen | Questlog")
-for _, v in ipairs({"guide", "zones", "skipped", "log"}) do
+assert(#lev.Page.VIEWS == 6 and lev.Page.VIEWS[2][1] == "zones" and lev.Page.VIEWS[4][1] == "gear" and lev.Page.VIEWS[5][1] == "journal", "Plan | Gebiete | Ausgelassen | Ausrüstung | Tagebuch | Questlog")
+for _, v in ipairs({"guide", "zones", "skipped", "gear", "journal", "log"}) do
     G:DB().view = v
     tab()
     assert(ctx[1] == "leveling", v)
 end
-assert(logRefreshed == 1 and ctx[2] == "Questlog")
-G:DB().view = "settings" tab() assert(ctx[2] == "Plan", "alte Ansicht Einstellungen -> Plan")
-G:DB().view = "unsinn" tab() assert(ctx[2] == "Plan", "unbekannte Ansicht -> Plan")
+assert(logRefreshed == 1 and ctx[2]:find("^Questlog"), ctx[2])
+G:DB().view = "settings" tab() assert(ctx[2]:find("^Plan  ·  Stufe"), "alte Ansicht Einstellungen -> Plan; Ziel in der Kopfzeile: " .. ctx[2])
+G:DB().view = "unsinn" tab() assert(ctx[2]:find("^Plan"), "unbekannte Ansicht -> Plan")
+-- Reise-Schritt: Text, "bei wem", Navi ueber Weltkoordinaten (Flugmeister)
+local startedWorld
+ONE.ns.nav.Arrow = {StartWorld = function(_, label, c, x, y, opts) startedWorld = {label, c, x, y, opts} return true end, target = "Späherkuppe"}
+local tstep = {kind = "travel", actions = {}, stopKey = "t:x", world = {0, 10, 20},
+    via = {kind = "flight", from = {0, 10, 20, name = "Späherkuppe, Westfall"}, to = {0, 900, 20, name = "Sturmwind, Elwynn"}}}
+assert(G:StepText(tstep):find("Fliegen: Späherkuppe, Westfall › Sturmwind, Elwynn", 1, true), G:StepText(tstep))
+assert(G:StepWho(tstep):find("Flugmeister"))
+assert(G:Navi(tstep, true) and startedWorld[2] == 0 and startedWorld[3] == 10 and startedWorld[5].quiet, "Navi zum Flugmeister, leise")
+-- Neuplanen nur bei echten Aenderungen; im Kampf aufgeschoben
+do
+    local entries = {{questID = 1}, {questID = 2}}
+    C_QuestLog.GetNumQuestLogEntries = function() return #entries end
+    C_QuestLog.GetInfo = function(i) return entries[i] end
+    local complete = {}
+    C_QuestLog.IsComplete = function(id) return complete[id] == true end
+    G.logSig = nil
+    assert(G:Wants("QUEST_LOG_UPDATE") == true, "erstes Mal")
+    assert(G:Wants("QUEST_LOG_UPDATE") == false, "nur Fortschritt: nicht neu planen")
+    complete[2] = true
+    assert(G:Wants("QUEST_LOG_UPDATE") == true, "Quest fertig: neu planen")
+    assert(G:Wants("GET_ITEM_INFO_RECEIVED", 999999999) == false and G:Wants("GET_ITEM_INFO_RECEIVED", 2074) == true)
+    local replans = 0
+    local orig = G.Replan
+    G.Replan = function() replans = replans + 1 end
+    InCombatLockdown = function() return true end
+    G.pending = false G:Later(1)
+    assert(replans == 0 and G.deferred, "im Kampf aufgeschoben")
+    InCombatLockdown = function() return false end
+    assert(G:Wants("PLAYER_REGEN_ENABLED") == true and not G.deferred, "nach dem Kampf nachholen")
+    assert(G:Wants("PLAYER_REGEN_ENABLED") == false, "ohne Aufschub nichts")
+    G.Replan = orig
+    C_QuestLog.IsComplete = function() return false end
+end
+-- Tagebuch: Kontinent ist kein Gebiet (Spieltest 18.11.2026 "Neues Gebiet: Kalimdor")
+do
+    local oldMap = rawget(_G, "C_Map")
+    _G.C_Map = {GetMapInfo = function(id) return {mapType = id == 1414 and 2 or 3} end}
+    assert(not lev.Journal.IsArea(1414) and lev.Journal.IsArea(1413), "Kalimdor raus, Brachland bleibt")
+    _G.C_Map = oldMap
+end
 print("OK: Quest-Fuehrung im Spiel")

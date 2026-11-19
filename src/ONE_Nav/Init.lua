@@ -51,14 +51,22 @@ if ONE.RegisterFeature then
     ONE:RegisterFeature("nav.questMinimap", {module = "nav", section = "Quests", order = 32, label = "Quest-Symbole auf der Minimap",
         get = function() return nav.QuestPins:Settings().minimap end,
         set = function(on) nav.QuestPins:Settings().minimap = on and true or false nav.QuestPins:Refresh() end})
-    ONE:RegisterFeature("nav.partners", {module = "nav", section = "Quests", order = 35, label = "Questpartner in der Nähe melden",
-        tooltip = "Hat ein Gildenmitglied in deiner Nähe (bis 500 m) dieselben offenen Quests wie du, kommt ein kleines Fenster mit Einladen, Navi und Flüstern. Klappt mit allen, die „Quests teilen“ und ihre Position teilen. Je Person höchstens alle 20 Minuten."})
     ONE:RegisterFeature("nav.mobInfo", {module = "nav", section = "Quests", order = 36, label = "Questgegner im Tooltip und an der Namensplakette",
         tooltip = "Zeigt im Tooltip eines Gegners, für welche Quest du ihn brauchst und wie weit du bist – dazu Gruppe und Gilde („Bob 7/10“). Ein kleines Symbol an der Namensplakette markiert Questgegner (gelb: du, blau: nur andere)."})
-    ONE:RegisterFeature("nav.camps", {module = "nav", section = "Quests", order = 37, label = "Fundorte der Questgegner (Lager) + Farm-Runde",
-        tooltip = "Kleine rotbraune Ringe auf Karte und Minimap zeigen, wo die Gegner für deine offenen Quests stehen. Klick auf einen Ring: der Pfeil führt von Lager zu Lager, bis die Quest fertig ist."})
+    ONE:RegisterFeature("nav.questLevels", {module = "nav", section = "Quests", order = 38, label = "Questlevel vor Questnamen",
+        tooltip = "Zeigt die Stufe vor dem Questnamen – „[12] Die Volksmiliz“ – in der Quest-Führung, im Kasten unter der Minimap und in Quest-Links im Chat. Nur deine Anzeige: Was andere im Chat sehen, bleibt unverändert."})
     ONE:RegisterFeature("nav.givers", {module = "nav", section = "Quests", order = 33, label = "Questgeber (!) sammeln und zeigen",
         tooltip = "Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."})
+    ONE:RegisterFeature("nav.giversMinimapAll", {module = "nav", section = "Quests", order = 34,
+        -- Standard aus (Funktionen sind sonst standardmaessig an)
+        get = function() return ONE.db and type(ONE.db.features) == "table" and ONE.db.features["nav.giversMinimapAll"] == true end,
+        set = function(on)
+            if not ONE.db then return end
+            ONE.db.features = type(ONE.db.features) == "table" and ONE.db.features or {}
+            ONE.db.features["nav.giversMinimapAll"] = on and true or false
+        end,
+        label = "Alle Questgeber auf der Minimap",
+        tooltip = "Aus: Auf der Minimap stehen nur die Questgeber, die die Quest-Führung als Nächstes vorschlägt (höchstens 3, die nächsten zuerst). Alle anderen „!“ zeigt die Weltkarte. An: alle passenden Questgeber auch auf der Minimap."})
     ONE:RegisterFeature("nav.routes", {module = "nav", section = "Weg", order = 20, label = "Wegführung über das Guild-Trip-Wegenetz",
         tooltip = "Der Pfeil folgt vorab berechneten Laufwegen (Straßen, Brücken, Pässe) zwischen Questgebern, Lehrern, Händlern und Flugmeistern – ohne Zusatz-Addon. Ist Shortest Path Forever installiert, führt weiter dieses."})
     ONE:RegisterFeature("nav.routeDots", {module = "nav", section = "Weg", order = 21, label = "Weg als Punkte auf Minimap und Weltkarte",
@@ -82,9 +90,8 @@ ONE:RegisterModule("nav", {
         nav.Page:Register()
         if not ONE.FeatureOn or ONE:FeatureOn("nav.quests") then nav.Quests:Register() end
         nav.QuestShare:Initialize()
-        nav.Partners:Initialize()
         nav.MobInfo:Initialize()
-        nav.Camps:Initialize()
+        nav.QuestLevels:Initialize()
         nav.QuestGivers:Initialize()
         nav.QuestPins:Initialize()
         nav.RouteDots:Initialize()

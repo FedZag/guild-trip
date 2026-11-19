@@ -69,4 +69,14 @@ frame.GetEffectiveScale=function() return .8 end
 frame.GetCenter=function() return 720+130,450-45 end
 assert(S:SavePosition(frame))
 assert(Close(S.x,130) and Close(S.y,-45))
+-- Einrasten auf ganze Bildpunkte (unscharfe Schrift bei krummer Lage, 18.11.2026)
+do
+    local sx, sy = S:Snap(1, -24.0001, 80.0002)
+    assert(sx == -24 and sy == 80, "ohne PixelUtil: ganze Einheiten")
+    PixelUtil = {GetPixelToUIUnitFactor = function() return .5 end}  -- 1 Bildpunkt = 0,5 Einheiten
+    local fx, fy = S:Snap(1, 10.2, 5.3)
+    local left = fx - S.WIDTH / 2
+    assert(math.abs(left / .5 - math.floor(left / .5 + .5)) < 1e-6, "linke Kante auf Bildpunkt")
+    PixelUtil = nil
+end
 print("OK: bounds, screen clamping, persisted scale/position, corner drag, combat and reset")

@@ -527,6 +527,9 @@ ProjectONEDB = {theme = {selected = "native", uiSounds = false}, soundEnabled = 
     dungeons = {pass = {Testheld = {d = {wc = {first = 1763000000, last = 1763300000, runs = 2}, rfc = {first = 1762500000, runs = 1},
         dm = {first = 1763350000, runs = 1}}, t = {{id = "x", title = "Brachland-Treffen", time = 1763200000, count = 8}}}}}}
 if mode == "book" then ProjectONEDB.theme.selected = "book" ProjectONEDB.theme.book = true end
+-- 0.7.1: Glas-Look (Standard) oder Blizzard; SKIN=azeroth|glas|horde|alliance
+ProjectONEDB.theme.look = (mode == "native") and "native" or "glass"
+ProjectONEDB.theme.glass = {skin = os.getenv("SKIN") or "azeroth"}
 
 -- ===== Addons laden =====
 local errors = {}
@@ -555,7 +558,7 @@ local function Fire(event, ...)
         if f then local ok, e = pcall(f, o, event, ...) if not ok then errors[#errors+1] = event .. ": " .. tostring(e) end end
     end
 end
-for _, a in ipairs({"ONE_Core", "ONE_Guild", "ONE_Nav", "ONE_Classes", "ONE_Crafting", "ONE_Dungeons", "ONE_Chat"}) do
+for _, a in ipairs({"ONE_Core", "ONE_QuestDB", "ONE_Chat", "ONE_Classes", "ONE_Crafting", "ONE_Dungeons", "ONE_Guild", "ONE_Leveling", "ONE_Nav"}) do
     LoadAddon(a)
     Fire("ADDON_LOADED", a)
 end
@@ -569,7 +572,8 @@ end
 
 -- ===== Seiten oeffnen und aufzeichnen =====
 local function Num(v) return math.floor(v * 10 + .5) / 10 end
-local function Color(c) if c then return {Num(c[1] or 1), Num(c[2] or 1), Num(c[3] or 1), Num(c[4] or 1)} end end
+local function Num2(v) return math.floor(v * 100 + .5) / 100 end
+local function Color(c) if c then return {Num2(c[1] or 1), Num2(c[2] or 1), Num2(c[3] or 1), Num2(c[4] or 1)} end end
 local function Visible(o)
     while o do
         if not o.shown then return false end
@@ -696,6 +700,47 @@ local function DumpChat()
     if okD then pages[#pages + 1] = {id = "chat", w = f.w, h = f.h, items = list}
     else errors[#errors + 1] = "Dump chat: " .. tostring(list) end
 end
+-- Kleine Fenster der 0.7.x mit Beispieldaten ("fenster")
+local function DumpWindows()
+    local function Add(id, f)
+        if not f then errors[#errors + 1] = "Fenster " .. id .. " fehlt" return end
+        f:ClearAllPoints() f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+        f:Show()
+        local okD, list = pcall(Dump, f)
+        if okD then pages[#pages + 1] = {id = id, w = f.w, h = f.h, items = list}
+        else errors[#errors + 1] = "Dump " .. id .. ": " .. tostring(list) end
+    end
+    local function Try(id, fn)
+        local ok, e = pcall(fn)
+        if not ok then errors[#errors + 1] = id .. ": " .. tostring(e) end
+    end
+    local guild, classes, dg = namespaces.ONE_Guild, namespaces.ONE_Classes, namespaces.ONE_Dungeons
+    Try("hilferuf", function()
+        guild.Help:Show({name = "Bob", full = "Bob", level = 19, dist = 420, text = "Elite am Wegkreuz, schnell!"})
+        Add("hilferuf", guild.Help.frame)
+    end)
+    Try("rueckblick", function()
+        dg.Recap:Show({name = "Die Todesminen", key = "dm", secs = 2520, record = true,
+            group = {Bob = true, Gildi = true, Tester = true, Thrall = true, Rehgar = true},
+            bosses = {"Rhahk'Zor", "Sneed", "Gilnid", "Edwin VanCleef"}, deaths = {Bob = 2, Tester = 1},
+            loot = {{who = "Bob", link = "|cff0070dd|Hitem:2::|h[Schwert des Kapitäns]|h|r"}, {who = "Gildi", link = "|cff1eff00|Hitem:3::|h[Grüner Umhang]|h|r"}}})
+        Add("rueckblick", dg.Recap.frame)
+    end)
+    Try("buffen", function()
+        local N = classes.Nearby
+        local offer = {name = "Machtwort: Seelenstärke", icon = 135987, ranks = {}, also = {}}
+        local offer2 = {name = "Göttlicher Willen", icon = 135898, ranks = {}, also = {}}
+        N.MyOffers = function() return {offer, offer2} end
+        N.Scan = function() return {
+            {name = "Bob", unit = "party1", level = 21, classFile = "MAGE", tag = "group", missing = {{offer = offer, spell = 1}, {offer = offer2, spell = 2}}},
+            {name = "Gildi", unit = "nameplate1", level = 18, classFile = "WARRIOR", tag = "guild", missing = {{offer = offer, spell = 1}}},
+            {name = "Wanderer", level = 40, classFile = "ROGUE", missing = {{offer = offer, spell = 1}}},
+        } end
+        N:Update()
+        Add("buffen", N.frame)
+    end)
+end
+
 local frame = ONE.UI.frame
 frame:ClearAllPoints() frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 frame:Show()
@@ -706,7 +751,11 @@ for _, id in ipairs(wanted) do
       if ns.Page then ns.Page.view = sub end
       id = mod
   end
-  if id == "chat" then DumpChat() else
+  if id == "gear" and namespaces.ONE_Leveling and namespaces.ONE_Leveling.Guide then
+      namespaces.ONE_Leveling.Guide:DB().view = "gear"
+      id = "leveling"
+  end
+  if id == "fenster" then DumpWindows() elseif id == "chat" then DumpChat() else
     local ok, e = pcall(function() ONE.UI:Navigate(id) ONE.UI:Refresh() end)
     if not ok then errors[#errors+1] = "Seite " .. id .. ": " .. tostring(e) end
     local okD, list = pcall(Dump, frame)

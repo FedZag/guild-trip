@@ -81,9 +81,22 @@ function Welcome:Initialize()
     ONE.UI:RegisterView("today", function(panel)
         return self:BuildCentralView(panel)
     end)
+    -- Glas: Startseite und Heute als Unterseiten in der mittleren Spalte
+    if ONE.Glass and ONE.Glass:Active() and ONE.UI.SetViews then
+        local go = function(key) ONE.UI:Navigate(key) end
+        ONE.UI:SetViews("home", { { key = "home", label = "Übersicht", onClick = go },
+            { key = "today", label = "Heute", onClick = go } }, "home")
+    end
+    -- Von Hand oeffnen (auch zum Pruefen, ob das Fenster beim Einloggen haette kommen sollen)
+    if ONE.RegisterSlash then
+        ONE:RegisterSlash("begruessung", function() self:Show() end, T("Begrüßungsfenster (Tagesüberblick) zeigen"))
+    end
     local login = CreateFrame("Frame")
     login:RegisterEvent("PLAYER_ENTERING_WORLD")
     login:SetScript("OnEvent", function(_, _, isInitialLogin, isReloadingUi)
+        -- manche Clients liefern isInitialLogin nicht: dann zaehlt der erste Eintritt in die Welt
+        if isInitialLogin == nil and isReloadingUi == nil and not self.seenWorld then isInitialLogin = true end
+        self.seenWorld = true
         if isInitialLogin and not isReloadingUi and not self.shownAtLogin then
             self.pendingLogin = ONE.db.loginSummaryEnabled
             if self.pendingLogin then
@@ -129,6 +142,8 @@ function Welcome:Populate(view)
     if not view then return end
     local name = UnitName and UnitName("player") or nil
     view.heading:SetText(Greeting() .. (name and (", " .. name) or "") .. "!")
+    -- Tagesspruch nur im Begruessungsfenster (Startseite hat ihn selbst, "Heute" nicht)
+    if view.quip then view.quip:SetText(ONE.UI and ONE.UI.Quip and ONE.UI:Quip() or "") end
     local now = C_DateAndTime and C_DateAndTime.GetCurrentCalendarTime and C_DateAndTime.GetCurrentCalendarTime()
     if now then
         view.date:SetText(string.format(T("Dein Tagesüberblick für den %02d.%02d.%04d"), now.monthDay, now.month, now.year))
@@ -163,9 +178,12 @@ end
 
 -- Wird ausschließlich automatisch beim Charakter-Login als Pop-up geöffnet.
 function Welcome:Show()
-    if not self.frame then return end
-    self:Populate(self.popup)
+    if not self.frame then return false end
+    local ok, err = pcall(self.Populate, self, self.popup)
+    if not ok and ONE.BugReport and ONE.BugReport.Record then ONE.BugReport:Record("welcome", tostring(err)) end
     self.frame:Show()
+    if self.frame.Raise then self.frame:Raise() end
+    return true
 end
 
 -- Bewusst eine Unterseite in der Zentrale, kein zweites Fenster.
@@ -222,11 +240,13 @@ function Welcome:BuildUI()
     local title = AddLabel(frame, "GUILD TRIP  |  TAGESÜBERBLICK", "GameFontNormalSmall", 22, -18, 520)
     self.popup = {}
     self.popup.heading = AddLabel(frame, "", "GameFontNormalLarge", 22, -49, 510)
-    self.popup.date = AddLabel(frame, "", "GameFontHighlightSmall", 22, -82, 510)
-    AddLabel(frame, T("Deine nächsten Termine heute"), "GameFontNormal", 22, -121, 520)
+    self.popup.quip = AddLabel(frame, "", "GameFontHighlight", 22, -76, 540)
+    if self.popup.quip.SetWordWrap then self.popup.quip:SetWordWrap(true) end
+    self.popup.date = AddLabel(frame, "", "GameFontHighlightSmall", 22, -108, 510)
+    AddLabel(frame, T("Deine nächsten Termine heute"), "GameFontNormal", 22, -131, 520)
     self.popup.rows = {}
     for i = 1, 6 do
-        self.popup.rows[i] = AddLabel(frame, "", "GameFontHighlight", 26, -151 - (i - 1) * 30, 530)
+        self.popup.rows[i] = AddLabel(frame, "", "GameFontHighlight", 26, -158 - (i - 1) * 29, 530)
     end
     self.popup.summary = AddLabel(frame, "", "GameFontHighlightSmall", 22, -337, 545)
     AddLabel(frame, T("Blizzard-Weltereignisse folgen in einer späteren Version."), "GameFontDisableSmall", 22, -358, 540)

@@ -88,8 +88,8 @@ nav.Pack = {
                 [99052] = {title = "Bedrohung von unten"},
                 ["t:Hand vermisst"] = {level = 9, title = "Hand vermisst"},
             },
-            x = 0.522,
-            y = 0.432,
+            x = 0.523,
+            y = 0.431,
         },
         c3143 = {
             faction = "Horde",
@@ -168,8 +168,8 @@ nav.Pack = {
             mapID = 1411,
             name = "Margoz",
             quests = {[827] = {title = "Die Knochenhöhle"}, [829] = {title = "Neeru Fireblade"}},
-            x = 0.565,
-            y = 0.201,
+            x = 0.564,
+            y = 0.2,
         },
         c3216 = {
             faction = "Horde",
@@ -239,6 +239,14 @@ nav.Pack = {
             x = 0.454,
             y = 0.284,
         },
+        c3390 = {
+            faction = "Horde",
+            mapID = 1413,
+            name = "Apotheker Helbrim",
+            quests = {[1492] = {title = "Werftmeister Dizzywig"}, [848] = {title = "Pilzsporen"}},
+            x = 0.515,
+            y = 0.302,
+        },
         c3439 = {
             faction = "Horde",
             mapID = 1413,
@@ -259,7 +267,11 @@ nav.Pack = {
             faction = "Horde",
             mapID = 1413,
             name = "Tonga Runetotem",
-            quests = {[1489] = {level = 0, title = "Hamuul Runetotem"}, [3301] = {level = 15, title = "Mura Runetotem"}},
+            quests = {
+                [1489] = {level = 0, title = "Hamuul Runetotem"},
+                [3301] = {level = 15, title = "Mura Runetotem"},
+                [870] = {level = 13, title = "Die vergessenen Teiche"},
+            },
             x = 0.522,
             y = 0.319,
         },
@@ -353,6 +365,7 @@ nav.Pack = {
             x = 0.564,
             y = 0.732,
         },
+        c256400 = {cats = {misc = true}, faction = "Horde", mapID = 1413, name = "Okamache", x = 0.497, y = 0.289},
         c258463 = {cats = {recipe = true}, faction = "Horde", mapID = 1454, name = "Darah", x = 0.634, y = 0.505},
         c265574 = {
             cats = {armor = true, misc = true, weapon = true},
@@ -383,7 +396,7 @@ nav.Pack = {
             faction = "Horde",
             mapID = 1411,
             name = "Ghrawt",
-            x = 0.53,
+            x = 0.529,
             y = 0.412,
         },
         c3167 = {
@@ -415,7 +428,7 @@ nav.Pack = {
             faction = "Horde",
             mapID = 1454,
             name = "Tor'phan",
-            x = 0.627,
+            x = 0.629,
             y = 0.502,
         },
         c3364 = {
@@ -423,7 +436,7 @@ nav.Pack = {
             faction = "Horde",
             mapID = 1454,
             name = "Borya",
-            x = 0.629,
+            x = 0.63,
             y = 0.511,
         },
         c3479 = {
@@ -496,7 +509,15 @@ nav.Pack = {
             mapID = 1413,
             name = "Gastwirt Boorand Plainswind",
             x = 0.52,
-            y = 0.299,
+            y = 0.3,
+        },
+        c5783 = {
+            cats = {armor = true, thread = true, trade = true, weapon = true},
+            faction = "Horde",
+            mapID = 1414,
+            name = "Kalldan Felmoon",
+            x = 0.519,
+            y = 0.554,
         },
         c6791 = {
             cats = {food = true, trade = true},
@@ -514,5 +535,14 @@ nav.Pack = {
             x = 0.515,
             y = 0.417,
         },
+        c8361 = {
+            cats = {misc = true, reagent = true},
+            faction = "Horde",
+            mapID = 1456,
+            name = "Chepi",
+            x = 0.431,
+            y = 0.569,
+        },
+        c8364 = {cats = {bag = true}, faction = "Horde", mapID = 1456, name = "Pakwa", x = 0.393, y = 0.64},
     },
 }

@@ -13,9 +13,11 @@ local G = lev.Guide
 
 Tr.WIDTH = 280            -- Standardgroesse (in Kasten-Einheiten, vor der Schriftgroesse)
 Tr.HEIGHT = 220
-Tr.MIN_W, Tr.MAX_W, Tr.MIN_H, Tr.MAX_H = 200, 520, 90, 700
+Tr.MIN_W, Tr.MAX_W, Tr.MIN_H, Tr.MAX_H = 170, 520, 90, 700
+Tr.NARROW = 260          -- schmaler als das: NPC-Spalte bei "Noch annehmen" nur im Tooltip
 Tr.SCALE, Tr.MIN_SCALE, Tr.MAX_SCALE = 1.15, .8, 1.6
 Tr.MAX_NEXT = 25
+Tr.MAX_NEXT = 3          -- "Als nächstes": hoechstens so viele Schritte (Nutzer 18.11.2026)
 -- WoW-Questliste (je nach Client heisst sie anders)
 Tr.BLIZZARD = {"ObjectiveTrackerFrame", "QuestWatchFrame", "WatchFrame"}
 
@@ -44,32 +46,29 @@ function Tr:Create()
         self:StopMovingOrSizing()
         Tr:SavePos()
     end)
-    -- Ziehgriff unten rechts: groesser ziehen = mehr Schritte (Kasten haengt links oben fest)
-    local grip = CreateFrame("Button", nil, f)
-    grip:SetSize(16, 16)
-    grip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
-    grip.icon = grip:CreateTexture(nil, "OVERLAY")
-    grip.icon:SetAllPoints(grip)
-    grip.icon:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-    grip:SetScript("OnMouseDown", function()
-        Tr:SavePos() -- links oben festhalten
-        Tr:Place()
-        Tr.sizing = true
-        f:StartSizing("BOTTOMRIGHT")
-    end)
-    grip:SetScript("OnMouseUp", function()
-        f:StopMovingOrSizing()
+    -- Groesse aendern an jeder Kante und Ecke (mehr Platz = mehr Schritte); Griff unten rechts als Zeichen
+    local function StopSizing()
         Tr.sizing = false
         local d = G:DB()
-        d.trackerWidth, d.trackerHeight = math.floor(f:GetWidth() + .5), math.floor(f:GetHeight() + .5)
+        local w, h = f:GetWidth(), f:GetHeight()
+        if type(w) == "number" and type(h) == "number" then
+            d.trackerWidth, d.trackerHeight = math.floor(w + .5), math.floor(h + .5)
+        end
         Tr:SavePos()
+        Tr:Place()
         Tr:Update(G.plan)
-    end)
-    grip:SetScript("OnEnter", function(self)
-        Tr:Frame(true)
-        if GameTooltip then GameTooltip:SetOwner(self, "ANCHOR_LEFT") GameTooltip:AddLine(T("Ziehen: Kasten größer/kleiner – mehr oder weniger Schritte"), 1, 1, 1) GameTooltip:Show() end
-    end)
-    grip:SetScript("OnLeave", function() Tr:Frame(false) if GameTooltip then GameTooltip:Hide() end end)
+    end
+    f.resize = ONE.Widgets.ResizeHandles and ONE.Widgets:ResizeHandles(f, {size = 6,
+        onStart = function() Tr.sizing = true end, onStop = StopSizing,
+        onEnter = function(self)
+            Tr:Frame(true)
+            if GameTooltip then GameTooltip:SetOwner(self, "ANCHOR_CURSOR") GameTooltip:AddLine(T("Ziehen: Kasten größer/kleiner – mehr oder weniger Schritte"), 1, 1, 1) GameTooltip:Show() end
+        end,
+        onLeave = function() Tr:Frame(false) if GameTooltip then GameTooltip:Hide() end end})
+    local grip = f:CreateTexture(nil, "OVERLAY")
+    grip:SetSize(14, 14)
+    grip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
+    grip:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
     f.grip = grip
     local pendingSize = false
     f:SetScript("OnSizeChanged", function()
@@ -200,11 +199,44 @@ function Tr:Frame(hover)
     for _, t in ipairs(f.border) do t:SetShown(show) end
 end
 
+-- Entfernung steht jetzt im JETZT-Block (alle 2 s neu); Kopf bleibt frei
 function Tr:Distance()
     local f = self.frame
     if not (f and f:IsShown()) then return end
-    local d = G:Distance(self.step)
-    f.dist:SetText(d and (math.floor(d + .5) .. " " .. T("m")) or "")
+    f.dist:SetText("")
+    local fs = self.etaLine and self.lines[self.etaLine]
+    if fs and self.step then
+        local eta = self:NowEta(self.step) or ""
+        if self.etaNarrow then eta = self.etaNarrow .. (eta ~= "" and ("  ·  " .. eta) or "") end
+        fs:SetText(eta)
+    end
+end
+
+-- leicht getoenter Hintergrund mit farbiger Kante links: JETZT gold, ALS NAECHSTES blau
+Tr.BLOCK_COLOR = {now = {1, .82, .25}, next = {.45, .72, 1}}
+function Tr:Blocks(list)
+    local f = self.frame
+    if not f.CreateTexture then return end
+    self.blockTex = self.blockTex or {}
+    for k, b in ipairs(list) do
+        local t = self.blockTex[k]
+        if not t then
+            t = {bg = f:CreateTexture(nil, "BORDER"), bar = f:CreateTexture(nil, "ARTWORK")}
+            t.bar:SetWidth(2)
+            self.blockTex[k] = t
+        end
+        local c = Tr.BLOCK_COLOR[b.color] or Tr.BLOCK_COLOR.now
+        t.bg:SetColorTexture(c[1], c[2], c[3], b.color == "now" and .08 or .05)
+        t.bar:SetColorTexture(c[1], c[2], c[3], b.color == "now" and .85 or .6)
+        t.bg:ClearAllPoints()
+        t.bg:SetPoint("TOPLEFT", f, "TOPLEFT", 4, b.top + 2)
+        t.bg:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", -4, b.bottom - 1)
+        t.bar:ClearAllPoints()
+        t.bar:SetPoint("TOPLEFT", t.bg, "TOPLEFT", 0, 0)
+        t.bar:SetPoint("BOTTOMLEFT", t.bg, "BOTTOMLEFT", 0, 0)
+        t.bg:Show() t.bar:Show()
+    end
+    for k = #list + 1, #self.blockTex do self.blockTex[k].bg:Hide() self.blockTex[k].bar:Hide() end
 end
 
 function Tr:Enabled()
@@ -224,145 +256,199 @@ function Tr.Objectives(id)
     return out
 end
 
--- Weitere Quests im Log, die nicht in den gezeigten Schritten vorkommen: {{id, title, complete}}
-function Tr.OtherLogQuests(shown)
-    local out = {}
-    local n = Try(C_QuestLog and C_QuestLog.GetNumQuestLogEntries) or 0
-    for i = 1, n do
-        local info = Try(C_QuestLog.GetInfo, i)
-        if type(info) == "table" and not info.isHeader and not info.isHidden and info.questID and not shown[info.questID] then
-            out[#out + 1] = {id = info.questID, title = info.title or G.Title(info.questID),
-                complete = Try(C_QuestLog.IsComplete, info.questID) == true}
-        end
-    end
-    return out
-end
-
--- Fortschritt einer Quest in Kurzform: "0/1", "2/3 Ziele", "fertig"
-function Tr.Progress(id, complete)
-    if complete then return "|cff40ff40" .. T("fertig") .. "|r" end
-    local objs = Tr.Objectives(id)
-    if #objs == 1 then
-        local list = Try(C_QuestLog and C_QuestLog.GetQuestObjectives, id)
-        local o = type(list) == "table" and list[1]
-        if o and o.numRequired and o.numRequired > 0 then return ("%d/%d"):format(o.numFulfilled or 0, o.numRequired) end
-    end
-    if #objs > 1 then
-        local done = 0
-        for _, o in ipairs(objs) do if o.done then done = done + 1 end end
-        return T("%d/%d Ziele", done, #objs)
-    end
-    return ""
-end
-
 -- Inhalt als Zeilen {text, kind, right, nav, tip} – nach Quests aufgeteilt (Nutzer 17.11.2026):
---   JETZT          der eine Schritt, gross, darunter bei wem/was + Fortschritt
---   NOCH ANNEHMEN  neue Quests mit NPC rechts – fuellt den Platz beim Groesserziehen
---   DEINE QUESTS   jede Quest aus dem Log einmal, in Plan-Reihenfolge, Fortschritt rechts;
---                  fertige gruen "fertig bei wem", nicht eingeplante grau unten (einklappbar)
+--   JETZT          der eine Schritt, gross: Name, was/bei wem, Gebiet/Ort, Entfernung/Zeit
+--   ALS NAECHSTES  die naechsten (hoechstens 3) Schritte, NPC rechts
+--   (DEINE QUESTS entfallen 18.11.2026: alle Quests mit L im Spiel; Fortschritt der aktuellen unter JETZT)
 function Tr:Rows(plan, budget)
     local db = G:DB()
     local rows = {}
     local s1 = plan.steps[1]
+    -- UEBER ALLEM (Nutzer 18.11.2026): Gebiet · Quests im Plan · Zeit · Stufe beim Verlassen,
+    -- darunter die naechste Stufe (stand frueher unten)
+    local zone, sub = Tr.ZoneLine(plan)
+    if zone then
+        rows[#rows + 1] = {text = zone, kind = "zone"}
+        if sub then rows[#rows + 1] = {text = sub, kind = "zoneSub"} end
+        rows[#rows + 1] = {kind = "nxGap"}
+    end
     if s1 then
-        rows[#rows + 1] = {text = T("JETZT"), kind = "label"}
-        rows[#rows + 1] = {text = G:StepText(s1, false, true), kind = "now", nav = {step = s1}}
-        local who = G:StepWho(s1)
-        if who then rows[#rows + 1] = {text = who, kind = "who"} end
+        -- grosser Block (Nutzer 18.11.2026): Name gross, darunter was/bei wem, wo, wie weit/wie lange
+        rows[#rows + 1] = {text = T("JETZT"), kind = "label", block = "now"}
+        rows[#rows + 1] = {text = Tr.NowTitle(s1), kind = "now", nav = {step = s1}, block = "now"}
+        local who = Tr.NowWho(s1)
+        if who then rows[#rows + 1] = {text = who, kind = "who", block = "now"} end
+        local where = Tr.NowWhere(s1)
+        if where then rows[#rows + 1] = {text = where, kind = "where", block = "now"} end
+        rows[#rows + 1] = {text = Tr:NowEta(s1) or "", kind = "eta", block = "now"}
         if s1.kind == "obj" then
             for _, o in ipairs(Tr.Objectives(s1.actions[1].id)) do
                 rows[#rows + 1] = {text = (o.done and "|cff808080" or "") .. o.text .. (o.done and "|r" or ""), kind = "obj"}
             end
         end
-    else
-        -- keine passenden Quests: Monster hauen (bestes Lager)
-        local advice = G:Grind(plan)
-        local c = advice and advice.camps[1]
-        if c then
-            rows[#rows + 1] = {text = T("JETZT"), kind = "label"}
-            rows[#rows + 1] = {text = T("Monster hauen: %s", c.name), kind = "now", nav = {step = G.CampStep(c)}}
-            rows[#rows + 1] = {text = G.CampText(c) .. "  ·  " .. T("~%d EP/Min", math.floor(c.epm + .5)), kind = "who"}
-        end
     end
-    -- Reihenfolge je Quest im Plan (erster Schritt, in dem sie vorkommt) + Schritt dazu
-    local order, firstStep = {}, {}
-    for i, st in ipairs(plan.steps) do
-        for _, a in ipairs(st.actions) do if not order[a.id] then order[a.id], firstStep[a.id] = i, st end end
-        for _, id in ipairs(st.kind == "dungeon" and st.ids or {}) do if not order[id] then order[id], firstStep[id] = i, st end end
-    end
-    -- NOCH ANNEHMEN: Annehmen-Schritte nach dem jetzigen, je Quest eine Zeile
-    local accepts, seen = {}, {}
-    if s1 then for _, a in ipairs(s1.actions) do seen[a.id] = true end end
-    for i = 2, #plan.steps do
-        local st = plan.steps[i]
-        for _, a in ipairs(st.actions) do
-            if a.kind == "accept" and not seen[a.id] then
-                seen[a.id] = true
-                accepts[#accepts + 1] = {id = a.id, step = st}
-            end
-        end
-        if #accepts >= Tr.MAX_NEXT then break end
-    end
-    local acceptAt = #rows + 1
-    -- DEINE QUESTS: alles aus dem Log
-    local mine = Tr.OtherLogQuests({})
-    for _, q in ipairs(mine) do q.order = order[q.id] or (10000 + q.id) end
-    table.sort(mine, function(a, b) return a.order < b.order end)
-    if #mine > 0 then
-        rows[#rows + 1] = {kind = "gap"}
-        local open = db.trackerLogOpen ~= false
-        rows[#rows + 1] = {text = (open and "− " or "+ ") .. T("DEINE QUESTS (%d)", #mine), kind = "label", toggle = true}
-        if open then
-            for _, q in ipairs(mine) do
-                local planned = order[q.id] ~= nil
-                local o = plan.info[q.id]
-                local icon, right, kind = G.ICON.obj, Tr.Progress(q.id, false), "log"
-                if q.complete then
-                    icon = G.ICON.turnin
-                    local who = o and o.ender and G.NodeName(o.ender.nr)
-                    right = "|cff40ff40" .. T("fertig") .. "|r" .. (who and ("  |cffa0a0a0" .. T("bei %s", who) .. "|r") or "") -- kein "→": fehlt in der WoW-Schrift
-                elseif not planned then
-                    icon, kind = "|cff808080·|r", "dim"
-                end
-                local tip
-                if not planned and o and o.skip then tip = T("Nicht eingeplant: %s", lev.Planner.SkipText(o, plan, T) or "") end
-                if not planned and not tip then tip = T("Nicht eingeplant – lohnt sich laut Führung gerade nicht.") end
-                rows[#rows + 1] = {text = icon .. " " .. q.title, right = right, kind = kind, nav = {step = firstStep[q.id], qid = q.id, title = q.title}, tip = tip}
-            end
-        end
-    end
-    local n, minutes = G:ToNextLevel()
-    if n then
-        rows[#rows + 1] = {kind = "gap"}
-        local m = math.max(1, math.floor(minutes + .5))
-        rows[#rows + 1] = {text = (n == 0 and T("Bis Stufe %d: ~%d min", plan.level + 1, m))
-            or (n == 1 and T("Bis Stufe %d: 1 Abgabe · ~%d min", plan.level + 1, m))
-            or T("Bis Stufe %d: %d Abgaben · ~%d min", plan.level + 1, n, m), kind = "foot"}
-    end
-    -- NOCH ANNEHMEN: so viele, wie in die Hoehe passen (mindestens eine)
+    -- ALS NAECHSTES (Nutzer 18.11.2026, statt "Noch annehmen"): die naechsten hoechstens MAX_NEXT
+    -- Schritte der Fuehrung, wie sie kommen – aktualisiert sich mit dem Plan.
+    local nexts = {}
+    for i = 2, math.min(#plan.steps, 1 + Tr.MAX_NEXT) do nexts[#nexts + 1] = plan.steps[i] end
+    -- ALS NAECHSTES: so viele, wie in die Hoehe passen (mindestens einer); je Schritt ein kleiner Block
+    -- wie JETZT (Name, was/bei wem, Ort · Zeit), blau statt gold (Nutzer 18.11.2026)
     local used = 0
     for _, r in ipairs(rows) do used = used + (Tr.STYLE[r.kind] or Tr.STYLE.next)[5] end
-    local fit = #accepts
+    local per = Tr.STYLE.nxTitle[5] + Tr.STYLE.nxWho[5] + Tr.STYLE.nxWhere[5] + Tr.STYLE.nxGap[5]
+    local fit = #nexts
     if budget then
         local head = Tr.STYLE.gap[5] + Tr.STYLE.label[5]
-        fit = math.max(1, math.floor((budget - used - head) / Tr.STYLE.next[5]))
+        fit = math.max(1, math.floor((budget - used - head) / per))
     end
-    fit = math.min(fit, #accepts)
+    fit = math.min(fit, #nexts)
     if fit > 0 then
-        local ins = {{kind = "gap"}, {text = T("NOCH ANNEHMEN"), kind = "label"}}
+        local ins = {{kind = "gap"}, {text = T("ALS NÄCHSTES"), kind = "label"}}
         for k = 1, fit do
-            local a = accepts[k]
-            ins[#ins + 1] = {text = G.ICON.accept .. " " .. G.Title(a.id), right = G.NodeName(a.step.nr) or "", kind = "next", nav = {step = a.step}}
+            local st = nexts[k]
+            local id = "next" .. k
+            if k > 1 then ins[#ins + 1] = {kind = "nxGap"} end
+            ins[#ins + 1] = {text = Tr.NowTitle(st), kind = "nxTitle", nav = {step = st}, block = id, blockColor = "next"}
+            local who = Tr.NowWho(st)
+            if who then ins[#ins + 1] = {text = who, kind = "nxWho", block = id, blockColor = "next"} end
+            local where = Tr.NextWhere(st)
+            if where then ins[#ins + 1] = {text = where, kind = "nxWhere", block = id, blockColor = "next"} end
         end
-        for k = #ins, 1, -1 do table.insert(rows, acceptAt, ins[k]) end
+        for _, r in ipairs(ins) do rows[#rows + 1] = r end
     end
     return rows, fit
 end
 
+-- ===== JETZT-Block =====
+-- Zeile 1: nur Questname(n), gross
+function Tr.NowTitle(step)
+    if step.kind == "travel" or step.kind == "dungeon" then return G:StepText(step, false, true) end
+    local icon, names = nil, {}
+    for _, a in ipairs(step.actions or {}) do
+        icon = icon or G.ICON[a.kind] or G.ICON.obj
+        names[#names + 1] = G.LevelTitle(a.id)
+    end
+    return (icon and (icon .. " ") or "") .. table.concat(names, "  ·  ")
+end
+
+-- Zeile 2: was zu tun ist und bei wem ("annehmen bei Tonga Runetotem")
+Tr.VERB = {accept = "annehmen", turnin = "abgeben", obj = "erledigen"}
+function Tr.NowWho(step)
+    if step.kind ~= "accept" and step.kind ~= "turnin" and step.kind ~= "obj" then return G:StepWho(step) end
+    local verbs, seen = {}, {}
+    for _, a in ipairs(step.actions or {}) do
+        local v = Tr.VERB[a.kind]
+        if v and not seen[v] then seen[v] = true verbs[#verbs + 1] = T(v) end
+    end
+    local verb = table.concat(verbs, " + ")
+    local who = G.NodeName(step.nr)
+    if step.kind == "obj" then return who and T("Ziel: %s", who) or (verb ~= "" and verb or nil) end
+    if not who then return verb ~= "" and verb or nil end
+    return verb .. " " .. T("bei %s", who)
+end
+
+-- naechster bekannter Ortsname (Flugpunkt/Stadt) zu einem Kartenpunkt; WoW nennt Ortsnamen
+-- nur fuer die eigene Stelle, darum "nahe …"
+Tr.NEAR = 900   -- Yards
+function Tr.NearName(mapID, x, y)
+    local nv = ONE.ns and ONE.ns.nav
+    local tr, F = nv and nv.Travel, nv and nv.Flights
+    if not (tr and tr.World and F and F.Nodes) then return nil end
+    local c, wx, wy = tr.World(mapID, x, y)
+    if not c then return nil end
+    local best, bd
+    local ok, nodes = pcall(F.Nodes, F)
+    for _, n in pairs(ok and nodes or {}) do
+        if type(n) == "table" and n.continent == c and type(n.x) == "number" then
+            local d = math.sqrt((n.x - wx) ^ 2 + (n.y - wy) ^ 2)
+            if d <= Tr.NEAR and (not bd or d < bd) then best, bd = n, d end
+        end
+    end
+    return best and tr.ShortName and tr.ShortName(best.name) or (best and best.name)
+end
+
+-- Zeile 3: Gebiet · nahe Ort (x, y)
+function Tr.NowWhere(step)
+    if not (step.mapID and step.x) then return nil end
+    local zone = G.ZoneName(step.mapID)
+    local near = Tr.NearName(step.mapID, step.x, step.y)
+    local coord = ("(%d, %d)"):format(math.floor(step.x * 100 + .5), math.floor(step.y * 100 + .5))
+    return zone .. (near and ("  ·  " .. T("nahe %s", near)) or "") .. "  " .. coord
+end
+
+-- Kopfzeile: "BRACHLAND · 12 Quests · ca. 1 h 40 min · bis Stufe 17" + "nächste Stufe: 6 Abgaben · ~40 min"
+local function Minutes(m)
+    m = math.max(1, math.floor(m + .5))
+    if m < 60 then return T("ca. %d min", m) end
+    return T("ca. %d h %d min", math.floor(m / 60), m % 60)
+end
+function Tr.ZoneLine(plan)
+    local s1 = plan.steps[1]
+    local b = s1 and plan.blocks and s1.block and plan.blocks[s1.block]
+    if not (b and b.mapID) then return nil end
+    local ids, n = {}, 0
+    for i = b.first, b.last do
+        local st = plan.steps[i]
+        for _, a in ipairs(st.actions or {}) do if not ids[a.id] then ids[a.id] = true n = n + 1 end end
+        for _, id in ipairs(st.kind == "dungeon" and st.ids or {}) do if not ids[id] then ids[id] = true n = n + 1 end end
+    end
+    local parts = {}
+    local name = G.ZoneName(b.mapID) or ""
+    if name ~= "" then parts[1] = name:upper() end
+    parts[#parts + 1] = n == 1 and T("1 Quest") or T("%d Quests", n)
+    parts[#parts + 1] = Minutes(b.minutes or 0)
+    local max = (UnitXPMax and UnitXPMax("player")) or 0
+    if plan.level and max > 0 then
+        local out = lev.Planner.LevelAfter(plan.level, (UnitXP and UnitXP("player")) or 0, max, b.xp or 0)
+        if out > plan.level then parts[#parts + 1] = T("bis Stufe %d", out) end
+    end
+    local sub
+    local k, minutes = G:ToNextLevel()
+    if k and k > 0 then
+        sub = (k == 1 and T("nächste Stufe: 1 Abgabe") or T("nächste Stufe: %d Abgaben", k)) .. "  ·  ~" .. math.max(1, math.floor(minutes + .5)) .. " " .. T("min")
+    end
+    return table.concat(parts, "  ·  "), sub
+end
+
+-- ALS NAECHSTES, Zeile 3: nur Gebiet (· nahe Ort) – ohne Weg, Koordinaten und Zeit (Nutzer 18.11.2026)
+function Tr.NextWhere(step)
+    if not step.mapID then return nil end
+    local near = step.x and Tr.NearName(step.mapID, step.x, step.y)
+    return G.ZoneName(step.mapID) .. (near and ("  ·  " .. T("nahe %s", near)) or "")
+end
+
+-- Zeile 4: Entfernung · ca. Zeit (zu Fuss / reitend / mit Flug oder Schiff laut Plan)
+function Tr:NowEta(step)
+    local d = G:Distance(step)
+    local parts = {}
+    if d then parts[#parts + 1] = math.floor(d + .5) .. " " .. T("m") end
+    local via = step.via
+    if via and via.kind == "flight" and step.walk then
+        local S = ONE.ns and ONE.ns.nav and ONE.ns.nav.Travel and ONE.ns.nav.Travel.ShortName or function(n) return n end
+        parts[#parts + 1] = T("ca. %d min mit Flug ab %s", math.max(1, math.floor(step.walk + .5)), S(via.from and via.from.name or "?"))
+    elseif via and step.walk then
+        parts[#parts + 1] = T("ca. %d min mit Schiff", math.max(1, math.floor(step.walk + .5)))
+    elseif d then
+        local mounted = IsMounted and IsMounted()
+        local min = d / (mounted and 11 or 7) / 60
+        parts[#parts + 1] = min < 1 and T("unter 1 min") or T(mounted and "ca. %d min reitend" or "ca. %d min zu Fuß", math.floor(min + .5))
+    end
+    if #parts == 0 then return nil end
+    return table.concat(parts, "  ·  ")
+end
+
 -- Schrift, Farbe, Zeilenhoehe, Einrueckung
 Tr.STYLE = {
-    now = {"GameFontHighlight", 1, 1, 1, 17, 10},
-    who = {"GameFontHighlightSmall", .65, .65, .65, 14, 28},
+    now = {"GameFontNormalLarge", 1, .82, .25, 21, 14},
+    who = {"GameFontHighlight", .95, .95, .95, 16, 14},
+    where = {"GameFontHighlightSmall", .62, .82, 1, 14, 14},
+    eta = {"GameFontHighlightSmall", .62, .82, 1, 15, 14},
+    zone = {"GameFontNormalSmall", 1, .82, 0, 14, 10},
+    zoneSub = {"GameFontHighlightSmall", .6, .6, .6, 13, 10},
+    nxTitle = {"GameFontHighlight", .55, .8, 1, 16, 14},
+    nxWho = {"GameFontHighlightSmall", .85, .85, .85, 13, 14},
+    nxWhere = {"GameFontHighlightSmall", .6, .6, .68, 14, 14},
+    nxGap = {"GameFontHighlightSmall", 0, 0, 0, 4, 10},
     obj = {"GameFontHighlightSmall", .85, .85, .85, 14, 28},
     next = {"GameFontHighlightSmall", .8, .8, .8, 15, 10},
     label = {"GameFontNormalSmall", 1, .82, 0, 15, 10},
@@ -436,9 +522,25 @@ function Tr:Update(plan, resizing)
     local H = (f.GetHeight and f:GetHeight()) or G:DB().trackerHeight or Tr.HEIGHT
     if type(W) ~= "number" or W <= 0 then W = G:DB().trackerWidth or Tr.WIDTH end
     if type(H) ~= "number" or H <= 0 then H = G:DB().trackerHeight or Tr.HEIGHT end
+    -- Kopfzeile: Titel kuerzen, damit er im schmalen Kasten nicht unter Entfernung/Pfeil/Zahnrad laeuft
+    if f.head.SetWidth then f.head:SetWidth(math.max(40, W - 110)) end
+    if f.head.SetWordWrap then f.head:SetWordWrap(false) end
     local rows = self:Rows(plan, H - 24 - 10)
+    -- schmaler Kasten: Ort und Entfernung in eine Zeile
+    if W < Tr.NARROW then
+        for i, r in ipairs(rows) do
+            if r.kind == "where" and rows[i + 1] and rows[i + 1].kind == "eta" then
+                local zone = G.ZoneName(plan.steps[1].mapID)
+                r.text, r.kind = zone, "eta"
+                table.remove(rows, i + 1)
+                r.narrow = true
+                break
+            end
+        end
+    end
     local y = -24
-    if self.toggle then self.toggle:Hide() end
+    local blocks, lastBlock = {}, nil
+    self.etaLine, self.etaNarrow = nil, nil
     for i, r in ipairs(rows) do
         local fs = self:Line(i)
         local right = self:Right(i)
@@ -449,37 +551,36 @@ function Tr:Update(plan, resizing)
         right:ClearAllPoints()
         right:SetPoint("TOPRIGHT", f, "TOPRIGHT", -10, y)
         -- rechte Spalte: so breit wie noetig, hoechstens 45 %
+        -- rechte Spalte: einzeilig, notfalls mit "…" gekuerzt; im schmalen Kasten faellt die NPC-Spalte
+        -- bei "Noch annehmen" weg (steht dann im Tooltip) – nie umbrechen/ueberlappen (Nutzer 18.11.2026)
         local rw = 0
-        if r.right and r.right ~= "" then
+        if right.SetWordWrap then right:SetWordWrap(false) end
+        if right.SetMaxLines then right:SetMaxLines(1) end
+        local showRight = r.right and r.right ~= "" and not (r.kind == "next" and W < Tr.NARROW)
+        if showRight then
+            right:SetWidth(0)
             right:SetText(r.right)
             local sw = right.GetStringWidth and right:GetStringWidth()
-            rw = math.min(math.floor(W * .45), (type(sw) == "number" and sw > 0) and (sw + 8) or 60)
+            rw = math.min(math.floor(W * (r.kind == "next" and .4 or .45)), (type(sw) == "number" and sw > 0) and (sw + 8) or 60)
             right:SetWidth(rw)
+        elseif r.right and r.right ~= "" and r.kind == "next" then
+            r.tip = r.tip or (T("bei %s", r.right))
         end
         fs:SetWidth(W - st[6] - 10 - rw)
+        if fs.SetMaxLines then fs:SetMaxLines(1) end
         fs:SetTextColor(st[2], st[3], st[4])
         fs:SetText(r.text or "")
         fs:Show()
-        right:SetText(r.right or "")
-        if rw > 0 then right:Show() else right:Hide() end
+        if rw > 0 then right:Show() else right:SetText("") right:Hide() end
         self:Hit(i, r, st, y, W)
-        if r.toggle then
-            -- Klick auf "DEINE QUESTS" klappt ein/aus
-            if not self.toggle then
-                self.toggle = CreateFrame("Button", nil, f)
-                self.toggle:SetScript("OnClick", function()
-                    local db = G:DB()
-                    db.trackerLogOpen = db.trackerLogOpen == false
-                    Tr:Update(G.plan)
-                end)
-            end
-            self.toggle:ClearAllPoints()
-            self.toggle:SetPoint("TOPLEFT", f, "TOPLEFT", 6, y + 2)
-            self.toggle:SetSize(W - 12, st[5])
-            self.toggle:Show()
-        end
+        if r.block then
+            if r.block ~= lastBlock then blocks[#blocks + 1] = {top = y, color = r.blockColor or "now"} lastBlock = r.block end
+            blocks[#blocks].bottom = y - st[5]
+        else lastBlock = nil end
+        if r.kind == "eta" then self.etaLine, self.etaNarrow = i, r.narrow and r.text or nil end
         y = y - st[5]
     end
+    self:Blocks(blocks)
     for i = #rows + 1, #self.lines do self.lines[i]:Hide() end
     for i = #rows + 1, #(self.rights or {}) do self.rights[i]:Hide() end
     for i = #rows + 1, #(self.hits or {}) do self.hits[i]:Hide() end
@@ -504,8 +605,10 @@ function Tr:ApplyReplace()
     for _, name in ipairs(Tr.BLIZZARD) do
         local w = rawget(_G, name)
         if type(w) == "table" and w.SetParent and w.GetParent then
-            if on and not self.saved[name] then
-                self.saved[name] = w:GetParent() or UIParent
+            -- WoW haengt die Liste spaeter (z. B. nach /reload) wieder ein: jedes Mal pruefen
+            -- (Spieltest 19.11.2026), Original-Eltern nur beim ersten Mal merken
+            if on and w:GetParent() ~= self.holder then
+                if not self.saved[name] then self.saved[name] = w:GetParent() or UIParent end
                 w:SetParent(self.holder)
             elseif not on and self.saved[name] then
                 w:SetParent(self.saved[name])
@@ -519,9 +622,9 @@ function Tr:Initialize()
     G:OnChange(function(plan) Tr:Update(plan) end)
     -- Fortschritt (Ziele) ohne Neuplanung auffrischen; nach dem Kampf ggf. WoW-Liste umhaengen
     local ev = CreateFrame("Frame")
-    for _, e in ipairs({"QUEST_LOG_UPDATE", "PLAYER_REGEN_ENABLED"}) do pcall(ev.RegisterEvent, ev, e) end
+    for _, e in ipairs({"QUEST_LOG_UPDATE", "PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD"}) do pcall(ev.RegisterEvent, ev, e) end
     ev:SetScript("OnEvent", function(_, event)
-        if event == "PLAYER_REGEN_ENABLED" and Tr.wantReplace then Tr.wantReplace = nil Tr:ApplyReplace() end
+        if (event == "PLAYER_REGEN_ENABLED" and Tr.wantReplace) or event == "PLAYER_ENTERING_WORLD" then Tr.wantReplace = nil Tr:ApplyReplace() end
         if G.plan then Tr:Update(G.plan) end
     end)
 end

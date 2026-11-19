@@ -32,7 +32,6 @@ Internally the add-ons are called `ONE_*` – the visible name is Guild Trip.
 
 - Tests: `bash scripts/check.sh` (Lua 5.1)
 - Quest data: in a QuestieDB checkout run `lua5.1 tools/export-forever.lua --include-authored`, then `lua5.1 scripts/import_questiedb.lua <QuestieDB checkout>`
-- Mob data (levels, camps): `lua5.1 scripts/import_mobs.lua <QuestieDB checkout>` (reads the data tables only)
 - Walking network: `luajit scripts/bake_routes.lua <shortest-path-forever checkout>` (check quality with `scripts/check_routes.lua`)
 - Release zip: `python3 -I scripts/build_release_windows.py --curseforge`
 - Release: push the tag `v<version>`; `.github/workflows/release.yml` tests, builds and uploads to CurseForge. Versions already listed in `.github/curseforge-uploads.txt` are not uploaded again (a manual `scripts/upload_curseforge.py` run adds its line there – commit it)
@@ -46,8 +45,7 @@ licence your contribution under GPL-3.0-or-later.
 
 **Der Reisebegleiter deiner Gilde für WoW: Forever.** Kalender und Gildenausflüge, Gildenmitglieder auf
 der Karte, Navi-Pfeil, Quests und Questgeber, Dungeons und Gruppensuche, Rezepte und Lehrer, ein
-Klassen-Ratgeber, der deine Leisten einrichtet, ein Chat wie ein Messenger und auf Wunsch das Aussehen
-eines alten Buches – alles in einem Addon.
+Klassen-Ratgeber, der deine Leisten einrichtet, und ein Chat wie ein Messenger – alles in einem Addon.
 
 - **Download:** [CurseForge](https://www.curseforge.com/wow/addons/guildtrip)
 - **Fehler & Ideen:** [Issues](../../issues)

@@ -6,6 +6,16 @@ local lev = {}
 assert(loadfile(root .. "/ONE_Leveling/Planner.lua"))("ONE_Leveling", lev)
 local P = lev.Planner
 local Q = GuildTripQuestDB
+-- Belohnungsdaten kompakt (Text) – Lesen bei Bedarf
+do
+    local R = GuildTripLeveling
+    assert(type(R.r[166]) == "string" and type(R.i[2074]) == "string", "als Text gespeichert")
+    local r = P.Rew(R, 166)
+    assert(r[1] == 0 and r[3] == 2 and r[4] == false and #r[5] == 3 and r[5][1] == 6087, "Quest 166 gelesen")
+    local it = P.Item(R, 2074)
+    assert(it[3] == 19 and it[5] == 2 and it[6] == 7 and it[10] == false, "Gegenstand gelesen")
+    assert(P.Rew(R, -1) == nil and P.Item(R, -1) == nil)
+end
 -- EP-Regeln
 assert(P.QuestXP(1000, 10, 15) == 1000 and P.QuestXP(1000, 10, 16) == 800 and P.QuestXP(1000, 10, 25) == 100)
 assert(P.MobXP(15, 15) == 120 and P.MobXP(15, 5) == 0 and P.MobXP(15, 14) > 100)
@@ -106,17 +116,6 @@ do
         if seen[id] then assert(seen[id] == "plan", "im Plan: " .. id .. " " .. seen[id]) end
     end
 end
--- 0.7.0 Was schaltet Stufe 16 frei? Quests mit Mindeststufe 16, passend (Allianz, Schurke)
-do
-    local ids = P.UnlockedQuests(ctx, 16)
-    assert(#ids > 0, "Stufe 16 schaltet Quests frei")
-    for _, id in ipairs(ids) do
-        local e = Q.q[id]
-        assert(e[2] == 16 and not done[id])
-        assert(e[3] == 0 or P.Band(e[3], 1) > 0, "fuer Menschen: " .. id)
-    end
-    assert(#P.UnlockedQuests(ctx, 99) == 0)
-end
 if os.getenv("SHOW") then
     ctx.tempo = "need"
     plan = P:Plan(ctx)
@@ -127,5 +126,42 @@ if os.getenv("SHOW") then
     end
     print("min", plan.minutes, "xp", plan.xp, "grind", plan.grind)
     for i = 1, 12 do local o = plan.skipped[i] if o then print("skip", Q.titles[o.id], P.SkipText(o, plan)) end end
+end
+-- Reisezeit: zu Fuss, Flug, Schiff
+do
+    local A, B = {0, 0, 0}, {0, 6000, 0}         -- 6000 Yards auseinander
+    local walk = P.Travel(A, B, {speed = 7})
+    assert(math.abs(walk - 6000 * P.DETOUR / 7 / 60) < .01, "zu Fuss")
+    local net = {speed = 7, flights = {{0, 100, 0, name = "Ort A"}, {0, 5900, 0, name = "Ort B"}}}
+    local fly, via = P.Travel(A, B, net)
+    assert(via and via.kind == "flight" and via.from.name == "Ort A" and via.to.name == "Ort B" and fly < walk / 3, "Flug lohnt")
+    local near, via2 = P.Travel(A, {0, 300, 0}, net)
+    assert(not via2, "kurze Strecke: laufen")
+    net.departures = {{0, 500, 0, from = 0, to = 1, name = "Schiff ab Menethil"}, {1, 0, 0, from = 1, to = 0, name = "Schiff ab Auberdine"}}
+    local boat, via3 = P.Travel(A, {1, 200, 0}, net)
+    assert(via3 and via3.kind == "boat" and via3.dep.name == "Schiff ab Menethil" and boat < P.FAR_MIN + P.BOAT_MIN, "Schiff")
+    assert(P.Travel(A, {5, 0, 0}, net) == P.UNKNOWN_TRIP, "ohne Verbindung: teure Pauschale")
+end
+-- Im Plan: weit entfernter Halt (Klassenquest in Sturmwind) -> eigener Schritt "Fliegen"
+do
+    local SW = 1453
+    -- realistischere Lage: Sturmwind ~4000 Yards von Westfall, Kalimdor/Forever-Gebiete eigene Kontinente
+    local oldWorld = ctx.world
+    ctx.world = function(m, x, y)
+        if m == 1436 then return 0, x * 3000, y * 3000 end
+        if m == SW then return 0, 4000 + x * 1000, y * 1000 end
+        if KAL[m] then return 1, x * 3000, y * 3000 end
+        return 9, m * 10 + x * 3000, y * 3000
+    end
+    local cw, wx, wy = ctx.world(1436, .56, .47)
+    local sc, sx, sy = ctx.world(SW, .5, .5)
+    ctx.flights = {{cw, wx, wy, name = "Späherkuppe, Westfall"}, {sc, sx, sy, name = "Sturmwind, Elwynn"}}
+    ctx.tempo, ctx.override = "need", nil
+    for _, id in ipairs({65, 132, 135, 141, 142}) do done[id] = nil end
+    local pf = P:Plan(ctx)
+    local travel
+    for _, st in ipairs(pf.steps) do if st.kind == "travel" then travel = st break end end
+    assert(travel and travel.via.kind == "flight" and travel.world and travel.via.to.name == "Sturmwind, Elwynn", "Flug-Schritt im Plan")
+    ctx.flights, ctx.world = nil, oldWorld
 end
 print("OK: Quest-Fuehrung Planer")

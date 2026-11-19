@@ -123,7 +123,7 @@ for _, addon in ipairs(ADDONS) do
     end
 end
 local ONE = _G.ProjectONE
-assert(ONE and ONE.version == "0.7.0-alpha", "Kern geladen")
+assert(ONE and ONE.version == "0.7.1-alpha", "Kern geladen")
 
 -- ===== Kern starten (ADDON_LOADED) =====
 local errors = {}
@@ -163,7 +163,7 @@ end
 local core = {heute = 1, today = 1, modules = 1, module = 1, guild = 1, gilde = 1, map = 1, karte = 1, minimap = 1,
     klang = 1, sound = 1, bug = 1, fehler = 1, help = 1, hilfe = 1}
 for name in pairs(ONE.slashCommands) do assert(not core[name], "/trip " .. name .. " ist im Kern schon belegt") end
-assert(ONE.slashCommands.sos and ONE.slashCommands.auftrag, "neue Befehle da")
+assert(ONE.slashCommands.sos, "Hilferuf-Befehl da")
 -- Alle Funktionen haben ein Modul, das es gibt
 for id, def in pairs(ONE.features) do
     if def.module then assert(ONE.modules[def.module], "Funktion " .. id .. ": Modul " .. def.module .. " fehlt") end

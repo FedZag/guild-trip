@@ -23,79 +23,11 @@ local function NativeButton(parent, template)
     if ok and button then return button end
 end
 
--- Aussehen "Altes Buch": statt rotem Knopf ein Tintenlink in Rubrik-Rot mit
--- feiner Unterstreichung; Hauptknoepfe ("primary") bekommen ein Wachssiegel davor.
-local function InkLink(parent, text, width, height, style)
-    local Book = ONE.Book
-    local button = CreateFrame("Button", nil, parent)
-    button:SetSize(width, height)
-    local seal
-    if style == "primary" and width >= 90 then
-        seal = button:CreateTexture(nil, "ARTWORK")
-        seal:SetSize(height + 8, height + 8)
-        seal:SetPoint("LEFT", button, "LEFT", 0, 0)
-        seal:SetTexture(Book.sealArt)
-    end
-    local label = CreateLabel(button, text, "CENTER", seal and (height + 10) or 4, 4)
-    if label.SetFont then pcall(label.SetFont, label, Book.bodyFont, math.max(12, math.min(16, height * .62)), "") end
-    Book.Crisp(label)
-    label.__oneInk, label.__oneOldPrint = true, true
-    local line = button:CreateTexture(nil, "ARTWORK")
-    line:SetHeight(1)
-    line:SetPoint("TOP", label, "CENTER", 0, -(height * .3))
-    local function Width()
-        local w = label.GetStringWidth and label:GetStringWidth() or 0
-        if w <= 0 then w = width * .6 end
-        line:SetWidth(math.min(w, width - 8))
-    end
-    local red = Book.red
-    local locked = false
-    local function Paint(state)
-        if state == "on" and locked then state = "sel" end
-        local c = state == "hover" and {.70, .14, .04} or state == "off" and {.42, .34, .24}
-            or state == "sel" and Book.ink or red
-        line:SetHeight(state == "sel" and 2 or 1)
-        label:SetTextColor(c[1], c[2], c[3])
-        if line.SetColorTexture then line:SetColorTexture(c[1], c[2], c[3], (state == "hover" or state == "sel") and .9 or state == "off" and .25 or .5) end
-        if seal and seal.SetDesaturated then seal:SetDesaturated(state == "off") end
-        Width()
-    end
-    local function Enabled() return not (button.IsEnabled and not button:IsEnabled()) end
-    Paint("on")
-    if button.HookScript then
-        button:HookScript("OnEnter", function() if Enabled() then Paint("hover") end end)
-        button:HookScript("OnLeave", function() Paint(Enabled() and "on" or "off") end)
-        button:HookScript("OnEnable", function() Paint("on") end)
-        button:HookScript("OnDisable", function() Paint("off") end)
-        button:HookScript("OnShow", Width)
-    end
-    if hooksecurefunc then hooksecurefunc(button, "SetText", Width) end
-    -- Umschalter (Reiter auf einer Seite): ausgewaehlt = schwarze Tinte, kraeftig unterstrichen
-    function button:LockHighlight() locked = true Paint("on") end
-    -- Verzeichnis-Zeile: Text und Unterstrich linksbuendig
-    function button:AlignLeft()
-        label:SetJustifyH("LEFT")
-        line:ClearAllPoints()
-        line:SetPoint("TOPLEFT", label, "LEFT", 0, -(height * .3))
-        Width()
-    end
-    function button:UnlockHighlight() locked = false Paint(Enabled() and "on" or "off") end
-    button.__oneInkLink = true
-    if seal and button.HookScript then button:HookScript("OnClick", function() if ONE.Sound then ONE.Sound:Play("seal") end end) end
-    return button
-end
-
 function Widgets:Button(parent, text, width, height, point, x, y, callback, style)
     assert(parent and width and height, "ONE Button: Elternframe oder Maße fehlen")
-    -- forceNative: Knoepfe ausserhalb des Fensters (z. B. auf der Weltkarte) nie als Tintenlink
-    if not Widgets.forceNative and ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() then
-        local link = InkLink(parent, text, width, height, style)
-        link:SetPoint(point or "TOPLEFT", parent, point or "TOPLEFT", x or 0, y or 0)
-        link.__oneStyle, link.__oneNative, link.__oneVariant = true, false, style or "secondary"
-        if callback then link:SetScript("OnClick", callback) end
-        return link
-    end
-    local button = NativeButton(parent)
+    -- Glas-Look: eigene Pille statt roter Blizzard-Vorlage
+    local glass = ONE.Glass and ONE.Glass:Active()
+    local button = (not glass) and NativeButton(parent) or nil
     local native = button ~= nil
     button = button or CreateFrame("Button", nil, parent)
     button:SetSize(width, height)
@@ -109,6 +41,7 @@ function Widgets:Button(parent, text, width, height, point, x, y, callback, styl
         CreateLabel(button, text, "CENTER", 11, 11)
     end
     if callback then button:SetScript("OnClick", callback) end
+    if glass then ONE.Glass:StyleButton(button, style) end
     return button
 end
 
@@ -148,18 +81,6 @@ function Widgets:PageHeader(parent, title, subtitle, width, keepTop)
     end
     -- Buch: Titel nur auf der linken Seite, in Rubrik-Rot; die Unterzeile laeuft
     -- sonst ueber die Falz und steht ohnehin im Tooltip-Wissen der Seite
-    if ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() then
-        heading:SetWidth(ONE.Book.left.width)
-        if heading.SetWordWrap then heading:SetWordWrap(false) end
-        if heading.SetFont then pcall(heading.SetFont,heading,ONE.Book.font,18,"") end
-        ONE.Book.Crisp(heading)
-        heading.__oneInk=true
-        local texts=ONE.Themes and ONE.Themes.texts or {}
-        for i=#texts,1,-1 do if texts[i].font==heading then table.remove(texts,i) end end
-        heading:SetTextColor(ONE.Book.red[1],ONE.Book.red[2],ONE.Book.red[3])
-        description:Hide()
-        description.Show=function() end
-    end
     return heading,description
 end
 
@@ -211,8 +132,9 @@ function Widgets:IconButton(parent, texturePath, size, point, x, y, callback, va
 end
 
 function Widgets:CloseButton(parent, point, x, y, callback)
-    if ONE.Book and ONE.Book.IsActive and ONE.Book:IsActive() and ONE.Book.InkClose then
-        return ONE.Book:InkClose(parent, point, (x or 0) + 4, (y or 0) - 4, callback)
+    if ONE.Glass and ONE.Glass:Active() then
+        return self:IconButton(parent, "Interface\\AddOns\\ONE_Core\\Textures\\Common\\CloseGlyph.tga",
+            26, point or "TOPLEFT", x or 0, y or 0, callback, "secondary", 11)
     end
     local ok, close = pcall(CreateFrame, "Button", nil, parent, "UIPanelCloseButton")
     if ok and close then
@@ -269,4 +191,192 @@ function Widgets:NaviArrow(parent, size, point, x, y, callback, tip)
         if GameTooltip then GameTooltip:Hide() end
     end)
     return nb
+end
+
+-- An allen Kanten und Ecken groesser/kleiner ziehen (wie ein normales Fenster; Nutzer 18.11.2026).
+-- Unsichtbare, schmale Griffe ueber den Raendern. opts = {size = Randbreite, onStart(), onStop(), onEnter(), onLeave()}
+-- Der Rahmen braucht SetResizable(true) und Grenzen (SetResizeBounds). Rueckgabe: Liste der Griffe.
+Widgets.RESIZE_SIDES = {
+    {"TOPLEFT", "TOPLEFT", "TOPLEFT", 0, 0, true, true}, {"TOPRIGHT", "TOPRIGHT", "TOPRIGHT", 0, 0, true, true},
+    {"BOTTOMLEFT", "BOTTOMLEFT", "BOTTOMLEFT", 0, 0, true, true}, {"BOTTOMRIGHT", "BOTTOMRIGHT", "BOTTOMRIGHT", 0, 0, true, true},
+    {"TOP", "TOPLEFT", "TOPRIGHT", 0, 0, false, true}, {"BOTTOM", "BOTTOMLEFT", "BOTTOMRIGHT", 0, 0, false, true},
+    {"LEFT", "TOPLEFT", "BOTTOMLEFT", 0, 0, true, false}, {"RIGHT", "TOPRIGHT", "BOTTOMRIGHT", 0, 0, true, false},
+}
+-- Rueckmeldung beim Ueberfahren eines Griffs: Mauszeiger "Groesse aendern" (falls der Client ihn kennt)
+-- und eine golden aufleuchtende Kante/Ecke (eigenes Zeichen, klappt immer). Nutzer 18.11.2026.
+-- Eigene (kleine) Zeiger zeigt dieser Client nur als schwarzes Viereck (TGA und BLP getestet,
+-- Spieltest 18.11.2026) – darum nur WoW-eigene Zeiger.
+Widgets.RESIZE_CURSORS = {"UI_RESIZE_CURSOR", "Interface\\CURSOR\\UI-Cursor-SizeRight", "Interface\\CURSOR\\UI-Cursor-Move"}
+function Widgets.ResizeCursor(on, side)
+    if not on then
+        if type(ResetCursor) == "function" then pcall(ResetCursor) end
+        return
+    end
+    if type(SetCursor) ~= "function" then return end
+    for _, c in ipairs(Widgets.RESIZE_CURSORS) do
+        local ok, res = pcall(SetCursor, c)
+        if ok and res ~= false then return c end
+    end
+end
+local function Highlight(h, corner)
+    if not h.CreateTexture then return end
+    local t = h:CreateTexture(nil, "OVERLAY")
+    t:SetAllPoints(h)
+    t:SetColorTexture(1, .82, 0, corner and .55 or .45)
+    t:Hide()
+    h.glow = t
+end
+local function HoverOn(self) if self.glow then self.glow:Show() end Widgets.ResizeCursor(true, self.__oneSide) end
+local function HoverOff(self) if self.glow then self.glow:Hide() end Widgets.ResizeCursor(false) end
+
+function Widgets:ResizeHandles(frame, opts)
+    opts = opts or {}
+    local size = opts.size or 6
+    local handles = {}
+    for _, d in ipairs(Widgets.RESIZE_SIDES) do
+        local side, a, b, corner = d[1], d[2], d[3], d[6] and d[7]
+        local h = CreateFrame("Button", nil, frame)
+        if h.SetFrameLevel then h:SetFrameLevel((frame.GetFrameLevel and frame:GetFrameLevel() or 0) + (corner and 12 or 10)) end
+        if corner then
+            h:SetSize(size * 2, size * 2)
+            h:SetPoint(side, frame, side, 0, 0)
+        else
+            -- Kante: zwischen den Ecken, so breit wie der Rand
+            local horizontal = side == "TOP" or side == "BOTTOM"
+            h:SetPoint(a, frame, a, horizontal and size * 2 or 0, horizontal and 0 or -size * 2)
+            h:SetPoint(b, frame, b, horizontal and -size * 2 or 0, horizontal and 0 or size * 2)
+            if horizontal then h:SetHeight(size) else h:SetWidth(size) end
+        end
+        h.side = side
+        h:SetScript("OnMouseDown", function(self, button)
+            if button and button ~= "LeftButton" then return end
+            if opts.onStart then opts.onStart(self.side) end
+            frame:StartSizing(self.side)
+        end)
+        h:SetScript("OnMouseUp", function()
+            frame:StopMovingOrSizing()
+            if opts.onStop then opts.onStop() end
+        end)
+        h.__oneSide = side
+        Highlight(h, corner)
+        h:SetScript("OnEnter", function(self) HoverOn(self) if opts.onEnter then opts.onEnter(self) end end)
+        h:SetScript("OnLeave", function(self) HoverOff(self) if opts.onLeave then opts.onLeave(self) end end)
+        handles[#handles + 1] = h
+    end
+    return handles
+end
+
+-- ===== Vergroessern durch Ziehen (Fenster mit fester Aufteilung: alles waechst mit, auch die Schrift) =====
+-- An jeder Kante/Ecke ziehen: die gegenueberliegende Seite bleibt stehen, der Massstab folgt der Maus.
+-- Gemerkt je Fenster in ONE.db.frameScales[key]. opts = {min, max, onStop(scale)}
+local function Cursor()
+    if not GetCursorPosition then return nil end
+    local x, y = GetCursorPosition()
+    local s = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
+    if not (x and y and s and s > 0) then return nil end
+    return x / s, y / s
+end
+function Widgets:ScaleHandles(frame, key, opts)
+    opts = opts or {}
+    local minS, maxS = opts.min or .6, opts.max or 2
+    local store = ONE.db and ONE.db.frameScales
+    if ONE.db and not store then ONE.db.frameScales = {} store = ONE.db.frameScales end
+    local saved = store and key and store[key]
+    if type(saved) == "number" and not opts.noRestore then frame:SetScale(math.max(minS, math.min(maxS, saved))) end
+    local drag
+    local updater = CreateFrame("Frame", nil, frame)
+    updater:Hide()
+    updater:SetScript("OnUpdate", function()
+        if not drag then updater:Hide() return end
+        local mx, my = Cursor()
+        if not mx then return end
+        local sx, sy
+        if drag.fx then sx = math.abs(mx - drag.fx) / drag.w end
+        if drag.fy then sy = math.abs(my - drag.fy) / drag.h end
+        local s = (sx and sy) and math.max(sx, sy) or sx or sy or drag.s
+        s = math.max(minS, math.min(maxS, s))
+        frame:SetScale(s)
+        frame:ClearAllPoints()
+        local px = drag.fx and drag.fx or drag.cx
+        local py = drag.fy and drag.fy or drag.cy
+        frame:SetPoint(drag.anchor, UIParent, "BOTTOMLEFT", px / s, py / s)
+    end)
+    local handles = {}
+    for _, d in ipairs(Widgets.RESIZE_SIDES) do
+        local side = d[1]
+        local h = CreateFrame("Button", nil, frame)
+        local corner = d[6] and d[7]
+        local size = opts.size or 6
+        if corner then
+            h:SetSize(size * 2, size * 2)
+            h:SetPoint(side, frame, side, 0, 0)
+        else
+            local horizontal = side == "TOP" or side == "BOTTOM"
+            h:SetPoint(d[2], frame, d[2], horizontal and size * 2 or 0, horizontal and 0 or -size * 2)
+            h:SetPoint(d[3], frame, d[3], horizontal and -size * 2 or 0, horizontal and 0 or size * 2)
+            if horizontal then h:SetHeight(size) else h:SetWidth(size) end
+        end
+        h:SetScript("OnMouseDown", function(_, button)
+            if button and button ~= "LeftButton" then return end
+            if InCombatLockdown and InCombatLockdown() and frame.IsProtected and frame:IsProtected() then return end
+            local s = frame:GetScale() or 1
+            local l, r, t, b = frame:GetLeft(), frame:GetRight(), frame:GetTop(), frame:GetBottom()
+            if not (l and r and t and b) then return end
+            l, r, t, b = l * s, r * s, t * s, b * s   -- in UIParent-Einheiten
+            drag = {s = s, w = (r - l) / s, h = (t - b) / s, cx = (l + r) / 2, cy = (t + b) / 2}
+            local horiz = side:find("LEFT") and "RIGHT" or side:find("RIGHT") and "LEFT" or nil
+            local vert = side:find("TOP") and "BOTTOM" or side:find("BOTTOM") and "TOP" or nil
+            if horiz == "LEFT" then drag.fx = l elseif horiz == "RIGHT" then drag.fx = r end
+            if vert == "TOP" then drag.fy = t elseif vert == "BOTTOM" then drag.fy = b end
+            drag.anchor = (vert or "") .. (horiz or "")
+            if drag.anchor == "" then drag.anchor = "CENTER" end
+            updater:Show()
+        end)
+        h:SetScript("OnMouseUp", function()
+            if not drag then return end
+            drag = nil
+            updater:Hide()
+            local s = frame:GetScale() or 1
+            if store and key then store[key] = s end
+            if opts.onStop then opts.onStop(s) end
+        end)
+        h.__oneSide = side
+        Highlight(h, corner)
+        h:SetScript("OnEnter", HoverOn)
+        h:SetScript("OnLeave", HoverOff)
+        handles[#handles + 1] = h
+    end
+    -- Griffe immer ueber dem Inhalt (auch wenn das Fenster spaeter seine Ebene aendert)
+    local function Raise()
+        local lvl = frame.GetFrameLevel and frame:GetFrameLevel() or 0
+        for i, h in ipairs(handles) do if h.SetFrameLevel then h:SetFrameLevel(lvl + (i <= 4 and 30 or 28)) end end
+    end
+    Raise()
+    if frame.HookScript then frame:HookScript("OnShow", Raise) end
+    frame.__oneScaleHandles, frame.__oneScaleUpdater = handles, updater
+    return handles
+end
+
+-- Kleine Fenster (Buff-Erinnerung, Buffen, Hinweise ...) bleiben fest (Nutzer 18.11.2026:
+-- frei ziehbar nur Hauptfenster, Chat und Quest-Fuehrung). Liste bleibt fuer spaetere Wuensche.
+Widgets.SCALABLE = {}
+function Widgets:AttachScaling()
+    for _, e in ipairs(Widgets.SCALABLE) do
+        local f = rawget(_G, e[1])
+        if type(f) == "table" and f.GetObjectType and not f.__oneScaleHandles then
+            pcall(Widgets.ScaleHandles, Widgets, f, e[2])
+        end
+    end
+end
+function Widgets:StartAutoScaling()
+    if self.autoScaling or not CreateFrame then return end
+    self.autoScaling = true
+    local w = CreateFrame("Frame")
+    local acc = 0
+    w:SetScript("OnUpdate", function(_, dt)
+        acc = acc + (dt or 0)
+        if acc < 2 then return end
+        acc = 0
+        Widgets:AttachScaling()
+    end)
 end

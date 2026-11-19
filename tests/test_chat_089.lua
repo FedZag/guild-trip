@@ -157,8 +157,5 @@ Chat.parchment = true
 local line = Chat:Format({kind = "guild", author = "Anduin-Forever", guid = "G-PRIEST", text = "Hallo", lineID = 3})
 assert(line:find("|cfe4e5666Anduin|r", 1, true), line)
 Chat.parchment = nil
-assert(loadfile(root .. "/ONE_Core/Book.lua")) -- nur Syntax; InkCodes-Regel unten direkt nachgebaut
-local src = io.open(root .. "/ONE_Core/Book.lua"):read("*a")
-assert(src:find('if a == "fe" then return nil end', 1, true), "Pergament-Farben bleiben beim Einfaerben")
 GetPlayerInfoByGUID, RAID_CLASS_COLORS = nil, nil
 print("OK test_chat_089")
