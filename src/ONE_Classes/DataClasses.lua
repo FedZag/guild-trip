@@ -56,7 +56,7 @@ Data.classes.WARRIOR = {
             {[1] = {{1310222, "Aufspießen"}, {12292, "Schwünge"}}}),
         [2] = Build({{100, "Start"}, {772, "Blutung"}, {23881, "Haupt"}, {7384, "Konter"}, {78, "Wut übrig"},
             {5308, "Hinrichten"}, {1680, "Mehrere"}, {845, "Spalten"}}, WARRIOR_SHARED,
-            "Vorher: Schlachtruf · 1 aus der Kampfhaltung · 2 und 4 kurz in der Kampfhaltung · dann Berserkerhaltung · 3 bei Abklingen · 7 bei Abklingen · 5 bei Wutüberschuss (8 bei mehreren) · 6 unter 20 %",
+            "Vorher: Schlachtruf · 1 aus der Kampfhaltung · 2 und 4 kurz in der Kampfhaltung · dann Berserkerhaltung · 3 bei Abklingen · 7 bei Abklingen · 5 ab etwa 50 Wut (8 bei mehreren) – löst jetzt Ungezügelter Zorn aus, verbraucht Schlaghagel nicht · 6 unter 20 %",
             {"Stärke", "Beweglichkeit", "Ausdauer"},
             {[1] = {{1329555, "Mehr Wut"}, {12328, "Todeswunsch"}, {12323, "Bremsen"}}}),
         [3] = Build({{355, "Spott"}, {7386, "Rüstung"}, {6572, "Rache"}, {2565, "Block"}, {72, "Unterbrechen"},
@@ -137,8 +137,8 @@ warrior[1].situations = {
     raid = {flow = "Hinter dem Boss stehen · 3 bei Abklingen · 4 sobald möglich · 2 halten (nach Absprache) · 6 unter 20 %"},
 }
 warrior[2].situations = {
-    dungeon = {flow = "Tank zieht zuerst · 3 bei Abklingen · 7 bei Abklingen · 8 bei mehreren · 5 bei Wutüberschuss · 6 unter 20 %"},
-    raid = {flow = "Hinter dem Boss · 3 und 7 bei Abklingen · 5 bei Wutüberschuss · 6 unter 20 % · Todeswunsch mit Abklingzeiten"},
+    dungeon = {flow = "Tank zieht zuerst · 3 bei Abklingen · 7 bei Abklingen · 8 bei mehreren · 5 ab etwa 50 Wut · 6 unter 20 %"},
+    raid = {flow = "Hinter dem Boss · 3 und 7 bei Abklingen · 5 ab etwa 50 Wut · 6 unter 20 % · Todeswunsch mit Abklingzeiten"},
 }
 warrior[3].situations = {
     dungeon = {flow = "Vorher: Schlachtruf · Sturmangriff · 7 auf alle · 6 und 3 aufs Hauptziel · 8 für die anderen · 1 wenn ein Gegner zum Heiler läuft"},
@@ -238,8 +238,13 @@ local MAGE_SHARED = {
 -- zusammengefasst und an unsere Plaetze angepasst; Talent-Plaetze ab Taste 9).
 -- Auslöser (passive Talente) stehen im Ablauf: Geschosssalve -> Arkane Geschosse,
 -- Arkane Konzentration (Freizauber), Aufwärmen -> Pyroschlag, Eisige Finger -> Eislanze.
-local MAGE_ARCANE = {{116, "Start"}, {5143, "Salve"}, {2136, "Sofort"}, {122, "Einfrieren"}, {1449, "Mehrere"},
-    {WAND, "Sparen"}, {120, "Kegel"}, {10, "Blizzard"}}
+-- Arkan nach dem Leveling-Guide von Mr. Ronnet (YouTube, Nov. 2026), geprüft gegen die Spieldaten
+-- 1.60.1.70959 (wago.tools: Talentbaum, Arkaner Zorn +5 % max. Mana als Zauberschaden, Arkanschlag
+-- +100 % Manakosten je Stapel, Magierrüstung + Arkane Meditation je 50 % Mana-Erholung, Offenbarung).
+-- Frostblitz Rang 1 ab Stufe 27 (exact = 27): billig und schnell, bremst, löst Geschosssalve aus;
+-- vorher der höchste Rang als Hauptzauber.
+local MAGE_ARCANE = {{116, "Bremsen", exact = 27}, {5143, "Salve"}, {2136, "Erledigen"}, {122, "Einfrieren"}, {2120, "Mehrere"},
+    {WAND, "Sparen"}, {1449, "Nah"}, {10, "Blizzard"}}
 local MAGE_FIRE = {{133, "Füller"}, {2136, "Sofort"}, {2948, "Versengen"}, {122, "Einfrieren"}, {5143, "Salve"},
     {WAND, "Sparen"}, {2120, "Mehrere"}, {116, "Bremsen"}}
 local MAGE_FROST = {{116, "Füller"}, {5143, "Salve"}, {122, "Einfrieren"}, {2136, "Sofort"}, {120, "Kegel"},
@@ -248,17 +253,17 @@ Data.classes.MAGE = {
     name = "Magier", specs = {"Arkan", "Feuer", "Frost"}, defaultSpec = 3,
     -- Kurz: Vor- und Nachteile je Spielstil (Auswahl auf der Klassen-Seite)
     specNotes = {
-        "Viel Schaden durch Aufladen und Geschosssalve, sehr stark ab Stufe 20 · braucht Mana-Planung, Arkanschlag erst ab 20.",
+        "Bester Magier zum Leveln: Arkaner Zorn, kostenlose Geschosse und Blizzard per Freizauber, kaum Pausen · richtig stark erst ab Stufe 20–27, Arkanschlag nur sparsam.",
         "Höchster Schaden, kurze Kämpfe dank Pyroschlag und Druckwelle · wenig Kontrolle, gefährlich bei vielen Gegnern.",
         "Am sichersten: bremsen, einfrieren, Eislanze – ideal zum Leveln allein · etwas weniger Schaden als Feuer.",
     },
     build = {
         [1] = Build(MAGE_ARCANE, MAGE_SHARED,
-            "Vorher: Arkane Intelligenz, Magierüstung · 9 lädt auf (bis 4) · 2 bei Geschosssalve · 10 bei 3–4 Ladungen · 3 wenn 10 abklingt · Freizauber: 9 · vor Stufe 20: 1 bis tot · Mana knapp: 6",
-            {"Intelligenz", "Zauberschaden", "Willenskraft"},
-            {[1] = {{400574, "Aufladen"}, {1326079, "Zorn"}, {12042, "Macht"}}}),
+            "Ab Stufe 27 – vorher: Arkane Intelligenz, Frostrüstung (ab 34 Magierrüstung) · 10 zum Eröffnen · Nahkämpfer: 1 (Rang 1) zum Bremsen · 9 höchstens zweimal (danach zu teuer) · 1 bis 10 wieder bereit · nah: 4, zurückgehen, wieder 10 · Geschosssalve oder Freizauber: sofort 2 · fast tot: 6 (3 nur bei viel Mana) · zähe Gegner: 11, dann 10",
+            {"Intelligenz", "Ausdauer", "Zauberschaden"},
+            {[1] = {{400574, "Aufladen"}, {1326079, "Zorn"}, {12043, "Sofort"}}}),
         [2] = Build(MAGE_FIRE, MAGE_SHARED,
-            "Vorher: Arkane Intelligenz, Frostrüstung · 9 vorab · 1 Füller · 2 sobald bereit · 3 bis 5 Versengen-Stapel · 9 bei 3× Aufwärmen · 5 bei Geschosssalve · nah: 4 und Blinzeln · Mana knapp: 6",
+            "Vorher: Arkane Intelligenz, Frostrüstung · 9 vorab · 1 Füller · 2 sobald bereit · 3 bis 5 Versengen-Stapel · 9 bei 3x Aufwärmen · 5 bei Geschosssalve · nah: 4 und Blinzeln · Mana knapp: 6",
             {"Zauberschaden", "Intelligenz", "Willenskraft"},
             {[1] = {{11366, "Pyroschlag"}, {11113, "Druckwelle"}, {11129, "Verbrennung"}}}),
         [3] = Build(MAGE_FROST, MAGE_SHARED,
@@ -270,17 +275,27 @@ Data.classes.MAGE = {
     tips = {
         {function() return true end, "Essen und Wasser selbst herbeizaubern – das spart viel Gold beim Leveln."},
         {function() return true end, "Geschosssalve (Talent): nach Arkanschlag oder Frostblitz leuchtet Arkane Geschosse – dann sofort wirken, kostet nichts extra."},
+        {function(p) return p.spec == 1 end, "Arkan: Waffenverzauberung „Offenbarung“ (etwa 3–4 Gold) – trifft ein Zauber nicht kritisch, trifft der nächste sicher kritisch; laut Spielerberichten hält das über den ganzen Blizzard."},
+        {function(p) return p.spec == 1 end, "Arkan: Intelligenz vor Zauberschaden – Arkaner Zorn wird mit jedem Punkt Mana stärker."},
+        {function() return true end, "Erste Hilfe lernen: Magier können sich nicht heilen, Verbände sparen Pausen."},
     },
 }
 -- Situationen: Dungeon (mehrere Gegner, Tank zieht) und Raid (Stufe 60, nach Simulationen)
 local mage = Data.classes.MAGE.build
 mage[1].situations = {
-    dungeon = {flow = "Tank zieht zuerst · 9 lädt auf · 2 bei Geschosssalve · 10 bei 3–4 Ladungen · 5 bei vielen Gegnern nah"},
-    raid = {flow = "11 mit Abklingzeiten · 9 lädt auf (4×) · 2 bei Geschosssalve · 10 bei 3–4 Ladungen · Hervorrufung unter 15 % Mana"},
+    dungeon = {flow = "Tank zieht zuerst · ab 34 Magierrüstung statt Frostrüstung · ab 3 Gegnern: 5 legen · Freizauber: sofort 8 (kostet dann nichts) · bis dahin Ablauf wie allein · 8 ab und zu auch mit Mana · Geschosssalve: 2"},
+    raid = {flow = "Arkane Macht mit Abklingzeiten · 9 lädt auf (4x) · 2 bei Geschosssalve · 10 bei 3–4 Ladungen · 11, dann 10 · Hervorrufung unter 15 % Mana"},
+}
+mage[1].stages = { -- Leveln ab Stufe 1 (Lernstufen aus den Spieldaten 70959: Frostblitz 4, Feuerschlag 6,
+    -- Geschosse 8, Frostnova 10, Arkane Explosion 14, Flammenstoß 16, Blizzard 20, Magierrüstung 34; Talente laut Plan)
+    {upTo = 3, flow = "Stufe 1–3 – vorher: Frostrüstung, Arkane Intelligenz · Feuerball bis tot (liegt schon auf der Leiste) · ab Stufe 4 Frostblitz · Mana knapp: essen und trinken"},
+    {upTo = 9, flow = "Stufe 4–9 – vorher: Frostrüstung, Arkane Intelligenz · 1 bis tot (bremst, Nahkämpfer erreichen dich kaum) · fast tot: 3 (ab 6) · ab 8: 2 bei vollem Mana · Mana knapp: 6, sobald du einen Zauberstab hast · Wasser herbeizaubern ab 4"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Frostrüstung, Arkane Intelligenz · 1 Füller · nah: 4, zurückgehen, weiter 1 · Geschosssalve (ab 15) oder Freizauber (ab 17): sofort 2 · fast tot: 6 oder 3 · mehrere nah: 7 (ab 14) · Mana knapp: 6"},
+    {upTo = 26, flow = "Stufe 20–26 – vorher: Frostrüstung, Arkane Intelligenz · 9 zweimal (nicht öfter, sonst zu teuer) · dann 1 bis tot · Geschosssalve oder Freizauber: sofort 2 · nah: 4, zurückgehen · fast tot: 6 · Mana knapp: 6"},
 }
 mage[2].situations = {
-    dungeon = {flow = "Tank zieht zuerst · 3 bis 5 Stapel · 1 Füller · 9 bei 3× Aufwärmen · 7 bei vielen Gegnern · 10 wenn sie nah sind"},
-    raid = {flow = "9 vorab · 3 hält 5 Stapel · 11 bei 5 Stapeln · 9 bei 3× Aufwärmen · 2 sobald bereit · 1 Füller"},
+    dungeon = {flow = "Tank zieht zuerst · 3 bis 5 Stapel · 1 Füller · 9 bei 3x Aufwärmen · 7 bei vielen Gegnern · 10 wenn sie nah sind"},
+    raid = {flow = "9 vorab · 3 hält 5 Stapel · 11 bei 5 Stapeln · 9 bei 3x Aufwärmen · 2 sobald bereit · 1 Füller"},
 }
 mage[3].situations = {
     dungeon = {flow = "Tank zieht zuerst · 1 Füller · 9 bei Eisige Finger · 7 bei 4+ Gegnern · 5 bei 3+ nah · 3 wenn es eng wird"},
@@ -288,10 +303,10 @@ mage[3].situations = {
 }
 -- Talentplaene Stufe 10-60 (Reihenfolge = ein Punkt je Stufe; {Talent, Zielrang}).
 -- Reihen-Freischaltung (5 Punkte je Reihe) ist eingerechnet.
-mage[1].talents = { -- Arkan (Leveln, nach kami-labs/Mobalytics)
-    {11237, 5}, {400588, 2}, {11210, 2}, {11213, 1}, {400574, 1}, {11213, 4}, {11242, 1}, {1326079, 1},
-    {18462, 1}, {29438, 3}, {18462, 2}, {11242, 3}, {12043, 1}, {11232, 4}, {15058, 3}, {11232, 5},
-    {11247, 2}, {12042, 1}, {18459, 5}, {29441, 2}, {11069, 5}, {11078, 2}, {18462, 3}, {11213, 5},
+mage[1].talents = { -- Arkan (Leveln, nach Mr. Ronnet Nov. 2026, Bäume/Reihen gegen Spieldaten 70959 geprüft)
+    {11237, 5}, {400588, 2}, {11213, 3}, {400574, 1}, {11213, 5}, {29438, 2}, {11242, 2}, {1326079, 1},
+    {18462, 3}, {11242, 3}, {12043, 1}, {11232, 5}, {11210, 2}, {15058, 3}, {12042, 1}, {29438, 3},
+    {11070, 5}, {11071, 3}, {11165, 2}, {11175, 3}, {11170, 3}, -- Frost: Bremsen, Einfrieren, Zertrümmern
 }
 mage[2].talents = { -- Feuer
     {11069, 5}, {11119, 5}, {11366, 1}, {11078, 2}, {11100, 2}, {400624, 1}, {11095, 3}, {29074, 3},
@@ -328,7 +343,7 @@ Data.classes.WARLOCK = {
     },
     build = {
         [1] = Build(WARLOCK_AFF, WARLOCK_SHARED,
-            "Vorher: Dämonenhaut, Dämon rufen · Tier vor · 2 · 1 · 3 bei zähen Gegnern · 9 ab Stufe 37 · 6 bis 30, dann 4 · 10 bei viel Leben und Mana · Einbruch der Nacht: 5 sofort · Leben > Mana: Aderlass",
+            "Vorher: Dämonenhaut, Dämon rufen · Tier vor · 2 · 1 · 3 bei zähen Gegnern · 9 ab Stufe 37 · 6 bis 30, dann 4 · 10 erst, wenn 1, 2 und 9 laufen – dann ticken sie doppelt so schnell · Einbruch der Nacht: 5 sofort · Leben > Mana: Aderlass",
             {"Zauberschaden", "Intelligenz", "Ausdauer"},
             {[1] = {{18265, "Entzug"}, {1316697, "Zermürben"}, {18223, "Erschöpfung"}}}),
         [2] = Build(WARLOCK_DEMO, WARLOCK_SHARED,
@@ -348,8 +363,8 @@ Data.classes.WARLOCK = {
 }
 local warlock = Data.classes.WARLOCK.build
 warlock[1].situations = {
-    dungeon = {flow = "Tank zieht zuerst · 2 und 1 auf mehrere Gegner · 5 Füller · Seelenstein auf den Heiler · Leben > Mana: Aderlass"},
-    raid = {flow = "Fluch nach Absprache (z. B. Elemente) · 1 und 3 halten · 5 Füller · 10 bei Abklingen · Seelenstein auf den Heiler"},
+    dungeon = {flow = "Tank zieht zuerst · 2 und 1 auf mehrere Gegner · 10 nur auf ein Ziel mit 1, 2 und 9 · 5 Füller · Seelenstein auf den Heiler · Leben > Mana: Aderlass"},
+    raid = {flow = "Fluch nach Absprache (z. B. Elemente) · 1, 2 und 9 halten · dann 10 (lässt sie doppelt so schnell ticken) · 5 Füller · Seelenstein auf den Heiler"},
 }
 warlock[2].situations = {
     dungeon = {flow = "Tank zieht zuerst · Dämon greift das Ziel des Tanks an · 4 auf dasselbe Ziel · 1 · 2 · 5 Füller"},
@@ -421,6 +436,7 @@ Data.classes.PALADIN = {
     buffs = {{ids = {19740}, also = {19742, 20217, 1038, 19977, 20911}}, {ids = {465}, also = {7294, 19746, 19876, 19888, 19891, 20218}}},
     tips = {
         {function() return true end, "Immer ein Siegel aktiv halten – Urteil verbraucht es, danach gleich wieder an."},
+        {function(p) return p.spec == 3 end, "Vergeltung: Zweihandwaffe – ihre Spezialisierung verstärkt jetzt auch Heiligschaden (Siegel, Urteil, Weihe)."},
     },
 }
 
@@ -452,8 +468,8 @@ Data.classes.SHAMAN = {
         [1] = Build(SHAMAN_ELE, SHAMAN_SHARED, "Vorher: Blitzschlagschild · 6 stellen · 2 zum Ziehen · 3 sofort, dann halten · 2 bei Abklingen · 1 Füller · 4 bei Zaubern · bei mehreren: Magmatotem, 8 bei Abklingen, 5 solange Mana reicht",
             {"Zauberschaden", "Intelligenz", "Kritische Treffer"},
             {[1] = {{16166, "Beherrschung"}}}),
-        [2] = Build(SHAMAN_ENH, SHAMAN_SHARED, "Vorher: Blitzschlagschild, Windzorn-Waffe · 5 und 6 stellen · 1 zum Ziehen · 3 halten, kurz vor Ablauf erneuern · 2 bei Abklingen · 4 Füller · Mahlstrom 5 Stapel: 1 sofort, am besten während 2 wirkt · 7 bei mehreren",
-            {"Trefferchance", "Stärke", "Intelligenz"},
+        [2] = Build(SHAMAN_ENH, SHAMAN_SHARED, "Vorher: Blitzschlagschild, Windzorn-Waffe · 5 und 6 stellen · 1 zum Ziehen · 3 halten, kurz vor Ablauf erneuern · 2 bei Abklingen, gleich danach 4 (Sturmschlag macht den nächsten Schock oder Blitz 20 % stärker) · sonst 4 als Füller · Mahlstrom 5 Stapel (kommt seltener): 1 sofort · 7 bei mehreren",
+            {"Stärke", "Angriffskraft", "Trefferchance"},
             {[1] = {{425336, "Tempo"}}}),
         [3] = Build(SHAMAN_COMBAT, SHAMAN_SHARED, "Vorher: Wasserschild · 1 Start · 3 · Heilen: Springflut zuerst, dann Leiste 2 · Kettenheilung bei mehreren · Totem der Manaquelle",
             {"Intelligenz", "Willenskraft", "Ausdauer"},
@@ -462,6 +478,7 @@ Data.classes.SHAMAN = {
     buffs = {{ids = {324}, also = {408510}}},
     tips = {
         {function() return true end, "Waffenverzauberung (Felsbeißer, später Flammenzunge/Windzorn) vor jedem Kampf prüfen."},
+        {function(p) return p.spec == 2 end, "Verstärkung: langsame Zweihandwaffe mit Windzorn-Waffe · Stärke und Angriffskraft zählen am meisten, Intelligenz gibt nur noch so viel Angriffskraft wie sie selbst hat."},
     },
 }
 
@@ -524,8 +541,8 @@ druid[2].situations = {
     raid = {flow = "Katze hinter dem Boss · Feenfeuer halten · Krallenhieb halten · Zerfetzen bei 5 Punkten · Schreddern · Machtverschiebung unter 50 Energie"},
 }
 druid[3].situations = {
-    dungeon = {flow = "Verjüngung auf den Tank · Rasche Heilung, wenn Verjüngung drauf ist · Nachwachsen bei viel Schaden · Wildwuchs bei Gruppenschaden"},
-    raid = {flow = "Verjüngung verteilt halten · Wildwuchs bei Gruppenschaden · Rasche Heilung im Notfall · Schnelligkeit der Natur für eine Sofort-Heilung"},
+    dungeon = {flow = "Verjüngung auf den Tank · Rasche Heilung, wenn Verjüngung drauf ist · Nachwachsen bei viel Schaden · Wildwuchs bei Gruppenschaden – heilt jetzt doppelt so stark, nur im Stehen"},
+    raid = {flow = "Verjüngung verteilt halten · Wildwuchs bei Gruppenschaden, alle 6 s (nur im Stehen) · Rasche Heilung im Notfall · Schnelligkeit der Natur + Wildwuchs = sofort"},
 }
 druid[1].talents = { -- Gleichgewicht
     {16814, 5}, {16845, 3}, {16821, 2}, {1223083, 1}, {16819, 2}, {16918, 2}, {5570, 1}, {16850, 4},
@@ -549,8 +566,8 @@ shaman[1].situations = {
     raid = {flow = "Totems nach Absprache · 3 halten · 2 bei Abklingen · 1 Füller · 9 mit Abklingzeiten"},
 }
 shaman[2].situations = {
-    dungeon = {flow = "Tank zieht zuerst · Windzorn-Totem für Nahkämpfer · 2 bei Abklingen · 3 halten · 4 Füller · 4 bei Zaubern unterbrechen"},
-    raid = {flow = "Windzorn-Totem in die Nahkampfgruppe · 2 bei Abklingen · 3 halten · 4 Füller · Mahlstrom 5 Stapel: 1 sofort"},
+    dungeon = {flow = "Tank zieht zuerst · Windzorn-Totem für Nahkämpfer (wirkt zusätzlich zur Windzorn-Waffe) · 2 bei Abklingen, gleich danach 4 · 3 halten · 4 bei Zaubern unterbrechen"},
+    raid = {flow = "Windzorn-Totem in die Nahkampfgruppe (wirkt zusätzlich zur Windzorn-Waffe) · 2 bei Abklingen, gleich danach 4 · 3 halten · Mahlstrom 5 Stapel: 1 sofort"},
 }
 shaman[3].situations = {
     dungeon = {flow = "Wasserschild · Totem der Manaquelle oder Heilender Fluss · Springflut zuerst · Welle der Heilung als Standard · Geringe Welle im Notfall · Kettenheilung bei Gruppenschaden"},
@@ -609,11 +626,11 @@ local KEY_OVERRIDE = {
     MAGE = {[1] = {1, 2, 3, 6, 4, 5, 7, 8}},      -- Arkan: vor Stufe 20 ist Frostblitz der Hauptzauber
     ROGUE = {[1] = {1, 6, 2, 4, 3, 7, 5, 8}, [3] = {1, 6, 3, 4, 2, 5, 7, 8}}, -- Verstohlenheit zuerst
 }
--- Ist die Zahl an dieser Stelle ein Platz-Bezug? (nicht "Stufe 20", "5 Stapel", "3×" …)
+-- Ist die Zahl an dieser Stelle ein Platz-Bezug? (nicht "Stufe 20", "5 Stapel", "3x" …)
 function Data.IsSlotRef(text, s, e, n, fixed)
     if n < 1 or n > fixed then return false end
     local before, after = text:sub(1, s - 1), text:sub(e + 1)
-    if after:match("^%s*[%%×+–%-]") or after:match("^%s+Punkt") or after:match("^%s+Stapel") or after:match("^%s+Energie")
+    if after:match("^%s*[%%+%-]") or after:match("^%s*–") or after:match("^x[%s%)]") or after:match("^%s+Punkt") or after:match("^%s+Stapel") or after:match("^%s+Energie")
         or after:match("^%s+Ladung") then return false end
     if before:match("Stufe%s*$") or before:match("Leiste%s*$") or before:match("bis%s*$") or before:match("[%d%.]$")
         or before:match("ab%s*$") or before:match("unter%s*$") or before:match("auf%s*$") then return false end

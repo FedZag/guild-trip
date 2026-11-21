@@ -213,7 +213,8 @@ function Player:Read(choice)
     -- id darf auch eine Liste sein (gleicher Zauber, andere Namen je Rang,
     -- z. B. Forevers "Heilige Pein" Rang 1 / "Goettliche Pein" ab Rang 2):
     -- der erste bekannte Eintrag gewinnt.
-    function p:Spell(id)
+    -- exact = genau diesen Rang nehmen (z. B. Frostblitz Rang 1 zum Bremsen/Manasparen), sofern bekannt
+    function p:Spell(id, exact)
         if type(id) == "table" then
             local first
             for _, one in ipairs(id) do
@@ -225,7 +226,9 @@ function Player:Read(choice)
         end
         local name, icon = Player.SpellInfo(id)
         local mine = name and self.known[name]
-        return {id = mine and mine.id or id, icon = mine and mine.icon or icon, name = name, known = mine ~= nil}
+        local useID = mine and mine.id or id
+        if exact and mine and mine.ids[id] then useID = id end
+        return {id = useID, icon = mine and mine.icon or icon, name = name, known = mine ~= nil}
     end
     function p:Knows(id) return self:Spell(id).known end
     function p:TalentRank(id) local t = self.talents[id]; return t and t.ranks or 0 end

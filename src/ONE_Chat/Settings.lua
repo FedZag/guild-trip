@@ -1,5 +1,5 @@
--- Guild Trip Chat: Einstellungen in Optionen › Chat (0.6.9, alle Einstellungen zentral, Nutzer 17.11.2026).
--- Das Zahnrad im Chatfenster springt direkt dorthin; ein eigenes Einstellungsfenster gibt es nicht mehr.
+-- Guild Trip Chat: Einstellungen. Seit 21.11.2026 (Nutzer: "separate Einstellmöglichkeiten direkt im Chat")
+-- direkt im Chatfenster (Zahnrad); Optionen › Chat im Hauptfenster fuehrt nur noch dorthin.
 local _, chat = ...
 local ONE = _G.ProjectONE
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
@@ -61,12 +61,19 @@ function UI:SetFontSize(size)
     end
 end
 
--- In Optionen › Chat anmelden: Spalte 1 = "Verhalten & Töne", Spalte 2 = "Aussehen"
+-- Alle Chat-Einstellungen als Liste (Nutzer 21.11.2026: "separate Einstellmöglichkeiten direkt im Chat und
+-- nicht im Hauptfenster des Addons"). Die Liste zeigt das Zahnrad im Chatfenster (UI:OpenSettings);
+-- Optionen › Chat im Hauptfenster hat nur noch einen Knopf, der dorthin fuehrt.
+-- Spalte 1 = "Verhalten & Töne", Spalte 2 = "Aussehen"
 local SECTION = {"Verhalten & Töne", "Aussehen"}
-function UI:RegisterSettings()
-    local O = ONE.UI
-    if not (O and O.AddSetting) then return false end
-    local function Add(o) o.category, o.module = "chat", "chat" O:AddSetting(o) end
+UI.SECTION = SECTION
+local function Messenger() return Chat:Settings().style ~= "classic" end
+local function Classic() return not Messenger() end
+-- nur im alten Stil sinnvoll (Messenger zeigt Uhrzeit immer, verblasst nichts)
+UI.classicOnly = {stamps = true, fadeLines = true, spacing = true, blink = true}
+function UI:SettingDefs()
+    local out = {}
+    local function Add(o) o.category, o.module = "chat", "chat" out[#out + 1] = o end
     -- Hinweis, wenn ElvUI & Co. laufen (doppelte Toene, Ausblenden gesperrt)
     Add({id = "chatOther", kind = "text", order = 1,
         visible = function() return Chat.OtherChatAddon() ~= nil end,
@@ -74,25 +81,71 @@ function UI:RegisterSettings()
             local other = Chat.OtherChatAddon()
             return other and ("|cffffd100" .. T("%s erkannt:", other) .. "|r " .. T("Töne ggf. dort oder hier abschalten, sonst klingt es doppelt. „WoW-Chat ausblenden“ bleibt gesperrt.")) or ""
         end})
+    Add({id = "chat.style", section = "Stil", order = 5, kind = "dropdown", label = "Stil des Chats", width = 220,
+        tooltip = "Messenger: Gesprächsliste und Sprechblasen. Klassisch: Reiter oben, Zeilen wie im WoW-Chat. Wirkt nach /reload.",
+        options = function() return {{value = "messenger", text = T("Messenger")}, {value = "classic", text = T("Klassisch")}} end,
+        get = function() return Chat:Settings().style end,
+        set = function(v) Chat:Settings().style = v == "classic" and "classic" or "messenger" end,
+        reload = true,
+        onChange = function() ONE:Print(T("Der Stil des Chats ändert sich nach /reload.")) end})
     for i, c in ipairs(self.settingChecks) do
         local key, after, col = c[1], c[4], c[5] or 1
         Add({id = "chat." .. key, section = SECTION[col], order = col * 100 + i, label = c[2], tooltip = c[3],
+            visible = UI.classicOnly[key] and Classic or nil,
             get = function() return UI.SettingOn(key) end,
             set = function(on) UI.SetSetting(key, on) end,
             onChange = after})
     end
+    -- Emojis (Messenger)
+    local function Emo(key, label, tip, order)
+        Add({id = "chat." .. key, section = "Emojis", order = order, label = label, tooltip = tip, visible = Messenger,
+            get = function() return Chat:Settings()[key] ~= false end,
+            set = function(on) Chat:Settings()[key] = on and true or false end,
+            onChange = function() UI:Render() UI:Refresh() end})
+    end
+    Emo("emojiImages", "Emojis als Bilder zeigen", "Codes wie :daumen: und WoW-Zeichen wie {Stern} erscheinen als Bild. Aus: der Text bleibt, wie er gesendet wurde.", 301)
+    Emo("asciiSmileys", "Smileys wie :) als Bild", "Auch getippte Smileys (:) :D ;) <3 …) werden zum Bild – nur, wenn sie frei stehen.", 302)
+    Emo("bigEmoji", "Nur Emojis: groß zeigen", "Besteht eine Nachricht nur aus 1–3 Emojis, werden sie groß und ohne Blase gezeigt – wie im Messenger.", 303)
+    Add({id = "chat.bubbleColors", section = SECTION[2], order = 149, label = "Blasen farbig je Art", visible = Messenger,
+        tooltip = "Sprechblasen der anderen leicht in der Farbe ihrer Art: Gilde grün, Gruppe blau, Flüstern rosa … Eigene bleiben in der Leuchtfarbe.",
+        get = function() return Chat:Settings().bubbleColors ~= false end,
+        set = function(on) Chat:Settings().bubbleColors = on and true or false end,
+        onChange = function() UI:Render() end})
+    Add({id = "chat.classIcons", section = SECTION[2], order = 148, label = "Klassen-Symbol vor dem Namen", visible = Messenger,
+        tooltip = "In den Sprechblasen ein kleines rundes Klassen-Symbol vor dem Namen – wenn WoW die Klasse kennt.",
+        get = function() return Chat:Settings().classIcons ~= false end,
+        set = function(on) Chat:Settings().classIcons = on and true or false end,
+        onChange = function() UI:Render() end})
     self:RegisterLookSettings(Add, SECTION[2])
     for i, o in ipairs(self.settingDrops) do
         local key, values, after = o[1], o[3], o[4]
         Add({id = "chat." .. key, section = SECTION[2], order = 150 + i, kind = "dropdown", label = o[2], width = 180,
+            visible = UI.classicOnly[key] and Classic or nil,
             options = function()
-                local out = {}
-                for _, v in ipairs(values()) do out[#out + 1] = {value = v[1], text = v[2]} end
-                return out
+                local list = {}
+                for _, v in ipairs(values()) do list[#list + 1] = {value = v[1], text = v[2]} end
+                return list
             end,
             get = function() return Chat:Settings()[key] end,
             set = function(v) Chat:Settings()[key] = v if after then after(v) end end})
     end
+    table.sort(out, function(a, b) return (a.order or 0) < (b.order or 0) end)
+    return out
+end
+
+-- Optionen › Chat im Hauptfenster: nur noch der Weg in den Chat
+function UI:RegisterSettings()
+    local O = ONE.UI
+    if not (O and O.AddSetting) then return false end
+    local function Add(o) o.category, o.module = "chat", "chat" O:AddSetting(o) end
+    for _, d in ipairs(self:SettingDefs()) do if d.id == "chatOther" then Add(d) end end
+    Add({id = "chat.openSettings", kind = "button", order = 2, label = "Chat-Einstellungen öffnen",
+        tooltip = "Alle Einstellungen des Chats stehen jetzt direkt im Chatfenster (Zahnrad oben rechts).",
+        onClick = function()
+            if O.frame and O.frame.Hide then O.frame:Hide() end
+            UI:Show()
+            UI:OpenSettings(true)
+        end})
     return true
 end
 
@@ -137,8 +190,10 @@ function UI.SetGlassSkin(v)
     G:SetSkin(v, UI.ChatGlass())
 end
 function UI:RegisterLookSettings(Add, section)
-    local function IsGlass() return Chat:Look() == "glass" end
+    -- Messenger ist immer Glas (eigene Farben moeglich); "Aussehen des Chats" gilt nur fuer den alten Stil
+    local function IsGlass() return Messenger() or Chat:Look() == "glass" end
     Add({id = "chat.look", section = section, order = 140, kind = "dropdown", label = "Aussehen des Chats", width = 220,
+        visible = Classic, reload = true,
         tooltip = "Nur für das Chatfenster. Wirkt nach /reload.",
         options = function()
             local out = {}
@@ -168,7 +223,208 @@ function UI:RegisterLookSettings(Add, section)
         onClick = function() if ONE.Glass then ONE.Glass:PickColor("tint", UI.ChatGlass()) end end})
 end
 
--- Zahnrad im Chatfenster: Optionen › Chat
-function UI:OpenSettings()
-    if ONE.UI and ONE.UI.OpenOptions then ONE.UI:OpenOptions("chat") end
+-- ===== Einstellungen im Chatfenster (Zahnrad) =====
+-- Liegt ueber dem Gespraech, Glas wie der Chat. Mausrad blaettert. Schalter = Haken, Auswahl = Knopf zum
+-- Durchschalten (Linksklick weiter, Rechtsklick zurueck), Farbknoepfe oeffnen die Farbwahl.
+function UI:OpenSettings(force)
+    local f = self.frame
+    if not f then self:Show() f = self.frame end
+    if not f then return end
+    local panel = self:BuildSettingsPanel()
+    if panel:IsShown() and not force then panel:Hide() return end
+    self.settingsScroll = 0
+    panel:Show()
+    self:LayoutSettingsPanel()
+end
+function UI:BuildSettingsPanel()
+    if self.settingsPanel then return self.settingsPanel end
+    local f = self.frame
+    local panel = CreateFrame("Frame", nil, f)
+    panel:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -30)
+    panel:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8, 8)
+    if panel.SetFrameLevel and f.GetFrameLevel then panel:SetFrameLevel((f:GetFrameLevel() or 1) + 40) end
+    panel:EnableMouse(true)
+    if panel.SetClipsChildren then panel:SetClipsChildren(true) end
+    local G = ONE.Glass
+    -- Glas nur, wenn der Chat Glas ist (Messenger immer); Knoepfe dann ebenfalls aus Glas
+    local glass = G and G.Surface and (UI.glass or UI.style == "messenger")
+    if glass then G.forceLook = "glass" end
+    if glass then
+        local sf = G:Surface(panel, "card")
+        if sf then
+            sf.store = function() return Chat:GlassStore() end
+            sf.onPaint = function(s2, p) s2.fill:SetColor(p.tint[1], p.tint[2], p.tint[3], .97) end
+            G:Paint(sf)
+        end
+    else
+        local bg = panel:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints(panel)
+        bg:SetColorTexture(.05, .06, .08, .97)
+    end
+    local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -10)
+    title:SetText(T("Chat-Einstellungen"))
+    panel.title = title
+    panel.done = ONE.Widgets:Button(panel, T("Fertig"), 70, 22, "TOPRIGHT", -10, -8, function() panel:Hide() end, "primary")
+    if glass then G.forceLook = nil end
+    panel.glass = glass
+    panel:EnableMouseWheel(true)
+    panel:SetScript("OnMouseWheel", function(_, delta)
+        UI.settingsScroll = math.max(0, (UI.settingsScroll or 0) - delta * 40)
+        UI:LayoutSettingsPanel()
+    end)
+    panel.rows = {}
+    panel:Hide()
+    self.settingsPanel = panel
+    if chat.Messenger then chat.Messenger.settingsPanel = panel end
+    return panel
+end
+-- Text eines Auswahlfeldes: "Schriftgröße: 14"
+function UI.SettingValueText(d)
+    local cur = d.get and d.get()
+    for _, o in ipairs(d.options and d.options() or {}) do
+        if o.value == cur then return o.text end
+    end
+    return tostring(cur or "–")
+end
+local function Label(v) if type(v) == "function" then return v() end return T(v or "") end
+function UI:SettingsRow(i)
+    local panel = self.settingsPanel
+    local r = panel.rows[i]
+    if r then return r end
+    r = CreateFrame("Frame", nil, panel)
+    r:SetHeight(24)
+    r.head = r:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    r.head:SetPoint("BOTTOMLEFT", r, "BOTTOMLEFT", 2, 2)
+    local ok, cb = pcall(CreateFrame, "CheckButton", nil, r, "UICheckButtonTemplate")
+    if not ok or not cb then cb = CreateFrame("CheckButton", nil, r) end
+    cb:SetSize(22, 22)
+    cb:SetPoint("LEFT", r, "LEFT", 0, 0)
+    r.check = cb
+    r.text = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    r.text:SetPoint("LEFT", cb, "RIGHT", 4, 0)
+    r.text:SetPoint("RIGHT", r, "RIGHT", 0, 0)
+    r.text:SetJustifyH("LEFT")
+    if r.text.SetWordWrap then r.text:SetWordWrap(false) end
+    r.label = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    r.label:SetPoint("LEFT", r, "LEFT", 4, 0)
+    r.label:SetJustifyH("LEFT")
+    local G = ONE.Glass
+    if panel.glass then G.forceLook = "glass" end
+    r.button = ONE.Widgets:Button(r, "", 150, 22, "RIGHT", 0, 0, nil)
+    if panel.glass then G.forceLook = nil end
+    if r.button.RegisterForClicks then r.button:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+    r.note = r:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    r.note:SetPoint("LEFT", r, "LEFT", 4, 0)
+    r.note:SetPoint("RIGHT", r, "RIGHT", 0, 0)
+    r.note:SetJustifyH("LEFT")
+    panel.rows[i] = r
+    return r
+end
+local function RowTip(owner, d)
+    owner:SetScript("OnEnter", function(btn)
+        if not (GameTooltip and d.tooltip) then return end
+        GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+        GameTooltip:SetText(Label(d.label), 1, .82, 0)
+        GameTooltip:AddLine(T(d.tooltip), .9, .9, .9, true)
+        GameTooltip:Show()
+    end)
+    owner:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+end
+-- Zeilen der Einstellungen: Abschnitt-Ueberschriften + Eintraege (nur sichtbare)
+function UI:SettingsLines()
+    local lines, last = {}, nil
+    for _, d in ipairs(self:SettingDefs()) do
+        if not d.visible or d.visible() then
+            local sec = d.section
+            if sec and sec ~= last then lines[#lines + 1] = {head = T(sec)} last = sec end
+            lines[#lines + 1] = {def = d}
+        end
+    end
+    if self.needReload then lines[#lines + 1] = {reload = true} end
+    return lines
+end
+function UI:LayoutSettingsPanel()
+    local panel = self.settingsPanel
+    if not (panel and panel:IsShown()) then return end
+    local W = (panel:GetWidth() or 300) - 28
+    local H = panel:GetHeight() or 300
+    local lines = self:SettingsLines()
+    local y = 42 - (self.settingsScroll or 0)
+    local n = 0
+    for i, l in ipairs(lines) do
+        n = i
+        local r = self:SettingsRow(i)
+        local h = l.head and 26 or 26
+        r:ClearAllPoints()
+        r:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -y)
+        r:SetWidth(W)
+        r:SetHeight(h)
+        for _, part in ipairs({r.head, r.check, r.text, r.label, r.button, r.note}) do part:Hide() end
+        if l.head then
+            r.head:SetText(l.head)
+            r.head:Show()
+        elseif l.reload then
+            r.note:SetText(T("Geändert: wirkt nach dem Neuladen."))
+            r.note:Show()
+            r.button:SetText(T("Jetzt neu laden"))
+            r.button:SetWidth(130)
+            r.button:SetScript("OnClick", function() if type(ReloadUI) == "function" then ReloadUI() end end)
+            r.button:Show()
+        else
+            local d = l.def
+            if d.kind == "text" then
+                r.note:SetText(Label(d.label))
+                r.note:Show()
+            elseif d.kind == "dropdown" then
+                r.label:SetText(Label(d.label))
+                r.label:Show()
+                local bw = math.min(170, math.max(110, math.floor(W * .45)))
+                r.button:SetWidth(bw)
+                r.button:SetText(UI.SettingValueText(d))
+                r.button:SetScript("OnClick", function(_, button)
+                    local opts = d.options()
+                    local cur, idx = d.get(), 1
+                    for k, o in ipairs(opts) do if o.value == cur then idx = k end end
+                    idx = button == "RightButton" and ((idx - 2) % #opts + 1) or (idx % #opts + 1)
+                    d.set(opts[idx].value)
+                    if d.onChange then pcall(d.onChange, opts[idx].value) end
+                    if d.reload then UI.needReload = true end
+                    UI:LayoutSettingsPanel()
+                end)
+                RowTip(r.button, {label = d.label, tooltip = (d.tooltip and (T(d.tooltip) .. "\n") or "") .. T("Linksklick: weiter · Rechtsklick: zurück")})
+                r.button:Show()
+            elseif d.kind == "button" then
+                r.button:SetWidth(math.min(W, 220))
+                r.button:SetText(Label(d.label))
+                r.button:ClearAllPoints()
+                r.button:SetPoint("LEFT", r, "LEFT", 0, 0)
+                r.button:SetScript("OnClick", function() if d.onClick then pcall(d.onClick) end end)
+                RowTip(r.button, d)
+                r.button:Show()
+            else
+                r.text:SetText(Label(d.label))
+                r.text:Show()
+                r.check:SetChecked(d.get() and true or false)
+                r.check:SetScript("OnClick", function(btn)
+                    d.set(btn:GetChecked() and true or false)
+                    if d.onChange then pcall(d.onChange) end
+                    UI:LayoutSettingsPanel()
+                end)
+                RowTip(r.check, d)
+                r.check:Show()
+            end
+            if d.kind ~= "button" then
+                r.button:ClearAllPoints()
+                r.button:SetPoint("RIGHT", r, "RIGHT", 0, 0)
+            end
+        end
+        r:SetShown(y >= 36 and y + h <= H + 2)
+        y = y + h + (l.head and 0 or 2)
+    end
+    for i = n + 1, #panel.rows do panel.rows[i]:Hide() end
+    -- nicht ueber das Ende hinaus blaettern
+    local total = y + (self.settingsScroll or 0) - 42
+    local maxScroll = math.max(0, total - (H - 50))
+    if (self.settingsScroll or 0) > maxScroll then self.settingsScroll = maxScroll self:LayoutSettingsPanel() end
 end

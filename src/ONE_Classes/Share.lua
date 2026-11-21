@@ -34,13 +34,34 @@ end
 -- Zustimmung gilt je Charakter (wie die Standort-Freigabe).
 function Share:CharKey()
     local name = Call(UnitName, "player") or "?"
-    local realm = Call(GetNormalizedRealmName) or ""
-    return name .. "-" .. realm
+    -- Forever liefert den Realm direkt nach dem Einloggen manchmal leer: dann aus GetRealmName
+    local realm = Call(GetNormalizedRealmName)
+    if not realm or realm == "" then realm = (Call(GetRealmName) or ""):gsub("[%s%-]", "") end
+    return name .. "-" .. realm, name
 end
-function Share:IsEnabled() return Store().share[self:CharKey()] == true end
+function Share:IsEnabled()
+    local share = Store().share
+    local key, name = self:CharKey()
+    if share[key] == true then return true end
+    -- Realm (noch) unbekannt oder frueher leer gespeichert: jede Zustimmung dieses Namens zaehlt
+    if key:sub(-1) == "-" or share[name .. "-"] == true then
+        for k, v in pairs(share) do
+            if v == true and k:sub(1, #name + 1) == name .. "-" then return true end
+        end
+    end
+    return false
+end
 function Share:SetEnabled(on)
-    Store().share[self:CharKey()] = on and true or nil
-    if on then self:TrySend() end
+    local share = Store().share
+    local key, name = self:CharKey()
+    if on then
+        share[key] = true
+        if key ~= name .. "-" then share[name .. "-"] = nil end
+        self:TrySend()
+    else
+        -- alle Eintraege dieses Namens weg, sonst schaltet ein alter Eintrag es wieder an
+        for k in pairs(share) do if k:sub(1, #name + 1) == name .. "-" then share[k] = nil end end
+    end
 end
 
 -- ===== kleines Verpackungsformat (nur Zahlen, Texte, Wahrheitswerte, Tabellen) =====

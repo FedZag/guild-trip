@@ -15,7 +15,7 @@ if ONE.RegisterFeature then
         tooltip = "Addons sehen andere Spieler nur über Namensplaketten – die blauen Namen über den Köpfen bleiben für sie unsichtbar. Darum schaltet Guild Trip die freundlichen Namensplaketten ein und macht sie unsichtbar. Umschalt + V blendet sie ein und wieder aus – die Liste sieht die Spieler so oder so. Mit Plater & Co. fasst Guild Trip die Plaketten nicht an.",
         get = function() return classes.Nearby:AutoEnabled() end, set = function(on) classes.Nearby:SetAuto(on) end})
     ONE:RegisterFeature("classes.thanks", {module = "classes", section = "Leisten", order = 24, label = "Für Buffs bedanken (Emote)",
-        tooltip = "Bufft dich ein anderer Spieler, antwortet Guild Trip mit einem WoW-Emote an ihn – z. B. „Kaboom dankt Bodra.“, „verbeugt sich“, „jubelt“ oder „winkt“. Das sehen alle in der Nähe. Höchstens einmal je Spieler in 15 Minuten, nicht für deine Gruppe, nicht im Kampf."})
+        tooltip = "Bufft dich ein anderer Spieler, antwortet Guild Trip mit einem WoW-Emote an ihn – z. B. „Grimmbart dankt Lunara.“, „verbeugt sich“, „jubelt“ oder „winkt“. Das sehen alle in der Nähe. Höchstens einmal je Spieler in 15 Minuten, nicht für deine Gruppe, nicht im Kampf."})
     ONE:RegisterFeature("classes.autoRank", {module = "classes", section = "Leisten", order = 21, label = "Leisten automatisch aktuell halten",
         tooltip = "Neue Ränge tauscht Guild Trip auf deinen Leisten aus. Neu gelernte Zauber aus dem Vorschlag legt es auf ihren freien Platz (sobald du einmal „Leisten einrichten“ benutzt hast). Makros und absichtlich niedrige Ränge bleiben unverändert. Im Kampf erst danach.",
         get = function() return classes.Ranks:Enabled() end, set = function(on) classes.Ranks:SetEnabled(on) end})

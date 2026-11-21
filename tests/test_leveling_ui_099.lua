@@ -85,6 +85,18 @@ local function Shown()
     for _, fs in ipairs(Tr.lines) do if fs.shown then out[#out + 1] = fs.text end end
     return out
 end
+-- Frage zur Schlafsack-Reihe (Nutzer 19.11.2026: "einfach fragen, ob er weiter speed-leveln oder die Reihe jetzt erledigen mag")
+do
+    local all = table.concat(Shown(), "\n")
+    assert(all:find("Sehr empfohlen: Schlafsack", 1, true) and all:find("Jetzt erledigen", 1, true) and all:find("Später", 1, true), "Frage im Kasten: " .. all)
+    local later
+    for _, b in pairs(Tr.hits or {}) do if type(b.tip) == "string" and b.tip:find("ohne Vorrang") then later = b end end
+    assert(later, "Knopf Später")
+    later.click()
+    assert(G:RecChoice("sleepingbag") == "later")
+    Tr:Update(G.plan)
+    assert(not table.concat(Shown(), "\n"):find("Jetzt erledigen", 1, true), "Frage beantwortet: weg")
+end
 local rows = Shown()
 -- ueber allem: Gebiet · Quests · Zeit (Nutzer 18.11.2026)
 assert(rows[1]:find("^%d+ Quests") and rows[2]:find("nächste Stufe") and rows[1]:find("min") and rows[1]:find("·"), "Gebietszeile oben: " .. tostring(rows[1]))
@@ -156,6 +168,20 @@ lev.Settings:Set("trackerBare", true)
 assert(not f.bg.shown)
 Tr:Frame(true) assert(f.bg.shown)
 Tr:Frame(false) assert(not f.bg.shown)
+-- ohne Rahmen: scharfer schwarzer Rand aus 8 Kopien je Zeile (Nutzer 19.11.2026), mit Rahmen keiner
+Tr:Update(G.plan)
+local line1 = Tr.lines[1]
+assert(Tr.strokes[line1] and #Tr.strokes[line1] == 8, "8 Randkopien")
+for _, c in ipairs(Tr.strokes[line1]) do assert(c.shown and c.text == Tr.StrokeText(line1.text), "Kopie zeigt gleichen Text") end
+assert(Tr.strokes[f.head] and Tr.strokes[f.head][1].shown, "Kopf mit Rand")
+lev.Settings:Set("trackerBare", false)
+Tr:Update(G.plan)
+for _, c in ipairs(Tr.strokes[line1]) do assert(not c.shown, "mit Rahmen kein Rand") end
+lev.Settings:Set("trackerBare", true)
+Tr:Update(G.plan)
+assert(Tr.StrokeText("|cffffd100Gold|r Text") == "Gold Text", "Farbcodes raus")
+assert(Tr.StrokeText("|TInterface\\GossipFrame\\ActiveQuestIcon:14:14|t Quest") ==
+    "|TInterface\\GossipFrame\\ActiveQuestIcon:14:14:0:0:64:64:0:64:0:64:0:0:0|t Quest", "Symbol als schwarze Silhouette")
 lev.Settings:Set("tracker", false)
 assert(not f.shown, "Kasten abschaltbar")
 lev.Settings:Set("tracker", true)
@@ -257,5 +283,11 @@ do
     _G.C_Map = {GetMapInfo = function(id) return {mapType = id == 1414 and 2 or 3} end}
     assert(not lev.Journal.IsArea(1414) and lev.Journal.IsArea(1413), "Kalimdor raus, Brachland bleibt")
     _G.C_Map = oldMap
+end
+-- Farben wie in WoW: gold oder weiss/grau, kein Blau/Orange (Nutzer 19.11.2026)
+for k, st in pairs(Tr.STYLE) do
+    local gold = st[2] == 1 and st[3] == .82 and st[4] == 0
+    local grey = st[2] == st[3] and st[3] == st[4]
+    assert(gold or grey, "nur Gold oder Grau in Stil " .. k)
 end
 print("OK: Quest-Fuehrung im Spiel")

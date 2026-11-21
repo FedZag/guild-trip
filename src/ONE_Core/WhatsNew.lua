@@ -10,6 +10,13 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.7.4-alpha"] = {
+        "Neuer Chat im Messenger-Stil: Gesprächsliste, Sprechblasen, Emojis, Haken bei zugestelltem Flüstern; Einstellungen im Chat (Zahnrad)",
+        "Quest-Führung plant wie eine Leveling-Route: Schleifen um Stützpunkte, fester Fahrplan, Lehrer, Flugpunkte, Ruhestein, Reisezauber",
+        "Rechtsklick auf eine Quest im Kasten wählt sie ab; Weg querfeldein geradeaus (in Städten nicht)",
+        "Klassen nach den Forever-Hotfixes aktualisiert; Arkan-Magier neu mit Ablauf je Stufe ab Stufe 1",
+        "„Zauberdaten teilen“ bleibt angehakt; Schrott verkaufen geht wieder",
+    },
     ["0.7.3-alpha"] = {
         "Dungeons: „Bosse & Beute“ – jeder Boss mit seiner Beute (Forever-Dungeons und alle klassischen), Umschalt+Klick verlinkt",
         "Chat lässt sich viel schmaler ziehen: Reiter oben, Flüstern links als Wappen; eigenes Aussehen unter Optionen › Chat",

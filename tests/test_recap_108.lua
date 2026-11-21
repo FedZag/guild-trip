@@ -80,7 +80,7 @@ assert(f.shown and f.title.text == "Die Todesminen – 42 Min.", f.title.text)
 assert(f.body.text:find("Gruppe: Bob, Gildi, Ich", 1, true), f.body.text)
 assert(f.body.text:find("Bosse: 2 (Rhahk'Zor, Edwin VanCleef)", 1, true))
 assert(f.body.text:find("Tode: 3 (Bob 2, Ich 1)", 1, true))
-assert(f.body.text:find(GREEN .. " → Bob", 1, true) and f.body.text:find(BLUE .. " → Ich", 1, true) and not f.body.text:find("Schrott"))
+assert(f.body.text:find(GREEN .. " – Bob", 1, true) and f.body.text:find(BLUE .. " – Ich", 1, true) and not f.body.text:find("Schrott"))
 -- Erste Zeit = Bestzeit im Pass (aber "neue Bestzeit" erst, wenn es eine alte gab)
 assert(stamps.d.DM.best == 2500 and not run.record)
 -- 3) Gildenchat

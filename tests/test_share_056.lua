@@ -113,4 +113,21 @@ local n = #sent
 S:Receive("ONECLS1", "HELLO", "GUILD", "Entwickler-Forever")
 RunTimers()
 assert(#sent == n and ONE.db.classGuide.share["Hordi-Forever"] == nil)
+-- 8) Realm nach dem Einloggen leer (Spielbild 21.11.): Haekchen bleibt sichtbar an
+S:SetEnabled(true)
+GetNormalizedRealmName = function() return nil end
+GetRealmName = function() return "Forever" end
+assert(S:CharKey() == "Hordi-Forever" and S:IsEnabled())
+GetRealmName = function() return nil end
+assert(S:CharKey() == "Hordi-" and S:IsEnabled(), "Realm leer: alte Zustimmung muss gelten")
+-- alter leerer Eintrag aus frueheren Versionen zaehlt auch, wenn der Realm wieder da ist
+ONE.db.classGuide.share = {["Hordi-"] = true}
+GetNormalizedRealmName = function() return "Forever" end
+assert(S:IsEnabled())
+S:SetEnabled(true)
+assert(ONE.db.classGuide.share["Hordi-Forever"] and ONE.db.classGuide.share["Hordi-"] == nil)
+-- Ausschalten loescht alle Eintraege des Namens, anderer Name bleibt
+ONE.db.classGuide.share = {["Hordi-"] = true, ["Hordi-Forever"] = true, ["Hordine-Forever"] = true}
+S:SetEnabled(false)
+assert(not S:IsEnabled() and ONE.db.classGuide.share["Hordine-Forever"])
 print("OK test_share_056")

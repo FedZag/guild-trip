@@ -170,7 +170,7 @@ function PassPage:Build(panel)
             local e = d[i]
             if e then
                 local name = S and S.DungeonName and S:DungeonName(e.key) or e.key
-                local info = who.me and (Day(e.first) .. ((e.runs or 1) > 1 and ("  ·  " .. e.runs .. "×") or "")) or T("bezwungen")
+                local info = who.me and (Day(e.first) .. ((e.runs or 1) > 1 and ("  ·  " .. e.runs .. "x") or "")) or T("bezwungen")
                 SetStamp(s, "dungeon", i, name, info, {name, who.me and T("Zuerst: %s", Day(e.first)) or nil,
                     who.me and T("Läufe: %d", e.runs or 1) or nil})
             else

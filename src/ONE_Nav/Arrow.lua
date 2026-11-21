@@ -178,9 +178,10 @@ function Arrow:Create()
     local close = CreateFrame("Button", nil, f)
     close:SetSize(18, 18)
     close:SetPoint("TOPLEFT", f, "TOP", ARROW_SIZE / 2 + 6, -2)
-    local cross = close:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    -- Symbol statt "×" (Spielschrift kennt "×" nicht)
+    local cross = close:CreateTexture(nil, "OVERLAY")
     cross:SetAllPoints()
-    cross:SetText("×")
+    cross:SetTexture("Interface\\AddOns\\ONE_Core\\Textures\\Common\\CloseGlyph.tga")
     close:SetScript("OnClick", function() self:Stop() end)
     self.close = close
     f:Hide()
@@ -214,8 +215,8 @@ function Arrow:Start(name)
     self.frame:Show()
     self:Refresh()
     self:Rotate()
-    if self.RoutesOn() and not self.SPF() then ONE:Print(T("Navi zu %s gestartet – der Pfeil folgt dem Weg. Beenden: × oder /trip navi aus", ShortName(peer.name)))
-    else ONE:Print(T("Navi zu %s gestartet. Richtung, keine Wegführung. Beenden: × oder /trip navi aus", ShortName(peer.name))) end
+    if self.RoutesOn() and not self.SPF() then ONE:Print(T("Navi zu %s gestartet – der Pfeil folgt dem Weg. Beenden: Kreuz am Pfeil oder /trip navi aus", ShortName(peer.name)))
+    else ONE:Print(T("Navi zu %s gestartet. Richtung, keine Wegführung. Beenden: Kreuz am Pfeil oder /trip navi aus", ShortName(peer.name))) end
     return true
 end
 
@@ -233,7 +234,7 @@ function Arrow:StartProbe()
     self.frame:Show()
     self:Refresh()
     self:Rotate()
-    ONE:Print(T("Navi-Probe: Der Pfeil zeigt zur Mitte dieser Zone. Beenden: × oder /trip navi aus"))
+    ONE:Print(T("Navi-Probe: Der Pfeil zeigt zur Mitte dieser Zone. Beenden: Kreuz am Pfeil oder /trip navi aus"))
     return true
 end
 
@@ -256,8 +257,8 @@ function Arrow:StartPoint(label, mapID, x, y, opts)
     local routed = not self.delegated and self.RoutesOn()
     if not (opts and opts.quiet) then
         if self.delegated then ONE:Print(T("Navi zu %s – Wegführung über Shortest Path Forever.", self.probe.name))
-        elseif routed then ONE:Print(T("Navi zu %s – der Pfeil folgt dem Weg. Beenden: × oder /trip navi aus", self.probe.name))
-        else ONE:Print(T("Navi zu %s. Richtung, keine Wegführung. Beenden: × oder /trip navi aus", self.probe.name)) end
+        elseif routed then ONE:Print(T("Navi zu %s – der Pfeil folgt dem Weg. Beenden: Kreuz am Pfeil oder /trip navi aus", self.probe.name))
+        else ONE:Print(T("Navi zu %s. Richtung, keine Wegführung. Beenden: Kreuz am Pfeil oder /trip navi aus", self.probe.name)) end
     end
     return true
 end
@@ -276,8 +277,8 @@ function Arrow:StartWorld(label, continent, x, y, opts)
     self:Refresh()
     self:Rotate()
     if opts and opts.quiet then return true end -- Quest-Fuehrung: Pfeil springt still weiter
-    if self.RoutesOn() then ONE:Print(T("Navi zu %s – der Pfeil folgt dem Weg. Beenden: × oder /trip navi aus", self.probe.name))
-    else ONE:Print(T("Navi zu %s. Richtung, keine Wegführung. Beenden: × oder /trip navi aus", self.probe.name)) end
+    if self.RoutesOn() then ONE:Print(T("Navi zu %s – der Pfeil folgt dem Weg. Beenden: Kreuz am Pfeil oder /trip navi aus", self.probe.name))
+    else ONE:Print(T("Navi zu %s. Richtung, keine Wegführung. Beenden: Kreuz am Pfeil oder /trip navi aus", self.probe.name)) end
     return true
 end
 

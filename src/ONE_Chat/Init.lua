@@ -9,6 +9,8 @@ ONE:RegisterModule("chat", {
     title = "Chat",
     Initialize = function()
         local s = Chat:Settings()
+        -- Messenger-Stil (Standard seit 21.11.2026) ersetzt die Fenster-Funktionen; "Klassisch" bleibt waehlbar
+        if s.style ~= "classic" and chat.Messenger then chat.Messenger:Install() end
         -- Nachrichten empfangen (auch bei geschlossenem Fenster: Verlauf und Zaehler)
         -- Verlauf vom letzten Mal zurueckholen (Optionen › Chat › "Verlauf nach Neustart behalten")
         pcall(Chat.LoadHistory, Chat)
@@ -23,6 +25,11 @@ ONE:RegisterModule("chat", {
         Chat.listeners[#Chat.listeners + 1] = function(entry, views) UI:OnMessage(entry, views) end
 
         ONE:RegisterSlash("chat", function() UI:Toggle() end, T("Guild-Trip-Chat öffnen/schließen"))
+        ONE:RegisterSlash("chatdiag", function()
+            local lines = UI:Diag()
+            ONE.db.chatDiag = {time = time and time() or 0, lines = lines}
+            for _, l in ipairs(lines) do ONE:Print(l) end
+        end, T("Chat-Aussehen prüfen (für Fehlersuche)"))
         -- Minimap-Hinweis "neue Fluesternachricht" oeffnet das Chatfenster
         if ONE.UI and ONE.UI.AddAlias then
             ONE.UI:AddAlias("chat", "home", function()
@@ -60,6 +67,11 @@ ONE:RegisterModule("chat", {
 
         if chat.Hider then chat.Hider:Initialize() end
         if chat.Loot then chat.Loot:Initialize() end
+        -- Eigene Meldungen (/trip …) auch hier zeigen, wenn der WoW-Chat ersetzt ist – sonst landen sie im
+        -- versteckten WoW-Chat (Spieltest 20.11.2026: "/trip planinfo" ohne Ausgabe)
+        Chat.HookPrint()
+        -- ... und die Meldungen ANDERER Addons (DBM, Questie …), die sonst im versteckten WoW-Chat verschwinden
+        Chat.HookAddonLines()
 
         -- Einstellungen: Optionen › Chat (Zahnrad im Chatfenster springt dorthin)
         UI:RegisterSettings()

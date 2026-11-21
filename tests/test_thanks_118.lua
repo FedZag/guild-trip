@@ -49,14 +49,14 @@ end
 local known = {THANK = true, BOW = true, CHEER = true, WAVE = true}
 
 -- 1) Zwei Buffs derselben Person kurz hintereinander = ein Emote an sie (ohne Realm)
-Buff("Bodra-Realm")
-Buff("Bodra-Realm", nil, "SPELL_AURA_REFRESH")
+Buff("Lunara-Realm")
+Buff("Lunara-Realm", nil, "SPELL_AURA_REFRESH")
 assert(#emotes == 0, "erst sammeln")
 clock = clock + 5 Run()
-assert(#emotes == 1 and emotes[1][2] == "Bodra" and known[emotes[1][1]], "ein WoW-Emote an Bodra")
+assert(#emotes == 1 and emotes[1][2] == "Lunara" and known[emotes[1][1]], "ein WoW-Emote an Lunara")
 assert(chat == 0 and not oldUsed, "nie eigener Text, nie das gesperrte DoEmote")
 -- 2) Gleiche Person gleich wieder: nichts (15 min Pause)
-Buff("Bodra-Realm")
+Buff("Lunara-Realm")
 clock = clock + 5 Run()
 assert(#emotes == 1, "nicht nochmal so bald")
 -- 3) Gruppe, eigene Buffs, NPCs, Schwaechungen, Buffs auf andere: nichts

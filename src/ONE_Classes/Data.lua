@@ -251,15 +251,27 @@ Data.situationNames = {solo = "Leveln", dungeon = "Dungeon", raid = "Raid"}
 
 -- Bauplan fuer Ausrichtung und Situation: Grundplan, darueber die Felder der
 -- Situation (Ablauf, Werte, ggf. Talente). Die Leisten bleiben immer gleich.
-function Data:Build(def, spec, situation)
+-- level: Stufen-Abschnitte (stages) beim Leveln – {upTo = Stufe, flow = …} aufsteigend; über dem letzten
+-- Abschnitt gilt der normale Ablauf (Nutzer 21.11.2026: „keine Guides, die das Leveln ab Stufe 1 beschreiben“).
+function Data:Build(def, spec, situation, level)
     if not def then return nil end
     local base = def.build[spec] or def.build[def.defaultSpec]
     if not base then return nil end
     local over = situation and base.situations and base.situations[situation]
-    if not over then return base end
+    local stage
+    if base.stages and level and (not situation or situation == "solo") then
+        for _, st in ipairs(base.stages) do
+            if level <= st.upTo then stage = st break end
+        end
+    end
+    if not over and not stage then return base end
     local merged = {}
     for k, v in pairs(base) do merged[k] = v end
-    for k, v in pairs(over) do if k ~= "bars" then merged[k] = v end end
+    for k, v in pairs(over or {}) do if k ~= "bars" then merged[k] = v end end
+    if stage then
+        merged.flow = stage.flow
+        merged.stage = stage
+    end
     return merged
 end
 

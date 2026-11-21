@@ -82,6 +82,7 @@ for _, def in pairs(c.Data.classes) do
     for _, build in pairs(def.build) do
         if build.flow then Check(build.flow, "Data") end
         for _, stat in ipairs(build.stats or {}) do Check(stat, "Data") end
+        for _, st in ipairs(build.stages or {}) do Check(st.flow, "Data stages") end
         for _, sit in pairs(build.situations or {}) do
             if sit.flow then Check(sit.flow, "Data situation") end
             for _, stat in ipairs(sit.stats or {}) do Check(stat, "Data situation") end

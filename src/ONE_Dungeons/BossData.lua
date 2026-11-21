@@ -1,11 +1,11 @@
 -- ERZEUGT mit scripts/import_codex.lua – nicht von Hand aendern.
--- Bosse und Beute aus "Dungeon Codex" 1.4 von Baxter × DLDVLPR (CurseForge-Projekt 1715265).
+-- Bosse und Beute aus "Dungeon Codex" 1.4 von Baxter x DLDVLPR (CurseForge-Projekt 1715265).
 -- Dungeon Codex steht unter GPL-2.0; Nutzung dieser Boss-/Beute-Daten in Guild Trip unter
 -- GPL-3.0-or-later ausdruecklich erlaubt vom Autor am 19.11.2026 (docs/ANFRAGEN_DATEN.md, THIRD_PARTY.md).
 local _, dungeons = ...
 
 dungeons.BossData = {
-    source = {name = "Dungeon Codex", author = "Baxter × DLDVLPR", version = "1.4", license = "GPL-2.0, Daten mit Erlaubnis unter GPL-3.0-or-later", url = "https://www.curseforge.com/wow/addons/dungeon-codex"},
+    source = {name = "Dungeon Codex", author = "Baxter x DLDVLPR", version = "1.4", license = "GPL-2.0, Daten mit Erlaubnis unter GPL-3.0-or-later", url = "https://www.curseforge.com/wow/addons/dungeon-codex"},
     thanes = {
         {npc = 261306, name = "Faldrim Anvilmar", items = {270227, 271096, 271097}},
         {npc = 261316, name = "Magmatus", items = {270230, 270231, 271095}},

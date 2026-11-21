@@ -167,20 +167,33 @@ go_loot = {}
 for r in table("gameobject_template"):
     if r.get("type") in (3, 25):  # Truhe / Fischschwarm: data1 = Beutetabelle
         go_loot[r["entry"]] = r.get("data1") or 0
+# Quest-Drops (negative Chance) sind in Forever deutlich seltener als in cmangos
+# (Spieltest 19.11.2026: 15 Zentaurenarmschienen, cmangos 80 % -> fast 1 Stunde, "an die 50 Zentauren").
+# Hoechstens so viel annehmen; echte Werte misst die Fuehrung im Spiel (ONE_Leveling/WorkLog.lua):
+QUEST_DROP_CAP = 0.3
 chance = {}  # (lootid, item) -> Wahrscheinlichkeit 0..1
 for r in table("creature_loot_template"):
-    c = abs(r["ChanceOrQuestChance"] or 0)
+    raw = r["ChanceOrQuestChance"] or 0
+    c = abs(raw) / 100.0
     if c > 0:
-        chance[("c", r["entry"], r["item"])] = c / 100.0
+        chance[("c", r["entry"], r["item"])] = (c, raw < 0)
 for r in table("gameobject_loot_template"):
     c = abs(r["ChanceOrQuestChance"] or 0)
     if c > 0:
-        chance[("o", r["entry"], r["item"])] = c / 100.0
-# Gegenstand -> beste bekannte Dropchance (Monster bevorzugt), fuer "sammle X"
+        chance[("o", r["entry"], r["item"])] = (c / 100.0, False)
+# Gegenstand -> typische Dropchance fuer "sammle X": Mittelwert (Median) ueber alle Monster, die ihn tragen –
+# NICHT die beste (ein einzelner Anfuehrer mit 100 % machte aus 15 Armschienen 15 Kills). Objekte nur ohne Monster.
+by_item = {}
+for (kind, lid, item), (c, quest) in chance.items():
+    by_item.setdefault(item, {"c": [], "o": []})[kind].append((c, quest))
 item_drop = {}
-for (kind, lid, item), c in chance.items():
-    if c > item_drop.get(item, 0):
-        item_drop[item] = c
+for item, lists in by_item.items():
+    vals = sorted(lists["c"] or lists["o"])
+    c, quest = vals[len(vals) // 2]
+    # Deckel nur fuer "von vielen Monstern sammeln" – Beute eines einzelnen Anfuehrers (1-2 Monster) bleibt sicher
+    if quest and len(lists["c"]) >= 3:
+        c = min(c, QUEST_DROP_CAP)
+    item_drop[item] = c
 
 # ===== ItemSparse =====
 sparse_rows = {}

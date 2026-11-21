@@ -82,6 +82,24 @@ assert(A.active and A.probe.corpse, "an der Leiche bleibt der Pfeil, bis man leb
 W:OnAlive()
 assert(A.probe.name == "Quest", "nach dem Wiederbeleben weiter zur Quest")
 
+-- 4b) Geist-Zustand kommt verspaetet (Spieltest 19.11.2026): CheckGhost holt den Leichenpfeil nach, nur einmal
+A:Stop() W:OnAlive()
+UnitIsGhost = function() return false end
+A:StartPoint("Quest", 1, .9, 0)
+px = 300 W:OnDeath()
+px = 0 W:CheckGhost()
+assert(A.probe.name == "Quest", "noch nicht Geist: nichts tun")
+UnitIsGhost = function() return true end
+W:CheckGhost()
+assert(A.probe.corpse, "Geist erkannt: Pfeil zur Leiche")
+W:CheckGhost()
+assert(A.resume and A.resume.name == "Quest", "nicht doppelt starten, Rückweg zur Quest bleibt")
+A:Stop()
+W:CheckGhost()
+assert(not A.active, "vom Spieler geschlossen: nicht wieder aufdrängen")
+W:OnAlive()
+UnitIsGhost = function() return false end
+
 -- 5) Polestar laeuft: kein automatischer Leichenpfeil
 C_AddOns = {IsAddOnLoaded = function(n) return n == "Polestar" end}
 assert(W.OtherNavAddon() == "Polestar" and not W.AutoAllowed())

@@ -9,6 +9,7 @@ classes.LootPack = {
         q = 2,
         slot = "INVTYPE_WAIST",
         sources = {
+            c3272 = {count = 1, kind = "normal", mapID = 1413, name = "Zänker der Kolkar", x = 0.485, y = 0.404},
             c3284 = {
                 count = 1,
                 kind = "normal",
@@ -17,6 +18,15 @@ classes.LootPack = {
                 x = 0.563,
                 y = 0.071,
             },
+        },
+    },
+    [14114] = {
+        ilvl = 16,
+        minLevel = 11,
+        q = 2,
+        slot = "INVTYPE_FEET",
+        sources = {
+            c3273 = {count = 1, kind = "normal", mapID = 1413, name = "Sturmruferin der Kolkar", x = 0.489, y = 0.388},
         },
     },
     [14119] = {
@@ -35,6 +45,15 @@ classes.LootPack = {
             },
         },
     },
+    [15012] = {
+        ilvl = 16,
+        minLevel = 11,
+        q = 2,
+        slot = "INVTYPE_FEET",
+        sources = {
+            c3461 = {count = 1, kind = "normal", mapID = 1413, name = "Oasenschnappkiefer", x = 0.461, y = 0.402},
+        },
+    },
     [15305] = {
         ilvl = 18,
         minLevel = 13,
@@ -44,12 +63,37 @@ classes.LootPack = {
             c3282 = {count = 1, kind = "normal", mapID = 1413, name = "Söldner der Venture Co.", x = 0.564, y = 0.084},
         },
     },
+    [2075] = {
+        ilvl = 12,
+        minLevel = 7,
+        q = 2,
+        slot = "INVTYPE_WEAPONMAINHAND",
+        sources = {
+            c3272 = {count = 1, kind = "normal", mapID = 1413, name = "Zänker der Kolkar", x = 0.48, y = 0.409},
+        },
+    },
     [275724] = {
         ilvl = 10,
         minLevel = 0,
         q = 2,
         slot = "INVTYPE_NON_EQUIP_IGNORE",
         sources = {c3207 = {count = 2, kind = "normal", mapID = 1411, name = "Verhexter Troll", x = 0.68, y = 0.841}},
+    },
+    [2842] = {
+        ilvl = 10,
+        minLevel = 0,
+        q = 2,
+        slot = "INVTYPE_NON_EQUIP_IGNORE",
+        sources = {o106319 = {count = 1, kind = "object", mapID = 1413, x = 0.465, y = 0.228}},
+    },
+    [3292] = {
+        ilvl = 13,
+        minLevel = 8,
+        q = 2,
+        slot = "INVTYPE_CHEST",
+        sources = {
+            c3273 = {count = 1, kind = "normal", mapID = 1413, name = "Sturmruferin der Kolkar", x = 0.48, y = 0.384},
+        },
     },
     [3307] = {
         ilvl = 15,
@@ -92,6 +136,15 @@ classes.LootPack = {
             },
         },
     },
+    [4566] = {
+        ilvl = 13,
+        minLevel = 8,
+        q = 2,
+        slot = "INVTYPE_2HWEAPON",
+        sources = {
+            c3255 = {count = 1, kind = "normal", mapID = 1413, name = "Bluthornkreischer", x = 0.529, y = 0.175},
+        },
+    },
     [774] = {
         ilvl = 7,
         minLevel = 0,
@@ -106,6 +159,7 @@ classes.LootPack = {
                 x = 0.533,
                 y = 0.077,
             },
+            c3272 = {count = 1, kind = "normal", mapID = 1413, name = "Zänker der Kolkar", x = 0.48, y = 0.409},
         },
     },
     [8178] = {

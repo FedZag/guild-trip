@@ -149,7 +149,7 @@ function R:Lines(run)
         local l = {}
         for i, e in ipairs(run.loot) do
             if i > self.maxLoot then l[#l + 1] = T("… und %d mehr", #run.loot - self.maxLoot) break end
-            l[#l + 1] = e.link .. " → " .. e.who
+            l[#l + 1] = e.link .. " – " .. e.who
         end
         lines[#lines + 1] = T("Beute:") .. "\n  " .. table.concat(l, "\n  ")
     end

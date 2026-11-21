@@ -312,7 +312,7 @@ EN["Gesammelte Dungeon-Gegner und Bosse anzeigen"] = "Show collected dungeon ene
 -- Bosse und Beute (Bosses.lua, 19.11.2026)
 EN["Bosse & Beute"] = "Bosses & loot"
 EN["Quests"] = "Quests"
-EN["Bosse und Beute: Dungeon Codex (Baxter × DLDVLPR), mit Erlaubnis"] = "Bosses and loot: Dungeon Codex (Baxter × DLDVLPR), with permission"
+EN["Bosse und Beute: Dungeon Codex (Baxter x DLDVLPR), mit Erlaubnis"] = "Bosses and loot: Dungeon Codex (Baxter x DLDVLPR), with permission"
 EN["selten"] = "rare"
 EN["Seltener Gegner – nicht immer da"] = "Rare enemy – not always there"
 EN["Schon besiegt (von dir gesammelt)"] = "Already defeated (collected by you)"

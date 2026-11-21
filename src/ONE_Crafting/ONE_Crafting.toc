@@ -3,7 +3,7 @@
 ## Notes: Rezepte der Gilde suchen und Handwerker anfragen
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later
-## Version: 0.7.3-alpha
+## Version: 0.7.4-alpha
 ## Dependencies: ONE_Core
 
 Locale_enUS.lua

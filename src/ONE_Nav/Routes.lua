@@ -12,10 +12,36 @@ local Routes = {
     offRoute = 70,     -- weiter weg von der Linie: neu planen
     shortcut = 140,    -- Einstieg in den Weg: höchstens so weit Luftlinie abkürzen …
     joinWithin = 400,  -- … auf die ersten so vielen Yards des Wegs
+    pull = 600,        -- Umweg querfeldein abkürzen, wenn die Gerade höchstens so lang ist …
+    pullRatio = 1.2,   -- … und der Weg dort mindestens so viel länger wäre
 }
 nav.Routes = Routes
 
 local sqrt, floor, huge = math.sqrt, math.floor, math.huge
+
+-- Städte: Mauern, Rampen und Felswände, die das Netz zwischen seinen Wegen nicht kennt. Hier wird nie
+-- querfeldein abgekürzt (Spielbild 20.11.2026, Tal der Geister: Abkürzung führte über die Felskante).
+-- Weltrechtecke der Stadtkarten (SPF Data/Zones.lua, Eisenschmiede aus bake_routes.lua), je Kontinent.
+Routes.CITIES = {
+    [0] = {
+        {-9154, -7996, -15, 1723},        -- Sturmwind 1453
+        {-5093.7, -4569.1, -1504.8, -712.6}, -- Eisenschmiede 1455
+        {1238, 1878, -86, 873},           -- Unterstadt 1458
+    },
+    [1] = {
+        {1338, 2274, -5083, -3681},       -- Orgrimmar 1454
+        {-1546, -850, -527, 517},         -- Donnerfels 1456
+        {9533, 10238, 1880, 2938},        -- Darnassus 1457
+    },
+}
+function Routes.InCity(continent, x, y)
+    local list = continent and Routes.CITIES[continent]
+    if not list then return false end
+    for _, r in ipairs(list) do
+        if x >= r[1] and x <= r[2] and y >= r[3] and y <= r[4] then return true end
+    end
+    return false
+end
 
 function Routes.Data()
     local d = rawget(_G, "GuildTripRoutes")
@@ -179,6 +205,36 @@ function Routes.Shortcut(points, maxStraight, within)
     return out
 end
 
+-- Umwege glätten (Nutzer 19.11.2026: "immer erst zur Straße und dann von dort weiter Richtung Ziel"):
+-- Läuft der Weg auf einem Stück deutlich länger als die Gerade (Faktor ratio) und ist die Gerade höchstens
+-- maxStraight lang, geht es querfeldein. Längere Geraden nicht – dort liegen eher Berge/Wasser dazwischen.
+function Routes.Pull(points, maxStraight, ratio, continent)
+    if not maxStraight or maxStraight <= 0 or #points < 3 then return points end
+    local n = #points
+    local cum = {0}
+    for k = 2, n do
+        cum[k] = cum[k - 1] + sqrt((points[k].x - points[k - 1].x) ^ 2 + (points[k].y - points[k - 1].y) ^ 2)
+    end
+    local out, i = {points[1]}, 1
+    while i < n do
+        local jump
+        for j = n, i + 2, -1 do
+            local along = cum[j] - cum[i]
+            if along > maxStraight * ratio * 3 then
+                -- zu weit voraus, kann nicht passen (Gerade <= maxStraight, Weg viel länger) – weiter vorn suchen
+            else
+                local d = sqrt((points[j].x - points[i].x) ^ 2 + (points[j].y - points[i].y) ^ 2)
+                if d <= maxStraight and along >= d * ratio + 25
+                    and not Routes.InCity(continent, points[i].x, points[i].y)
+                    and not Routes.InCity(continent, points[j].x, points[j].y) then jump = j break end
+            end
+        end
+        i = jump or (i + 1)
+        out[#out + 1] = points[i]
+    end
+    return out
+end
+
 -- Weg von (fx, fy) nach (tx, ty) auf einem Kontinent. Ergebnis: {points = {{x,y}…}, length = Yards} oder nil
 -- (kein Netz, zu nah oder kein Knoten in Reichweite – dann bleibt der Pfeil bei Luftlinie).
 function Routes:Find(continent, fx, fy, tx, ty)
@@ -227,13 +283,15 @@ function Routes:Find(continent, fx, fy, tx, ty)
     local points = {{x = fx, y = fy}, {x = net.x[n], y = net.y[n]}}
     for k = #chain, 1, -1 do self.EdgePoints(net, chain[k], points) end
     points[#points + 1] = {x = tx, y = ty}
-    points = self.Shortcut(points, self.shortcut, self.joinWithin)
+    -- in Städten nicht abkürzen (Mauern/Felskanten)
+    if not self.InCity(continent, fx, fy) then points = self.Shortcut(points, self.shortcut, self.joinWithin) end
     -- am Ziel genauso: rückwärts abkürzen
     local rev = {}
     for k = #points, 1, -1 do rev[#rev + 1] = points[k] end
-    rev = self.Shortcut(rev, self.shortcut, self.joinWithin)
+    if not self.InCity(continent, tx, ty) then rev = self.Shortcut(rev, self.shortcut, self.joinWithin) end
     points = {}
     for k = #rev, 1, -1 do points[#points + 1] = rev[k] end
+    points = self.Pull(points, self.pull, self.pullRatio, continent)
     -- doppelte Punkte (Spieler steht auf dem Knoten) entfernen, Länge messen
     local clean, length = {points[1]}, 0
     for k = 2, #points do

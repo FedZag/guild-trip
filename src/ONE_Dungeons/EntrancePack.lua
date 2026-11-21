@@ -2,4 +2,4 @@
 -- Nur selbst gesammelte Funde der Guild-Trip-Spieler (keine fremden Datenbanken, keine Spielernamen).
 -- schluessel = {uiMapID, x, y}
 local _, dungeons = ...
-dungeons.EntrancePack = {}
+dungeons.EntrancePack = {bfd = {1414, 0.443, 0.349}, wc = {1414, 0.524, 0.552}}

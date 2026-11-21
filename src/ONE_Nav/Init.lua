@@ -124,7 +124,8 @@ ONE:RegisterModule("nav", {
         return nav.QuestShare and (nav.QuestShare:HoldersText(questID)) or ""
     end,
     -- Darf Guild Trip den Pfeil von selbst starten? Nein, wenn Polestar seinen eigenen Pfeil fuehrt.
-    AutoNaviAllowed = function() return nav.Waypoints.AutoAllowed() end,
+    -- als Geist fuehrt der Pfeil zur Leiche – die Quest-Fuehrung schaltet dann nicht dazwischen
+    AutoNaviAllowed = function() return nav.Waypoints.AutoAllowed() and not nav.Waypoints.IsGhost() end,
     StartTo = function(_, name)
         if Paused() then return false end
         return nav.Arrow:Start(name)

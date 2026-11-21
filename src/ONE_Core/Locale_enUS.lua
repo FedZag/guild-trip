@@ -250,6 +250,10 @@ EN["Repariert für %s (Gildengeld)."] = "Repaired for %s (guild funds)."
 EN["Reparieren kostet %s – so viel Geld hast du nicht dabei."] = "Repairing costs %s – you don't have that much money."
 EN["Repariert für %s."] = "Repaired for %s."
 EN["Schrott verkauft: %d Gegenstände für %s."] = "Junk sold: %d items for %s."
+EN["Schrott verkaufen: %s (Optionen › Allgemein › Händler)"] = "Sell junk: %s (Options › General › Vendor)"
+EN["Spiel-Schnittstellen: Taschen neu %s, alt %s · Benutzen neu %s, alt %s · Preis %s"] = "Game APIs: bags new %s, old %s · use new %s, old %s · price %s"
+EN["Taschenplätze %d · graue Gegenstände %d · verkaufbar %d (%s) · ohne Wert %d · gesperrt %d · Daten fehlen %d"] = "Bag slots %d · grey items %d · sellable %d (%s) · no value %d · locked %d · data missing %d"
+EN["Prüfen, ob Schrott verkauft werden kann"] = "Check whether junk can be sold"
 -- Optionen zentral (0.6.9)
 EN["Modul „%s“ eingeschaltet"] = "Module “%s” enabled"
 EN["Das Modul ist aus. Nach dem Einschalten und Neuladen stehen hier seine Einstellungen."] = "This module is off. Turn it on and reload to see its settings here."
@@ -399,6 +403,12 @@ EN["Heute"] = EN["Heute"] or "Today"
 EN["Begrüßungsfenster (Tagesüberblick) zeigen"] = "Show the welcome window (daily overview)"
 EN["Ziehen: Fenster größer/kleiner"] = "Drag: make the window bigger/smaller"
 
+-- Neuigkeiten 0.7.4
+EN["Neuer Chat im Messenger-Stil: Gesprächsliste, Sprechblasen, Emojis, Haken bei zugestelltem Flüstern; Einstellungen im Chat (Zahnrad)"] = "New messenger-style chat: conversation list, speech bubbles, emojis, tick for delivered whispers; settings inside the chat (gear)"
+EN["Quest-Führung plant wie eine Leveling-Route: Schleifen um Stützpunkte, fester Fahrplan, Lehrer, Flugpunkte, Ruhestein, Reisezauber"] = "Quest guide plans like a levelling route: loops around hubs, fixed plan, trainers, flight points, hearthstone, travel spells"
+EN["Rechtsklick auf eine Quest im Kasten wählt sie ab; Weg querfeldein geradeaus (in Städten nicht)"] = "Right-click a quest in the box to drop it; route goes straight cross-country (not in cities)"
+EN["Klassen nach den Forever-Hotfixes aktualisiert; Arkan-Magier neu mit Ablauf je Stufe ab Stufe 1"] = "Classes updated to the Forever hotfixes; Arcane mage reworked with a flow for each level range from level 1"
+EN["„Zauberdaten teilen“ bleibt angehakt; Schrott verkaufen geht wieder"] = "\"Share spell data\" stays ticked; sell junk works again"
 -- Neuigkeiten 0.7.3
 EN["Dungeons: „Bosse & Beute“ – jeder Boss mit seiner Beute (Forever-Dungeons und alle klassischen), Umschalt+Klick verlinkt"] = "Dungeons: \"Bosses & loot\" – every boss with its loot (Forever dungeons and all classic ones), shift-click links it"
 EN["Chat lässt sich viel schmaler ziehen: Reiter oben, Flüstern links als Wappen; eigenes Aussehen unter Optionen › Chat"] = "Chat can be dragged much narrower: tabs on top, whispers as crests on the left; its own look under Options › Chat"

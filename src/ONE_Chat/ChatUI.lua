@@ -96,9 +96,20 @@ function UI:Build()
     local ok, err = pcall(self.BuildFrame, self, look)
     if G then G.forceLook = nil end
     if G and G.surfaces then
+        -- Glas-Teile des Chats: eigene Farben, Deckkraft ueber den Regler "Hintergrund".
+        -- Wichtig: Texture:SetAlpha ist bei Texturen dieselbe Deckkraft wie die von SetVertexColor –
+        -- ApplyLook darf diese Teile deshalb nie anfassen (Spieltest 19.11.2026: Glas wurde schwarz).
+        self.glassSurfaces, self.glassTex = {}, {}
         for i = before + 1, #G.surfaces do
-            G.surfaces[i].store = function() return Chat:GlassStore() end
-            if G.Paint then G:Paint(G.surfaces[i]) end
+            local sf = G.surfaces[i]
+            sf.store = function() return Chat:GlassStore() end
+            sf.scale = function() return tonumber(Chat:Settings().opacity) or 1 end
+            self.glassSurfaces[#self.glassSurfaces + 1] = sf
+            for _, nine in ipairs({sf.fill, sf.edge, sf.shadow}) do
+                for _, t in ipairs(nine.pieces or {}) do self.glassTex[t] = true end
+            end
+            if sf.sheen then self.glassTex[sf.sheen] = true end
+            if G.Paint then G:Paint(sf) end
         end
         if not self.glassHooked and G.OnChange then
             self.glassHooked = true
@@ -106,6 +117,7 @@ function UI:Build()
         end
     end
     if not ok then error(err, 0) end
+    self:HookInsertLink()
     self:PaintGlass()
     return self.frame
 end
@@ -263,9 +275,22 @@ function UI:BuildFrame(look)
     self.headText = Text(head, modern and "GameFontNormalLarge" or "GameFontNormal", "accent")
     self.headText:SetPoint("LEFT", head, "LEFT", 4, 0)
     -- Fluestern: Gespraech schliessen (frueher "×" in der breiten Liste)
-    self.headClose = ONE.Widgets:Button(head, "×", 24, modern and 22 or 20, "RIGHT", modern and -8 or 0, 0, function()
-        UI:CloseWhisper(UI.current)
-    end)
+    -- Symbol statt "×" (die Spielschrift kennt "×" nicht, Spielbild 19.11.2026)
+    local function CloseTalk() UI:CloseWhisper(UI.current) end
+    if ONE.Widgets.IconButton then
+        self.headClose = ONE.Widgets:IconButton(head, "Interface\\AddOns\\ONE_Core\\Textures\\Common\\CloseGlyph.tga",
+            modern and 22 or 20, "RIGHT", modern and -8 or 0, 0, CloseTalk, "secondary", 9)
+    else
+        self.headClose = ONE.Widgets:Button(head, "X", 24, modern and 22 or 20, "RIGHT", modern and -8 or 0, 0, CloseTalk)
+    end
+    self.headClose.click = self.headClose.click or CloseTalk
+    if self.headClose.HookScript then
+        self.headClose:HookScript("OnEnter", function(btn)
+            if not GameTooltip then return end
+            GameTooltip:SetOwner(btn, "ANCHOR_TOP") GameTooltip:SetText(T("Gespräch schließen")) GameTooltip:Show()
+        end)
+        self.headClose:HookScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    end
     self.headMenu = ONE.Widgets:Button(head, modern and "···" or T("Menü"), modern and 30 or 64, modern and 22 or 20, "RIGHT", modern and -8 or 0, 0, function(btn)
         local view = UI.current
         if view and view:sub(1, 2) == "w:" and ONE.PlayerMenu then ONE.PlayerMenu:Open(btn, view:sub(3)) end
@@ -305,6 +330,9 @@ function UI:BuildFrame(look)
     end)
     log:SetScript("OnHyperlinkClick", function(self, link, text, button)
         local kind, rest = link:match("^(%a+):(.*)$")
+        -- Umschalt+Klick wie im WoW-Chat: Name/Link ins offene Eingabefeld bzw. in den Gilden-
+        -- einladungs-Dialog (Nutzer 19.11.2026)
+        if UI.ShiftLink(link, text, button, self) then return end
         -- Spielername: unser Namens-Menue (Navi, Fluestern, Einladen, Ignorieren, Melden …)
         if kind == "player" and ONE.PlayerMenu then
             local name, lineID = rest:match("^([^:]+):?(%d*)")
@@ -367,12 +395,18 @@ function UI:BuildFrame(look)
     box:SetScript("OnTextChanged", Placeholder)
     box:SetScript("OnEditFocusGained", Placeholder)
     box:SetScript("OnEditFocusLost", Placeholder)
+    -- Glas: Eingabefeld ebenfalls aus Glas (Nutzer 19.11.2026)
+    if glass and ONE.Glass and ONE.Glass.Surface then
+        self.inputGlass = ONE.Glass:Surface(box, "card")
+    end
     if not self.flat then
-        local inbg = f:CreateTexture(nil, "BACKGROUND", nil, -5)
-        inbg:SetPoint("TOPLEFT", box, "TOPLEFT", -2, 1)
-        inbg:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 2, -1)
-        inbg:SetColorTexture(0, 0, 0, .5)
-        Border(box, .35, .35, .4, .9, -2)
+        if not self.inputGlass then
+            local inbg = f:CreateTexture(nil, "BACKGROUND", nil, -5)
+            inbg:SetPoint("TOPLEFT", box, "TOPLEFT", -2, 1)
+            inbg:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 2, -1)
+            inbg:SetColorTexture(0, 0, 0, .5)
+            Border(box, .35, .35, .4, .9, -2)
+        end
         if modern then
             -- rechte Seite als eingelassene Flaeche wie im Hauptfenster
             local box2 = CreateFrame("Frame", nil, f)
@@ -392,7 +426,8 @@ function UI:BuildFrame(look)
             sep2:SetPoint("BOTTOMLEFT", list, "BOTTOMRIGHT", 10, INPUT_H + 18)
             sep2:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -12, INPUT_H + 18)
             sep2:SetColorTexture(1, 1, 1, .08)
-        else
+        elseif not glass then
+            -- Glas: Verlauf ohne eigene dunkle Flaeche, durchsichtig wie das Fenster (Nutzer 19.11.2026)
             local logbg = f:CreateTexture(nil, "BACKGROUND", nil, -5)
             logbg:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -4)
             logbg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -14, 12 + INPUT_H + 12)
@@ -467,7 +502,8 @@ function UI:BackgroundParts()
         if not (frame and frame.GetRegions) then return end
         for _, r in ipairs({frame:GetRegions()}) do
             local layer = r.GetDrawLayer and r:GetDrawLayer()
-            if r.GetObjectType and r:GetObjectType() == "Texture" and (layer == "BACKGROUND" or layer == "BORDER") then out[#out + 1] = r end
+            if r.GetObjectType and r:GetObjectType() == "Texture" and (layer == "BACKGROUND" or layer == "BORDER")
+                and not (self.glassTex and self.glassTex[r]) then out[#out + 1] = r end
         end
         if type(frame.NineSlice) == "table" then out[#out + 1] = frame.NineSlice end
     end
@@ -480,7 +516,17 @@ function UI:ApplyLook()
     local f, s = self.frame, Chat:Settings()
     if not f then return end
     local op = tonumber(s.opacity) or 1
-    for _, part in ipairs(self:BackgroundParts()) do if part.SetAlpha then part:SetAlpha(op) end end
+    -- Glas: KEIN SetAlpha auf Hintergrund-Texturen. Bei Texturen ist SetAlpha dieselbe Deckkraft wie
+    -- die Farbe von SetColorTexture/SetBackdropColor – die unsichtbare Grundflaeche und der Backdrop
+    -- wurden dadurch beim Reiterwechsel wieder dunkel (Spieltest 19.11.2026). Glas regelt die
+    -- Deckkraft ueber die Farbe (s.scale).
+    if not self.glass then
+        for _, part in ipairs(self:BackgroundParts()) do if part.SetAlpha then part:SetAlpha(op) end end
+    end
+    -- Glas: Deckkraft ueber die Farbe (s.scale), nicht ueber SetAlpha
+    if self.glassSurfaces and ONE.Glass and ONE.Glass.Paint then
+        for _, sf in ipairs(self.glassSurfaces) do ONE.Glass:Paint(sf) end
+    end
     if self.log then
         if self.log.SetSpacing then self.log:SetSpacing(tonumber(s.spacing) or 0) end
         if self.log.SetFading then self.log:SetFading(s.fadeLines == true) end
@@ -925,6 +971,115 @@ function UI:LayoutNarrow()
     if self.headContext then self.headContext:SetShown(not narrow) end
 end
 
+-- ===== Pruefung: /trip chatdiag (Glas-Aussehen, Spieltest 19.11.2026) =====
+-- Schreibt auf, was das Fenster gerade zeichnet: Aussehen, Farb-Ablage, Glas-Flaechen und alle
+-- deckenden Hintergrund-Texturen. Landet auch in ProjectONEDB.chatDiag (nach /reload lesbar).
+function UI:Diag()
+    local out = {}
+    local function Add(...) out[#out + 1] = table.concat({...}, " ") end
+    local s = Chat:Settings()
+    local G = ONE.Glass
+    Add("look", tostring(s.look), "wirksam", Chat:Look(), "flat", tostring(s.flat), "opacity", tostring(s.opacity), "idle", tostring(s.idleAlpha))
+    local g = Chat:GlassStore()
+    Add("chatGlass", g and (tostring(g.skin) .. " a=" .. tostring(g.alpha)) or "nil")
+    local m = G and G.Store and G.Store() or {}
+    Add("main", tostring(m.skin), "a=" .. tostring(m.alpha), "active", tostring(G and G:Active()), "force", tostring(G and G.forceLook))
+    Add("ui", "glass", tostring(self.glass), "modern", tostring(self.modern), "flat", tostring(self.flat), "built", tostring(self.frame ~= nil))
+    local f = self.frame
+    if not f then return out end
+    Add("frameAlpha", tostring(f.GetAlpha and f:GetAlpha()), "w", tostring(f:GetWidth()))
+    local mine, other = 0, 0
+    for _, sf in ipairs(G and G.surfaces or {}) do
+        local fr = sf.frame
+        local p = fr
+        local inChat = false
+        while p do if p == f then inChat = true break end p = p.GetParent and p:GetParent() or nil end
+        if inChat then if sf.store then mine = mine + 1 else other = other + 1 end end
+        if inChat and sf.fill and sf.fill.pieces and sf.fill.pieces[5] then
+            local t = sf.fill.pieces[5]
+            local cr, cg, cb, ca = 1, 1, 1, 1
+            if t.GetVertexColor then cr, cg, cb, ca = t:GetVertexColor() end
+            Add("surf", tostring(sf.kind), string.format("rgb=%.2f,%.2f,%.2f a=%.2f ra=%.2f", cr or 0, cg or 0, cb or 0, ca or 0, t.GetAlpha and t:GetAlpha() or 1),
+                "shown", tostring(t.IsShown and t:IsShown()), "visible", tostring(t.IsVisible and t:IsVisible()), "tex", tostring(t.GetTexture and t:GetTexture()))
+        end
+    end
+    Add("surfaces", "mitChatFarben", mine, "ohne", other)
+    local function Scan(frame, label)
+        if not (frame and frame.GetRegions) then return end
+        for _, r in ipairs({frame:GetRegions()}) do
+            if r.GetObjectType and r:GetObjectType() == "Texture" and r.IsShown and r:IsShown() then
+                local layer, sub = r:GetDrawLayer()
+                local cr, cg, cb, ca = 1, 1, 1, 1
+                if r.GetVertexColor then cr, cg, cb, ca = r:GetVertexColor() end
+                local ra = r.GetAlpha and r:GetAlpha() or 1
+                local tex = r.GetTexture and r:GetTexture()
+                if (ca or 1) * ra > .5 and (layer == "BACKGROUND" or layer == "BORDER") then
+                    Add(label, tostring(layer), tostring(sub), string.format("rgb=%.2f,%.2f,%.2f a=%.2f ra=%.2f", cr or 0, cg or 0, cb or 0, ca or 0, ra),
+                        tostring(tex), string.format("%dx%d", r:GetWidth() or 0, r:GetHeight() or 0))
+                end
+            end
+        end
+        if frame.GetBackdropColor then
+            local br, bg, bb, ba = frame:GetBackdropColor()
+            if ba and ba > 0 then Add(label, "backdrop", string.format("%.2f,%.2f,%.2f a=%.2f", br or 0, bg or 0, bb or 0, ba)) end
+        end
+    end
+    Scan(f, "frame")
+    Scan(self.list, "list")
+    Scan(self.log, "log")
+    Scan(self.tabBar, "tabs")
+    return out
+end
+
+-- ===== Umschalt+Klick auf Links =====
+-- Dialoge mit Namensfeld, in die WoW per Umschalt+Klick den Namen eintraegt
+UI.namePopups = {"ADD_GUILDMEMBER", "ADD_FRIEND", "ADD_IGNORE", "ADD_RAIDMEMBER", "CHANNEL_INVITE", "ADD_MUTE"}
+local function Shift()
+    if type(IsModifiedClick) == "function" then
+        local ok, on = pcall(IsModifiedClick, "CHATLINK")
+        if ok and on then return true end
+    end
+    return IsShiftKeyDown and IsShiftKeyDown() and true or false
+end
+-- Text ins Guild-Trip-Eingabefeld, wenn es gerade aktiv ist
+function UI:InsertIntoInput(text)
+    local box = self.input
+    if not (box and box.HasFocus and box:HasFocus() and text and text ~= "") then return false end
+    if box.Insert then box:Insert(text) else box:SetText((box:GetText() or "") .. text) end
+    return true
+end
+-- true = erledigt (kein Namens-Menue)
+function UI.ShiftLink(link, text, button, owner)
+    if not Shift() then return false end
+    local kind, rest = tostring(link or ""):match("^(%a+):(.*)$")
+    if kind == "player" then
+        local name = rest:match("^([^:]+)") or ""
+        if name == "" then return false end
+        -- offener Dialog (Gilde einladen, Freund, Ignorieren …): Name ins Feld
+        if type(StaticPopup_Visible) == "function" then
+            for _, which in ipairs(UI.namePopups) do
+                local frameName = StaticPopup_Visible(which)
+                local popup = frameName and _G[frameName]
+                local edit = popup and (popup.editBox or popup.EditBox or _G[frameName .. "EditBox"])
+                if edit and edit.SetText then edit:SetText(name) if edit.SetFocus then edit:SetFocus() end return true end
+            end
+        end
+        if UI:InsertIntoInput(name) then return true end
+    elseif UI.input and UI.input.HasFocus and UI.input:HasFocus() and text then
+        -- Gegenstand/Quest/Zauber: Link ins Eingabefeld
+        if UI:InsertIntoInput(text) then return true end
+    end
+    -- sonst wie im WoW-Chat (Blizzard kuemmert sich: Eingabezeile, Dialoge, Anprobe …)
+    if type(SetItemRef) == "function" then pcall(SetItemRef, link, text, button, owner) return true end
+    return false
+end
+-- Umschalt+Klick in Taschen, Questlog usw.: Link auch in unser Eingabefeld, wenn es aktiv ist
+function UI:HookInsertLink()
+    if self.insertHooked or type(hooksecurefunc) ~= "function" or type(ChatEdit_InsertLink) ~= "function" then return end
+    self.insertHooked = true
+    hooksecurefunc("ChatEdit_InsertLink", function(text) UI:InsertIntoInput(text) end)
+end
+
 -- ===== Verlauf =====
 function UI:Render()
     local log, view = self.log, self.current
@@ -999,7 +1154,10 @@ function UI:RefreshHead()
     local whisper = view:sub(1, 2) == "w:"
     self.headText:SetText(UI.Title(view))
     if whisper then self.headMenu:Show() self.headClose:Show() else self.headMenu:Hide() self.headClose:Hide() end
-    local to = whisper and view:sub(3) or (chatType and UI.Title(view)) or T("nur lesen")
+    -- Ziel = wohin wirklich geschrieben wird (z. B. "Alle" -> Allgemein, "In der Naehe" -> Sagen)
+    local tab = not whisper and Chat:Tab(view)
+    local kind = tab and tab.send and Chat.kindByKey[tab.send]
+    local to = whisper and view:sub(3) or (chatType and (kind and T(kind.label) or UI.Title(view))) or T("nur lesen")
     -- schmal: Ziel gekuerzt (volle Angabe im Platzhalter des Eingabefelds)
     local short = to
     if self:IsNarrow() and #to > 7 then

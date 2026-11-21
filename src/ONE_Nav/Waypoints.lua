@@ -116,6 +116,29 @@ function Waypoints:CorpsePosition()
         end
     end
     if c then return c.mapID, c.x, c.y end
+    -- Tod nicht mitbekommen (z. B. /reload als Geist): Leiche auf der aktuellen Karte erfragen
+    if C_DeathInfo and C_DeathInfo.GetCorpseMapPosition then
+        local mapID = nav.Travel.PlayerMapPosition()
+        if mapID then
+            local ok, pos = pcall(C_DeathInfo.GetCorpseMapPosition, mapID)
+            if ok and type(pos) == "table" then
+                local px, py = pos.x, pos.y
+                if px == nil and pos.GetXY then px, py = pos:GetXY() end
+                if type(px) == "number" and type(py) == "number" and (px > 0 or py > 0) then return mapID, px, py end
+            end
+        end
+    end
+end
+-- Geist? Beim Freilassen meldet das Spiel den Geist-Zustand manchmal erst kurz nach PLAYER_ALIVE
+-- (Spieltest 19.11.2026: Pfeil zeigte als Geist weiter zur Quest) – deshalb mehrfach nachsehen.
+function Waypoints.IsGhost()
+    return type(UnitIsGhost) == "function" and UnitIsGhost("player") and true or false
+end
+function Waypoints:CheckGhost()
+    if not self.IsGhost() then return end
+    local A = nav.Arrow
+    if self.ghostStarted or (A.active and A.probe and A.probe.corpse) then return end
+    self:OnGhost()
 end
 function Waypoints:OnGhost()
     if not (ONE:IsEnabled("nav") and (not ONE.FeatureOn or ONE:FeatureOn("nav.corpse"))) then return end
@@ -125,10 +148,11 @@ function Waypoints:OnGhost()
     local mapID, x, y = self:CorpsePosition()
     if not mapID then return end
     nav.Arrow:StartPoint(T("Deine Leiche"), mapID, x, y, {corpse = true, quiet = true})
+    self.ghostStarted = true
     ONE:Print(T("Navi zu deiner Leiche. Danach geht es weiter zum vorherigen Ziel."))
 end
 function Waypoints:OnAlive()
-    self.corpse = nil
+    self.corpse, self.ghostStarted = nil, nil
     local A = nav.Arrow
     if A.active and A.probe and A.probe.corpse then
         if A.resume then A:Resume() else A:Stop() end
@@ -173,13 +197,21 @@ end
 
 function Waypoints:Initialize()
     local f = CreateFrame("Frame")
-    for _, e in ipairs({"PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST", "ADDON_LOADED", "SUPER_TRACKING_CHANGED"}) do pcall(f.RegisterEvent, f, e) end
+    for _, e in ipairs({"PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST", "ADDON_LOADED", "SUPER_TRACKING_CHANGED",
+        "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA"}) do pcall(f.RegisterEvent, f, e) end
     f:SetScript("OnEvent", function(_, event)
         if event == "PLAYER_DEAD" then
             Waypoints:OnDeath()
         elseif event == "PLAYER_ALIVE" then
             -- PLAYER_ALIVE kommt beim Freilassen des Geistes UND beim Wiederbeleben vor Ort
-            if UnitIsGhost and UnitIsGhost("player") then Waypoints:OnGhost() else Waypoints:OnAlive() end
+            if Waypoints.IsGhost() then Waypoints:CheckGhost() else Waypoints:OnAlive() end
+            -- falls der Geist-Zustand erst gleich gemeldet wird
+            if C_Timer and C_Timer.After then
+                C_Timer.After(1, function() Waypoints:CheckGhost() end)
+                C_Timer.After(3, function() Waypoints:CheckGhost() end)
+            end
+        elseif event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
+            Waypoints:CheckGhost()
         elseif event == "PLAYER_UNGHOST" then
             Waypoints:OnAlive()
         elseif event == "ADDON_LOADED" then

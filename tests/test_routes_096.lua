@@ -36,6 +36,8 @@ GuildTripRoutes = {R = {[1] = {
 local nav = {}
 assert(loadfile(root .. "/ONE_Nav/Routes.lua"))("ONE_Nav", nav)
 local R = nav.Routes
+local PULL = R.pull
+R.pull = 0   -- kleines Fluss-Netz: hier nicht querfeldein abkürzen (das Netz kennt den Fluss nicht)
 assert(R:Available())
 local net = R:Net(1)
 assert(net.count == 6 and #net.adj[1] == 6, "Knoten 1 hat zwei Kanten")
@@ -60,6 +62,23 @@ local cut = R.Shortcut({{x = 50, y = 0}, {x = 100, y = 100}, {x = 0, y = 100}, {
 assert(#cut == 3 and cut[2].x == 0 and cut[2].y == 100 and cut[3].y == 500, "direkt auf den Weg")
 local far = R.Shortcut({{x = 50, y = 0}, {x = 100, y = 100}, {x = 0, y = 100}, {x = 0, y = 500}}, 50, 400)
 assert(#far == 4, "zu weit für eine Abkürzung -> Weg bleibt")
+
+-- 1c) Umweg über die Straße querfeldein glätten (Nutzer 19.11.2026)
+assert(PULL and PULL > 0, "Querfeldein im Spiel an")
+local road = {{x = 0, y = 0}, {x = 0, y = 200}, {x = 300, y = 200}, {x = 300, y = 0}, {x = 600, y = 0}}
+local pulled = R.Pull(road, 600, 1.2)
+assert(#pulled == 2 and pulled[2].x == 600, "Umweg 700 statt 600 -> geradeaus")
+local hook = {{x = 0, y = 0}, {x = 0, y = 300}, {x = 200, y = 300}, {x = 200, y = 0}}
+assert(#R.Pull(hook, 600, 1.2) == 2, "Haken über die Straße -> direkt")
+local straightRoad = {{x = 0, y = 0}, {x = 300, y = 10}, {x = 600, y = 0}}
+assert(#R.Pull(straightRoad, 600, 1.2) == 3, "fast gerade -> Weg bleibt")
+local long = {{x = 0, y = 0}, {x = 0, y = 800}, {x = 1000, y = 800}, {x = 1000, y = 0}}
+assert(#R.Pull(long, 600, 1.2) == 4, "Gerade über 600 Yards -> Weg bleibt (Berge/Wasser möglich)")
+-- Städte: nie abkürzen (Spielbild 20.11.: Tal der Geister, Orgrimmar)
+assert(R.InCity(1, 1504, -4221), "Orgrimmar erkannt")
+assert(not R.InCity(1, 0, 0) and not R.InCity(nil, 1504, -4221))
+local org = {{x = 1504, y = -4221}, {x = 1504, y = -4021}, {x = 1704, y = -4021}, {x = 1704, y = -4221}}
+assert(#R.Pull(org, 600, 1.2, 1) == 4, "in der Stadt bleibt der Weg")
 
 -- 2) Folgen: Punkte werden abgehakt, Restweg sinkt, Abweichen erkannt
 local t, rest = R:Next(route, 60, -40)

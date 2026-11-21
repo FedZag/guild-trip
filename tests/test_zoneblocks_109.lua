@@ -29,22 +29,25 @@ local ctx = {
 }
 local function Maps(plan) local t = {} for _, s in ipairs(plan.steps) do t[#t + 1] = s.mapID end return table.concat(t, ",") end
 
-ctx.zoneBlocks = false
-local flat = assert(P:Plan(ctx))
-ctx.zoneBlocks = nil
+-- Schleifen um Stuetzpunkte (21.11.2026): kein Zickzack ueber die Grenze (2,1,2,1) – hoechstens ein Wechsel
 local zoned = assert(P:Plan(ctx))
--- ohne Bloecke: Zickzack ueber die Grenze; mit: erst Karte 1 fertig, dann Karte 2
-assert(Maps(flat) == "2,1,2,1", "ohne Bloecke: " .. Maps(flat))
-assert(Maps(zoned) == "1,1,2,2", "mit Bloecken: " .. Maps(zoned))
--- gleiche Auswahl
-for id in pairs(flat.chosen) do assert(zoned.chosen[id]) end
-for id in pairs(zoned.chosen) do assert(flat.chosen[id]) end
+local m = Maps(zoned)
+assert(m == "1,1,2,2" or m == "2,2,1,1", "ohne Zickzack: " .. m)
 -- Bloecke fuer die Anzeige
-assert(#zoned.blocks == 2 and zoned.blocks[1].mapID == 1 and zoned.blocks[1].steps == 2 and zoned.blocks[2].mapID == 2)
+assert(#zoned.blocks == 2 and zoned.blocks[1].steps == 2 and zoned.blocks[2].steps == 2)
 assert(zoned.steps[3].block == 2)
--- Die gedachte Wechsel-Strafe zaehlt nicht als echte Zeit
+-- Weg hoechstens so lang wie "erst Karte 1, dann Karte 2" (150 + 500 + 720 + 250 = 1620 Yards)
 local walk = 0
 for _, s in ipairs(zoned.steps) do walk = walk + (s.walk or 0) end
--- Weg: 150 + 500 + 720 + 250 = 1620 Yards bei 7 Yards/s und Umwegfaktor
-assert(math.abs(walk - 1620 * P.DETOUR / 7 / 60) < .01, "nur echte Laufzeit: " .. walk)
+assert(walk <= 1620 * P.DETOUR / 7 / 60 + .01, "kurzer Weg: " .. walk)
+
+-- Spieltest 19.11.2026: im eigenen Gebiet ist der naechste Halt weit weg (1400 Yards),
+-- gleich hinter der Grenze wartet eine Quest -> erst die nahe Quest, nicht quer durchs Gebiet laufen
+GuildTripQuestDB.q = {
+    [1] = {5, 1, 0, 0, false, {11}, {11}, {}, false, false, 300, 0, 0, 1},  -- Karte 2, 70 Yards
+    [4] = {5, 1, 0, 0, false, {14}, {14}, {}, false, false, 300, 0, 0, 1},  -- Karte 1, 1450 Yards
+}
+GuildTripQuestDB.n[14] = {0, 1, .5, 500}
+local far = assert(P:Plan(ctx))
+assert(Maps(far):sub(1, 1) == "2", "nahe Quest hinter der Grenze zuerst: " .. Maps(far))
 print("OK test_zoneblocks_109")

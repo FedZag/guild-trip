@@ -2,7 +2,7 @@
 local root = arg[1] or "src"
 local now = 1800000000
 date, time = os.date, function() return now end
-UnitName = function() return "Kaboom" end
+UnitName = function() return "Testheld" end
 GetRealmName = function() return "Forever" end
 C_FriendList = {IsIgnored = function() return false end}
 ChatFrame_GetMessageEventFilters = function() return nil end
@@ -15,24 +15,24 @@ local function Fresh()
 end
 local Chat = Fresh()
 for i = 1, 130 do Chat:OnEvent("CHAT_MSG_GUILD", "Gilde " .. i, "Rexxar", "", "", "", "", 0, 0, "", 0, i, "") end
-for i = 1, 60 do Chat:OnEvent("CHAT_MSG_WHISPER", "Psst " .. i, "Bodra-Forever", "", "", "", "", 0, 0, "", 0, 500 + i, "") end
+for i = 1, 60 do Chat:OnEvent("CHAT_MSG_WHISPER", "Psst " .. i, "Lunara-Forever", "", "", "", "", 0, 0, "", 0, 500 + i, "") end
 local h = Chat:SaveHistory()
-local key = "Kaboom-Forever"
+local key = "Testheld-Forever"
 assert(ONE.db.chatHistory[key] == h, "je Charakter")
-assert(#h.views.guild == 100 and #h.views["w:Bodra"] == 50, "100 je Reiter, 50 je Gespraech")
+assert(#h.views.guild == 100 and #h.views["w:Lunara"] == 50, "100 je Reiter, 50 je Gespraech")
 -- jede Nachricht nur einmal (Gilde steht in "Alle" und "Gilde")
 local seen = {}
 for _, n in ipairs(h.views.all) do seen[n] = true end
 local shared = 0
 for _, n in ipairs(h.views.guild) do if seen[n] then shared = shared + 1 end end
-assert(shared > 0 and #h.entries < #h.views.all + #h.views.guild + #h.views["w:Bodra"], "geteilt statt doppelt")
+assert(shared > 0 and #h.entries < #h.views.all + #h.views.guild + #h.views["w:Lunara"], "geteilt statt doppelt")
 -- neu laden: Verlauf da, nichts ungelesen, Gespraech wieder in der Liste
 local Chat2 = Fresh()
 assert(Chat2:LoadHistory() > 0)
 local g = Chat2:Buffer("guild")
 assert(#g == 100 and g[#g].text == "Gilde 130" and g[#g].restored, "letzte 100 Gildennachrichten")
 assert(next(Chat2.unread) == nil, "nichts ungelesen")
-assert(Chat2.whispers[1].name == "Bodra" and #Chat2:Buffer("w:Bodra") == 50)
+assert(Chat2.whispers[1].name == "Lunara" and #Chat2:Buffer("w:Lunara") == 50)
 -- aelter als 7 Tage: weg
 now = now + 8 * 86400
 local Chat3 = Fresh()

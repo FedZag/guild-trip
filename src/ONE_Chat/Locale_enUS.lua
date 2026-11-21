@@ -138,3 +138,68 @@ EN["Leuchtfarbe des Chats …"] = "Chat glow colour …"
 EN["Farbe für Auswahl, Linien und Knöpfe – nur im Chat."] = "Colour for selection, lines and buttons – chat only."
 EN["Glasfarbe des Chats …"] = "Chat glass tint …"
 EN["Tönung des Chat-Glases. Die Deckkraft stellt „Hintergrund“ ein."] = "Tint of the chat glass. Opacity is set with “Background”."
+EN["Chat-Aussehen prüfen (für Fehlersuche)"] = "Check chat look (for troubleshooting)"
+EN["Gespräch schließen"] = "Close conversation"
+
+-- Messenger-Stil, Emojis, Einstellungen im Chat (21.11.2026)
+local function Add(de, en) EN[de] = EN[de] or en end
+for de, en in pairs({
+    ["offline seit %d Jahren"] = "offline for %d years", ["offline seit 1 Monat"] = "offline for 1 month",
+    ["offline seit %d Monaten"] = "offline for %d months", ["offline seit 1 Tag"] = "offline for 1 day",
+    ["offline seit %d Tagen"] = "offline for %d days", ["offline seit 1 Std."] = "offline for 1 hr",
+    ["offline seit %d Std."] = "offline for %d hrs", ["gerade offline"] = "just went offline", ["Gestern"] = "Yesterday",
+    ["Heute"] = "Today", ["Du"] = "You",
+    ["Suchen …"] = "Search …", ["Neues Gespräch"] = "New conversation",
+    ["Flüstern an jemanden oder eigenen Reiter anlegen"] = "Whisper someone or create your own tab",
+    ["Neuer Reiter …"] = "New tab …", ["NACHRICHTEN"] = "MESSAGES", ["Nichts gefunden"] = "Nothing found",
+    ["ANGEHEFTET"] = "PINNED", ["GESPRÄCHE"] = "CONVERSATIONS", ["FLÜSTERN"] = "WHISPERS", ["SYSTEM"] = "SYSTEM", ["Entwurf:"] = "Draft:", ["stumm"] = "muted",
+    ["stummgeschaltet: kein Ton, grauer Zähler"] = "muted: no sound, grey counter",
+    ["Rechtsklick: Anheften, Stumm, …"] = "Right-click: pin, mute, …", ["Lösen"] = "Unpin", ["Anheften"] = "Pin",
+    ["Ton an"] = "Unmute", ["Stummschalten"] = "Mute", ["Als gelesen markieren"] = "Mark as read",
+    ["Namens-Menü …"] = "Name menu …", ["Reiter bearbeiten …"] = "Edit tab …", ["Zurück zur Liste"] = "Back to the list",
+    ["Namens-Menü"] = "Name menu", ["Einladen, Navi, Ignorieren …"] = "Invite, navigate, ignore …", ["Nach unten"] = "Scroll down",
+    ["Emojis und WoW-Zeichen"] = "Emojis and WoW markers",
+    ["Emojis sehen nur Spieler mit Guild Trip als Bild, andere lesen den Code (z. B. :daumen:). WoW-Zeichen wie {Stern} sieht jeder."] =
+        "Only players with Guild Trip see emojis as pictures, others read the code (e.g. :thumbsup:). Everyone sees WoW markers like {star}.",
+    ["(sieht jeder)"] = "(everyone sees it)", ["WoW-Zeichen sieht jeder – auch ohne Guild Trip."] = "Everyone sees WoW markers – even without Guild Trip.",
+    ["Emojis: Bild nur mit Guild Trip, sonst steht der Code da."] = "Emojis: picture only with Guild Trip, otherwise the code shows.",
+    ["Antworten"] = "Reply", ["Text kopieren"] = "Copy text",
+    ["Text steht im Eingabefeld und ist markiert – Strg+C kopiert ihn."] = "The text is in the input field and selected – Ctrl+C copies it.",
+    ["1 neue Nachricht"] = "1 new message", ["%d neue Nachrichten"] = "%d new messages",
+    ["nicht zugestellt – %s ist offline"] = "not delivered – %s is offline", ["Meldungen von WoW und Addons"] = "Messages from WoW and addons",
+    ["schreibt in: %s"] = "writes to: %s", ["Name eingeben, Enter"] = "Type a name, Enter",
+    ["Zuletzt"] = "Recent", ["Gesichter"] = "Faces", ["Gesten"] = "Gestures", ["Herzen"] = "Hearts", ["WoW"] = "WoW", ["Zeichen"] = "Markers",
+    ["Messenger"] = "Messenger", ["Klassisch"] = "Classic", ["Der Stil des Chats ändert sich nach /reload."] = "The chat style changes after /reload.",
+    ["Fertig"] = "Done", ["Geändert: wirkt nach dem Neuladen."] = "Changed: takes effect after reloading.", ["Jetzt neu laden"] = "Reload now",
+    ["Linksklick: weiter · Rechtsklick: zurück"] = "Left-click: next · Right-click: back", ["Stil des Chats"] = "Chat style",
+    ["Chat-Einstellungen öffnen"] = "Open chat settings",
+    ["Messenger: Gesprächsliste und Sprechblasen. Klassisch: Reiter oben, Zeilen wie im WoW-Chat. Wirkt nach /reload."] =
+        "Messenger: conversation list and speech bubbles. Classic: tabs on top, lines like the WoW chat. Takes effect after /reload.",
+    ["Alle Einstellungen des Chats stehen jetzt direkt im Chatfenster (Zahnrad oben rechts)."] = "All chat settings are now right in the chat window (gear at the top right).",
+    ["Stil"] = "Style", ["Emojis"] = "Emojis", ["System & Addons"] = "System & addons",
+    ["Emojis als Bilder zeigen"] = "Show emojis as pictures",
+    ["Codes wie :daumen: und WoW-Zeichen wie {Stern} erscheinen als Bild. Aus: der Text bleibt, wie er gesendet wurde."] =
+        "Codes like :thumbsup: and WoW markers like {star} appear as pictures. Off: the text stays as it was sent.",
+    ["Smileys wie :) als Bild"] = "Smileys like :) as pictures",
+    ["Auch getippte Smileys (:) :D ;) <3 …) werden zum Bild – nur, wenn sie frei stehen."] = "Typed smileys (:) :D ;) <3 …) become pictures too – only when they stand alone.",
+    ["Nur Emojis: groß zeigen"] = "Emojis only: show large",
+    ["Blasen farbig je Art"] = "Tint bubbles by type",
+    ["Klassen-Symbol vor dem Namen"] = "Class icon before the name",
+    ["In den Sprechblasen ein kleines rundes Klassen-Symbol vor dem Namen – wenn WoW die Klasse kennt."] = "A small round class icon before the name in the bubbles – when WoW knows the class.",
+    ["Sprechblasen der anderen leicht in der Farbe ihrer Art: Gilde grün, Gruppe blau, Flüstern rosa … Eigene bleiben in der Leuchtfarbe."] = "Other people's bubbles get a light tint of their type: guild green, party blue, whisper pink … Your own keep the glow colour.",
+    ["Besteht eine Nachricht nur aus 1–3 Emojis, werden sie groß und ohne Blase gezeigt – wie im Messenger."] = "If a message is just 1–3 emojis, they are shown large without a bubble – like in a messenger.",
+    -- Emoji-Namen
+    ["Lächeln"] = "Smile", ["Freude"] = "Joy", ["Lachen"] = "Laugh", ["Grinsen"] = "Grin", ["Tränen lachen"] = "Tears of joy",
+    ["Kugeln vor Lachen"] = "Rolling on the floor", ["Zwinkern"] = "Wink", ["Puh"] = "Phew", ["Verliebt"] = "In love", ["Kuss"] = "Kiss",
+    ["Zunge"] = "Tongue", ["Cool"] = "Cool", ["Hmm"] = "Hmm", ["Augenrollen"] = "Eye roll", ["Staunen"] = "Surprised", ["Schreck"] = "Scream",
+    ["Traurig"] = "Sad", ["Weinen"] = "Crying", ["Wütend"] = "Angry", ["Schlafen"] = "Sleeping", ["Party"] = "Party", ["Froh"] = "Happy",
+    ["Daumen hoch"] = "Thumbs up", ["Daumen runter"] = "Thumbs down", ["Winken"] = "Wave", ["Klatschen"] = "Clap", ["Jubel"] = "Cheer",
+    ["Bitte / Danke"] = "Please / thanks", ["Stark"] = "Strong", ["Okay"] = "Okay", ["Peace"] = "Peace", ["Abgemacht"] = "Deal",
+    ["Daumen drücken"] = "Fingers crossed", ["Augen"] = "Eyes", ["Herz"] = "Heart", ["Herz orange"] = "Orange heart",
+    ["Herz gelb"] = "Yellow heart", ["Herz grün"] = "Green heart", ["Herz blau"] = "Blue heart", ["Herz lila"] = "Purple heart",
+    ["Gebrochenes Herz"] = "Broken heart", ["Schwerter"] = "Swords", ["Schild"] = "Shield", ["Totenkopf"] = "Skull", ["Feuer"] = "Fire",
+    ["Stern"] = "Star", ["Gold"] = "Gold", ["Münze"] = "Coin", ["Bier"] = "Beer", ["Konfetti"] = "Confetti", ["Geschenk"] = "Gift",
+    ["Pokal"] = "Trophy", ["Drache"] = "Dragon", ["Magier"] = "Mage", ["Haken"] = "Check", ["Kreuz"] = "Cross", ["Hundert"] = "Hundred",
+    ["Müde"] = "Tired", ["Warten"] = "Waiting", ["Kreis"] = "Circle", ["Diamant"] = "Diamond", ["Dreieck"] = "Triangle", ["Mond"] = "Moon",
+    ["Quadrat"] = "Square", ["Totenschädel"] = "Skull",
+}) do Add(de, en) end

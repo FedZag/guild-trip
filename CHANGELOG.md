@@ -4,6 +4,30 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.7.4-alpha (veröffentlicht 21.11.2026)
+
+```
+## 0.7.4-alpha
+
+**English**
+- Chat: new messenger look (default, "Classic" still selectable): conversation list with pinned chats, guild/group/whispers/system, search across all conversations, speech bubbles, "new messages" line, drafts per conversation. Whispers show a tick when delivered and a note when the player is offline. Emojis (sent as short codes, raid markers everyone sees). Settings open right inside the chat (gear icon). Messages of other addons and of `/trip` show up in the Guild Trip chat when it replaces the WoW chat.
+- Quest guide plans like a levelling route: loops around hubs instead of always the next nearest point, a fixed plan that survives /reload (re-planned only on level-up, abandoning, group or settings), finishes a zone before flying off, counts your quest log progress, looks ahead to level-ups ("kill monsters until X / Y XP", "then level X"), trainer visits, picking up flight points, using and setting your hearthstone, class travel spells (mage teleports, Astral Recall, Teleport: Moonglade, Ghost Wolf/travel form).
+- Quest guide: right-click a quest in the box to drop it (asks first); "Abandoning pays off" can be clicked to abandon (asks first); dungeon quests only taken along when on your way, no dungeon steps; quests only from their minimum level; profession quests only with that profession; more realistic collection quests; recommended quest chains (sleeping bag chain from level 14, optional).
+- Route: walks straight cross-country instead of always going back to the road first – but never cuts corners inside cities (walls).
+- Classes: flows and tips updated to the Forever hotfixes of 6–20 November (Enhancement, Affliction, Restoration druid, Fury, Retribution). Arcane mage reworked (talents, flow, stats, tips – checked against the game data) and, as a first class, with its own flow for each level range from level 1.
+- Fixes: "Share spell data" stays ticked; sell junk works again; no more empty boxes instead of symbols in the quest guide.
+
+**Deutsch**
+- Chat: neues Messenger-Aussehen (Standard, „Klassisch“ bleibt wählbar): Gesprächsliste mit Angehefteten, Gilde/Gruppe/Flüstern/System, Suche über alle Gespräche, Sprechblasen, Linie „neue Nachrichten“, Entwurf je Gespräch. Flüstern zeigt einen Haken, wenn es angekommen ist, und einen Hinweis, wenn der Spieler offline ist. Emojis (gesendet als Code wie `:daumen:`, Zielmarkierungen sieht jeder). Einstellungen direkt im Chat (Zahnrad). Meldungen anderer Addons und von `/trip` erscheinen im Guild-Trip-Chat, wenn er den WoW-Chat ersetzt.
+- Quest-Führung plant wie eine Leveling-Route: Schleifen um Stützpunkte statt immer zum nächsten Punkt, fester Fahrplan, der /reload übersteht (neu geplant nur bei Stufenaufstieg, Abbruch, Gruppe oder Einstellungen), erst das Gebiet fertig, dann fliegen, rechnet mit dem Fortschritt im Questlog, sieht Stufenaufstiege voraus („Monster hauen bis X / Y EP“, „danach Stufe X“), Lehrer-Besuch, Flugpunkte abholen, Ruhestein benutzen und setzen, Reisezauber der Klassen (Magier-Teleports, Astraler Rückruf, Teleportieren: Mondlichtung, Geisterwolf/Reisegestalt).
+- Quest-Führung: Rechtsklick auf eine Quest im Kasten wählt sie ab (mit Rückfrage); „Abbrechen lohnt“ per Klick (mit Rückfrage); Dungeonquests nur am Weg, keine Dungeon-Schritte; Quests erst ab Mindeststufe; Berufsquests nur mit dem Beruf; Sammelquests realistischer geschätzt; empfohlene Questreihen (Schlafsack-Reihe ab Stufe 14, freiwillig).
+- Wegführung: querfeldein geradeaus statt immer erst zur Straße – in Städten aber nie abkürzen (Mauern).
+- Klassen: Abläufe und Tipps nach den Forever-Hotfixes vom 6.–20. November (Verstärkung, Gebrechen, Wiederherstellung Druide, Furor, Vergeltung). Arkan-Magier neu (Talente, Ablauf, Werte, Tipps – gegen die Spieldaten geprüft) und als erste Klasse mit eigenem Ablauf je Stufenabschnitt ab Stufe 1.
+- Fixes: „Zauberdaten teilen“ bleibt angehakt; Schrott verkaufen geht wieder; keine leeren Kästchen statt Symbolen mehr in der Quest-Führung.
+```
+
+---
+
 ## 0.7.3-alpha (veröffentlicht 19.11.2026)
 
 ```

@@ -198,6 +198,8 @@ function Glass:Paint(s)
     -- s.store: Flaeche mit eigener Farb-Ablage (Funktion, liefert Tabelle oder nil)
     local p = self:Palette(s.store and s.store() or nil)
     local t, g, a = p.tint, p.glow, p.alpha
+    -- s.scale: zusaetzliche Deckkraft eines Fensters (z. B. Chat-Regler "Hintergrund")
+    if s.scale then a = a * (tonumber(s.scale()) or 1) end
     local k = s.kind
     if k == "window" then
         s.fill:SetColor(t[1], t[2], t[3], a)

@@ -96,6 +96,21 @@ assert(UI.current ~= before, "Tab wechselt das Gespraech")
 UI.log.scripts.OnHyperlinkClick(UI.log, "player:Thrall-Forever:9", "[Thrall]", "LeftButton")
 assert(menuFor[1] == "Thrall-Forever" and menuFor[2].lineID == 9)
 
+-- 5b) "Alle" schreibt in den Allgemein-Kanal (/1), nicht in die Gilde (Nutzer 19.11.2026)
+GetChannelList = function() return 1, "Allgemein - Brachland", false, 2, "Handel - Stadt", false end
+UI:Show("all")
+assert(Chat:Tab("all").send == "general" and UI.toButton.text == "An: Allgemein", UI.toButton.text)
+local nSent = #sentMsgs
+UI.input.text = "Hallo alle"
+UI.input.scripts.OnEnterPressed(UI.input)
+assert(sentMsgs[nSent + 1][2] == "CHANNEL" and sentMsgs[nSent + 1][3] == 1, "Alle -> Kanal 1")
+GetChannelList = nil
+do -- alter Stand: "Alle" schrieb in die Gilde -> wird umgestellt
+    local s = Chat:Settings()
+    s.allSendV, Chat:Tab("all").send = nil, "guild"
+    Chat:Settings()
+    assert(Chat:Tab("all").send == "general", "alter Stand umgestellt")
+end
 -- 6) Lesereiter ohne Schreibziel: Senden geht nicht, Hinweis
 UI:Show("all")
 Chat:Tab("all").send = nil
@@ -113,28 +128,36 @@ d.save.click()
 local tab
 for _, t in ipairs(Chat:Tabs()) do if t.label == "Handwerk" then tab = t end end
 assert(tab and tab.kinds.trade and tab.send == "guild" and UI.current == tab.id)
--- 8) Zahnrad: springt in Optionen › Chat (0.6.9: kein eigenes Einstellungsfenster mehr)
-local registered, opened = {}, nil
-ONE.UI = {AddSetting = function(_, o) registered[#registered + 1] = o return true end,
-    OpenOptions = function(_, cat) opened = cat return true end}
+-- 8) Zahnrad: Einstellungen direkt im Chatfenster (21.11.2026); Optionen › Chat hat nur noch einen Knopf dorthin
+local registered = {}
+ONE.UI = {AddSetting = function(_, o) registered[#registered + 1] = o return true end}
 assert(UI:RegisterSettings())
+assert(#registered == 2 and registered[2].id == "chat.openSettings" and registered[2].kind == "button", "Hauptfenster: nur der Knopf")
 assert(UI.gear and UI.gear.scripts.OnClick, "Zahnrad im Fenster")
 UI.gear.scripts.OnClick(UI.gear)
-assert(opened == "chat" and not UI.settings, "Zahnrad oeffnet Optionen › Chat")
+assert(UI.settingsPanel and UI.settingsPanel.shown, "Zahnrad oeffnet die Einstellungen im Chat")
+UI.gear.scripts.OnClick(UI.gear)
+assert(not UI.settingsPanel.shown, "zweiter Klick schliesst")
 local checks, drops, guildBox = 0, 0, nil
-for _, o in ipairs(registered) do
+for _, o in ipairs(UI:SettingDefs()) do
     assert(o.category == "chat" and o.module == "chat")
     if o.kind == "dropdown" then drops = drops + 1 elseif o.kind ~= "text" then checks = checks + 1 end
     if o.label == "Ton bei Gildennachrichten" then guildBox = o end
 end
--- 19.11.2026: dazu Aussehen + Glas-Farben (2 Auswahlfelder) und zwei Farbknoepfe
-assert(checks == #UI.settingChecks + 2 and drops == #UI.settingDrops + 2, "alle Chat-Schalter angemeldet")
+-- 19.11.2026: dazu Aussehen + Glas-Farben (2 Auswahlfelder) und zwei Farbknoepfe; 21.11.: Stil + 3 Emoji-Schalter
+assert(checks == #UI.settingChecks + 2 + 5 and drops == #UI.settingDrops + 2 + 1, "alle Chat-Schalter da")
 assert(guildBox and guildBox.get() == false and guildBox.section == "Verhalten & Töne")
+-- im Fenster: Zeilen fuer alle sichtbaren Einstellungen
+UI:OpenSettings()
+local lines = UI:SettingsLines()
+local heads = 0
+for _, l in ipairs(lines) do if l.head then heads = heads + 1 end end
+assert(heads >= 4, "Abschnitte Stil, Verhalten, Aussehen, Emojis")
 guildBox.set(true)
 assert(Chat:Settings().guildSound == true)
 ONE.UI = nil
 local sd = {drops = {}}
-for _, o in ipairs(registered) do if o.kind == "dropdown" then sd.drops[o.id:gsub("^chat%.", "")] = {o = o} end end
+for _, o in ipairs(UI:SettingDefs()) do if o.kind == "dropdown" then sd.drops[o.id:gsub("^chat%.", "")] = {o = o} end end
 sd.font = sd.drops.fontSize
 assert(UI.SettingOn("whisperHere"), "Fluestern hier: Standard an")
 sd.font.o.set(18)

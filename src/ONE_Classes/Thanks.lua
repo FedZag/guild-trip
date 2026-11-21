@@ -1,6 +1,6 @@
 -- Guild Trip: "Danke fuer den Buff" (Nutzer 19.11.2026: oeffentlich, automatisch, Standard an).
 -- Bufft dich ein anderer Spieler, antwortet Guild Trip mit einem WoW-eigenen Emote an ihn (C_ChatInfo.PerformEmote)
--- ("Kaboom dankt Bodra.", "… verbeugt sich vor Bodra.", "… jubelt Bodra zu.", "… winkt Bodra.").
+-- ("Grimmbart dankt Lunara.", "… verbeugt sich vor Lunara.", "… jubelt Lunara zu.", "… winkt Lunara.").
 -- Eigener Text (SendChatMessage) waere ohne Tastendruck gesperrt ("ONE_Classes wurde geblockt"),
 -- WoW-eigene Emotes nicht (so macht es auch "Thanks for the Buff" auf Forever 1.60.1).
 -- Neue Emotes kann ein Addon nicht anlegen – nur die eingebauten benutzen.

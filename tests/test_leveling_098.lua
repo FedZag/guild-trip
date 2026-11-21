@@ -37,6 +37,59 @@ local ctx = {
 }
 local plan = assert(P:Plan(ctx))
 assert(#plan.steps > 5, "Plan hat Schritte")
+-- Sehr empfohlene Reihe (Schlafsack): ab 14 dabei, nur die eigene Fraktion, nicht Pflicht, mit Warnhinweis
+do
+    assert(plan.chosen[79008] == "rec", "Allianz-Start der Schlafsack-Reihe empfohlen: " .. tostring(plan.chosen[79008]))
+    assert(plan.chosen[79007] == nil, "Horde-Start nicht für Allianz")
+    assert(plan.chosen[79976] == "rec", "Ende der Reihe (Arathi, anderer Kontinent egal) empfohlen")
+    local tagged = false
+    for _, t in ipairs(plan.info[79976].tags) do if t == "rec" then tagged = true end end
+    assert(tagged, "Zeichen EMPFOHLEN")
+    assert(P.RecHint(79974, "Horde") and P.RecHint(79974, "Alliance") == nil, "Loch Modan nur für Horde heikel")
+    assert(P.RecHint(79975, "Alliance"):find("Arathi"))
+    local low = {}
+    for k, v in pairs(ctx) do low[k] = v end
+    low.me = {}
+    for k, v in pairs(ctx.me) do low.me[k] = v end
+    low.me.level = 12
+    assert(P:Plan(low).chosen[79008] == nil, "unter Stufe 14 noch nicht")
+    local skip = {}
+    for k, v in pairs(ctx) do skip[k] = v end
+    skip.override = {[79008] = "no"}
+    local ps = P:Plan(skip)
+    assert(ps.chosen[79008] == nil and ps.chosen[79976] == nil, "abwählbar: ohne Start fällt die Reihe raus")
+end
+-- Mindeststufe: nichts annehmen, was man noch nicht annehmen kann (Spieltest 19.11.2026, Ebru mit Stufe 13)
+do
+    local c2 = {}
+    for k, v in pairs(ctx) do c2[k] = v end
+    c2.me = {}
+    for k, v in pairs(ctx.me) do c2.me[k] = v end
+    c2.me.xp, c2.me.xpMax = 0, 1e9 -- im Plan keine neue Stufe
+    local p2 = P:Plan(c2)
+    local accepts = 0
+    for _, st in ipairs(p2.steps) do
+        for _, a in ipairs(st.actions) do
+            if a.kind == "accept" then
+                accepts = accepts + 1
+                assert((Q.q[a.id][2] or 0) <= c2.me.level, "zu frueh angenommen: " .. a.id .. " ab " .. tostring(Q.q[a.id][2]))
+            end
+        end
+    end
+    assert(accepts > 0, "es wird trotzdem etwas angenommen")
+    -- mit EP im Plan: hoehere Quests kommen spaeter, nach dem Stufenaufstieg
+    c2.me.xp, c2.me.xpMax = 11000, 11400
+    -- (Schleifen 21.11.2026: ob dann Quests der naechsten Stufe drankommen, entscheidet die Route – geprueft wird,
+    -- dass nie etwas vor der im Plan erreichten Stufe angenommen wird und der Aufstieg im Plan steht)
+    local p3, lvl, ups = P:Plan(c2), c2.me.level, 0
+    for _, st in ipairs(p3.steps) do
+        for _, a in ipairs(st.actions) do
+            if a.kind == "accept" then assert((Q.q[a.id][2] or 0) <= lvl, "vor dem Aufstieg angenommen: " .. a.id) end
+        end
+        if st.levelUp then lvl, ups = st.levelUp, ups + 1 end
+    end
+    assert(ups > 0, "Aufstieg im Plan")
+end
 -- Quest-Ziele tragen ihr Gebiet (Spawnpunkte, Weltkoordinaten) fuer Pfeil und Entfernung
 do
     local objs, withArea = 0, 0
@@ -65,8 +118,15 @@ for id in pairs(plan.chosen) do
 end
 if at["accept132"] and at["turnin65"] then assert(at["turnin65"] <= at["accept132"], "Kette in Reihenfolge") end
 -- Begleitquest 155: ist die Kette bis 142 erledigt, kommt sie bald – und vor der Todesminen-Quest 166
+-- (Begleitquest ist Stufe 18: Ziel erst ab Stufe 16 – Spieltest 19.11.2026, P.OBJ_AHEAD)
 for _, id in ipairs({65, 132, 135, 141, 142}) do done[id] = true end
+ctx.me.level = 16
 local p3 = P:Plan(ctx)
+ctx.me.level = 15
+do -- mit 15 noch nicht: Begleitquest (18) zu stark
+    local p15 = P:Plan(ctx)
+    for _, s in ipairs(p15.steps) do for _, a in ipairs(s.actions) do assert(not (a.kind == "obj" and a.id == 155), "155 mit 15") end end
+end
 local at3 = {}
 for i, s in ipairs(p3.steps) do for _, a in ipairs(s.actions) do at3[a.kind .. a.id] = at3[a.kind .. a.id] or i end end
 assert(at3["accept155"] and at3["turnin155"] and at3["accept166"] and at3["turnin155"] <= at3["accept166"], "Begleitquest vor der Todesminen-Quest")
@@ -173,9 +233,18 @@ do
     ctx.tempo, ctx.override = "need", nil
     for _, id in ipairs({65, 132, 135, 141, 142}) do done[id] = nil end
     local pf = P:Plan(ctx)
-    local travel
-    for _, st in ipairs(pf.steps) do if st.kind == "travel" then travel = st break end end
-    assert(travel and travel.via.kind == "flight" and travel.world and travel.via.to.name == "Sturmwind, Elwynn", "Flug-Schritt im Plan")
+    -- Frueher: Flug nach Sturmwind fuer die Dungeonquest 2040 (Gnomeregan). Seit 20.11.2026 nimmt der Guide
+    -- Dungeonquests nur am Weg mit (Nutzer: Dungeons laufen ueber den Dungeon-Finder) – kein Flug dafuer.
+    -- (Ein Flug fuer eine Runde mit normalen Quests ist erlaubt.)
+    for i, st in ipairs(pf.steps) do
+        if st.kind == "travel" then
+            local nx = pf.steps[i + 1]
+            local onlyDungeon = nx and #nx.actions > 0
+            for _, a in ipairs(nx and nx.actions or {}) do if not (pf.info[a.id] and pf.info[a.id].forDungeon) then onlyDungeon = false end end
+            assert(not onlyDungeon, "kein Flug nur fuer eine Dungeonquest: " .. tostring(nx and nx.stopKey))
+        end
+    end
+    assert(pf.info[2040] and pf.info[2040].forDungeon, "2040 ist Dungeonquest")
     ctx.flights, ctx.world = nil, oldWorld
 end
 -- gemessene Quest-EP (XPLog) ersetzt die Schaetzung aus der Datenbank (19.11.2026)

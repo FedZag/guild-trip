@@ -189,8 +189,8 @@ assert(UI.current == UI.rowMore.hidden[#UI.rowMore.hidden].view)
 
 -- 8) Optionen › Chat: Aussehen-Auswahl, Glas-Farben nur im Glas sichtbar
 local reg = {}
-ONE.UI = {AddSetting = function(_, o) reg[o.id] = o return true end}
-UI:RegisterSettings()
+Chat:Settings().style = "classic" -- "Aussehen des Chats" gibt es nur im alten Stil
+for _, o in ipairs(UI:SettingDefs()) do reg[o.id] = o end
 assert(reg["chat.look"] and reg["chat.glassSkin"] and reg["chat.glassGlow"] and reg["chat.glassTint"])
 assert(not reg["chat.flat"], "alter Schalter ersetzt")
 assert(reg["chat.look"].get() == "glass" and reg["chat.glassSkin"].visible())
@@ -202,5 +202,54 @@ assert(ONE.printed:find("/reload"))
 do
     local src = assert(io.open(root .. "/ONE_Chat/ChatUI.lua")):read("*a"):gsub("%-%-[^\n]*", "")
     assert(not src:find('UISpecialFrames, "GuildTripChatWindow"', 1, true), "Chat darf nicht per ESC schliessen")
+end
+-- 9) Umschalt+Klick auf Namen: in den Gilden-Einladungsdialog bzw. ins Eingabefeld (Nutzer 19.11.2026)
+do
+    local edit = Region("EditBox")
+    _G.StaticPopup1 = {editBox = edit}
+    StaticPopup_Visible = function(which) return which == "ADD_GUILDMEMBER" and "StaticPopup1" or nil end
+    shift = true
+    UI.log.scripts.OnHyperlinkClick(UI.log, "player:Thrall-Forever:9", "[Thrall]", "LeftButton")
+    assert(edit.text == "Thrall-Forever", "Name im Einladungsdialog")
+    StaticPopup_Visible = function() return nil end
+    function UI.input:HasFocus() return true end
+    function UI.input:Insert(t) self.text = (self.text or "") .. t end
+    UI.input.text = "Hallo "
+    UI.log.scripts.OnHyperlinkClick(UI.log, "player:Jaina:3", "[Jaina]", "LeftButton")
+    assert(UI.input.text == "Hallo Jaina", "Name ins Eingabefeld")
+    UI.log.scripts.OnHyperlinkClick(UI.log, "item:1234", "|cff|Hitem:1234|h[Schwert]|h|r", "LeftButton")
+    assert(UI.input.text:find("Schwert", 1, true), "Gegenstand ins Eingabefeld")
+    shift = false
+    menu = nil
+    UI.input.HasFocus = function() return false end
+    StaticPopup_Visible, _G.StaticPopup1 = nil, nil
+end
+-- 10) Glas: Eingabefeld hat eine Glas-Flaeche mit Chat-Farben
+assert(UI.inputGlass and type(UI.inputGlass.store) == "function", "Eingabefeld aus Glas")
+-- 11) Pruefung /trip chatdiag liefert Zeilen
+local diag = UI:Diag()
+assert(#diag >= 5 and diag[1]:find("^look"), "Chat-Pruefung")
+-- 12) Glas bleibt durchsichtig: "Hintergrund" (SetAlpha) fasst die Glas-Teile nicht an,
+-- sondern wirkt ueber die Farbe; Glas-Teile werden beim Oeffnen neu eingefaerbt
+do
+    local glassTex = 0
+    for t in pairs(UI.glassTex) do glassTex = glassTex + 1 end
+    assert(glassTex > 0, "Glas-Teile bekannt")
+    for _, part in ipairs(UI:BackgroundParts()) do assert(not UI.glassTex[part], "Glas-Teil nicht per SetAlpha") end
+    local sf
+    for _, x in ipairs(UI.glassSurfaces) do if x.kind == "window" then sf = x end end
+    local seen
+    local piece = sf.fill.pieces[5]
+    piece.SetVertexColor = function(_, r, g, b, a) seen = a end
+    local touched = false
+    local realParts = UI.BackgroundParts
+    local fake = {SetAlpha = function() touched = true end}
+    UI.BackgroundParts = function() return {fake} end
+    Chat:Settings().opacity = .5
+    UI:ApplyLook()
+    UI.BackgroundParts = realParts
+    assert(not touched, "Glas: kein SetAlpha auf Hintergrund (Grundflaeche wuerde dunkel)")
+    assert(seen and math.abs(seen - G:Palette(Chat:GlassStore()).alpha * .5) < .001, "Deckkraft ueber die Farbe")
+    Chat:Settings().opacity = 1
 end
 print("OK test_chatnarrow_127")

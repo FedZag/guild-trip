@@ -76,7 +76,9 @@ function Bars:Plan(p, build)
     for _, bar in ipairs(classes.Data.AllBars(build)) do
         local first = classes.Data.barSlots[bar.bar]
         for pos, step in ipairs(bar.slots) do
-            local s = p:Spell(step[1])
+            -- exact = true: immer genau dieser Rang; Zahl: erst ab dieser Stufe (vorher der höchste Rang)
+            local exact = step.exact == true or (type(step.exact) == "number" and (p.level or 1) >= step.exact)
+            local s = p:Spell(step[1], exact)
             -- Talent-Plaetze (ab 9) erst zeigen, wenn das Talent gelernt ist
             if not step.talent or s.known then plan[#plan + 1] = {bar = bar.bar, pos = pos, slot = first + pos - 1, spellID = s.id, name = s.name,
                 icon = s.icon, known = s.known, label = step[2], ids = classes.Data.Ids(step[1]), macroSlot = s.name and macros[s.name] or nil} end

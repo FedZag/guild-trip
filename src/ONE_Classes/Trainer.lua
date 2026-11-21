@@ -97,7 +97,8 @@ function Trainer:Remember(services, p, order)
     local me = Call(UnitName, "player") or "?"
     local store = Store()
     store.upcoming = type(store.upcoming) == "table" and store.upcoming or {}
-    store.upcoming[me] = {class = p.classFile, list = list}
+    -- level: Stufe beim Besuch (Quest-Fuehrung plant den naechsten Lehrerbesuch, 20.11.2026)
+    store.upcoming[me] = {class = p.classFile, list = list, level = p.level}
     -- Zusaetzlich je KLASSE alle Angebote mit Stufe (auch schon gelernte): gilt fuer alle
     -- Charaktere dieser Klasse und wandert ins Startpaket (build_pack.lua)
     if p.classFile then

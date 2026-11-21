@@ -101,6 +101,11 @@ function S:Register()
         label = function()
             return T(S.TEMPO_HINT[G:DB().tempo] or "") .. " " .. T("Dungeon-, Klassen- und Vorquests sind immer dabei.")
         end})
+    -- Sehr empfohlene Reihe (Schlafsack) mit Vorrang – je Figur (Frage im Kasten ab Stufe 14)
+    Add({id = "lev.recFirst", section = "Navi und Quests", order = 45, label = "Schlafsack-Reihe mit Vorrang (diese Figur)",
+        tooltip = "Die Schritte der Questreihe zum Schlafsack kommen zuerst, auch mit weitem Weg. Aus: Die Reihe läuft ohne Vorrang mit.",
+        get = function() return G:RecChoice("sleepingbag") == "now" end,
+        set = function(on) G:SetRecChoice("sleepingbag", on and "now" or "later") end})
     for i, sec in ipairs(S.SECTIONS) do
         for k, o in ipairs(sec.options) do
             Add({id = "lev." .. o.key, section = sec.title, order = 20 + i * 10 + k, label = o.label, tooltip = o.tip,

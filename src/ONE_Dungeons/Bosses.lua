@@ -1,5 +1,5 @@
 -- Guild Trip Dungeons: Bosse und Beute auf der Dungeon-Seite (19.11.2026, Nutzer-OK).
--- Daten: BossData.lua (erzeugt mit scripts/import_codex.lua aus "Dungeon Codex" von Baxter × DLDVLPR,
+-- Daten: BossData.lua (erzeugt mit scripts/import_codex.lua aus "Dungeon Codex" von Baxter x DLDVLPR,
 -- Nutzung unter GPL-3.0-or-later ausdruecklich erlaubt). Oben die Bosse, darunter die Beute des
 -- gewaehlten Bosses: Symbol, Name in Qualitaetsfarbe, Platz/Art, Chance (wenn bekannt).
 -- Tooltip = echter Gegenstands-Tooltip; Umschalt+Klick verlinkt im Chat (HandleModifiedItemClick).
@@ -87,7 +87,7 @@ function Bosses:Credit(key)
         return T("Bosse und Beute: cmangos classic-db (GPL-3) – Classic-Stand, Forever-Änderungen fehlen")
     end
     local s = dungeons.BossData and dungeons.BossData.source
-    return T("Bosse und Beute: Dungeon Codex (Baxter × DLDVLPR), mit Erlaubnis")
+    return T("Bosse und Beute: Dungeon Codex (Baxter x DLDVLPR), mit Erlaubnis")
         .. (s and s.version and (" · v" .. s.version) or "")
 end
 

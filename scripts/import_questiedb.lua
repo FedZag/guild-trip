@@ -10,7 +10,8 @@
 -- Die Dateien sind Datentabellen; sie werden in einer leeren Umgebung geladen (kein os/io).
 -- Ergebnis (Format wie bisher, erweitert):
 --   Data.lua  GuildTripQuestDB.q[id] = {stufe, mindeststufe, volk, klasse, vorquests(eine von), geber, abgabe, ziele,
---                                       vorquests(alle), schliesst_aus, EP, naechste_in_kette, hoechststufe, gebiet}
+--                                       vorquests(alle), schliesst_aus, EP, naechste_in_kette, hoechststufe, gebiet,
+--                                       beruf {skill, mindestwert} – nur wenn noetig}
 --             GuildTripQuestDB.n[nr] = {fraktion, karte, x, y, karte, x, y, …} (nr > 0 NPC, nr < 0 Objekt,
 --                                       nr >= 9000000 Erkundungsort der Quest nr-9000000)
 --   Names_deDE.lua / Names_enUS.lua  Questtitel und NPC-/Objektnamen
@@ -209,7 +210,10 @@ for _, id in ipairs(ids) do
         end
         if #givers > 0 then
             q[id] = {d[5] or 0, d[4] or 0, Race(d[6]), d[7] or 0, List(d[13]), givers, ends, targets,
-                List(d[12]), List(d[16]), XP[id] or 0, d[22] or 0, d[32] or 0, d[17] or 0}
+                List(d[12]), List(d[16]), XP[id] or 0, d[22] or 0, d[32] or 0, d[17] or 0,
+                -- Beruf noetig (requiredSkill {Beruf, Mindestwert}), z. B. Lederverarbeitung (Spieltest 21.11.2026:
+                -- Kamari "Bestien des Donnergrats" nur fuer Lederverarbeiter)
+                type(d[18]) == "table" and tonumber(d[18][1]) and {d[18][1], d[18][2] or 1} or nil}
             kept = kept + 1
         else
             skipped = skipped + 1
@@ -238,8 +242,8 @@ for id in pairs(q) do qids[#qids + 1] = id end
 table.sort(qids)
 for _, id in ipairs(qids) do
     local e = q[id]
-    f:write(string.format("[%d]={%d,%d,%d,%d,%s,%s,%s,%s,%s,%s,%d,%d,%d,%d},\n", id, e[1], e[2], e[3], e[4],
-        L(e[5]), L(e[6]), L(e[7]), L(e[8]), L(e[9]), L(e[10]), e[11], e[12], e[13], e[14]))
+    f:write(string.format("[%d]={%d,%d,%d,%d,%s,%s,%s,%s,%s,%s,%d,%d,%d,%d%s},\n", id, e[1], e[2], e[3], e[4],
+        L(e[5]), L(e[6]), L(e[7]), L(e[8]), L(e[9]), L(e[10]), e[11], e[12], e[13], e[14], e[15] and ("," .. L(e[15])) or ""))
 end
 f:write("}\nD.n = {\n")
 local nids = {}
@@ -289,13 +293,14 @@ local SUB_PROF = {alchemist = "Alchemie", alchemy = "Alchemie", blacksmith = "Sc
     engineer = "Ingenieurskunst", herbalis = "Kräuterkunde", mining = "Bergbau", miner = "Bergbau", skinn = "Kürschnerei",
     leatherwork = "Lederverarbeitung", tailor = "Schneiderei", cook = "Kochkunst", chef = "Kochkunst",
     ["first aid"] = "Erste Hilfe", fishing = "Angeln", fisherman = "Angeln"}
-local classOf, profOf = {}, {}
+local classOf, profOf, portalOf = {}, {}, {}
 if spf then
     local ns = {}
     local chunk = assert(loadfile(spf .. "/Data/Services.lua"))
     setfenv(chunk, {})
     chunk("ShortestPathForever", ns)
     classOf, profOf = ns.ClassTrainers or {}, ns.ProfessionTrainers or {}
+    portalOf = ns.PortalTrainers or {}
 end
 -- Händler-Angebot: Gegenstand.vendors umdrehen, Kategorien wie Merchants.Classify (Classic-Gegenstandsklassen)
 local VIAL = {[3371] = 1, [3372] = 1, [8925] = 1, [18256] = 1}
@@ -345,7 +350,9 @@ for _, id in ipairs(npcIds) do
             if m then
                 if trainer then
                     local kind, what
-                    if classOf[id] and CLASS[classOf[id]] then kind, what = "class", CLASS[classOf[id]]
+                    -- Portal-Lehrer (z. B. Thuul in Orgrimmar) lehren nur Portale, keine Klassenzauber (Spieltest 20.11.2026)
+                    if portalOf[id] then kind, what = "other", "Portale"
+                    elseif classOf[id] and CLASS[classOf[id]] then kind, what = "class", CLASS[classOf[id]]
                     elseif profOf[id] and PROF[profOf[id]] then kind, what = "profession", PROF[profOf[id]]
                     elseif (u[14] or ""):find("Weapon Master") then kind, what = "weapon", "Waffenmeister"
                     else kind, what = "other", u[14] or "" end

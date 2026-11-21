@@ -74,7 +74,7 @@ do
     UnitXP = function() return xp end
     UnitXPMax = function() return max end
     UnitLevel = function() return lvl end
-    UnitName = function() return "Kaboom" end
+    UnitName = function() return "Testheld" end
     UnitClass = function() return "Magier" end
     GetMoney = function() return money end
     C_QuestLog = {GetAllCompletedQuestIDs = function() return {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12} end}
@@ -89,7 +89,7 @@ do
     local d = J:Day()
     assert(d.xp == 800 + 100 + 300 and d.money == 1250 and d.quests == 1, d.xp .. "/" .. d.money)
     local l1, l2, l3 = J:Profile()
-    assert(l1 == "KABOOM  ·  Stufe 16 Magier", l1)
+    assert(l1 == "TESTHELD  ·  Stufe 16 Magier", l1)
     assert(l2:find("Erledigte Quests: 12") and l2:find("heute 1") and l2:find("Gebiete besucht"), l2)
     assert(l3:find("Heute: 1.200 EP") and l3:find("+12 Silber 50 Kupfer", 1, true) and l3:find("2.400 EP pro Stunde"), l3)
     assert(J.Num(1234567) == "1.234.567" and J.Num(999) == "999" and J.Money(-300) == "-3 Silber")

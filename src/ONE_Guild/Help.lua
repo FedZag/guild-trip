@@ -159,7 +159,7 @@ function Help:Frame()
     f.go:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 8)
     f.whisper = Button(f, T("Flüstern"), 90)
     f.whisper:SetPoint("LEFT", f.go, "RIGHT", 6, 0)
-    f.close = Button(f, "×", 24)
+    f.close = Button(f, "X", 24) -- "×" kennt die Spielschrift nicht
     f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -6)
     f.go:SetScript("OnClick", function() Help:Come() end)
     f.whisper:SetScript("OnClick", function() Help:Whisper() end)

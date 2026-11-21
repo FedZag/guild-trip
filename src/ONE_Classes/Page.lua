@@ -581,7 +581,7 @@ function Page:HasWand()
 end
 
 function Page:CurrentBuild(p, def)
-    return classes.Data:Build(def, p.spec, p.situation)
+    return classes.Data:Build(def, p.spec, p.situation, p.level)
 end
 
 -- Auswahl der Spielstile (Ausrichtungen) mit Vor-/Nachteilen als Tooltip je Eintrag
@@ -762,7 +762,7 @@ function Page:Refresh()
     elseif not step then
         self.talentName:SetText(T("Plan erfüllt"))
     else
-        local s = p:Spell(step[1])
+        local s = p:Spell(step[1], step.exact)
         SetIcon(self.talentIcon, {id = step[1], icon = s.icon, name = s.name, known = true}, "")
         self.talentName:SetText(s.name or "?")
         self.talentRank:SetText((p.free or 0) > 0 and T("Rang %d / %d · %d frei", t.ranks, step[2], p.free)

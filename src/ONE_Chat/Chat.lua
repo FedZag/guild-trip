@@ -107,11 +107,13 @@ end
 -- ===== Einstellungen und Reiter =====
 Chat.DEFAULT_TABS = {
     {id = "all", label = "Alle", kinds = {guild = true, officer = true, group = true, say = true, yell = true, emote = true,
-        whisper = true, system = true, trade = true, general = true, lfg = true, channel = true}, send = "guild", builtin = true},
+        whisper = true, system = true, trade = true, general = true, lfg = true, channel = true}, send = "general", builtin = true},
     {id = "guild", label = "Gilde", kinds = {guild = true, officer = true}, send = "guild", builtin = true},
     {id = "group", label = "Gruppe", kinds = {group = true}, send = "group", builtin = true},
     {id = "trade", label = "Handel", kinds = {trade = true}, send = "trade", builtin = true},
     {id = "near", label = "In der Nähe", kinds = {say = true, yell = true, emote = true}, send = "say", builtin = true},
+    -- 21.11.2026: Systemzeilen und Meldungen anderer Addons als eigenes Gespraech (Messenger)
+    {id = "system", label = "System & Addons", kinds = {system = true}, builtin = true},
 }
 function Chat:Settings()
     ONE.db.chat = type(ONE.db.chat) == "table" and ONE.db.chat or {}
@@ -124,6 +126,27 @@ function Chat:Settings()
             s.tabs[#s.tabs + 1] = {id = t.id, label = t.label, kinds = kinds, send = t.send, builtin = true}
         end
     end
+    -- 19.11.2026 (Nutzer): "Alle" schreibt in den Allgemein-Kanal (/1), nicht mehr in die Gilde
+    if s.allSendV ~= 1 then
+        s.allSendV = 1
+        for _, t in ipairs(s.tabs) do if t.id == "all" and t.builtin and t.send == "guild" then t.send = "general" end end
+    end
+    -- 21.11.2026: Gespraech "System & Addons" bei bestehenden Reitern nachtragen
+    if s.sysTabV ~= 1 then
+        s.sysTabV = 1
+        local has = false
+        for _, t in ipairs(s.tabs) do if t.id == "system" then has = true end end
+        if not has then s.tabs[#s.tabs + 1] = {id = "system", label = "System & Addons", kinds = {system = true}, builtin = true} end
+    end
+    -- Messenger (Nutzer 21.11.2026): Stil, angeheftete und stumme Gespraeche, Emojis
+    if s.style ~= "classic" then s.style = "messenger" end
+    if type(s.pinned) ~= "table" then s.pinned = {"guild"} end
+    if type(s.muted) ~= "table" then s.muted = {trade = true} end
+    if s.emojiImages == nil then s.emojiImages = true end
+    if s.asciiSmileys == nil then s.asciiSmileys = true end
+    if s.bigEmoji == nil then s.bigEmoji = true end
+    if s.bubbleColors == nil then s.bubbleColors = true end
+    if s.classIcons == nil then s.classIcons = true end
     if s.fontSize == nil then s.fontSize = 14 end
     if s.opacity == nil then s.opacity = 1 end      -- Deckkraft des Hintergrunds (0.2 … 1)
     if s.idleAlpha == nil then s.idleAlpha = 1 end  -- ganzes Fenster, wenn die Maus weg ist (1 = nicht ausblenden)
@@ -203,8 +226,153 @@ function Chat:OnEvent(event, ...)
     local entry = {time = (type(time) == "function" and time()) or 0, kind = kind, event = event, text = text or "",
         author = author or "", channel = channelName, lineID = lineID, guid = guid,
         inform = event == "CHAT_MSG_WHISPER_INFORM"}
+    -- Zugestellt-Haken: die Bestaetigung des Servers ersetzt die schon gezeigte eigene Nachricht
+    if entry.inform then
+        local pending = self:ConfirmPending(entry)
+        if pending then return pending end
+    elseif kind == "system" and self:FailPending(entry.text) then
+        return nil
+    end
     self:Store(entry)
     return entry
+end
+
+-- ===== Fluestern: zugestellt / nicht zugestellt (21.11.2026) =====
+-- Beim Senden erscheint die Nachricht sofort (pending). Der Server bestaetigt jedes zugestellte Fluestern
+-- (CHAT_MSG_WHISPER_INFORM) – dann Haken. Ist die Person offline, kommt statt dessen die Systemmeldung
+-- "Kein Spieler namens …" – dann rote Blase "nicht zugestellt". Reihenfolge je Person: aelteste zuerst.
+Chat.pending = {}
+Chat.PENDING_WAIT = 6
+function Chat:AddPending(name, text)
+    name = Short(name)
+    local entry = {time = (type(time) == "function" and time()) or 0, kind = "whisper", event = "CHAT_MSG_WHISPER_INFORM", text = text, author = name,
+        inform = true, pending = true, sentAt = (type(GetTime) == "function" and GetTime()) or 0}
+    self.pending[name] = self.pending[name] or {}
+    table.insert(self.pending[name], entry)
+    self:Store(entry)
+    if C_Timer and C_Timer.After then C_Timer.After(self.PENDING_WAIT + .5, function() Chat:ExpirePending() end) end
+    return entry
+end
+function Chat:Notify(entry, views)
+    for _, fn in ipairs(self.listeners) do pcall(fn, entry, views, true) end
+end
+function Chat:ConfirmPending(entry)
+    local list = self.pending[Short(entry.author)]
+    local p = list and table.remove(list, 1)
+    if not p then return nil end
+    p.pending, p.failed = nil, nil
+    p.delivered = true
+    p.text, p.author, p.lineID, p.guid = entry.text, entry.author, entry.lineID, entry.guid
+    self:Notify(p, {self.WhisperView(p.author)})
+    return p
+end
+-- Systemmeldung "Kein Spieler namens 'X' ist online" -> aelteste offene Nachricht an X: nicht zugestellt
+function Chat.NotFoundName(text)
+    local fmt = rawget(_G, "ERR_CHAT_PLAYER_NOT_FOUND_S")
+    if type(fmt) ~= "string" or type(text) ~= "string" then return nil end
+    local a, b = fmt:match("^(.-)%%s(.*)$")
+    if not a then return nil end
+    local function Esc(x) return (x:gsub("%p", "%%%0")) end
+    local ok, name = pcall(string.match, text, "^" .. Esc(a) .. "(.+)" .. Esc(b) .. "$")
+    return ok and name or nil
+end
+function Chat:FailPending(text)
+    local name = Chat.NotFoundName(text)
+    local list = name and self.pending[Short(name)]
+    local p = list and table.remove(list, 1)
+    if not p then return false end
+    p.pending, p.failed = nil, true
+    self:Notify(p, {self.WhisperView(p.author)})
+    return true
+end
+-- Offene Nachrichten ohne Antwort des Servers: nach PENDING_WAIT Sekunden ohne Haken stehen lassen
+function Chat:ExpirePending()
+    local now = (type(GetTime) == "function" and GetTime()) or 0
+    for name, list in pairs(self.pending) do
+        while list[1] and now - (list[1].sentAt or 0) > self.PENDING_WAIT do
+            local p = table.remove(list, 1)
+            p.pending = nil
+            self:Notify(p, {self.WhisperView(name)})
+        end
+    end
+end
+
+-- Guild-Trip-Meldung als Systemzeile (ONE:Print schreibt in DEFAULT_CHAT_FRAME, der bei ersetztem Chat unsichtbar ist)
+function Chat:AddSystem(text)
+    local entry = {time = (type(time) == "function" and time()) or 0, kind = "system", event = "GUILDTRIP",
+        text = "|cff66d9ff[Guild Trip]|r " .. tostring(text or ""), author = ""}
+    self:Store(entry)
+    return entry
+end
+function Chat.HookPrint()
+    if Chat.printHooked or type(ONE.Print) ~= "function" then return end
+    Chat.printHooked = true
+    local orig = ONE.Print
+    ONE.Print = function(self, message, ...)
+        orig(self, message, ...)
+        local H = chat.Hider
+        if H and H.Enabled and Call(H.Enabled, H) then
+            Call(Chat.AddSystem, Chat, self.T and self.T(message) or message)
+        end
+    end
+end
+
+-- ===== Meldungen ANDERER Addons (21.11.2026) =====
+-- Ist der WoW-Chat ersetzt, landen Ausgaben anderer Addons (print, DEFAULT_CHAT_FRAME:AddMessage) im versteckten
+-- WoW-Chat. Ein stiller Nach-Hook (hooksecurefunc, kein Eingriff) auf die WoW-Chatfenster holt sie als Systemzeile
+-- hierher. Wer schreibt, verraet der Aufrufstapel: nur Zeilen, die ein fremdes Addon selbst schreibt.
+-- Nicht: normale Chat-Nachrichten (die zeigt der Guild-Trip-Chat schon selbst), Blizzard, Guild Trip selbst.
+-- Name des Addons, das die Zeile geschrieben hat (oder nil), aus dem Text von debugstack()
+function Chat.AddonFromStack(stack)
+    if type(stack) ~= "string" then return nil end
+    -- vom WoW-Chat selbst verarbeitete Ereignisse (Gilde, Fluestern, System …): nicht doppelt zeigen
+    for _, h in ipairs({"MessageEventHandler", "SystemEventHandler", "ConfigEventHandler"}) do
+        if stack:find(h, 1, true) then return nil end
+    end
+    local top = true
+    for line in stack:gmatch("[^\n]+") do
+        local folder = line:match("[Aa]dd[Oo]ns[/\\]([^/\\%]\"]+)[/\\]")
+        -- ganz oben steht dieser Haken selbst: ueberspringen
+        local hook = folder == "ONE_Chat" and line:find("Chat%.lua")
+        if not hook then top = false end
+        if folder and not (top and hook) then
+            local low = folder:lower()
+            if low:find("^blizzard_") then -- WoW selbst: weitersuchen (z. B. print-Weiterleitung)
+            elseif low:find("^one_") or low == "guildtrip" then return nil -- eigene Zeilen kommen ueber HookPrint
+            else return folder end
+        end
+    end
+end
+function Chat:AddAddonLine(addon, text)
+    text = tostring(text or "")
+    if text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):find("^%s*$") then return nil end
+    -- dieselbe Zeile in mehreren WoW-Fenstern nur einmal
+    local now = (type(GetTime) == "function" and GetTime()) or 0
+    if self.lastAddonLine == text and now - (self.lastAddonTime or -10) < 1 then return nil end
+    self.lastAddonLine, self.lastAddonTime = text, now
+    local entry = {time = (type(time) == "function" and time()) or 0, kind = "system", event = "ADDON",
+        text = text, author = "", addon = addon}
+    self:Store(entry)
+    return entry
+end
+function Chat.OnBlizzardLine(_, text)
+    local H = chat.Hider
+    if not (H and H.Enabled and Call(H.Enabled, H)) then return end
+    if type(debugstack) ~= "function" then return end
+    local ok, stack = pcall(debugstack, 2, 20, 0)
+    local addon = ok and Chat.AddonFromStack(stack)
+    if addon then Call(Chat.AddAddonLine, Chat, addon, text) end
+end
+function Chat.HookAddonLines()
+    if Chat.addonHooked or type(hooksecurefunc) ~= "function" then return end
+    Chat.addonHooked = true
+    local n = tonumber(_G.NUM_CHAT_WINDOWS) or 10
+    for i = 1, n do
+        local f = rawget(_G, "ChatFrame" .. i)
+        if type(f) == "table" and type(f.AddMessage) == "function" then
+            pcall(hooksecurefunc, f, "AddMessage", Chat.OnBlizzardLine)
+        end
+    end
 end
 
 function Chat:Store(entry)
@@ -344,6 +512,16 @@ function Chat:SoundFor(entry, views)
     if self.visible and self.current then
         for _, v in ipairs(views or {}) do if v == self.current then return nil end end
     end
+    -- stummgeschaltete Gespraeche (Messenger, Rechtsklick › Stummschalten): kein Ton
+    if type(s.muted) == "table" and views and #views > 0 then
+        -- "Alle" zaehlt nur, wenn die Nachricht sonst nirgends steht
+        local loud, other = false, false
+        for _, v in ipairs(views) do
+            if v ~= "all" then other = true if not s.muted[v] then loud = true end end
+        end
+        if not other then loud = not s.muted.all end
+        if not loud then return nil end
+    end
     if entry.kind == "whisper" then return s.whisperSound and "chatWhisper" or nil end
     local now = (type(GetTime) == "function" and GetTime()) or 0
     local want = (entry.kind == "guild" or entry.kind == "officer") and s.guildSound
@@ -411,6 +589,7 @@ function Chat:Send(view, text)
     for part in Chat.Split(text, 255) do
         local ok = pcall(SendChatMessage, part, chatType, nil, target)
         if not ok then return nil, T("Senden ging nicht.") end
+        if chatType == "WHISPER" then self:AddPending(target, part) end
     end
     if self:Settings().sentSound then self:PlaySound("chatSent") end
     return true

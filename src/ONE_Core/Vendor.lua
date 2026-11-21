@@ -56,28 +56,72 @@ function V:Repair()
     return cost
 end
 
-local function Container() return C_Container or {} end
+local function Container() return rawget(_G, "C_Container") or {} end
 
--- Graue Gegenstaende mit Verkaufswert: {{bag, slot, wert}}
+-- Taschenplatz lesen: neuer Client (C_Container, Tabelle) oder alter (GetContainerItemInfo, viele Werte).
+-- 0.7.4: vorher nur C_Container – fehlte das, wurde still nichts gefunden.
+function V.SlotInfo(bag, slot)
+    local C = Container()
+    local info = Try(C.GetContainerItemInfo, bag, slot)
+    if type(info) == "table" then return info end
+    local old = rawget(_G, "GetContainerItemInfo")
+    if type(old) ~= "function" then return nil end
+    local tex, count, locked, quality, _, _, link, _, noValue, itemID = Try(old, bag, slot)
+    if not tex and not link then return nil end
+    return {iconFileID = tex, stackCount = count, isLocked = locked, quality = quality,
+        hyperlink = link, hasNoValue = noValue, itemID = itemID}
+end
+
+-- Gegenstandsdaten: C_Item.GetItemInfo (neuer Client) oder GetItemInfo (alt)
+local function ItemInfo(id)
+    local fn = (rawget(_G, "C_Item") and C_Item.GetItemInfo) or rawget(_G, "GetItemInfo")
+    return Try(fn, id)
+end
+
+-- Graue Gegenstaende mit Verkaufswert: {{bag, slot, wert}}; zweiter Wert = Zahl noch nicht geladener
+-- Gegenstaende (Preis unbekannt, Daten werden angefordert), dritter = Zaehler fuer den Pruefbefehl
 function V.Junk()
-    local out = {}
+    local out, waiting, seen = {}, 0, {grey = 0, noValue = 0, locked = 0, slots = 0}
     local C = Container()
     for bag = 0, 4 do
         local n = Try(C.GetContainerNumSlots or rawget(_G, "GetContainerNumSlots"), bag) or 0
+        seen.slots = seen.slots + n
         for slot = 1, n do
-            local info = Try(C.GetContainerItemInfo, bag, slot)
-            if type(info) == "table" and info.quality == 0 and not info.hasNoValue and not info.isLocked and info.itemID then
-                local price = select(11, Try(GetItemInfo, info.itemID)) or 0
-                if price > 0 then out[#out + 1] = {bag, slot, price * (info.stackCount or 1)} end
+            local info = V.SlotInfo(bag, slot)
+            if type(info) == "table" then
+                local id = info.itemID or info.hyperlink
+                local name, _, quality, _, _, _, _, _, _, _, price
+                if id then name, _, quality, _, _, _, _, _, _, _, price = ItemInfo(id) end
+                local q = info.quality
+                if q == nil or q < 0 then q = quality end
+                if q == 0 then
+                    seen.grey = seen.grey + 1
+                    if info.hasNoValue then seen.noValue = seen.noValue + 1
+                    elseif info.isLocked then seen.locked = seen.locked + 1
+                    elseif not name and not price then
+                        waiting = waiting + 1
+                        local req = rawget(_G, "C_Item") and C_Item.RequestLoadItemDataByID
+                        if info.itemID then Try(req, info.itemID) end
+                    elseif (price or 0) > 0 then
+                        out[#out + 1] = {bag, slot, price * (info.stackCount or 1)}
+                    else
+                        seen.noValue = seen.noValue + 1
+                    end
+                end
             end
         end
     end
-    return out
+    return out, waiting, seen
 end
 
-function V:SellJunk()
+function V:SellJunk(retry)
     if not ONE:FeatureOn("core.sellJunk") then return 0 end
-    local list = V.Junk()
+    local list, waiting = V.Junk()
+    -- Preise noch nicht geladen: einmal kurz warten und neu schauen
+    if waiting > 0 and not retry and C_Timer and C_Timer.After then
+        C_Timer.After(.6, function() if V.open then V:SellJunk(true) end end)
+        return 0
+    end
     if #list == 0 then return 0 end
     local total, i = 0, 1
     local C = Container()
@@ -107,9 +151,29 @@ function V:OnMerchant()
     self:SellJunk()
 end
 
+-- /trip schrott: zeigt, warum (nicht) verkauft wird
+function V:Check()
+    local C = Container()
+    local function Has(fn) return type(fn) == "function" and "ja" or "FEHLT" end
+    ONE:Print(T("Schrott verkaufen: %s (Optionen › Allgemein › Händler)",
+        ONE:FeatureOn("core.sellJunk") and "AN" or "AUS"))
+    ONE:Print(T("Spiel-Schnittstellen: Taschen neu %s, alt %s · Benutzen neu %s, alt %s · Preis %s",
+        Has(C.GetContainerItemInfo), Has(rawget(_G, "GetContainerItemInfo")),
+        Has(C.UseContainerItem), Has(rawget(_G, "UseContainerItem")),
+        Has((rawget(_G, "C_Item") and C_Item.GetItemInfo) or rawget(_G, "GetItemInfo"))))
+    local list, waiting, seen = V.Junk()
+    local total = 0
+    for _, it in ipairs(list) do total = total + it[3] end
+    ONE:Print(T("Taschenplätze %d · graue Gegenstände %d · verkaufbar %d (%s) · ohne Wert %d · gesperrt %d · Daten fehlen %d",
+        seen.slots, seen.grey, #list, V.Money(total), seen.noValue, seen.locked, waiting))
+end
+
 function V:Initialize()
     if self.started then return end
     self.started = true
+    if ONE.RegisterSlash then
+        ONE:RegisterSlash("schrott", function() V:Check() end, T("Prüfen, ob Schrott verkauft werden kann"))
+    end
     local f = CreateFrame("Frame")
     pcall(f.RegisterEvent, f, "MERCHANT_SHOW")
     pcall(f.RegisterEvent, f, "MERCHANT_CLOSED")

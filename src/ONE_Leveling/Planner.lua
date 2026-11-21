@@ -1,10 +1,14 @@
--- Guild Trip Quest-Fuehrung: Planer (0.6.9). Reine Rechnung, keine Oberflaeche – offline testbar.
+-- Guild Trip Quest-Fuehrung: Planer (0.6.9, Routen seit 21.11.2026 als Schleifen um Stuetzpunkte).
+-- Reine Rechnung, keine Oberflaeche – offline testbar, nachstellbar mit scripts/sim_leveling.lua (echte Daten).
 -- Wertung (mit dem Nutzer abgestimmt, docs/vorschau_quest_fuehrung.html):
 --  * Pflicht: Dungeon-Quests (mit allen Vorquests), Klassenquests, Vorquests von allem, was gemacht wird
 --  * Lohnt: EP pro Minute ueber "nur Monster hauen" (Faktor je Tempo), Gegner-EP zaehlen mit
 --  * Mehrwert: Upgrade fuer die Klasse, groessere Tasche, viel Gold – darf etwas langsamer sein
 --  * Gruppe: Elite-/Gruppenquests nur in einer Gruppe (sonst "Gruppe suchen"), Dungeon-Quests immer
--- Danach Reihenfolge: annehmen -> erledigen -> abgeben, jeweils der naechste erreichbare Halt (Luftlinie x Umwegfaktor).
+-- Route: Schleifen um Stuetzpunkte (Questgeber nah beieinander) wie gute Leveling-Routen – am Stuetzpunkt annehmen,
+-- die Ziele einer Gegend am Stueck, abgeben, wo die Abgaben sind. Jede moegliche naechste Schleife wird mit EP pro
+-- Minute inkl. Anreise bewertet, die beste kommt dran; eine Quest kommt in eine Schleife, wenn sie dort mehr bringt
+-- als Monster hauen (Mehrweg in der ganzen Schleife zaehlt). Siehe Abschnitt 5 in P:Plan.
 -- Eingabe ctx (siehe Planner:Plan), Daten: GuildTripQuestDB (ONE_QuestDB) + GuildTripLeveling (Rewards.lua).
 local _, lev = ...
 local P = {}
@@ -12,10 +16,62 @@ lev.Planner = P
 
 P.TEMPO = {need = 1.3, balanced = 1.0, all = 0}  -- Faktor auf "nur Monster hauen"
 P.TEMPO_ORDER = {"need", "balanced", "all"}
+-- Auswahl stabil halten (Spieltest 20.11.2026: in Ratchet nach Crossroads geschickt, in Crossroads nach Ratchet):
+-- schon gewaehlte Quests bleiben bis 80 % der Schwelle, neu dazukommende brauchen 115 % – ausser ihr Geber
+-- steht gleich nebenan (hoechstens P.NEW_HERE Minuten).
+P.KEEP_SLACK = .8
+-- Fester Fahrplan (Nutzer 20.11.2026: "ich moechte doch einfach nur, dass man so schnell wie moeglich levelt" –
+-- nach zwei Fluegen umsonst Ratchet <-> Crossroads): ctx.follow = {[StopKey] = Rang} aus dem letzten Plan.
+-- Die alten Halte kommen in alter Reihenfolge dran; Neues nur, wenn es direkt hier ist (hoechstens P.FOLLOW_HERE
+-- Minuten und naeher als der naechste alte Halt) – z. B. eine neue Quest beim Geber, an dem man gerade steht.
+-- Alles andere Neue kommt nach den alten Halten. Frisch geplant wird nur bei echten Aenderungen (Guide).
+P.FOLLOW_HERE = 1
+-- Dungeonquests (Nutzer 20.11.2026: "die [Dungeons] muessen nicht in den Guide, die Quests dafuer jedoch schon" –
+-- Dungeons laeuft man ueber den Dungeon-Finder): kein Dungeon-Halt mehr. Annehmen und Vorquest-Ketten nur im
+-- Gebiet, in dem man gerade ist, oder direkt am Weg (hoechstens P.BYWAY_NEAR Minuten zu Fuss) – kein Umweg in
+-- ein anderes Gebiet ("nur wenn du sowieso dort bist"). Abgeben normal, sobald die Quest im Log fertig ist.
+P.BYWAY_NEAR = 1.5
+-- Aufstieg vorausrechnen (Nutzer 20.11.2026, wie RestedXP "toete Monster bis 2800/5000 EP"):
+P.WALK_XP = .15          -- zu Fuss unterwegs bekommt man nebenbei so viel der "nur Monster hauen"-EP/min
+P.HUB_NEAR = 1           -- so nah (Minuten) gilt ein Geber als "hier"
+P.GRIND_SHARE = .25      -- hoechstens so viel einer Stufe hier Monster hauen, damit hier Neues frei wird
+P.NEW_SLACK = 1.15
+P.NEW_HERE = 1
 P.KILL_SEC = 22          -- je Gegner/Sammelaktion inkl. Erholen
+P.GRIND_REAL = .7        -- reines Monster hauen schafft im Schnitt nur so viel davon (Wege zwischen Gegnern, Pausen)
 P.TALK_MIN = .4          -- je Quest Annehmen + Abgeben
 P.DETOUR = 1.3           -- Wegenetz im Schnitt etwas laenger als Luftlinie
 P.HORIZON = 2            -- Stufen voraus planen
+-- Schleifen um Stuetzpunkte (Nutzer 21.11.2026): Stuetzpunkt = bereite Halte hoechstens P.HUB_R yd beieinander;
+-- in eine Schleife kommen Quests mit einem Halt hoechstens P.CAND_R Minuten vom Stuetzpunkt; eine Schleife
+-- dauert hoechstens etwa P.LOOP_MAX Minuten; je Durchlauf werden die P.SEEDS naechsten Stuetzpunkte (und je
+-- Gebiet der naechste) verglichen. Fremdes Gebiet muss P.ZONE_HYST mehr bringen (kein Hin und Her bei Gleichstand).
+P.HUB_R = 150
+P.CAND_R = 4
+P.LOOP_MAX = 40
+P.SEEDS = 8
+P.ZONE_HYST = .2
+P.FAR_LOOP = 5           -- Schleife mit so viel Anreise (oder anderer Kontinent): ...
+P.STAY_MIN = 3           -- ... gibt es dort danach weniger als so viele Quests, zaehlt die Rueckreise mit
+P.ZONE_BACK = 3          -- verlassenes Gebiet: Schleifen dort zaehlen nur ein Viertel (Reste nur, wenn man ohnehin
+P.ZONE_BACK_LVL = 2      -- zurueckkommt) – bis man so viele Stufen weiter ist (dann gibt es dort Neues)
+P.CONT_HYST = .3         -- anderer Kontinent muss so viel mehr bringen
+P.CLASS_NEAR = 5         -- Klassenquest in eine Schleife, wenn sie hoechstens so viele Minuten mehr kostet
+P.CLASS_BONUS = 1.5      -- Schleife mit Klassenquest gilt als so viel besser (Klassenquests immer)
+P.CHAIN_SHARE = .5       -- so viel der EP der Folgequest zaehlt fuer die Vorquest
+P.LOG_MAX = 20           -- Questlog: hoechstens so viele Quests gleichzeitig
+P.GRIND_HUB_MAX = 10     -- hoechstens so viele Minuten Monster hauen, damit am Stuetzpunkt Neues frei wird
+-- Haendler (Nutzer 21.11.2026): nur am Stuetzpunkt (hoechstens P.VENDOR_NEAR Minuten vom Weg), wenn hoechstens
+-- P.BAG_LOW Taschenplaetze frei sind (oder nach der Schleife nur noch P.BAG_SOON; je P.LOOT_PER_SLOT Gegner etwa
+-- ein Platz)
+P.VENDOR_NEAR = 1
+P.VENDOR_MIN = .5
+P.BAG_LOW = 4
+P.BAG_SOON = 1
+P.LOOT_PER_SLOT = 8
+-- Quest-Ziele draussen erst angehen, wenn die Queststufe hoechstens so viel ueber deiner (Plan-)Stufe liegt
+-- (Spieltest 19.11.2026: mit 14 "Raptorhoerner [18]" erledigen – Gegner zu stark)
+P.OBJ_AHEAD = 2
 P.MAX_STEPS = 60
 P.MAX_MINUTES = 150
 P.FAR_MIN = 12           -- anderer Kontinent / unbekannter Ort
@@ -28,9 +84,40 @@ P.FLY_EXTRA = .7         -- Minuten fuer Flugmeister ansprechen, Auf-/Absteigen
 P.FLY_DETOUR = 1.15      -- Flugrouten sind keine Luftlinie
 P.BOAT_MIN = 6           -- Warten + Ueberfahrt Schiff/Zeppelin (Minuten)
 P.UNKNOWN_TRIP = 30      -- anderer Kontinent ohne bekannte Verbindung (z. B. neue Forever-Gebiete)
--- Gebietsbloecke (0.7.0): ein Gebietswechsel "kostet" so viele Minuten extra. So wird ein Gebiet
--- erst fertig gemacht, bevor es weitergeht. Aendert NUR die Reihenfolge, nie die Auswahl.
-P.ZONE_SWITCH = 4
+-- Vor dem Gebietswechsel fertige Abgaben im eigenen Gebiet abgeben, wenn sie hoechstens so viele Minuten Umweg
+-- kosten (Spieltest 20.11.2026: mit 2 offenen Abgaben im Brachland nach Orgrimmar geschickt)
+P.ZONE_FINISH = 6
+P.CITY = {[1454] = true, [1456] = true, [1458] = true, [1453] = true, [1455] = true, [1457] = true}
+-- Sehr empfohlene Reihen (Schlafsack) mit "jetzt erledigen" haben Vorrang: eigene Schleife, kommt zuerst
+-- (Nutzer 19.11.2026: "gerade diese wichtige Questreihe soll Prioritaet haben", loggt meist draussen aus)
+-- Wie bei handgeschriebenen Leveling-Routen (Nutzer 20.11.2026: "wenn ich schon in der Naehe eines Lehrers bin,
+-- warum nicht gleich neue Skills lernen?"; RestedXP-Vergleich – nur die Idee, eigene Logik):
+-- Lehrer: neue Zauber lernen, wenn ein Lehrer nahe am Weg liegt (je Stufe Rueckstand dringlicher)
+P.TRAIN_MIN = 1.5
+P.TRAIN_NEAR = 3         -- Umweg zum Lehrer in einer Schleife (Minuten), je 2 Stufen Rueckstand das Doppelte
+P.TRAIN_FAR = 10         -- weiter weg (Minuten, Flug mitgerechnet) nur bei grossem Rueckstand
+P.TRAIN_BEHIND = 4       -- so viele Stufen Rueckstand: dann auch weit
+-- Flugpunkt abholen, wenn man (fast) vorbeikommt
+P.FP_MIN = .5
+P.FP_NEAR = 1.5          -- nur zu Fuss so nah, ca. 500 yd (nicht ins hoehere Nachbargebiet, kein Flug/Ruhestein dorthin)
+-- Ruhestein benutzen (25 s), wenn es mindestens so viel spart; danach 60 min Abklingzeit
+P.HS_MIN = .5
+P.HS_SAVE = 3
+P.HS_CD = 60
+-- Ruhestein setzen beim Gastwirt am Weg, wenn die naechsten Halte viel naeher liegen als der Heimatort
+P.BIND_PASS = 250
+P.BIND_AHEAD = 8
+P.BIND_BETTER = 600
+P.BIND_MAX_AREA = 1200
+P.BIND_NEAR = 5          -- so viele der naechsten Halte muessen nahe am Gastwirt liegen
+P.BIND_LONG = 20         -- und von so vielen Halten danach mindestens 2/3 naeher am neuen als am alten Ort
+P.BIND_MIN = .5
+-- Nichts mehr annehmbar (Stufe fehlt): "bis Stufe X Monster hauen" – hoechstens so viele Minuten
+P.GRIND_MAX = 90
+-- Fortschritt im Questlog (Nutzer 20.11.2026): nur der Rest zaehlt als Aufwand; ab so viel erledigt nie
+-- "Abbrechen lohnt" – ausser die Quest bringt kaum noch EP (grau)
+P.ABANDON_KEEP = .7
+P.IMPROVE_PASSES = 3
 -- Questsorten (zoneOrSort < 0) der Klassen
 P.CLASS_SORT = {[-61] = 256, [-81] = 1, [-82] = 64, [-141] = 2, [-161] = 128, [-162] = 8, [-261] = 4, [-262] = 16, [-263] = 1024}
 P.FACTION_MASK = {Alliance = 77, Horde = 178}
@@ -122,6 +209,18 @@ P.XP_NEED = {400, 900, 1400, 2100, 2800, 3600, 4500, 5400, 6500, 7600, 8800, 101
     58600, 62800, 67100, 71600, 76100, 80800, 85700, 90700, 95800, 101000, 106300, 111800, 117500, 123200, 129100,
     135100, 141200, 147500, 153900, 160400, 167100, 173900, 180800, 187900, 195000, 202300, 209800}
 
+-- EP bis zur Stufe target (nach gain schon gesammelten EP); 0 = schon erreicht
+function P.XPTo(level, xp, max, gain, target)
+    local need = (max - xp) - gain
+    local lvl = level
+    while lvl + 1 < target do
+        lvl = lvl + 1
+        need = need + (P.XP_NEED[lvl] or 0)
+    end
+    if target <= level then return 0 end
+    return math.max(0, need)
+end
+
 -- Stufe nach gain EP: level, xp (bisher in dieser Stufe), max (noetig fuer diese Stufe)
 function P.LevelAfter(level, xp, max, gain)
     while level < 60 and xp + gain >= max do
@@ -193,11 +292,51 @@ local function Fits(id, e, me, done, inLog)
         for _, p in ipairs(e[10]) do if done(p) or (inLog(p) and p ~= id) then return false end end
     end
     if (e[13] or 0) > 0 and me.level > e[13] then return false end
+    -- Beruf noetig (Spieltest 21.11.2026: Kamari "Bestien des Donnergrats" nur fuer Lederverarbeiter): nur, wenn man
+    -- den Beruf mit dem Mindestwert hat; Berufe unbekannt -> nicht
+    local sk = e[15]
+    if type(sk) == "table" and sk[1] and not ((me.skills or {})[sk[1]] and me.skills[sk[1]] >= (sk[2] or 1)) then return false end
     return true
 end
 P.Fits = Fits
 
-function P.IsClassQuest(e) return (e[4] or 0) > 0 or P.CLASS_SORT[e[14] or 0] ~= nil end
+-- Sehr empfohlene Questreihen: kein Muss, aber wegen der Belohnung vorgeschlagen, sobald die Startstufe
+-- erreicht ist – auch wenn EP/Weg sonst nicht lohnen (Nutzer 19.11.2026: "nicht Pflicht, eher sehr empfohlen weil …").
+-- hints: Hinweis je Quest (Gefahr auf dem Weg), faction = nur fuer diese Fraktion.
+P.RECOMMENDED = {
+    {key = "sleepingbag", min = 14, reason = "Schlafsack – dauerhaft mehr EP beim Rasten",
+        quests = {79007, 79008, 79192, 79980, 79974, 79975, 79976},
+        hints = {
+            [79192] = {"Steinkrallengebirge: umkämpftes Gebiet"},
+            [79980] = {"Steinkrallengebirge: umkämpftes Gebiet"},
+            [79974] = {"Loch Modan: Allianz-Gebiet – Wachen und Allianz-Spieler", faction = "Horde"},
+            [79975] = {"Arathihochland: umkämpftes Gebiet, Gegner um Stufe 30 auf dem Weg"},
+            [79976] = {"Arathihochland: umkämpftes Gebiet, Gegner um Stufe 30 auf dem Weg"},
+        }},
+}
+function P.RecOf(id)
+    if not P.recIndex then
+        P.recIndex = {}
+        for _, c in ipairs(P.RECOMMENDED) do for _, q in ipairs(c.quests) do P.recIndex[q] = c end end
+    end
+    return P.recIndex[id]
+end
+-- Hinweis zur Gefahr fuer eine Quest (faction: "Horde"/"Alliance" des Spielers)
+function P.RecHint(id, faction)
+    local c = P.RecOf(id)
+    local h = c and c.hints and c.hints[id]
+    if not h or (h.faction and h.faction ~= faction) then return nil end
+    return h[1]
+end
+
+-- Klassenquest: fuer eine oder wenige Klassen. "Alle ausser Hexenmeister" (z. B. 792, Stufe 4) ist keine
+-- (Spieltest 20.11.2026: Stufe-4-Quest in Durotar als KLASSE nie grau, Umweg mit Stufe 15)
+P.CLASS_MAX = 4
+function P.IsClassQuest(e)
+    local mask, bits = e[4] or 0, 0
+    while mask > 0 do bits = bits + mask % 2 mask = math.floor(mask / 2) end
+    return (bits > 0 and bits <= P.CLASS_MAX) or P.CLASS_SORT[e[14] or 0] ~= nil
+end
 
 -- Belohnung bewerten: Liste {kind = "upgrade"|"bag"|"gold", text, pct, item}
 function P.Value(qid, rew, R, ctx, plvl)
@@ -234,7 +373,10 @@ function P:Plan(ctx)
     local complete = ctx.complete or function() return false end
     local override = ctx.override or {}
     local factor = P.TEMPO[ctx.tempo or "need"] or P.TEMPO.need
-    local grind = P.GrindEPM(L)
+    -- Vergleichswert "nur Monster hauen" so, wie es im Spiel wirklich laeuft (Laufen zwischen Gegnern, Pausen,
+    -- besetzte Gegner) – P.GrindEPM allein waere zu guenstig: bei Stufe 12 lohnte fast keine Quest (Nachstellung 21.11.)
+    local grind = P.GrindEPM(L) * P.GRIND_REAL
+    local function GrindRate(lvl) return math.max(1, P.GrindEPM(lvl) * P.GRIND_REAL) end
     local dz = R.dz or {}
 
     -- Weltposition je Knoten (gemerkt fuer diesen Durchlauf)
@@ -273,7 +415,7 @@ function P:Plan(ctx)
         end
         return r[1], r[2]
     end
-    local here = pc and {pc, px, py} or nil
+    local here = pc and {pc, px, py, me.mapID} or nil
     -- naechster Punkt aus einer Knotenliste (zum Bezugspunkt)
     local function Nearest(list, ref)
         local best, bm
@@ -294,7 +436,8 @@ function P:Plan(ctx)
         local log = inLog(id)
         -- Dungeon-Quests: Questsufe liegt oft hoeher (Ziel im Dungeon) – die Mindeststufe zaehlt
         local lvlOK = (e[1] or 0) <= L + P.HORIZON + 1 or (dz[e[14] or 0] ~= nil)
-        if log or (Fits(id, e, me, done, inLog) and (e[2] or 0) <= L + P.HORIZON and lvlOK) then
+        local rec = P.RecOf(id)
+        if log or (Fits(id, e, me, done, inLog) and ((rec and L >= rec.min) or ((e[2] or 0) <= L + P.HORIZON and lvlOK))) then
             cand[id] = true
         end
     end
@@ -307,6 +450,18 @@ function P:Plan(ctx)
         local base = (ctx.measured and ctx.measured[id]) or e[11] or 0
         local xp, f = P.QuestXP(base, qlvl, L)
         local work = rew and rew[2] or 0
+        -- gemessene Sammelzeit (WorkLog, echte Spielzeit inkl. Pech beim Droppen) vor der Schaetzung
+        local wm = ctx.workMinutes and ctx.workMinutes[id]
+        if wm then work = wm * 60 / P.KILL_SEC end
+        -- schon angefangen: nur der Rest kostet Zeit (z. B. 12/15 Armschienen)
+        local done01 = 0
+        if inLog(id) and ctx.progress then
+            local have, need = ctx.progress(id)
+            if type(have) == "number" and type(need) == "number" and need > 0 then
+                done01 = math.max(0, math.min(1, have / need))
+                work = work * (1 - done01)
+            end
+        end
         local kind = rew and rew[3] or 0
         local dungeon = DungeonOf(e)
         if dungeon then kind = kind - kind % 4 + (kind % 2) + 2 end
@@ -326,7 +481,7 @@ function P:Plan(ctx)
         local o = {id = id, e = e, xp = xp, xpFactor = f, work = work, kind = kind, dungeon = dungeon,
             mobXP = mobXP, travel = travel, minutes = minutes, totalXP = totalXP,
             giver = giver, target = target, ender = ender, log = inLog(id), complete = complete(id),
-            class = P.IsClassQuest(e), reasons = {}, tags = {}}
+            class = P.IsClassQuest(e), rec = P.RecOf(id), reasons = {}, tags = {}, progress = done01}
         o.value = P.Value(id, rew, R, ctx, L)
         o.epm = totalXP / math.max(.5, minutes)
         info[id] = o
@@ -354,6 +509,7 @@ function P:Plan(ctx)
 
     -- 3) entscheiden
     local chosen = {}
+    local prev = ctx.prevChosen
     local function Choose(o, why)
         if chosen[o.id] then return end
         chosen[o.id] = why
@@ -368,6 +524,8 @@ function P:Plan(ctx)
             o.skip = "Von dir abgewählt."
         elseif override[id] == "yes" then
             Choose(o, "yes")
+        elseif o.rec and L >= o.rec.min then
+            Choose(o, "rec")
         elseif raidOrPvp then
             o.skip = "Schlachtzug/PvP – nicht für schnelles Leveln."
         elseif o.dungeon and (not cat or (cat.min or 0) <= L + P.HORIZON) then
@@ -386,16 +544,15 @@ function P:Plan(ctx)
             o.skip = "Viel Aufwand (seltene Drops oder viele Gegner)."
         elseif not o.giver and not o.log then
             o.skip = "Ort unbekannt."
-        elseif here and o.giver and o.giver.w[1] ~= here[1] and not o.log then
+        elseif here and o.giver and o.giver.w[1] ~= here[1] and not o.log and (Trip(here, o.giver.w)) >= P.UNKNOWN_TRIP then
+            -- anderer Kontinent ohne bekannte Verbindung; mit Schiff/Zeppelin zaehlt die Route (Nachstellung 21.11.2026:
+            -- in Tirisfal war das Brachland unsichtbar -> Westfall und Monster hauen)
             o.skip = "Anderer Kontinent."
-        elseif o.epm >= grind * factor then
-            Choose(o, "xp")
-        elseif #o.value > 0 and o.epm >= grind * factor * P.VALUE_SLACK then
-            Choose(o, "value")
         elseif o.log then
             Choose(o, "log")
         else
-            o.skip = "Zu langsam: %d EP/min (lohnt ab ~%d)."
+            -- lohnt sie sich? Entscheidet die Route: nur in einer guten Schleife (5)
+            o.pool = true
         end
     end
     -- 4) Vorquests aller gewaehlten Quests (Kette rueckwaerts) werden Pflicht; fehlt eine, faellt die Quest raus
@@ -413,6 +570,9 @@ function P:Plan(ctx)
         local e = Q.q[id]
         if not (e and Fits(id, e, me, done, inLog)) or override[id] == "no" then return false end
         if (e[2] or 0) > L + P.HORIZON then return false end
+        -- Vorquest draussen in der Welt mit zu hoher Queststufe: Kette wartet (kommt mit hoeherer Stufe von selbst)
+        -- (sehr empfohlene Reihen ausgenommen: Sucharbeit ohne Kaempfe, z. B. Schlafsack)
+        if (e[1] or 0) > L + P.HORIZON + 1 and not dz[e[14] or 0] and not P.RecOf(id) then return false end
         for _, group in ipairs(Pre(e)) do
             local ok = false
             for _, p in ipairs(group) do
@@ -447,124 +607,990 @@ function P:Plan(ctx)
             info[id].skip = "Vorquest fehlt noch."
         end
     end
+    -- 5) Route: Schleifen um Stuetzpunkte (Nutzer 21.11.2026 "bau das", nach dem Spieltest-Abend 20.11.: der gierige
+    -- "naechste lohnende Punkt" schickte kreuz und quer). Wie gute Leveling-Routen: am Stuetzpunkt annehmen, die
+    -- Ziele einer Gegend am Stueck, abgeben, wo die Abgaben sind (meist wieder am Stuetzpunkt, sonst am naechsten
+    -- auf dem Weg). Jede moegliche naechste Schleife wird mit EP pro Minute inkl. Anreise bewertet, die beste kommt
+    -- dran. Eine Quest kommt in die Schleife, wenn sie dort mehr bringt als Monster hauen (Tempo-Faktor) – einzelne
+    -- weit weg nicht. Bringt ein anderes Gebiet mehr, zieht man weiter; Reste nur, wenn man ohnehin zurueckkommt.
+    -- Dungeonquest oder Vorquest-Kette einer Dungeonquest: nur am Weg
+    local function ForDungeon(id)
+        local seen = {}
+        while id and not seen[id] do
+            seen[id] = true
+            local o = info[id]
+            if not o then return nil end
+            if o.dungeon then return o.dungeon end
+            if chosen[id] ~= "pre" then return nil end
+            id = o.preFor
+        end
+    end
+    -- Sehr empfohlene Reihe mit Vorrang? Nur wenn der Spieler "jetzt machen" gewaehlt hat
+    -- (Nutzer 19.11.2026: "einfach fragen, ob er weiter speed-leveln oder die Reihe jetzt erledigen mag")
+    local function Prio(id)
+        local o = id and info[id]
+        return o and o.rec and ctx.recFirst and ctx.recFirst(o.rec.key) and true or false
+    end
+    -- Folgequest zaehlt mit: ein Teil ihrer EP gehoert zur Vorquest (sonst bliebe eine gute Reihe am Anfang liegen)
+    for _, o in pairs(info) do
+        local nx = o.e[12]
+        local n = nx and nx > 0 and info[nx]
+        if n and not done(nx) then o.chainXP = P.CHAIN_SHARE * n.xp end
+    end
+    local stops, jobs = {}, {}
+    local function AddJob(id)
+        local o = info[id]
+        local dkey = chosen[id] and ForDungeon(id) or nil
+        o.forDungeon = dkey
+        -- Dungeonquests und sehr empfohlene Reihen (ohne "jetzt machen"): nur am Weg
+        local byway = dkey ~= nil or (o.rec ~= nil and not Prio(id) and override[id] ~= "yes")
+        -- fertig im Log (Dungeon gelaufen): Abgabe ganz normal, auch mit Weg
+        local j = {id = id, o = o, byway = byway and not (o.log and o.complete), pool = not chosen[id],
+            force = override[id] == "yes" or Prio(id), class = chosen[id] == "class"}
+        o.job = j
+        if not o.log and o.giver then
+            j.a = {kind = "accept", id = id, w = o.giver.w, nr = o.giver.nr, byway = byway}
+            stops[#stops + 1] = j.a
+        end
+        if not (o.log and o.complete) and not o.dungeon and o.target and #(o.e[8] or {}) > 0 then
+            j.t = {kind = "obj", id = id, w = o.target.w, nr = o.target.nr, byway = byway}
+            stops[#stops + 1] = j.t
+        end
+        if o.ender and (not o.dungeon or (o.log and o.complete)) then
+            j.e = {kind = "turnin", id = id, w = o.ender.w, nr = o.ender.nr, byway = byway and not (o.log and o.complete)}
+            stops[#stops + 1] = j.e
+        end
+        if j.a or j.t or j.e then jobs[#jobs + 1] = j end
+        for _, s in ipairs({j.a or false, j.t or false, j.e or false}) do if s then s.job = j end end
+    end
+    do
+        local ids = {}
+        for id, o in pairs(info) do if chosen[id] or o.pool then ids[#ids + 1] = id end end
+        table.sort(ids)
+        for _, id in ipairs(ids) do AddJob(id) end
+    end
+    -- Bedingungen: angenommen (im Plan oder im Log) vor Erledigen/Abgeben, Vorquest abgegeben vor Annehmen
+    local accepted, finished, turned = {}, {}, {}
+    for id, o in pairs(info) do
+        if o.log then accepted[id] = true end
+        if o.log and o.complete then finished[id] = true end
+    end
+    -- Stufe im Plan (nach den bis hier gesammelten EP): Quests erst annehmen, wenn die Mindeststufe erreicht ist
+    -- (Spieltest 19.11.2026: "annehmen bei Ebru" mit Stufe 13, Quest ab 14 – Ausrufezeichen noch grau)
+    local xpSum, xpExtra = 0, 0
+    local function PlanLevel()
+        if (me.xpMax or 0) <= 0 then return L end
+        return P.LevelAfter(L, me.xp or 0, me.xpMax, xpSum + xpExtra)
+    end
+    local function PreReady(s)
+        for _, group in ipairs(Pre(Q.q[s.id])) do
+            local ok = false
+            for _, p in ipairs(group) do if done(p) or turned[p] or not Q.q[p] then ok = true break end end
+            if not ok then return false end
+        end
+        return true
+    end
+    local function Ready(s)
+        if s.kind == "accept" then
+            if ((Q.q[s.id] or {})[2] or 0) > PlanLevel() then return false end
+            return PreReady(s)
+        elseif s.kind == "obj" then
+            if ((Q.q[s.id] or {})[1] or 0) > PlanLevel() + P.OBJ_AHEAD then return false end
+            return accepted[s.id]
+        elseif s.kind == "train" then
+            return PlanLevel() >= s.lvl
+        elseif s.kind == "fp" or s.kind == "vendor" then
+            return true
+        else -- Abgabe
+            if not accepted[s.id] then return false end
+            if finished[s.id] then return true end
+            local j = s.job
+            return not (j and j.t and not j.t.used)
+        end
+    end
+    -- Zusatz-Halte (freiwillig, "opt"): Lehrer, Flugpunkte, Haendler – kommen nur dran, wenn sie nahe am Weg liegen
+    local function Spots(list)
+        local out = {}
+        for _, t in ipairs(list or {}) do
+            local w = t.w or (t.mapID and World(nil, t.mapID, t.x, t.y))
+            if w then out[#out + 1] = {w = w, name = t.name, mapID = t.mapID, x = t.x, y = t.y, id = t.id} end
+        end
+        return out
+    end
+    -- Klassenlehrer und (Magier) Portallehrer fuer die Teleports – getrennte Besuche (group)
+    for _, tr in ipairs({ctx.train or false, ctx.portal or false}) do
+        local spots = tr and Spots(tr.spots) or {}
+        if #spots > 0 then
+            local g = tr.group
+            if (tr.now or 0) > 0 then stops[#stops + 1] = {kind = "train", group = g, lvl = L, n = tr.now, spots = spots, opt = true} end
+            local lvls = {}
+            for lvl in pairs(tr.next or {}) do if lvl > L and lvl <= L + P.HORIZON then lvls[#lvls + 1] = lvl end end
+            table.sort(lvls)
+            for _, lvl in ipairs(lvls) do stops[#stops + 1] = {kind = "train", group = g, lvl = lvl, n = tr.next[lvl], spots = spots, opt = true} end
+        end
+    end
+    for _, f in ipairs(ctx.fpSpots or {}) do
+        if here and f[1] == here[1] then
+            stops[#stops + 1] = {kind = "fp", id = f.id, w = {f[1], f[2], f[3]}, name = f.name, opt = true}
+        end
+    end
+    -- Haendler (Nutzer 21.11.2026: "planst du einen haendler zum reparieren und verkaufen mit ein, falls das
+    -- inventar zu voll ist?"): nur am Stuetzpunkt, nie als eigener Weg; nur ein Hinweis, nichts automatisch
+    -- (nur Taschen; Reparieren merkt sich der Spieler selbst – Nutzer 21.11.2026)
+    local vendorNeed = ctx.vendors and ctx.bags and ctx.bags <= P.BAG_LOW
+    local vendorStop
+    if ctx.vendors and (vendorNeed or ctx.bags) then
+        local spots = Spots(ctx.vendors)
+        if #spots > 0 then
+            vendorStop = {kind = "vendor", id = 0, spots = spots, opt = true}
+            stops[#stops + 1] = vendorStop
+        end
+    end
+    -- Ruhestein und Klassen-Reisezauber (Astraler Ruf, Teleports): Ziel und ab wann (Planminuten) bereit.
+    -- Alle als Reiseweg via.kind = "hearth"; via.port sagt welcher (Nutzer 20.11.2026: alles Klassenspezifische)
+    local function NewPorts()
+        local list = {}
+        local home = ctx.home
+        if home then
+            list[#list + 1] = {port = "hearth", w = home, place = home.place, at = ctx.hearthIn and ctx.hearthIn / 60 or nil, cd = P.HS_CD, bind = true}
+        end
+        for _, p in ipairs(ctx.ports or {}) do
+            local w = p.bind and home or p.w
+            if w then
+                list[#list + 1] = {port = p.kind, w = w, place = p.bind and home.place or p.place, name = p.name, spell = p.spell,
+                    at = (p.inSec or 0) / 60, cd = p.cd or 0, bind = p.bind, uses = p.uses}
+            end
+        end
+        for i, p in ipairs(list) do p.i = i end
+        return list
+    end
+    local hs = NewPorts()
+    local function Reach(from, w, now, ports)
+        if not w then return P.FAR_MIN end
+        if not from then return 0 end
+        local walk, via = Trip(from, w)
+        local best = walk
+        for _, p in ipairs(ports) do
+            if p.at and now >= p.at and p.w[1] == w[1] then
+                local m = P.HS_MIN + Minutes(p.w, w)
+                if m <= walk - P.HS_SAVE and m < best then
+                    best, via = m, {kind = "hearth", port = p.port, name = p.name, spell = p.spell, place = p.place,
+                        bind = p.bind, save = walk - m, i = p.i}
+                end
+            end
+        end
+        return best, via
+    end
+    local function Used(ports, via, at)
+        local p = via and via.kind == "hearth" and ports[via.i]
+        if p then
+            p.at = at + p.cd
+            -- Teleportrunen im Gepaeck: so oft wie Runen da sind
+            if p.uses then p.uses = p.uses - 1 if p.uses <= 0 then p.at = nil end end
+        end
+    end
+    local order, pos, minutes = {}, here, 0
+    local zone = me.mapID
+    local loopNo, loops = 0, {}
+    -- Zeit fuer die vorrangige Reihe zaehlt nicht zum Plan-Budget (sonst blieben dahinter keine Quests)
+    local recMinutes = 0
+    -- Einen Halt ausfuehren (im Plan): Zeit, EP, Zustand
+    local function Commit(s, walk, via, spot)
+        if spot then s.w, s.name = spot.w, spot.name end
+        s.used, s.walk, s.via = true, walk, via
+        s.loop = loopNo
+        local before, xpBefore = minutes, xpSum
+        minutes = minutes + walk
+        if not via and walk > 0 and walk < P.FAR_MIN then xpSum = xpSum + walk * P.WALK_XP * P.GrindEPM(PlanLevel()) end
+        order[#order + 1] = s
+        if s.w then pos = s.w zone = s.w[4] or zone end
+        Used(hs, via, minutes)
+        if s.kind == "accept" then accepted[s.id] = true
+        elseif s.kind == "train" then
+            minutes = minutes + P.TRAIN_MIN
+            -- deckt alle Lehrer-Halte bis zur aktuellen Stufe im Plan ab
+            for _, t in ipairs(stops) do
+                if t.kind == "train" and t.group == s.group and not t.used and t.lvl <= PlanLevel() then t.used, t.covered = true, true end
+            end
+        elseif s.kind == "fp" then
+            minutes = minutes + P.FP_MIN
+        elseif s.kind == "vendor" then
+            minutes = minutes + P.VENDOR_MIN
+        elseif s.kind == "grind" then
+            minutes = minutes + s.work
+            xpSum = xpSum + s.xp
+        elseif s.kind == "obj" then
+            finished[s.id] = true
+            local o = info[s.id]
+            minutes = minutes + o.work * P.KILL_SEC / 60
+            xpSum = xpSum + o.work * o.mobXP
+        else
+            turned[s.id] = true
+            finished[s.id] = true
+            xpSum = xpSum + info[s.id].xp
+            minutes = minutes + P.TALK_MIN
+        end
+        -- echte Zeit dieses Halts
+        s.cost = minutes - before
+        if Prio(s.id) then recMinutes = recMinutes + s.cost end
+        s.gain = xpSum - xpBefore
+    end
+
+    -- B) Schleifen
+    local thr = grind * factor
+    local function Leg(a, b)
+        if not (a and b) then return 0 end
+        return (Trip(a, b))
+    end
+    -- Weg einer Folge ab Startpunkt (Minuten, nur Wege)
+    local function PathCost(origin, seq)
+        local c, prev = 0, origin
+        for _, nd in ipairs(seq) do c = c + Leg(prev, nd.w) prev = nd.w end
+        return c
+    end
+    -- beste Einfuegestelle fuer einen Punkt ab Index lo (1 .. #seq+1): Mehrweg, Stelle
+    local function BestSpot(origin, seq, w, lo)
+        local bd, bk
+        for k = math.max(1, lo), #seq + 1 do
+            local a = k == 1 and origin or seq[k - 1].w
+            local b = seq[k] and seq[k].w
+            local d = Leg(a, w) + (b and (Leg(w, b) - Leg(a, b)) or 0)
+            if not bd or d < bd then bd, bk = d, k end
+        end
+        return bd or 0, bk or 1
+    end
+    -- Position eines Halts in der Folge
+    local function IndexOf(seq, s)
+        for k, nd in ipairs(seq) do if nd.s == s then return k end end
+    end
+    -- Was eine Quest in dieser Schleife noch braucht (Annehmen, Ziel, Abgabe) und ab welcher Stelle
+    local function Needs(j, seq)
+        local nodes = {}
+        local lo = 1
+        local acc = accepted[j.id]
+        if j.a and not j.a.used then
+            local e = Q.q[j.id] or {}
+            if (e[2] or 0) > PlanLevel() then return nil end
+            for _, group in ipairs(Pre(e)) do
+                local ok, at = false, nil
+                for _, p in ipairs(group) do
+                    if done(p) or turned[p] or not Q.q[p] then ok = true break end
+                end
+                if not ok then
+                    for _, p in ipairs(group) do
+                        local pj = info[p] and info[p].job
+                        local k = pj and pj.e and IndexOf(seq, pj.e)
+                        if k and (not at or k < at) then at = k end
+                    end
+                    if not at then return nil end
+                    lo = math.max(lo, at + 1)
+                end
+            end
+            nodes[#nodes + 1] = j.a
+            acc = true
+        end
+        if not acc then return nil end
+        if j.t and not j.t.used and not finished[j.id] then
+            if ((Q.q[j.id] or {})[1] or 0) > PlanLevel() + P.OBJ_AHEAD then return nil end
+            nodes[#nodes + 1] = j.t
+        end
+        if j.e and not j.e.used then nodes[#nodes + 1] = j.e end
+        if #nodes == 0 then return nil end
+        return nodes, lo
+    end
+    -- Quest probeweise einfuegen: neue Folge, Mehrzeit, EP
+    local function TryJob(j, origin, seq)
+        local nodes, lo = Needs(j, seq)
+        if not nodes then return nil end
+        local s2 = {}
+        for k, nd in ipairs(seq) do s2[k] = nd end
+        local dt, xp = 0, 0
+        for _, s in ipairs(nodes) do
+            local d, k = BestSpot(origin, s2, s.w, lo)
+            table.insert(s2, k, {s = s, w = s.w})
+            dt = dt + d
+            lo = k + 1
+            if s.kind == "obj" then
+                dt = dt + j.o.work * P.KILL_SEC / 60
+                xp = xp + j.o.work * j.o.mobXP
+            elseif s.kind == "turnin" then
+                xp = xp + j.o.xp + (j.o.chainXP or 0)
+                dt = dt + P.TALK_MIN / 2
+            else dt = dt + P.TALK_MIN / 2 end
+        end
+        return s2, math.max(.2, dt), xp, nodes
+    end
+    -- Schwelle je Quest (EP/min): schon gewaehlt bzw. im Log etwas weniger, neu etwas mehr, Mehrwert weniger
+    local function Need(j)
+        local need = thr
+        if j.o.log or (prev and prev[j.id]) then need = need * P.KEEP_SLACK
+        elseif prev and not (j.a and here and j.a.w[1] == here[1] and Minutes(here, j.a.w) <= P.NEW_HERE) then
+            need = need * P.NEW_SLACK
+        end
+        if #j.o.value > 0 then need = need * P.VALUE_SLACK end
+        return need
+    end
+    -- Neue Quest genau hier waehrend man dem Fahrplan folgt: annehmen, wenn sie sich lohnt und ihr Ziel und ihre
+    -- Abgabe in der Gegend liegen (sonst kaeme man dafuer extra wieder her)
+    local function HereOK(j)
+        local a = j.a
+        if not a then return false end
+        if j.force or j.class then return true end
+        if j.t and not (j.t.w[1] == a.w[1] and Minutes(a.w, j.t.w) <= P.CAND_R) then return false end
+        if not (j.e and j.e.w[1] == a.w[1] and Minutes(a.w, j.e.w) <= P.CAND_R) then return false end
+        local s2, dt, gx = TryJob(j, a.w, {})
+        return s2 ~= nil and gx / dt >= thr * P.NEW_SLACK
+    end
+    -- A) Fester Fahrplan: die alten Halte in alter Reihenfolge (der bereite mit kleinstem Rang); Neues nur direkt
+    -- hier (hoechstens P.FOLLOW_HERE Minuten, naeher als der alte Halt, keine neue Annahme). Alles andere Neue
+    -- kommt in Schleifen danach.
+    local follow = ctx.follow
+    if follow then
+        local fl = ctx.followLoops or {}
+        local base
+        while #order < P.MAX_STEPS do
+            local best, bRank, bWalk, bVia, bSpot
+            local near, nWalk, nVia
+            for _, s in ipairs(stops) do
+                if not s.used and Ready(s) then
+                    local k = follow[P.StopKey(s)]
+                    if k and (not bRank or k < bRank) then best, bRank = s, k end
+                end
+            end
+            if not best then break end
+            if best.spots then
+                for _, sp in ipairs(best.spots) do
+                    local wk, vi = Reach(pos, sp.w, minutes, hs)
+                    if not bSpot or wk < bWalk then bWalk, bVia, bSpot = wk, vi, sp end
+                end
+            else
+                bWalk, bVia = Reach(pos, best.w, minutes, hs)
+            end
+            local atHere = here and pos and pos[1] == here[1] and Minutes(here, pos) <= .3
+            for _, s in ipairs(stops) do
+                local k = follow[P.StopKey(s)]
+                -- spaeterer alter Halt genau da, wo man jetzt steht (z. B. Quest schon frei, weil man schneller
+                -- aufgestiegen ist; nur am echten Standort, sonst wuerde die gekuerzte Runde umsortiert) oder
+                -- Neues hier (keine neue Annahme): gleich mitnehmen statt spaeter extra herkommen
+                local j = s.job
+                if not s.used and s.w and not s.opt and Ready(s) and s ~= best and j
+                    and ((k and k > bRank and atHere and Minutes(here, s.w) <= P.FOLLOW_HERE) or (not k and not s.byway and (s.kind ~= "accept" or HereOK(j)))) then
+                    if k or not j.pool or chosen[j.id] or s.kind == "accept" then
+                        local wk, vi = Reach(pos, s.w, minutes, hs)
+                        if not vi and wk <= P.FOLLOW_HERE and wk < bWalk and (not near or wk < nWalk) then near, nWalk, nVia = s, wk, vi end
+                    end
+                end
+            end
+            local old = fl[P.StopKey(best)]
+            if old and not base then base = old - 1 end
+            if old then loopNo = math.max(loopNo, old - base) end
+            if near then Commit(near, nWalk, nVia)
+            else Commit(best, bWalk, bVia, bSpot) end
+            if best.job and best.job.pool then chosen[best.id] = chosen[best.id] or "xp" end
+            if near and near.job and near.job.pool then chosen[near.id] = chosen[near.id] or "xp" end
+        end
+    end
+
+    -- Darf die Quest in diese Schleife? (Klassen-/Dungeon-/Vorrang-Regeln) – nil = nicht, true = immer, false = nach EP
+    local function Allowed(j, nodes, dt, seed)
+        if j.force then return true end
+        if j.byway then
+            for _, s in ipairs(nodes) do if s.w[4] ~= seed.w[4] then return dt <= P.BYWAY_NEAR or nil end end
+            return true
+        end
+        if j.class then return (dt <= P.CLASS_NEAR or seed.class == j) or nil end
+        return false
+    end
+    -- Mehrzeit und EP einer Quest in einer fertigen Folge (was ihr Herausnehmen sparen wuerde)
+    local function Without(seq, j)
+        local s2 = {}
+        for _, nd in ipairs(seq) do if not (nd.s.job == j) then s2[#s2 + 1] = nd end end
+        return s2
+    end
+    local function Extra(j)
+        local dt, xp = 0, 0
+        if j.t and not j.t.used then dt, xp = dt + j.o.work * P.KILL_SEC / 60, xp + j.o.work * j.o.mobXP end
+        if j.e and not j.e.used then xp = xp + j.o.xp + (j.o.chainXP or 0) end
+        if j.a and not j.a.used then dt = dt + P.TALK_MIN / 2 end
+        if j.e and not j.e.used then dt = dt + P.TALK_MIN / 2 end
+        return dt, xp
+    end
+    -- Schleife ab einem Stuetzpunkt: erst alle passenden Quests (die besten zuerst) einfuegen, dann die
+    -- herausnehmen, die die Schleife langsamer machen als Monster hauen (Mehrweg in der ganzen Schleife zaehlt –
+    -- so lohnen Quests mit Zielen nah beieinander gemeinsam, einzelne weit weg nicht)
+    local function Build(seed, cands)
+        local origin = seed.w
+        -- Reihe mit Vorrang ("jetzt erledigen"): eine eigene Schleife nur mit ihr – sie kommt zuerst dran
+        local only = {}
+        for _, j in ipairs(cands) do if Prio(j.id) then only[#only + 1] = j end end
+        if #only > 0 then cands = only end
+        local seq, inc, keep = {}, {}, {}
+        local log = 0
+        for id in pairs(accepted) do if not turned[id] then log = log + 1 end end
+        local time = 0
+        while time < P.LOOP_MAX do
+            local best, bScore, bSeq, bDt
+            for _, j in ipairs(cands) do
+                if not inc[j] then
+                    local s2, dt, gx, nodes = TryJob(j, origin, seq)
+                    if s2 then
+                        local allow = Allowed(j, nodes, dt, seed)
+                        if nodes[1].kind == "accept" and log >= P.LOG_MAX then allow = nil end
+                        if allow ~= nil then
+                            local r = gx / dt
+                            j.o.loopEPM = math.max(j.o.loopEPM or 0, r)
+                            local score = allow and 1e9 - dt or r
+                            if not bScore or score > bScore then best, bScore, bSeq, bDt = j, score, s2, dt end
+                            if allow then keep[j] = true end
+                        end
+                    end
+                end
+            end
+            if not best then break end
+            inc[best], seq, time = true, bSeq, time + bDt
+            if best.a and not best.a.used then log = log + 1 end
+        end
+        -- herausnehmen, was die Schleife bremst (die schlechteste zuerst, dann neu rechnen)
+        local function Cost(q) return PathCost(origin, q) end
+        while true do
+            local base = Cost(seq)
+            local worst, wr, wseq
+            for j in pairs(inc) do
+                if not keep[j] then
+                    local s2 = Without(seq, j)
+                    -- haengt etwas anderes an dieser Quest (Folgequest in derselben Schleife)? Dann bleibt sie
+                    local need = true
+                    for _, nd in ipairs(s2) do
+                        local oj = nd.s.job
+                        if oj and oj ~= j and nd.s.kind == "accept" and not PreReady(nd.s) then
+                            for _, group in ipairs(Pre(Q.q[oj.id])) do for _, p in ipairs(group) do if p == j.id then need = false end end end
+                        end
+                    end
+                    if need then
+                        local dt, xp = Extra(j)
+                        dt = math.max(.2, dt + base - Cost(s2))
+                        local r = xp / dt
+                        j.o.loopEPM = r
+                        if r < Need(j) and (not wr or r < wr) then worst, wr, wseq = j, r, s2 end
+                    end
+                end
+            end
+            if not worst then break end
+            inc[worst], seq = nil, wseq
+        end
+        if #seq == 0 then return nil end
+        -- echte Zeit ab dem Spieler: Anreise (mit Flug/Ruhestein) + Wege + Arbeit
+        local first, via = Reach(pos, seq[1].w, minutes, hs)
+        local walkMin = PathCost(seq[1].w, seq)
+        local work, xp, works = 0, 0, 0
+        local hasClass, prio = false, false
+        for j in pairs(inc) do
+            local dt, gx = Extra(j)
+            work, xp = work + dt, xp + gx
+            if j.t and not j.t.used then works = works + j.o.work end
+            if j.class then hasClass = true end
+            if j.force then prio = true end
+        end
+        local total = math.max(.5, first + walkMin + work)
+        -- weit weg (Flug/Schiff) und dort gibt es danach nicht genug zum Bleiben: die Rueckreise zaehlt mit
+        -- (Nachstellung 21.11.2026: Schiff nach Silberwald fuer zwei Abgaben und gleich wieder zurueck)
+        local z = seed.w[4]
+        if pos and (first > P.FAR_LOOP or seq[1].w[1] ~= pos[1]) then
+            local rest = 0
+            for _, j in ipairs(jobs) do
+                if not inc[j] and not j.byway and (not j.e or not j.e.used) then
+                    local s = (j.a and not j.a.used) and j.a or j.t or j.e
+                    if s and s.w and s.w[4] == z and (s ~= j.a or Ready(s)) then rest = rest + 1 end
+                end
+            end
+            if rest < P.STAY_MIN then total = total + (Trip(seq[#seq].w, pos)) end
+        end
+        local gain = xp + (walkMin + (via and 0 or first)) * P.WALK_XP * P.GrindEPM(PlanLevel())
+        return {seq = seq, inc = inc, minutes = total, xp = gain, epm = gain / total, class = hasClass, prio = prio,
+            works = works, seed = seed}
+    end
+    -- Stuetzpunkte: bereite Halte, nah beieinander gesammelt (hoechstens P.HUB_R yd)
+    local function Seeds()
+        local list = {}
+        for _, s in ipairs(stops) do
+            local j = s.job
+            if j and not s.used and s.w and not j.byway and Ready(s) and (not j.pool or s.kind ~= "turnin" or accepted[j.id]) then
+                local hit
+                for _, c in ipairs(list) do
+                    if c.w[1] == s.w[1] and Dist(c.w, s.w) <= P.HUB_R then hit = c break end
+                end
+                if not hit then hit = {w = s.w, n = 0, jobs = {}} list[#list + 1] = hit end
+                hit.n = hit.n + 1
+                if j.class then hit.class = j end
+                hit.jobs[j] = true
+            end
+        end
+        for _, c in ipairs(list) do c.travel = (Reach(pos, c.w, minutes, hs)) end
+        table.sort(list, function(a, b) if a.travel ~= b.travel then return a.travel < b.travel end return a.n > b.n end)
+        local out, zones = {}, {}
+        -- auch genau hier (z. B. Dungeonquest beim Geber, an dem man steht: "nur wenn du sowieso dort bist")
+        if pos then out[1] = {w = pos, n = 0, jobs = {}, travel = 0} end
+        for i, c in ipairs(list) do
+            local z = c.w[4] or 0
+            if i <= P.SEEDS or c.class or (not zones[z] and #out < P.SEEDS * 2) then out[#out + 1] = c zones[z] = true end
+        end
+        return out
+    end
+    -- Quests fuer eine Schleife: alle mit einem offenen Halt nahe am Stuetzpunkt (oder schon im Log)
+    local function Cands(seed)
+        local out = {}
+        for _, j in ipairs(jobs) do
+            local take = seed.jobs[j]
+            if not take then
+                for _, s in ipairs({j.a or false, j.t or false, j.e or false}) do
+                    if s and not s.used and s.w and s.w[1] == seed.w[1] and Minutes(seed.w, s.w) <= P.CAND_R then take = true break end
+                end
+            end
+            if take and not (j.e and j.e.used) then out[#out + 1] = j end
+        end
+        return out
+    end
+    -- Reihenfolge der gewaehlten Schleife kuerzen: Stuecke aus 1-3 Halten an eine bessere Stelle schieben, solange
+    -- alle Bedingungen gelten (annehmen vor erledigen vor abgeben, Vorquest abgegeben vor Folgequest)
+    local function Valid(seq)
+        local at = {}
+        for k, nd in ipairs(seq) do at[nd.s] = k end
+        for k, nd in ipairs(seq) do
+            local s, j = nd.s, nd.s.job
+            if j then
+                if (s.kind == "obj" or s.kind == "turnin") and j.a and at[j.a] and at[j.a] > k then return false end
+                if s.kind == "turnin" and j.t and at[j.t] and at[j.t] > k then return false end
+                if s.kind == "accept" then
+                    for _, group in ipairs(Pre(Q.q[j.id])) do
+                        local ok = false
+                        for _, p in ipairs(group) do
+                            if done(p) or turned[p] or not Q.q[p] then ok = true break end
+                            local pj = info[p] and info[p].job
+                            local pk = pj and pj.e and at[pj.e]
+                            if pk and pk < k then ok = true break end
+                        end
+                        if not ok then return false end
+                    end
+                end
+            end
+        end
+        return true
+    end
+    local function Improve(origin, seq)
+        for _ = 1, P.IMPROVE_PASSES do
+            local better = false
+            for len = 1, 3 do
+                local i = 1
+                while i + len - 1 <= #seq do
+                    local moved = false
+                    local base = PathCost(origin, seq)
+                    local rest, part = {}, {}
+                    for k, nd in ipairs(seq) do if k >= i and k < i + len then part[#part + 1] = nd else rest[#rest + 1] = nd end end
+                    for j = 0, #rest do
+                        if j ~= i - 1 then
+                            local try = {}
+                            for k = 1, j do try[#try + 1] = rest[k] end
+                            for _, nd in ipairs(part) do try[#try + 1] = nd end
+                            for k = j + 1, #rest do try[#try + 1] = rest[k] end
+                            if PathCost(origin, try) < base - .05 and Valid(try) then
+                                for k = 1, #try do seq[k] = try[k] end
+                                better, moved = true, true
+                                break
+                            end
+                        end
+                    end
+                    if not moved then i = i + 1 end
+                end
+            end
+            if not better then break end
+        end
+    end
+    -- Freiwillige Halte in die gewaehlte Schleife: Lehrer, Flugpunkt, Haendler
+    local function AddOpt(L1)
+        local seq = L1.seq
+        local origin = pos
+        -- Stufe im Plan nach jedem Halt der Schleife (Lehrer erst nach dem Aufstieg)
+        local lvlAt, cum = {[0] = PlanLevel()}, 0
+        for k, nd in ipairs(seq) do
+            local o = nd.s.id and info[nd.s.id]
+            if o and nd.s.kind == "obj" then cum = cum + o.work * o.mobXP
+            elseif o and nd.s.kind == "turnin" then cum = cum + o.xp end
+            lvlAt[k] = (me.xpMax or 0) > 0 and P.LevelAfter(L, me.xp or 0, me.xpMax, xpSum + xpExtra + cum) or L
+        end
+        local endLvl = lvlAt[#seq]
+        -- Klassenlehrer: Bonus je Stufe Rueckstand, weit weg nur bei grossem Rueckstand
+        local groups = {}
+        for _, s in ipairs(stops) do
+            if s.kind == "train" and not s.used and s.lvl <= endLvl and (not groups[s.group or ""] or s.lvl < groups[s.group or ""].lvl) then
+                groups[s.group or ""] = s
+            end
+        end
+        for _, s in pairs(groups) do
+            local behind = math.max(0, endLvl - s.lvl)
+            local lo = 1
+            while lo <= #seq and lvlAt[lo - 1] < s.lvl do lo = lo + 1 end
+            local bd, bk, bsp
+            for _, sp in ipairs(s.spots) do
+                local d, k = BestSpot(origin, seq, sp.w, lo)
+                if not bd or d < bd then bd, bk, bsp = d, k, sp end
+            end
+            -- "wenn ich schon in der Naehe eines Lehrers bin" (Nutzer 20.11.2026): Umweg hoechstens P.TRAIN_NEAR Minuten,
+            -- je 2 Stufen Rueckstand mehr; ab P.TRAIN_BEHIND Stufen auch weit (Nachstellung 21.11.: 2 km zum Lehrer)
+            if bd and (bd <= math.min(P.TRAIN_FAR, P.TRAIN_NEAR * (1 + behind / 2)) or behind >= P.TRAIN_BEHIND) then
+                table.insert(seq, bk, {s = s, w = bsp.w, spot = bsp})
+            end
+        end
+        for _, s in ipairs(stops) do
+            if s.kind == "fp" and not s.used then
+                local d, k = BestSpot(origin, seq, s.w, 1)
+                local a = k == 1 and origin or seq[k - 1].w
+                if d <= P.FP_NEAR * 2 and a and Minutes(a, s.w) <= P.FP_NEAR then table.insert(seq, k, {s = s, w = s.w}) end
+            end
+        end
+        -- Haendler: Tasche (bald) voll oder Ausruestung kaputt – am Stuetzpunkt vor dem Losgehen
+        if vendorStop and not vendorStop.used then
+            local soon = vendorNeed or (ctx.bags and ctx.bags - (L1.works or 0) / P.LOOT_PER_SLOT <= P.BAG_SOON)
+            if soon then
+                local bd, bk, bsp
+                for _, sp in ipairs(vendorStop.spots) do
+                    local d, k = BestSpot(origin, seq, sp.w, 1)
+                    local a = k == 1 and origin or seq[k - 1].w
+                    if a and Minutes(a, sp.w) <= P.VENDOR_NEAR and (not bd or d < bd) then bd, bk, bsp = d, k, sp end
+                end
+                if bd and bd <= P.VENDOR_NEAR * 2 then table.insert(seq, bk, {s = vendorStop, w = bsp.w, spot = bsp}) end
+            end
+        end
+    end
+    -- Am Stuetzpunkt gleich alles Lohnende mitnehmen (Nutzer: "am Stuetzpunkt alles Noetige in einem Rutsch"):
+    -- Quests, deren Geber hier steht (hoechstens P.HUB_NEAR Minuten von einem Annehmen/Abgeben der Schleife) und die
+    -- sich fuer sich lohnen, werden schon jetzt angenommen – die naechste Schleife spart den Weg zurueck zum Geber
+    local function PreAccept(L1)
+        local seq = L1.seq
+        -- die naechste Schleife vom selben Stuetzpunkt vorausrechnen: deren Quests mit Geber hier gleich mitnehmen
+        local nextJobs = {}
+        do
+            local cands = {}
+            for _, j in ipairs(Cands(L1.seed)) do if not L1.inc[j] then cands[#cands + 1] = j end end
+            local L2 = #cands > 0 and Build({w = L1.seed.w, n = 0, jobs = {}}, cands) or nil
+            if L2 then for j in pairs(L2.inc) do nextJobs[j] = true end end
+        end
+        local log = 0
+        for id in pairs(accepted) do if not turned[id] then log = log + 1 end end
+        for _, nd in ipairs(seq) do if nd.s.kind == "accept" then log = log + 1 end end
+        local start = pos
+        for _, j in ipairs(jobs) do
+            if log >= P.LOG_MAX then break end
+            local a = j.a
+            -- Dungeonquests/empfohlene Reihen: annehmen, wenn man ohnehin beim Geber ist ("nur wenn du sowieso dort
+            -- bist") – am Startpunkt der Schleife oder an einem ihrer Stuetzpunkt-Halte
+            if a and j.byway and not a.used and not L1.inc[j] and Ready(a) then
+                local at
+                if start and start[1] == a.w[1] and Minutes(start, a.w) <= P.HUB_NEAR then at = 0 end
+                for k, nd in ipairs(seq) do
+                    if at then break end
+                    if (nd.s.kind == "accept" or nd.s.kind == "turnin") and nd.w[1] == a.w[1] and Minutes(nd.w, a.w) <= P.HUB_NEAR then at = k end
+                end
+                if at then
+                    table.insert(seq, at + 1, {s = a, w = a.w})
+                    L1.inc[j] = true
+                    log = log + 1
+                end
+            end
+            -- nur mit Ziel hier in der Gegend (kein Botengang in eine andere Richtung: der bliebe im Log liegen)
+            local near = a and j.t and not j.t.used and j.t.w[1] == a.w[1] and Minutes(a.w, j.t.w) <= P.CAND_R
+                and j.e and j.e.w[1] == a.w[1] and Minutes(a.w, j.e.w) <= P.CAND_R
+            if a and near and not a.used and not L1.inc[j] and not j.byway and Ready(a) then
+                local at
+                for k, nd in ipairs(seq) do
+                    if (nd.s.kind == "accept" or nd.s.kind == "turnin") and nd.w[1] == a.w[1] and Minutes(nd.w, a.w) <= P.HUB_NEAR then at = k break end
+                end
+                if at then
+                    local s2, dt, gx = TryJob(j, a.w, {})
+                    if s2 and (j.class or nextJobs[j] or gx / dt >= Need(j)) then
+                        table.insert(seq, at + 1, {s = a, w = a.w})
+                        L1.inc[j] = true
+                        log = log + 1
+                    end
+                end
+            end
+        end
+    end
+    local function Chosen(j)
+        if j.pool and not chosen[j.id] then
+            chosen[j.id] = (#j.o.value > 0 and (j.o.loopEPM or 0) < thr) and "value" or "xp"
+        end
+    end
+    local startWork
+    -- verlassene Gebiete (Hauptstaedte zaehlen nicht: kurz fuer Lehrer/Klassenquest hin und zurueck ist normal)
+    local leftZones, lastZone = {}, (me.mapID and not P.CITY[me.mapID]) and me.mapID or nil
+    -- nur so weit planen, wie die Quests reichen (Planungsfenster bis Stufe L + P.HORIZON) – sonst plant er mit
+    -- Lueckenfuellern weiter, und der feste Fahrplan haelt sie fest (Nachstellung 21.11.2026: Stufe 4 nach Mulgore)
+    while #order < P.MAX_STEPS and minutes - recMinutes < P.MAX_MINUTES and PlanLevel() < L + P.HORIZON do
+        local best, bScore
+        local curZone = zone
+        for _, seed in ipairs(Seeds()) do
+            local L1 = Build(seed, Cands(seed))
+            if L1 then
+                local sc = L1.epm
+                local z = seed.w[4]
+                if z and z ~= curZone then sc = sc / (1 + P.ZONE_HYST) end
+                -- verlassenes Gebiet: nur zurueck, wenn es dort deutlich mehr gibt (keine Reste-Rueckwege)
+                if z and leftZones[z] and PlanLevel() < leftZones[z] + P.ZONE_BACK_LVL then sc = sc / (1 + P.ZONE_BACK) end
+                -- anderer Kontinent: muss noch etwas mehr bringen (Schiff/Zeppelin, Warten)
+                if pos and seed.w[1] ~= pos[1] then sc = sc / (1 + P.CONT_HYST) end
+                if L1.class then sc = sc * P.CLASS_BONUS end
+                if L1.prio then sc = sc + 1e6 end
+                if not bScore or sc > bScore then best, bScore = L1, sc end
+            end
+        end
+        -- Aufstieg vorausrechnen (Nutzer 20.11.2026, wie RestedXP "Monster hauen bis X / Y EP"): fehlt nur wenig bis
+        -- zur naechsten Stufe und wird damit hier im Gebiet etwas frei, lohnt das oft mehr als weggehen. Hoechstens
+        -- 1/4 Stufe; bis P.GRIND_HUB_MAX Minuten auch mehr, wenn man sonst das Gebiet verlassen muesste.
+        local grindStop
+        if pos and (me.xpMax or 0) > 0 and PlanLevel() < 60 and curZone and not P.CITY[curZone] then
+            local baseLvl = PlanLevel()
+            local nextLvl = baseLvl + 1
+            local pre = 0
+            for _, j in ipairs(jobs) do
+                if j.e and not j.e.used and finished[j.id] and Minutes(pos, j.e.w) <= P.HUB_NEAR then pre = pre + j.o.xp end
+            end
+            local need = P.XPTo(L, me.xp or 0, me.xpMax, xpSum + pre, nextLvl)
+            local size = P.XP_NEED[baseLvl] or me.xpMax
+            local gm = need / GrindRate(baseLvl)
+            local leaving = not best or (best.seed.w[4] ~= curZone)
+            if need > 0 and gm <= P.GRIND_HUB_MAX and (need <= size * P.GRIND_SHARE or leaving) then
+                xpExtra = need
+                for _, seed in ipairs(Seeds()) do
+                    if seed.w[4] == curZone then
+                        local L2 = Build(seed, Cands(seed))
+                        local gated = false
+                        if L2 then
+                            for j in pairs(L2.inc) do
+                                if j.a and not j.a.used and ((Q.q[j.id] or {})[2] or 0) > baseLvl then gated = true end
+                            end
+                        end
+                        if gated then
+                            local sc = (L2.xp + need) / (L2.minutes + gm)
+                            if not bScore or sc > bScore then
+                                best, bScore = L2, sc
+                                grindStop = {kind = "grind", lvl = nextLvl, xp = need, work = gm, w = pos, opt = true, hub = true}
+                            end
+                        end
+                    end
+                end
+                xpExtra = 0
+            end
+        end
+        -- Vor dem Gebietswechsel alles Fertige hier abgeben (Entwurf 21.11.2026), sonst geht es spaeter extra zurueck
+        local leavingTo = best and best.seed.w[4]
+        if best and pos and curZone and leavingTo ~= curZone and not P.CITY[curZone] and not grindStop then
+            local seq, any = {}, false
+            for _, j in ipairs(jobs) do
+                local e = j.e
+                if e and not e.used and not e.finTried and e.w[4] == curZone and Ready(e) and finished[j.id] then
+                    e.finTried = true
+                    local s2, dt = TryJob(j, pos, seq)
+                    if s2 and dt <= P.ZONE_FINISH then seq, any = s2, true end
+                end
+            end
+            if any then
+                loopNo = loopNo + 1
+                loops[loopNo] = {n = loopNo, w = pos, mapID = curZone, finish = true}
+                for _, nd in ipairs(seq) do
+                    local walk, via = Reach(pos, nd.w, minutes, hs)
+                    Commit(nd.s, walk, via)
+                end
+                best = nil
+            end
+        end
+        if best == nil and leavingTo then
+            -- (nach dem Abgeben neu waehlen)
+        elseif not best then
+            -- Nichts mehr bereit, weil die Stufe fehlt: hier Monster hauen bis zur noetigen Stufe
+            local target
+            if (me.xpMax or 0) > 0 and pos then
+                for _, s in ipairs(stops) do
+                    local j = s.job
+                    if not s.used and j and not j.byway and not j.pool then
+                        local lv
+                        if s.kind == "accept" then lv = (Q.q[s.id] or {})[2]
+                        elseif s.kind == "obj" then lv = ((Q.q[s.id] or {})[1] or 0) - P.OBJ_AHEAD end
+                        if lv and lv > PlanLevel() and (not target or lv < target) then target = lv end
+                    end
+                end
+            end
+            if not target then break end
+            local need = P.XPTo(L, me.xp or 0, me.xpMax, xpSum, target)
+            local m = need / GrindRate(PlanLevel())
+            if m > P.GRIND_MAX then break end
+            loopNo = loopNo + 1
+            local g = {kind = "grind", lvl = target, xp = need, work = m, w = pos, opt = true}
+            stops[#stops + 1] = g
+            Commit(g, 0, nil)
+        else
+            loopNo = loopNo + 1
+            if not startWork and best.seed.w[4] and not P.CITY[best.seed.w[4]] then startWork = best.seed.w[4] end
+            local z = best.seed.w[4]
+            if z and not P.CITY[z] then
+                if lastZone and z ~= lastZone then leftZones[lastZone] = PlanLevel() end
+                leftZones[z], lastZone = nil, z
+            end
+            loops[loopNo] = {n = loopNo, w = best.seed.w, mapID = best.seed.w[4], minutes = best.minutes, xp = best.xp, epm = best.epm}
+            if grindStop then
+                stops[#stops + 1] = grindStop
+                Commit(grindStop, 0, nil)
+            end
+            Improve(pos, best.seq)
+            AddOpt(best)
+            PreAccept(best)
+            for j in pairs(best.inc) do Chosen(j) end
+            -- in Reihenfolge ausfuehren; ist ein Halt (noch) nicht bereit, kommt der naechste bereite zuerst
+            local list = best.seq
+            while #list > 0 do
+                local k = 1
+                while k <= #list and not Ready(list[k].s) do k = k + 1 end
+                if k > #list then break end
+                local nd = table.remove(list, k)
+                local walk, via = Reach(pos, nd.w, minutes, hs)
+                Commit(nd.s, walk, via, nd.spot)
+            end
+        end
+    end
+    -- Quests aus dem Fahrplan, die schon dran waren, zaehlen als gewaehlt
+    for _, s in ipairs(order) do if s.job then Chosen(s.job) end end
+    -- nicht gewaehlte Quests: Grund
+    for _, j in ipairs(jobs) do
+        local o = j.o
+        if j.pool and not chosen[j.id] then
+            if o.loopEPM then o.epm = o.loopEPM end
+            o.skip = o.loopEPM and o.loopEPM < thr * (prev and P.NEW_SLACK or 1) and "Zu langsam: %d EP/min (lohnt ab ~%d)."
+                or "Liegt abseits – anderswo gibt es gerade mehr EP."
+        end
+    end
     -- Gruende/Zeichen
     for id, why in pairs(chosen) do
         local o = info[id]
         o.why = why
         if why == "dungeon" then o.tags[#o.tags + 1] = "dungeon" end
         if why == "class" then o.tags[#o.tags + 1] = "class" end
-        if why == "pre" then o.tags[#o.tags + 1] = "pre" end
+        if why == "pre" and not o.rec then o.tags[#o.tags + 1] = "pre" end
+        if o.rec then o.tags[#o.tags + 1] = "rec" end
         if why == "xp" or (o.epm >= grind * factor and factor > 0) then o.tags[#o.tags + 1] = "xp" end
         for _, v in ipairs(o.value) do if v.kind == "upgrade" or v.kind == "bag" then o.tags[#o.tags + 1] = "upgrade" break end end
         if o.group then o.tags[#o.tags + 1] = "group" end
     end
-
-    -- 5) Halte: annehmen, erledigen, abgeben
-    local stops, byDungeon = {}, {}
-    for id in pairs(chosen) do
-        local o = info[id]
-        if not o.log then
-            if o.giver then stops[#stops + 1] = {kind = "accept", id = id, w = o.giver.w, nr = o.giver.nr} end
-        end
-        if not (o.log and o.complete) then
-            if o.dungeon then
-                local d = byDungeon[o.dungeon]
-                if not d then
-                    local pos = ctx.entrance and ctx.entrance(o.dungeon)
-                    local w = pos and World(nil, pos[1], pos[2], pos[3])
-                    d = {kind = "dungeon", key = o.dungeon, ids = {}, w = w}
-                    byDungeon[o.dungeon] = d
-                    stops[#stops + 1] = d
+    if not startWork and zone and not P.CITY[zone] then startWork = zone end
+    if startWork and P.CITY[startWork] then startWork = nil end
+    -- 5c) Ruhestein setzen: beim Gastwirt am Weg, wenn die naechsten Halte viel naeher liegen als der Heimatort
+    -- nur mit bekanntem Heimatort (Spieltest 21.11.2026: Heimatort unbekannt -> "Ruhestein setzen" in Orgrimmar,
+    -- obwohl er in Crossroads stand)
+    if ctx.inns and ctx.home and #order > 3 then
+        local home = ctx.home
+        local function D(a, b) return math.sqrt((a[2] - b[2]) ^ 2 + (a[3] - b[3]) ^ 2) end
+        -- auch gleich hier (i = 0): sonst rutscht der Halt bei jedem Neuplanen einen Schritt nach hinten und kommt
+        -- nie dran (Nachstellung 21.11.2026)
+        for i = 0, #order do
+            local s = i == 0 and {w = here, kind = "here"} or order[i]
+            if s.w and s.kind ~= "grind" and s.kind ~= "bind" then
+                local inn, d
+                for _, n in ipairs(ctx.inns) do
+                    if n[1] == s.w[1] then
+                        local dd = D(n, s.w)
+                        if not d or dd < d then inn, d = n, dd end
+                    end
                 end
-                d.ids[#d.ids + 1] = id
-            elseif o.target and (#(o.e[8] or {}) > 0) then
-                stops[#stops + 1] = {kind = "obj", id = id, w = o.target.w, nr = o.target.nr}
+                if inn and d <= P.BIND_PASS and not (home and home.inn == inn.id) then
+                    local n, ax, ay = 0, 0, 0
+                    for k = i + 1, math.min(#order, i + P.BIND_AHEAD) do
+                        local w = order[k].w
+                        if w and w[1] == inn[1] and D(inn, w) <= P.BIND_MAX_AREA then n, ax, ay = n + 1, ax + w[2], ay + w[3] end
+                    end
+                    if n >= P.BIND_NEAR then
+                        local area = {inn[1], ax / n, ay / n}
+                        local toArea = D(inn, area)
+                        local closer, total = 0, 0
+                        if home and home[1] == inn[1] then
+                            for k = i + 1, math.min(#order, i + P.BIND_LONG) do
+                                local w = order[k].w
+                                if w and w[1] == inn[1] then
+                                    total = total + 1
+                                    if D(inn, w) < D(home, w) then closer = closer + 1 end
+                                end
+                            end
+                        end
+                        local lasting = total == 0 or closer * 3 >= total * 2
+                        if lasting and toArea <= P.BIND_MAX_AREA and (not home or home[1] ~= inn[1] or D(home, area) >= toArea + P.BIND_BETTER) then
+                            local walk = Minutes(s.w, inn)
+                            local b = {kind = "bind", w = {inn[1], inn[2], inn[3]}, inn = inn.id, name = inn.name, opt = true,
+                                walk = walk, cost = walk + P.BIND_MIN, gain = 0, used = true}
+                            table.insert(order, i + 1, b)
+                            minutes = minutes + b.cost
+                            -- spaeter geplante Ruhestein-Reisen gingen noch zum alten Ort: dann lieber laufen
+                            local prev = b.w
+                            for k = i + 2, #order do
+                                local o2 = order[k]
+                                if o2.via and o2.via.bind and o2.w then
+                                    local wk, vi = Trip(prev, o2.w)
+                                    minutes = minutes + wk - (o2.walk or 0)
+                                    o2.cost = (o2.cost or 0) + wk - (o2.walk or 0)
+                                    o2.walk, o2.via = wk, vi
+                                end
+                                if o2.w then prev = o2.w end
+                            end
+                            break
+                        end
+                    end
+                end
             end
         end
-        if o.ender then stops[#stops + 1] = {kind = "turnin", id = id, w = o.ender.w, nr = o.ender.nr} end
     end
-    -- Bedingungen: angenommen (im Plan oder im Log) vor Erledigen/Abgeben, Vorquest abgegeben vor Annehmen
-    local accepted, finished, turned = {}, {}, {}
-    for id in pairs(chosen) do
-        if info[id].log then accepted[id] = true end
-        if info[id].log and info[id].complete then finished[id] = true end
-    end
-    local function Ready(s)
-        if s.kind == "accept" then
-            for _, group in ipairs(Pre(Q.q[s.id])) do
-                local ok = false
-                for _, p in ipairs(group) do if done(p) or turned[p] or not Q.q[p] then ok = true break end end
-                if not ok then return false end
+    -- Monster hauen fuer den Aufstieg VOR die Abgaben am selben Ort: dann bringt die Abgabe den Aufstieg
+    -- (Anzeige wie RestedXP "bis 2800 / 5000 EP")
+    for i = #order, 1, -1 do
+        local g = order[i]
+        if g.kind == "grind" and g.hub then
+            local j = i
+            while j > 1 do
+                local t = order[j - 1]
+                if t.kind ~= "turnin" or t.via or not t.w or Minutes(t.w, g.w) > P.HUB_NEAR then break end
+                j = j - 1
             end
-            return true
-        elseif s.kind == "obj" then
-            return accepted[s.id]
-        elseif s.kind == "dungeon" then
-            for _, id in ipairs(s.ids) do if not accepted[id] then return false end end
-            return true
-        else -- Abgabe
-            if not accepted[s.id] then return false end
-            local o = info[s.id]
-            if finished[s.id] then return true end
-            -- ohne Erledigen-Halt (z. B. Botengang) gleich abgebbar
-            for _, t in ipairs(stops) do
-                if not t.used and ((t.kind == "obj" and t.id == s.id) or (t.kind == "dungeon" and t.idsSet and t.idsSet[s.id])) then return false end
-            end
-            return o ~= nil
-        end
-    end
-    for _, s in ipairs(stops) do
-        if s.kind == "dungeon" then s.idsSet = {} for _, id in ipairs(s.ids) do s.idsSet[id] = true end end
-    end
-    local order, pos, minutes, xpSum = {}, here, 0, 0
-    local prefer = ctx.prefer
-    local zone = me.mapID
-    local switch = ctx.zoneBlocks == false and 0 or P.ZONE_SWITCH
-    while #order < P.MAX_STEPS and minutes < P.MAX_MINUTES do
-        local best, bm, bwalk, best_via
-        for _, s in ipairs(stops) do
-            if not s.used and Ready(s) then
-                local walk, via = P.FAR_MIN, nil
-                if s.w and pos then walk, via = Trip(pos, s.w) elseif s.w then walk = 0 end
-                if s.kind == "dungeon" then walk = walk + 1 end
-                local m = walk
-                -- im Gebiet bleiben, solange dort noch etwas Passendes in der Naehe ist (nur fuer die Wahl)
-                if zone and s.w and s.w[4] and s.w[4] ~= zone then m = m + switch end
-                -- Reihenfolge ruhig halten: der bisherige erste Schritt bleibt, solange er nicht deutlich weiter weg ist
-                if prefer and #order == 0 and prefer == P.StopKey(s) then m = m * .5 end
-                if not bm or m < bm then best, bm, bwalk, best_via = s, m, walk, via end
+            if j < i then
+                table.remove(order, i)
+                local first = order[j]
+                g.w, g.walk, g.cost = first.w, first.walk, (g.cost or 0) + (first.walk or 0)
+                first.cost, first.walk = (first.cost or 0) - (first.walk or 0), 0
+                table.insert(order, j, g)
             end
         end
-        if not best then break end
-        best.used = true
-        best.walk = bwalk
-        best.via = best_via
-        bm = bwalk
-        local before, xpBefore = minutes, xpSum
-        order[#order + 1] = best
-        minutes = minutes + bm
-        if best.w then pos = best.w zone = best.w[4] or zone end
-        if best.kind == "accept" then accepted[best.id] = true
-        elseif best.kind == "obj" then
-            finished[best.id] = true
-            local o = info[best.id]
-            minutes = minutes + o.work * P.KILL_SEC / 60
-            xpSum = xpSum + o.work * o.mobXP
-        elseif best.kind == "dungeon" then
-            for _, id in ipairs(best.ids) do finished[id] = true end
-            minutes = minutes + 45
-        else
-            turned[best.id] = true
-            finished[best.id] = true
-            xpSum = xpSum + info[best.id].xp
-            minutes = minutes + P.TALK_MIN
-        end
-        -- echte Zeit dieses Halts (die Wechsel-Strafe zaehlt nicht mit)
-        best.cost = minutes - before
-        best.gain = xpSum - xpBefore
     end
+    -- Aufstieg je Halt (Anzeige "-> Stufe X") und EP-Stand fuer "Monster hauen bis X / Y EP"
+    if (me.xpMax or 0) > 0 then
+        local lv, x, mx = L, me.xp or 0, me.xpMax
+        for _, s in ipairs(order) do
+            if s.kind == "grind" then s.fromXP, s.maxXP = math.floor(x), mx end
+            x = x + (s.gain or 0)
+            while lv < 60 and x >= mx do
+                x, lv = x - mx, lv + 1
+                mx = P.XP_NEED[lv] or mx
+                s.levelUp = lv
+            end
+            if s.kind == "grind" then s.toXP = math.floor(s.fromXP + (s.xp or 0) + .5) end
+        end
+    end
+    -- Quests im Log, die nicht mehr lohnen: zum Abbrechen vorschlagen (nur Hinweis, nie automatisch)
+    local abandon = {}
+    for id, o in pairs(info) do
+        local nearlyDone = (o.progress or 0) >= P.ABANDON_KEEP and o.xpFactor > .2
+        if o.log and not chosen[id] and o.skip and override[id] ~= "no" and o.skip ~= "Dungeon kommt erst später." and not nearlyDone then
+            abandon[#abandon + 1] = o
+        end
+    end
+    table.sort(abandon, function(a, b) return a.id < b.id end)
     local left = {}
-    for _, s in ipairs(stops) do if not s.used then left[#left + 1] = s end end
+    for _, s in ipairs(stops) do
+        if not s.used and not s.opt and not (s.job and s.job.pool and not chosen[s.id]) then left[#left + 1] = s end
+    end
     -- 6) Schritte: aufeinanderfolgende Halte am selben NPC zusammenfassen
     local steps = {}
     for _, s in ipairs(order) do
@@ -572,12 +1598,19 @@ function P:Plan(ctx)
         if s.via then
             local v = s.via
             local first = v.kind == "flight" and v.from or v.dep
-            steps[#steps + 1] = {kind = "travel", via = v, world = first and {first[1], first[2], first[3]},
+            steps[#steps + 1] = {kind = "travel", via = v, world = first and {first[1], first[2], first[3]}, walk = v.kind == "hearth" and s.walk or nil,
                 mapID = first and first.mapID, x = first and first.mx, y = first and first.my,
                 actions = {}, stopKey = "t:" .. P.StopKey(s)}
         end
         local last = steps[#steps]
-        if last and s.nr and last.nr == s.nr and s.kind ~= "obj" and last.kind ~= "obj" and s.kind ~= "dungeon" then
+        if s.kind == "train" or s.kind == "fp" or s.kind == "grind" or s.kind == "bind" or s.kind == "vendor" then
+            local w = s.w or {}
+            steps[#steps + 1] = {kind = s.kind, group = s.group, name = s.name, lvl = s.lvl, n = s.n, xp = s.xp, work = s.work, inn = s.inn,
+                fromXP = s.fromXP, toXP = s.toXP, maxXP = s.maxXP, hub = s.hub,
+                world = s.kind ~= "grind" and w[1] and {w[1], w[2], w[3]} or nil,
+                mapID = w[4] or (s.kind == "grind" and me.mapID or nil), x = s.kind ~= "grind" and w[5] or nil, y = s.kind ~= "grind" and w[6] or nil,
+                walk = s.walk, actions = {}, stopKey = P.StopKey(s), cost = 0, gain = 0}
+        elseif last and s.nr and last.nr == s.nr and s.kind ~= "obj" and last.kind ~= "obj" and s.kind ~= "dungeon" then
             last.actions[#last.actions + 1] = {kind = s.kind, id = s.id}
         else
             local w = s.w
@@ -595,8 +1628,12 @@ function P:Plan(ctx)
             steps[#steps + 1] = {kind = s.kind, nr = s.nr, key = s.key, ids = s.ids, mapID = w and w[4], x = w and w[5], y = w and w[6],
                 area = area, walk = s.walk, actions = s.kind == "dungeon" and {} or {{kind = s.kind, id = s.id}}, stopKey = P.StopKey(s), cost = 0, gain = 0}
         end
+        steps[#steps].loop = steps[#steps].loop or s.loop
         steps[#steps].cost = steps[#steps].cost + (s.cost or 0)
         steps[#steps].gain = steps[#steps].gain + (s.gain or 0)
+        if s.levelUp then steps[#steps].levelUp = math.max(steps[#steps].levelUp or 0, s.levelUp) end
+        local so = s.id and info[s.id]
+        if so and so.forDungeon and s.kind == "accept" then steps[#steps].dungeon = so.forDungeon end
     end
     -- Gebietsbloecke fuer die Anzeige: {mapID, first, last, steps, minutes}
     local blocks = {}
@@ -617,7 +1654,10 @@ function P:Plan(ctx)
         if not chosen[o.id] and o.skip and not o.log then skipped[#skipped + 1] = o end
     end
     table.sort(skipped, function(a, b) if a.totalXP ~= b.totalXP then return a.totalXP > b.totalXP end return a.id < b.id end)
-    return {steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left,
+    local orderKeys = {}
+    local orderLoops = {}
+    for _, s in ipairs(order) do orderKeys[#orderKeys + 1] = P.StopKey(s) orderLoops[#orderLoops + 1] = s.loop or 0 end
+    return {workZone = startWork, orderKeys = orderKeys, orderLoops = orderLoops, loops = loops, steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left, abandon = abandon,
         grind = grind, factor = factor, level = L}
 end
 
@@ -704,6 +1744,9 @@ end
 
 function P.StopKey(s)
     if s.kind == "dungeon" then return "d:" .. tostring(s.key) end
+    if s.kind == "train" and s.group then return "train:" .. s.group .. ":" .. tostring(s.lvl) end
+    if s.kind == "train" or s.kind == "grind" then return s.kind .. ":" .. tostring(s.lvl) end
+    if s.kind == "bind" then return "bind:" .. tostring(s.inn) end
     return s.kind .. ":" .. tostring(s.id)
 end
 

@@ -103,3 +103,27 @@ do
     end
 end
 print("OK: Raid-Skillungen")
+
+-- Stufen-Abschnitte beim Leveln (Nutzer 21.11.2026): Arkan-Magier ab Stufe 1
+do
+    local mage = c.Data.classes.MAGE
+    local function Flow(level, situation) return c.Data:Build(mage, 1, situation, level).flow end
+    assert(Flow(1):find("^Stufe 1–3"), "Stufe 1: erster Abschnitt")
+    assert(Flow(9):find("^Stufe 4–9") and Flow(10):find("^Stufe 10–19"), "Grenzen der Abschnitte")
+    assert(Flow(26):find("^Stufe 20–26") and Flow(27):find("^Ab Stufe 27"), "ab 27 der normale Ablauf")
+    assert(Flow(15, "dungeon"):find("^Tank zieht zuerst"), "Dungeon ohne Stufen-Abschnitte")
+    assert(c.Data:Build(mage, 1, nil, nil).flow:find("^Ab Stufe 27"), "ohne Stufe: normaler Ablauf")
+    -- Abschnitte aufsteigend, jeder Text übersetzbar geprüft im Locale-Test
+    for _, def in pairs(c.Data.classes) do
+        for spec, b in pairs(def.build) do
+            local last = 0
+            for _, st in ipairs(b.stages or {}) do
+                assert(st.upTo > last and type(st.flow) == "string", def.name .. " " .. spec .. ": Abschnitte aufsteigend")
+                last = st.upTo
+            end
+        end
+    end
+    -- Frostblitz Rang 1 erst ab Stufe 27 (vorher der höchste Rang)
+    assert(mage.build[1].bars[1].slots[1].exact == 27)
+end
+print("OK: Stufen-Abschnitte")

@@ -497,5 +497,5 @@ print("OK test_classes_054")
 -- Spielstil-Auswahl auf der Klassen-Seite: Vor-/Nachteile als Tooltip je Eintrag
 UnitClass = function() return "Magier", "MAGE" end
 local so = Page:SpecOptions()
-assert(so[1].value == nil and so[1].tooltip and #so == 4 and so[2].tooltip:find("Aufladen", 1, true), "automatisch + drei Spielstile mit Vor-/Nachteilen")
+assert(so[1].value == nil and so[1].tooltip and #so == 4 and so[2].tooltip:find("Arkaner Zorn", 1, true), "automatisch + drei Spielstile mit Vor-/Nachteilen")
 print("OK test_classes_054 (Spielstil-Auswahl)")
