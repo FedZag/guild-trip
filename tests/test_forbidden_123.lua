@@ -16,7 +16,7 @@ local chatSendAllowed = {
     ["ONE_Dungeons/Share.lua"] = true,     -- PostToGuildChat, Knopf "Im Gildenchat posten"
     ["ONE_Dungeons/Recap.lua"] = true,     -- R:Post, Knopf im Dungeon-Rueckblick
 }
-local chatSend = {"SendChatMessage", "ChatEdit_SendText"}
+local chatSend = {"SendChatMessage", "ChatEdit_SendText", "BNSendWhisper"}
 local list = io.popen("cd " .. root .. " && find . -name '*.lua'")
 local bad = {}
 for file in list:lines() do

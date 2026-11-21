@@ -124,6 +124,50 @@ do
     for i = 1, #p2.orderKeys do assert(p2.orderLoops[i] == p1.orderLoops[i], "gleiche Runde je Halt") end
 end
 
+-- 5a) Fahrplan unterwegs: Monster fuer eine Quest, die schon im Log war, ziehen den Plan nicht um (Spieltest
+-- 21.11.2026: Orgrimmar -> Zeppelin, am Turm ploetzlich "Verborgene Feinde"); kurzes Abgeben am Weg schon; neu
+-- angenommen: einmal an der guenstigsten Stelle in den Fahrplan, danach fest
+do
+    Fresh()
+    local Q = GuildTripQuestDB
+    Q.q[5] = {12, 8, 0, 0, false, {11}, {11}, {26}, false, false, 900, 0, 0, 1}   -- im Log, Monster gleich hier
+    Q.q[6] = {12, 8, 0, 0, false, {11}, {14}, {}, false, false, 900, 0, 0, 1}     -- im Log fertig, Abgabe gleich hier
+    Q.n[26], Q.n[14] = {0, 1, 305, 705}, {0, 1, 302, 701}
+    GuildTripLeveling.r[5] = "0|12|0||"
+    log = {[4] = "open", [5] = "open"}
+    local follow, fl = {["obj:4"] = 1, ["turnin:4"] = 2}, {["obj:4"] = 1, ["turnin:4"] = 1}
+    local function At(prevLog)
+        local c = Ctx({follow = follow, followLoops = fl, prevLog = prevLog})
+        c.me.x, c.me.y = .3, .7
+        return assert(P:Plan(c))
+    end
+    local p = At({[4] = true, [5] = true})
+    assert(p.orderKeys[1] == "obj:4", "Monster am Weg (schon im Log): alter Plan bleibt, nicht " .. tostring(p.orderKeys[1]))
+    log[6] = "done"
+    p = At({[4] = true, [5] = true, [6] = true})
+    assert(p.orderKeys[1] == "turnin:6", "Abgabe direkt am Weg: mitnehmen, nicht " .. tostring(p.orderKeys[1]))
+    assert(p.orderKeys[2] == "obj:4", "danach weiter wie geplant: " .. table.concat(p.orderKeys, " "))
+    assert(p.steps[1].onWay and not p.steps[2].onWay, "am Weg vorgezogen: markiert (Grund im Mouseover)")
+    -- naechste Planung (jetzt steht es im Fahrplan): Markierung bleibt, bis es erledigt ist
+    do
+        local f3, fl3 = {}, {}
+        for i, k in ipairs(p.orderKeys) do if not f3[k] then f3[k], fl3[k] = i, p.orderLoops[i] end end
+        local c = Ctx({follow = f3, followLoops = fl3, prevLog = {[4] = true, [5] = true, [6] = true}, onWay = p.onWay})
+        c.me.x, c.me.y = .3, .7
+        local p3 = assert(P:Plan(c))
+        assert(p3.orderKeys[1] == "turnin:6" and p3.steps[1].onWay, "Markierung bleibt")
+    end
+    log[6] = nil
+    -- gerade angenommen: gleich hier einreihen (kostet hier kaum Umweg), danach steht es im Fahrplan
+    p = At({[4] = true})
+    assert(p.orderKeys[1] == "obj:5", "neu im Log, Ziel hier: gleich einreihen: " .. table.concat(p.orderKeys, " "))
+    local f2 = {}
+    for i, k in ipairs(p.orderKeys) do if not f2[k] then f2[k] = i end end
+    assert(f2["turnin:5"] and f2["turnin:5"] > f2["obj:5"], "Abgabe auch im Fahrplan")
+    GuildTripLeveling.r[5] = nil
+    log = {}
+end
+
 -- 5b) Beruf noetig (Spieltest 21.11.2026: Kamari "Bestien des Donnergrats" nur fuer Lederverarbeiter)
 do
     local e = {10, 6, 178, 0, false, {11}, {11}, {}, false, false, 840, 0, 0, 14, {165, 1}}
@@ -159,6 +203,7 @@ do
     local vs = {kind = "vendor", name = "Haendlerin", actions = {}}
     assert(G:StepText(vs):find("Händler: Taschen leeren", 1, true) and G:StepWho(vs):find("Haendlerin"))
     assert(Tr.StepTip({steps = {vs}}, 1):find("Verkaufen machst du selbst"), "nichts automatisch")
+    assert(Tr.StepTip({steps = {{kind = "turnin", onWay = true, actions = {}}}}, 1):find("Liegt am Weg"), "Grund: am Weg")
     -- Fahrplan mit Runden wird gemerkt
     assert(G.FollowLoops(plan)[plan.orderKeys[1]] == 1)
     -- alter Fahrplan (ohne Runden, vom gierigen Planer) wird nach dem Update nicht weitergefahren

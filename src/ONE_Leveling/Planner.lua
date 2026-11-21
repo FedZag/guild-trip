@@ -26,6 +26,9 @@ P.KEEP_SLACK = .8
 -- Minuten und naeher als der naechste alte Halt) – z. B. eine neue Quest beim Geber, an dem man gerade steht.
 -- Alles andere Neue kommt nach den alten Halten. Frisch geplant wird nur bei echten Aenderungen (Guide).
 P.FOLLOW_HERE = 1
+-- ... und nur Kurzes (Annehmen, Abgeben, Ruhestein): Monster/Gegenstaende fuer eine Quest bleiben in ihrer Runde
+-- (Spieltest 21.11.2026: Orgrimmar -> Zeppelin, am Turm ploetzlich "Verborgene Feinde" am Schaedelfels)
+P.FOLLOW_WORK = 3        -- Nachstellung 21.11.2026: 1 -> 16 Rueckwege, 3 -> 11 (Insignie am Schaedelfels ~2 min: mitnehmen)
 -- Dungeonquests (Nutzer 20.11.2026: "die [Dungeons] muessen nicht in den Guide, die Quests dafuer jedoch schon" –
 -- Dungeons laeuft man ueber den Dungeon-Finder): kein Dungeon-Halt mehr. Annehmen und Vorquest-Ketten nur im
 -- Gebiet, in dem man gerade ist, oder direkt am Weg (hoechstens P.BYWAY_NEAR Minuten zu Fuss) – kein Umweg in
@@ -945,8 +948,61 @@ function P:Plan(ctx)
     -- hier (hoechstens P.FOLLOW_HERE Minuten, naeher als der alte Halt, keine neue Annahme). Alles andere Neue
     -- kommt in Schleifen danach.
     local follow = ctx.follow
+    -- A0) Neu im Log, ohne dass der Plan es vorsah (selbst angenommen; beim letzten Plan noch nicht im Log,
+    -- ctx.prevLog; was der Plan fuer eine spaetere Runde vorab annahm, bleibt dort): Ziel und Abgabe einmal dort in den Fahrplan
+    -- einreihen, wo sie am wenigsten Umweg kosten – dann stehen sie fest und kippen den Plan unterwegs nicht um
+    -- (Spieltest 21.11.2026: "Verborgene Feinde" angenommen, erst nach Tirisfal geplant, am Zeppelinturm vorgezogen).
+    -- Nur einmal: wer schon im Log war und nicht hineinpasste, bleibt fuer die Runden danach (sonst kippt es beim
+    -- Vorbeilaufen doch wieder).
+    local flNew
     if follow then
-        local fl = ctx.followLoops or {}
+        local seq = {}
+        for _, s in ipairs(stops) do
+            local k = follow[P.StopKey(s)]
+            local w = s.w or (s.spots and s.spots[1] and s.spots[1].w)
+            if k and not s.used and w then seq[#seq + 1] = {s = s, w = w, k = k} end
+        end
+        table.sort(seq, function(a, b) return a.k < b.k end)
+        if #seq > 0 then
+            local f2 = {}
+            for k, v in pairs(follow) do f2[k] = v end
+            local fl = ctx.followLoops or {}
+            flNew = {}
+            for k, v in pairs(fl) do flNew[k] = v end
+            for _, j in ipairs(jobs) do
+                local open = j.e and not j.e.used and j.e.w and inLog(j.id) and not j.byway and not (ctx.prevLog and ctx.prevLog[j.id])
+                    and not follow["accept:" .. j.id]
+                for _, s in ipairs({j.a, j.t, j.e}) do if s and not s.used and f2[P.StopKey(s)] then open = false end end
+                if open then
+                    local s2, dt, gx = TryJob(j, pos, seq)
+                    if s2 and gx / dt >= Need(j) then
+                        -- Rang zwischen den Nachbarn (mehrere Neue in derselben Luecke gleichmaessig verteilt)
+                        local i = 1
+                        while i <= #s2 do
+                            if s2[i].k then i = i + 1
+                            else
+                                local a = i
+                                while s2[i] and not s2[i].k do i = i + 1 end
+                                local lo = s2[a - 1] and s2[a - 1].k or (s2[i] and s2[i].k or 1) - 1
+                                local hi = s2[i] and s2[i].k or lo + 1
+                                local nb = s2[i] or s2[a - 1]
+                                for m = a, i - 1 do
+                                    s2[m].k = lo + (hi - lo) * (m - a + 1) / (i - a + 1)
+                                    local key = P.StopKey(s2[m].s)
+                                    f2[key] = s2[m].k
+                                    flNew[key] = nb and fl[P.StopKey(nb.s)] or nil
+                                end
+                            end
+                        end
+                        seq = s2
+                    end
+                end
+            end
+            follow = f2
+        end
+    end
+    if follow then
+        local fl = flNew or ctx.followLoops or {}
         local base
         while #order < P.MAX_STEPS do
             local best, bRank, bWalk, bVia, bSpot
@@ -973,7 +1029,8 @@ function P:Plan(ctx)
                 -- aufgestiegen ist; nur am echten Standort, sonst wuerde die gekuerzte Runde umsortiert) oder
                 -- Neues hier (keine neue Annahme): gleich mitnehmen statt spaeter extra herkommen
                 local j = s.job
-                if not s.used and s.w and not s.opt and Ready(s) and s ~= best and j
+                local quick = s.kind ~= "obj" or (j and j.o.work * P.KILL_SEC / 60 <= P.FOLLOW_WORK)
+                if not s.used and s.w and not s.opt and quick and Ready(s) and s ~= best and j
                     and ((k and k > bRank and atHere and Minutes(here, s.w) <= P.FOLLOW_HERE) or (not k and not s.byway and (s.kind ~= "accept" or HereOK(j)))) then
                     if k or not j.pool or chosen[j.id] or s.kind == "accept" then
                         local wk, vi = Reach(pos, s.w, minutes, hs)
@@ -984,8 +1041,12 @@ function P:Plan(ctx)
             local old = fl[P.StopKey(best)]
             if old and not base then base = old - 1 end
             if old then loopNo = math.max(loopNo, old - base) end
-            if near then Commit(near, nWalk, nVia)
-            else Commit(best, bWalk, bVia, bSpot) end
+            -- am Weg vorgezogen: Grund im Mouseover, bis der Halt erledigt ist (ctx.onWay vom letzten Plan)
+            if near then near.onWay = true Commit(near, nWalk, nVia)
+            else
+                if ctx.onWay and ctx.onWay[P.StopKey(best)] then best.onWay = true end
+                Commit(best, bWalk, bVia, bSpot)
+            end
             if best.job and best.job.pool then chosen[best.id] = chosen[best.id] or "xp" end
             if near and near.job and near.job.pool then chosen[near.id] = chosen[near.id] or "xp" end
         end
@@ -1508,14 +1569,14 @@ function P:Plan(ctx)
                     if n >= P.BIND_NEAR then
                         local area = {inn[1], ax / n, ay / n}
                         local toArea = D(inn, area)
+                        -- Halte auf einem anderen Kontinent zaehlen als "nicht naeher" (Nachstellung 21.11.2026:
+                        -- Ruhestein in Orgrimmar, gleich danach Zeppelin nach Tirisfal und dort wieder setzen)
                         local closer, total = 0, 0
-                        if home and home[1] == inn[1] then
-                            for k = i + 1, math.min(#order, i + P.BIND_LONG) do
-                                local w = order[k].w
-                                if w and w[1] == inn[1] then
-                                    total = total + 1
-                                    if D(inn, w) < D(home, w) then closer = closer + 1 end
-                                end
+                        for k = i + 1, math.min(#order, i + P.BIND_LONG) do
+                            local w = order[k].w
+                            if w then
+                                total = total + 1
+                                if w[1] == inn[1] and (home[1] ~= inn[1] or D(inn, w) < D(home, w)) then closer = closer + 1 end
                             end
                         end
                         local lasting = total == 0 or closer * 3 >= total * 2
@@ -1592,6 +1653,7 @@ function P:Plan(ctx)
         if not s.used and not s.opt and not (s.job and s.job.pool and not chosen[s.id]) then left[#left + 1] = s end
     end
     -- 6) Schritte: aufeinanderfolgende Halte am selben NPC zusammenfassen
+    local onWay = {}
     local steps = {}
     for _, s in ipairs(order) do
         -- Reise-Schritt davor: zum Flugmeister bzw. zur Abfahrt (Navi dorthin, Welt-Koordinaten)
@@ -1629,6 +1691,7 @@ function P:Plan(ctx)
                 area = area, walk = s.walk, actions = s.kind == "dungeon" and {} or {{kind = s.kind, id = s.id}}, stopKey = P.StopKey(s), cost = 0, gain = 0}
         end
         steps[#steps].loop = steps[#steps].loop or s.loop
+        if s.onWay then steps[#steps].onWay = true onWay[P.StopKey(s)] = true end
         steps[#steps].cost = steps[#steps].cost + (s.cost or 0)
         steps[#steps].gain = steps[#steps].gain + (s.gain or 0)
         if s.levelUp then steps[#steps].levelUp = math.max(steps[#steps].levelUp or 0, s.levelUp) end
@@ -1657,7 +1720,9 @@ function P:Plan(ctx)
     local orderKeys = {}
     local orderLoops = {}
     for _, s in ipairs(order) do orderKeys[#orderKeys + 1] = P.StopKey(s) orderLoops[#orderLoops + 1] = s.loop or 0 end
-    return {workZone = startWork, orderKeys = orderKeys, orderLoops = orderLoops, loops = loops, steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left, abandon = abandon,
+    local logSeen = {}
+    for id, o in pairs(info) do if o.log then logSeen[id] = true end end
+    return {onWay = onWay, logSeen = logSeen, workZone = startWork, orderKeys = orderKeys, orderLoops = orderLoops, loops = loops, steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left, abandon = abandon,
         grind = grind, factor = factor, level = L}
 end
 

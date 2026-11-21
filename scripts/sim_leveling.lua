@@ -18,6 +18,8 @@ for _, f in ipairs({"Planner", "FlightMasters", "Inns"}) do
     assert(loadfile(file))("ONE_Leveling", lev)
 end
 local P = lev.Planner
+-- SIM_SET="NAME=Wert,NAME=Wert": Planer-Werte probeweise aendern (z. B. SIM_SET=FOLLOW_WORK=3)
+for k, v in (os.getenv("SIM_SET") or ""):gmatch("([%w_]+)=([%d.]+)") do P[k] = tonumber(v) end
 local Q = GuildTripQuestDB
 local spfns = {}
 assert(loadfile(spf .. "/Data/Zones.lua"))("ShortestPathForever", spfns)
@@ -71,6 +73,7 @@ local SCEN = {
     {key = "h-barrens-12", fac = "Horde", race = "Orc", class = "MAGE", level = 12, map = 1413, x = .517, y = .302, home = {1413, .520, .297}, doneBelow = 10},
     {key = "h-barrens-15", fac = "Horde", race = "Troll", class = "MAGE", level = 15, map = 1413, x = .627, y = .372, home = {1413, .520, .297}, doneBelow = 13},
     {key = "h-barrens-20", fac = "Horde", race = "Tauren", class = "WARRIOR", level = 20, map = 1413, x = .449, y = .591, home = {1413, .520, .297}, doneBelow = 18},
+    {key = "h-orgrimmar-12", fac = "Horde", race = "Orc", class = "WARRIOR", level = 12, map = 1454, x = .52, y = .62, home = {1413, .520, .297}, doneBelow = 11, log = {5726}},
     {key = "h-mulgore-6", fac = "Horde", race = "Tauren", class = "DRUID", level = 6, map = 1412, x = .469, y = .602, home = {1412, .469, .602}, doneBelow = 4},
     {key = "h-silverpine-12", fac = "Horde", race = "Undead", class = "PRIEST", level = 12, map = 1421, x = .435, y = .412, home = {1421, .432, .415}, doneBelow = 10},
     {key = "h-stonetalon-22", fac = "Horde", race = "Orc", class = "HUNTER", level = 22, map = 1442, x = .454, y = .594, home = {1413, .520, .297}, doneBelow = 20},
@@ -140,6 +143,8 @@ local function Run(sc)
     local curZ, leftAt = nil, {}
     local traced
     local acceptedAt, objAt, doneAt = {}, {}, {}
+    -- schon im Questlog (Nachstellung eines Spieltests)
+    for _, id in ipairs(sc.log or {}) do log[id] = "open" acceptedAt[id] = 0 end
     local function CouldAt(a, m)
         local e = Q.q[a.id]
         if a.kind == "accept" then
@@ -194,6 +199,7 @@ local function Run(sc)
             home = home, hearthIn = math.max(0, hearthAt - t) * 60, inns = inns,
             workZone = workZone,
             prevChosen = plan and plan.chosen or nil,
+            prevLog = plan and plan.logSeen or nil,
             prefer = plan and plan.steps[1] and plan.steps[1].stopKey,
         }
         if plan and plan.orderKeys then
@@ -259,6 +265,38 @@ local function Run(sc)
         oldKeys, executed = plan.orderKeys, {}
         levelAt[n] = me.level
         local from = Pos()
+        -- Kippt der Plan unterwegs? (Spieltest 21.11.2026: Orgrimmar -> Zeppelin, am Turm ploetzlich "Verborgene
+        -- Feinde"). Das Spiel plant alle G.MOVED_YARDS neu (mit festem Fahrplan) – hier alle 400 yd nachstellen.
+        local function Kipp(dest)
+            if os.getenv("SIM_NOKIPP") or not (dest and dest[1] == from[1]) then return end
+            local d = Dist(from, dest)
+            if d < 500 then return end
+            local sm, sx, sy = me.mapID, me.x, me.y
+            local expect = plan.orderKeys[1]
+            for f = 400, d - 100, 400 do
+                MoveTo({from[1], from[2] + (dest[2] - from[2]) * f / d, from[3] + (dest[3] - from[3]) * f / d})
+                local p2 = P:Plan(Ctx())
+                local k = p2 and p2.orderKeys[1]
+                if k ~= expect then
+                    stats.flip = (stats.flip or 0) + 1
+                    Line(("      !! KIPPT UNTERWEGS nach %d yd: erwartet %s, jetzt %s"):format(f, tostring(expect), tostring(k)))
+                    break
+                end
+            end
+            me.mapID, me.x, me.y = sm, sx, sy
+        end
+        if st.kind == "travel" then
+            local v = st.via
+            local dw = v.kind == "flight" and v.from or v.dep
+            if dw and dw[1] then Kipp(dw) end
+        else
+            local tw
+            if st.area then
+                local bd
+                for _, a in ipairs(st.area) do if a[1] == from[1] and (not bd or Dist(a, from) < bd) then tw, bd = a, Dist(a, from) end end
+            elseif st.mapID and st.x then tw = {World(st.mapID, st.x, st.y)} end
+            if tw then Kipp(tw) end
+        end
         local desc
         local lvlBefore = me.level
         if st.kind == "travel" then
@@ -430,10 +468,11 @@ for _, sc in ipairs(SCEN) do
         local zl = {}
         for z, c in pairs(s.zones) do zl[#zl + 1] = z .. " " .. c end
         table.sort(zl)
-        print(("%-17s %3d Schr. %5.0f min  St %d->%d  %6d EP/h  %3d Quests  Rückweg %d  Hin-Her %d  Umsort. %d  Flüge %d  RS %d  Hauen %d (%.0f min)  Log max %d  Leer %d min  Gebietswechsel %d (zurück %d)  Planen Ø %d ms max %d ms | %s")
+        print(("%-17s %3d Schr. %5.0f min  St %d->%d  %6d EP/h  %3d Quests  Rückweg %d  Hin-Her %d  Umsort. %d  Kippt %d  Flüge %d  RS %d  Hauen %d (%.0f min)  Log max %d  Leer %d min  Gebietswechsel %d (zurück %d)  Planen Ø %d ms max %d ms | %s")
             :format(sc.key, s.steps, s.minutes, s.startLevel, s.level, math.floor(s.xp / math.max(1, s.minutes) * 60), s.quests,
-                s.returns, s.pingpong, s.reorder, s.flights, s.hearths, s.grind, s.grindMin, s.logMax, s.idle or 0, s.switches or 0, s.zoneBack or 0, (s.planSum or 0) / math.max(1, s.planN or 1) * 1000, (s.planMax or 0) * 1000, table.concat(zl, ", ")))
+                s.returns, s.pingpong, s.reorder, s.flip or 0, s.flights, s.hearths, s.grind, s.grindMin, s.logMax, s.idle or 0, s.switches or 0, s.zoneBack or 0, (s.planSum or 0) / math.max(1, s.planN or 1) * 1000, (s.planMax or 0) * 1000, table.concat(zl, ", ")))
         total.returns, total.pingpong, total.reorder = total.returns + s.returns, total.pingpong + s.pingpong, total.reorder + s.reorder
+        total.flip = (total.flip or 0) + (s.flip or 0)
     end
 end
-print(("SUMME Rückwege %d, Hin-und-Her %d, Umsortiert %d  (%.0f s)"):format(total.returns, total.pingpong, total.reorder, os.clock() - t0))
+print(("SUMME Rückwege %d, Hin-und-Her %d, Umsortiert %d, Kippt unterwegs %d  (%.0f s)"):format(total.returns, total.pingpong, total.reorder, total.flip or 0, os.clock() - t0))

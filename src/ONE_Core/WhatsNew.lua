@@ -10,6 +10,10 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.7.5-alpha"] = {
+        "Chat: Battle.net-Nachrichten kommen an – Flüstern von Battle.net-Freunden mit eigenem Gespräch, antworten direkt dort",
+        "Quest-Führung springt unterwegs nicht mehr um und nimmt nur Kurzes am Weg mit",
+    },
     ["0.7.4-alpha"] = {
         "Neuer Chat im Messenger-Stil: Gesprächsliste, Sprechblasen, Emojis, Haken bei zugestelltem Flüstern; Einstellungen im Chat (Zahnrad)",
         "Quest-Führung plant wie eine Leveling-Route: Schleifen um Stützpunkte, fester Fahrplan, Lehrer, Flugpunkte, Ruhestein, Reisezauber",

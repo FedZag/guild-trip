@@ -4,6 +4,22 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.7.5-alpha (veröffentlicht 21.11.2026)
+
+```
+## 0.7.5-alpha
+
+**English**
+- Chat: Battle.net messages now show up – whispers from Battle.net friends (also from the desktop app) get their own conversation and you can reply right there; "friend is online", friend requests and broadcasts appear under System.
+- Quest guide no longer changes its mind on the way: it only takes short things along (up to about 3 minutes), quests you accept yourself are slotted into the plan once, no hearthstone right before changing continents. Mouse over a step to see why it was taken along.
+
+**Deutsch**
+- Chat: Battle.net-Nachrichten kommen jetzt an – Flüstern von Battle.net-Freunden (auch aus der Desktop-App) bekommt ein eigenes Gespräch, antworten geht direkt dort; „Freund ist online“, Freundschaftsanfragen und Rundrufe stehen unter System.
+- Quest-Führung springt unterwegs nicht mehr um: sie nimmt nur noch Kurzes mit (bis etwa 3 Minuten), selbst angenommene Quests werden einmal in den Plan eingereiht, kein Ruhestein kurz vor einem Kontinentwechsel. Mit der Maus über den Schritt steht, warum er mitgenommen wird.
+```
+
+---
+
 ## 0.7.4-alpha (veröffentlicht 21.11.2026)
 
 ```

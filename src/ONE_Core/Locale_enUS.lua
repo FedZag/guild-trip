@@ -403,6 +403,9 @@ EN["Heute"] = EN["Heute"] or "Today"
 EN["Begrüßungsfenster (Tagesüberblick) zeigen"] = "Show the welcome window (daily overview)"
 EN["Ziehen: Fenster größer/kleiner"] = "Drag: make the window bigger/smaller"
 
+-- Neuigkeiten 0.7.5
+EN["Chat: Battle.net-Nachrichten kommen an – Flüstern von Battle.net-Freunden mit eigenem Gespräch, antworten direkt dort"] = "Chat: Battle.net messages arrive – whispers from Battle.net friends get their own conversation, reply right there"
+EN["Quest-Führung springt unterwegs nicht mehr um und nimmt nur Kurzes am Weg mit"] = "Quest guide no longer changes its mind on the way and only takes short things along"
 -- Neuigkeiten 0.7.4
 EN["Neuer Chat im Messenger-Stil: Gesprächsliste, Sprechblasen, Emojis, Haken bei zugestelltem Flüstern; Einstellungen im Chat (Zahnrad)"] = "New messenger-style chat: conversation list, speech bubbles, emojis, tick for delivered whispers; settings inside the chat (gear)"
 EN["Quest-Führung plant wie eine Leveling-Route: Schleifen um Stützpunkte, fester Fahrplan, Lehrer, Flugpunkte, Ruhestein, Reisezauber"] = "Quest guide plans like a levelling route: loops around hubs, fixed plan, trainers, flight points, hearthstone, travel spells"

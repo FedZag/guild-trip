@@ -408,6 +408,8 @@ function G:Context()
         train = G.TrainInfo(class, level),
         portal = G.PortalInfo(class, level, faction),
         prevChosen = self.plan and self.plan.chosen or nil,
+        prevLog = self.plan and self.plan.logSeen or nil,
+        onWay = self.plan and self.plan.onWay or nil,
         workZone = type(db.workZone) == "table" and db.workZone[Try(UnitName, "player") or "?"] or nil,
         ports = G.Ports(class, faction),
         fpSpots = G.UnknownFlights(faction),

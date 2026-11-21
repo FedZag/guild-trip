@@ -36,8 +36,10 @@ Chat.KINDS = {
     {key = "general", label = "Allgemein", channel = true, send = "CHANNEL", color = {1, .75, .75}},
     {key = "lfg", label = "Gruppensuche", channel = true, send = "CHANNEL", color = {1, .75, .75}},
     {key = "channel", label = "Andere Kanäle", channel = true, color = {1, .75, .75}},
-    {key = "whisper", label = "Flüstern", events = {"CHAT_MSG_WHISPER", "CHAT_MSG_WHISPER_INFORM"}, send = "WHISPER", color = {1, .5, 1}},
-    {key = "system", label = "System", events = {"CHAT_MSG_SYSTEM"}, color = {1, 1, 0}},
+    {key = "whisper", label = "Flüstern", events = {"CHAT_MSG_WHISPER", "CHAT_MSG_WHISPER_INFORM",
+        "CHAT_MSG_BN_WHISPER", "CHAT_MSG_BN_WHISPER_INFORM"}, send = "WHISPER", color = {1, .5, 1}},
+    {key = "system", label = "System", events = {"CHAT_MSG_SYSTEM",
+        "CHAT_MSG_BN_INLINE_TOAST_ALERT", "CHAT_MSG_BN_INLINE_TOAST_BROADCAST", "CHAT_MSG_BN_WHISPER_PLAYER_OFFLINE"}, color = {1, 1, 0}},
 }
 Chat.kindByKey, Chat.kindByEvent = {}, {}
 for _, k in ipairs(Chat.KINDS) do
@@ -210,6 +212,71 @@ function Chat:Filter(event, ...)
     return args
 end
 
+-- ===== Battle.net (Spieltest 21.11.2026: Nachrichten aus dem Launcher fehlten) =====
+-- Battle.net-Freunde fluestern ueber eigene Ereignisse (CHAT_MSG_BN_*). Der Absender kommt dort als
+-- verschluesselter Anzeigename, der nur bis zum Ausloggen gilt – als Name nehmen wir deshalb die BattleTag
+-- ("Name#1234"; Charakternamen haben nie ein #). Gesendet wird an die Konto-Nummer (BNSendWhisper).
+Chat.bnIds = {}
+function Chat.IsBN(name) return type(name) == "string" and name:find("#", 1, true) ~= nil end
+-- Konto-Nummer -> {tag, online, zone, character, game}
+function Chat.BNInfo(id)
+    if type(id) ~= "number" or id == 0 then return nil end
+    if C_BattleNet and type(C_BattleNet.GetAccountInfoByID) == "function" then
+        local a = Call(C_BattleNet.GetAccountInfoByID, id)
+        if type(a) == "table" and a.battleTag then
+            local g = type(a.gameAccountInfo) == "table" and a.gameAccountInfo or {}
+            return {tag = a.battleTag, online = (g.isOnline or a.isOnline) and true or false, zone = g.areaName or g.richPresence,
+                character = g.characterName, level = g.characterLevel, class = g.className, id = a.bnetAccountID or id}
+        end
+    end
+    if type(BNGetFriendInfoByID) == "function" then
+        local ok, acc, _, tag, _, character, _, _, online = pcall(BNGetFriendInfoByID, id)
+        if ok and tag then return {tag = tag, online = online and true or false, character = character, id = acc or id} end
+    end
+end
+-- BattleTag -> Konto-Nummer (aus den letzten Nachrichten, sonst aus der Freundesliste)
+function Chat.BNFind(tag)
+    if Chat.bnIds[tag] then return Chat.bnIds[tag] end
+    local n = type(BNGetNumFriends) == "function" and Call(BNGetNumFriends) or 0
+    for i = 1, tonumber(n) or 0 do
+        local id, t
+        if C_BattleNet and type(C_BattleNet.GetFriendAccountInfo) == "function" then
+            local a = Call(C_BattleNet.GetFriendAccountInfo, i)
+            if type(a) == "table" then id, t = a.bnetAccountID, a.battleTag end
+        elseif type(BNGetFriendInfo) == "function" then
+            local ok, acc, _, bt = pcall(BNGetFriendInfo, i)
+            if ok then id, t = acc, bt end
+        end
+        if t == tag and id then Chat.bnIds[tag] = id return id end
+    end
+end
+-- Name zur Konto-Nummer (BattleTag), merkt sich die Nummer fuers Antworten; sonst der Anzeigename
+function Chat.BNName(id, fallback)
+    local info = Chat.BNInfo(id)
+    if info and info.tag then Chat.bnIds[info.tag] = id return info.tag end
+    return fallback
+end
+-- Battle.net-Hinweis ("X ist jetzt online", Rundruf …) als Systemtext
+function Chat.BNToastText(event, token, name, text)
+    if event == "CHAT_MSG_BN_INLINE_TOAST_BROADCAST" then
+        local fmt = rawget(_G, "BN_INLINE_TOAST_BROADCAST")
+        local ok, out = pcall(string.format, type(fmt) == "string" and fmt or "%s: %s", name or "?", text or "")
+        return ok and out or ((name or "?") .. ": " .. (text or ""))
+    end
+    local fmt = type(token) == "string" and rawget(_G, "BN_INLINE_TOAST_" .. token)
+    if type(fmt) ~= "string" then return nil end
+    if fmt:find("%d", 1, true) then
+        local n = type(BNGetNumFriendInvites) == "function" and Call(BNGetNumFriendInvites) or 0
+        local ok, out = pcall(string.format, fmt, tonumber(n) or 0)
+        return ok and out or nil
+    end
+    if fmt:find("%s", 1, true) then
+        local ok, out = pcall(string.format, fmt, name or "?")
+        return ok and out or nil
+    end
+    return fmt
+end
+
 -- Ereignis -> Eintrag; liefert den Eintrag (oder nil, wenn verworfen)
 function Chat:OnEvent(event, ...)
     local kind = self.kindByEvent[event]
@@ -219,13 +286,29 @@ function Chat:OnEvent(event, ...)
     local text, author = args[1], args[2]
     local channelName, lineID, guid = args[4], args[11], args[12]
     if kind == "channel" then kind = Chat.ChannelKind(args[9] or channelName) end
+    local bn = event:find("^CHAT_MSG_BN_") ~= nil
+    if bn then
+        author = Chat.BNName(args[13], author)
+        guid = nil
+        if event == "CHAT_MSG_BN_WHISPER_PLAYER_OFFLINE" then
+            -- offline: offene Nachricht an die Person rot markieren, sonst nur ein Hinweis
+            if author and self:FailPendingFor(author) then return nil end
+            local fmt = rawget(_G, "BN_WHISPER_PLAYER_OFFLINE") or rawget(_G, "ERR_FRIEND_OFFLINE_S")
+            local ok, out = pcall(string.format, type(fmt) == "string" and fmt or "%s ist offline.", author or "?")
+            text, author = ok and out or tostring(author), ""
+        elseif kind == "system" then
+            text = Chat.BNToastText(event, text, author, args[1])
+            if not text then return nil end
+            author = ""
+        end
+    end
     -- Ignorierte nie zeigen (Fluestern blockt der Server, Kanaele nicht immer)
-    if author and author ~= "" and C_FriendList and type(C_FriendList.IsIgnored) == "function" and Call(C_FriendList.IsIgnored, author) then
+    if not bn and author and author ~= "" and C_FriendList and type(C_FriendList.IsIgnored) == "function" and Call(C_FriendList.IsIgnored, author) then
         return nil
     end
     local entry = {time = (type(time) == "function" and time()) or 0, kind = kind, event = event, text = text or "",
-        author = author or "", channel = channelName, lineID = lineID, guid = guid,
-        inform = event == "CHAT_MSG_WHISPER_INFORM"}
+        author = author or "", channel = channelName, lineID = lineID, guid = guid, bn = bn or nil,
+        inform = event == "CHAT_MSG_WHISPER_INFORM" or event == "CHAT_MSG_BN_WHISPER_INFORM"}
     -- Zugestellt-Haken: die Bestaetigung des Servers ersetzt die schon gezeigte eigene Nachricht
     if entry.inform then
         local pending = self:ConfirmPending(entry)
@@ -277,7 +360,9 @@ function Chat.NotFoundName(text)
     return ok and name or nil
 end
 function Chat:FailPending(text)
-    local name = Chat.NotFoundName(text)
+    return self:FailPendingFor(Chat.NotFoundName(text))
+end
+function Chat:FailPendingFor(name)
     local list = name and self.pending[Short(name)]
     local p = list and table.remove(list, 1)
     if not p then return false end
@@ -585,6 +670,19 @@ function Chat:Send(view, text)
     end
     local chatType, target = self:Target(view)
     if not chatType then return nil, target end
+    if chatType == "WHISPER" and Chat.IsBN(target) then
+        -- Battle.net-Freund: an die Konto-Nummer
+        local id = Chat.BNFind(target)
+        if not id then return nil, T("%s ist nicht in deiner Battle.net-Freundesliste.", target) end
+        if type(BNSendWhisper) ~= "function" then return nil, T("Senden geht in diesem Client nicht.") end
+        for part in Chat.Split(text, 255) do
+            local ok = pcall(BNSendWhisper, id, part)
+            if not ok then return nil, T("Senden ging nicht.") end
+            self:AddPending(target, part)
+        end
+        if self:Settings().sentSound then self:PlaySound("chatSent") end
+        return true
+    end
     if type(SendChatMessage) ~= "function" then return nil, T("Senden geht in diesem Client nicht.") end
     for part in Chat.Split(text, 255) do
         local ok = pcall(SendChatMessage, part, chatType, nil, target)

@@ -120,6 +120,16 @@ crafting.TrainerPack = {
         x = 0.543,
         y = 0.835,
     },
+    Jhag = {
+        area = "Orgrimmar",
+        faction = "Horde",
+        kind = "other",
+        map = 1454,
+        what = "Verzauberkunstgeselle",
+        x = 0.536,
+        y = 0.382,
+    },
+    ["Johan Focht"] = {area = "Silberwald", kind = "other", map = 1421, what = "Minenarbeiter", x = 0.433, y = 0.405},
     ["Josef Gregorian"] = {
         area = "Undercity",
         faction = "Horde",
@@ -163,6 +173,15 @@ crafting.TrainerPack = {
         what = "Stufe 6",
         x = 0.512,
         y = 0.425,
+    },
+    Lumak = {
+        area = "Orgrimmar",
+        faction = "Horde",
+        kind = "class",
+        map = 1454,
+        what = "Angellehrer",
+        x = 0.697,
+        y = 0.295,
     },
     Magar = {
         area = "Orgrimmar",

@@ -11,6 +11,7 @@ EN["Du bist nicht im Kanal %s."] = EN["Du bist nicht im Kanal %s."] or "You're n
 EN["Befehle gehen hier nicht – bitte im WoW-Chat."] = EN["Befehle gehen hier nicht – bitte im WoW-Chat."] or "Commands don't work here – please use the WoW chat."
 EN["Senden geht in diesem Client nicht."] = EN["Senden geht in diesem Client nicht."] or "Sending isn't possible in this client."
 EN["Senden ging nicht."] = EN["Senden ging nicht."] or "Sending failed."
+EN["%s ist nicht in deiner Battle.net-Freundesliste."] = EN["%s ist nicht in deiner Battle.net-Freundesliste."] or "%s is not on your Battle.net friends list."
 EN["An %s"] = EN["An %s"] or "To %s"
 EN["Guild Trip Chat"] = EN["Guild Trip Chat"] or "Guild Trip Chat"
 EN["Menü"] = EN["Menü"] or "Menu"

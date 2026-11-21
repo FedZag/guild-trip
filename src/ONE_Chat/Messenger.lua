@@ -72,6 +72,8 @@ M.KIND_ICONS = {
     lfg = {"INV_Misc_Spyglass_02"},
     channel = {"INV_Misc_Note_01"},
     system = {"INV_Misc_Gear_01", "Trade_Engineering"},
+    -- Battle.net-Freund (Fluestern aus dem Launcher)
+    bnet = {"INV_Misc_Note_02", "INV_Letter_15", "INV_Misc_Note_01"},
 }
 -- helle Symbole etwas abdunkeln (Spieltest 21.11.2026: Gilde/Gruppe "zu grell")
 M.ICON_DIM = {guild = .66, officer = .66, group = .70}
@@ -255,6 +257,7 @@ function M.AvatarColor(c)
             local _, classFile = Call(GetPlayerInfoByGUID, last.guid)
             if classFile then return ClassRGB(classFile) end
         end
+        if Chat.IsBN(c.whisper) then return .30, .70, 1 end -- Battle.net-Blau
         return .75, .55, .85
     end
     local tab = c.tab
@@ -278,6 +281,7 @@ function M.AvatarIcon(c)
         end
         local l, r, t, b = M.ClassCoords(classFile)
         if l then return CLASS_ATLAS, {l, r, t, b} end
+        if Chat.IsBN(c.whisper) then return M.KindIcon("bnet") end
         return nil
     end
     local tab = c.tab
@@ -286,9 +290,22 @@ function M.AvatarIcon(c)
     return M.KindIcon(key)
 end
 
+-- Battle.net-Freund: "Battle.net · Charakter · Ort" bzw. "Battle.net · offline"
+function M.BNLine(info)
+    if not info.online then return "Battle.net · " .. T("offline") end
+    local parts = {"Battle.net"}
+    if info.character and info.character ~= "" then parts[#parts + 1] = info.character end
+    if info.zone and info.zone ~= "" then parts[#parts + 1] = info.zone end
+    return table.concat(parts, " · ")
+end
 -- Gilde/Freunde: Klasse, Stufe, Ort, online, zuletzt online
 function M.PersonInfo(name)
     local short = Short(name)
+    if Chat.IsBN(short) then
+        local b = Chat.BNInfo(Chat.BNFind(short))
+        if not b then return nil end
+        return {bn = true, online = b.online, zone = b.zone, character = b.character, level = b.level}
+    end
     if type(GetNumGuildMembers) == "function" and type(GetGuildRosterInfo) == "function" then
         for i = 1, (Call(GetNumGuildMembers) or 0) do
             local full, _, _, level, class, zone, _, _, online, _, classFile = Call(GetGuildRosterInfo, i)
@@ -770,7 +787,7 @@ function M:FillConvRow(b, r, p)
     Tip(b, function()
         local out = {{c.title, cr, cg, cb}}
         if info then
-            out[#out + 1] = {info.online and string.format("%s %s · %s", info.class or "", tostring(info.level or ""), info.zone or "") or M.OfflineText(info)}
+            out[#out + 1] = {info.bn and M.BNLine(info) or info.online and string.format("%s %s · %s", info.class or "", tostring(info.level or ""), info.zone or "") or M.OfflineText(info)}
         end
         if c.muted then out[#out + 1] = {T("stummgeschaltet: kein Ton, grauer Zähler")} end
         out[#out + 1] = {T("Rechtsklick: Anheften, Stumm, …"), .6, .6, .6}
@@ -1477,7 +1494,8 @@ function M:RefreshHead()
     if whisper then
         local info = M.PersonInfo(c.whisper)
         if info then
-            sub = info.online and string.format("%s · %s %s · %s", info.class or "", T("Stufe"), tostring(info.level or "?"), info.zone or "")
+            sub = info.bn and M.BNLine(info)
+                or info.online and string.format("%s · %s %s · %s", info.class or "", T("Stufe"), tostring(info.level or "?"), info.zone or "")
                 or M.OfflineText(info)
         else
             sub = T("Flüstern")

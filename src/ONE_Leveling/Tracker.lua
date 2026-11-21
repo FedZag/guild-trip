@@ -426,6 +426,9 @@ function Tr.StepTip(plan, i)
     elseif step.kind == "vendor" then
         lines[#lines + 1] = T("Taschen fast voll – der Händler liegt am Weg. Verkaufen machst du selbst (oder der Plunder-Verkauf von Guild Trip).")
     end
+    if step.onWay then
+        lines[#lines + 1] = T("Liegt am Weg – jetzt mitnehmen spart später den Rückweg.")
+    end
     local loop = step.loop
     if loop and loop > 0 then
         local objs, turnins, last = 0, 0, nil

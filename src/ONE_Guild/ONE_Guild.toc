@@ -3,7 +3,7 @@
 ## Notes: Gilden- und Kalender-Modul für Guild Trip
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later
-## Version: 0.7.4-alpha
+## Version: 0.7.5-alpha
 ## Dependencies: ONE_Core
 
 Locale_enUS.lua

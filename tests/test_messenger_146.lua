@@ -328,4 +328,20 @@ assert(lyra and lyra.online.shown and lyra.onlineRim.shown, "gruener Punkt bei o
 C_FriendList = nil
 M:LayoutList()
 assert(not lyra.online.shown, "kein Punkt, wenn nicht online")
+-- 15) Battle.net-Freund (21.11.2026): Info aus Battle.net, blauer Kreis mit Brief-Symbol, Online-Punkt
+C_BattleNet = {GetAccountInfoByID = function(id) if id == 42 then
+    return {bnetAccountID = 42, battleTag = "Kumpel#1234", gameAccountInfo = {isOnline = true, characterName = "Grimmbart", areaName = "Orgrimmar"}} end end}
+Chat.bnIds["Kumpel#1234"] = 42
+local bi = M.PersonInfo("Kumpel#1234")
+assert(bi and bi.bn and bi.online and M.BNLine(bi) == "Battle.net · Grimmbart · Orgrimmar", bi and M.BNLine(bi))
+assert(M.BNLine({bn = true, online = false}):find("offline"))
+local br, bg, bb = M.AvatarColor({whisper = "Kumpel#1234", view = "w:Kumpel#1234"})
+assert(bb == 1 and br < .5, "Battle.net-Blau")
+assert(M.AvatarIcon({whisper = "Kumpel#1234", view = "w:Kumpel#1234"}), "Symbol fuer Battle.net")
+Chat:OnEvent("CHAT_MSG_BN_WHISPER", "Hi", "|Kq42|k", "", "", "", "", 0, 0, "", 0, 9, "", 42)
+M:LayoutList()
+local kum
+for _, b in ipairs(M.convRows) do if b.shown and b.name and b.name.shown and b.name.text == "Kumpel#1234" then kum = b end end
+assert(kum and kum.online.shown, "Battle.net-Gespraech in der Liste, online")
+C_BattleNet = nil
 print("OK test_messenger_146")
