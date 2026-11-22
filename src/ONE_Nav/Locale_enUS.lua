@@ -244,3 +244,15 @@ EN["Ziele sind hier in der Nähe · Richtung zum nächsten"] = "Objectives are n
 -- Ankunftsklang (22.11.2026)
 EN["Klang bei Ankunft"] = "Sound on arrival"
 EN["Kommst du am Ziel an, spielt Guild Trip einen kurzen Klang – je nach Ziel verschieden: Questgeber, Abgabe, Zielgebiet oder Flugmeister/Lehrer/Händler. Probehören: /trip klang"] = "When you reach the destination, Guild Trip plays a short sound – different per destination: quest giver, turn-in, objective area or flight master/trainer/vendor. Preview: /trip klang"
+-- Pfeil-Aussehen (22.11.2026)
+EN["Navi-Pfeil: Aussehen"] = "Navi arrow: appearance"
+EN["Standard"] = "Standard"
+EN["Pfeil mit Ziel, Entfernung und Hinweisen."] = "Arrow with destination, distance and hints."
+EN["Kompakt"] = "Compact"
+EN["Pfeil mit Ziel und Entfernung."] = "Arrow with destination and distance."
+EN["Minimal"] = "Minimal"
+EN["Nur Pfeil und Entfernung."] = "Arrow and distance only."
+EN["Ziel"] = "Destination"
+EN["Entfernung"] = "Distance"
+EN["Hinweise"] = "Hints"
+EN["Aussehen des Pfeils"] = "Arrow appearance"

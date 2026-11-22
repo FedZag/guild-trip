@@ -528,6 +528,14 @@ function M:BuildFrame()
     lt:SetTexture("Interface\\Icons\\INV_Misc_Bag_10")
     loot:SetScript("OnClick", function() if chat.Loot then chat.Loot:Toggle() end end)
     Tip(loot, function() return {{T("Beute-Fenster")}, {T("Wer hat welchen Gegenstand bekommen")}} end)
+    self.lootButton = loot
+    -- Sprung zum WoW-Chat (Nutzer 22.11.2026), abschaltbar im Zahnrad
+    if chat.Hider then
+        local jump = chat.Hider:JumpButton(f)
+        jump:SetPoint("RIGHT", loot, "LEFT", -6, 0)
+        jump:SetShown(chat.Hider.JumpShown())
+        self.jumpButton = jump
+    end
 
     self:BuildList(f)
     self:BuildMain(f)
@@ -1644,6 +1652,7 @@ end
 
 -- Gespraech zeigen (und Fenster oeffnen). Entwurf des alten Gespraechs merken, "neue Nachrichten" setzen.
 function M:ShowView(view)
+    if chat.Hider and chat.Hider.OnChatShown then chat.Hider:OnChatShown() end
     self:Build()
     local old = UI.current
     if view and view ~= old then
@@ -1671,11 +1680,13 @@ function M:ShowView(view)
     self:Render()
     self:Refresh()
     if self.UpdatePlaceholder then self.UpdatePlaceholder() end
+    if chat.Launcher and chat.Launcher.Update then chat.Launcher:Update() end
     if ONE.MinimapButton and ONE.MinimapButton.ClearAlert then pcall(ONE.MinimapButton.ClearAlert, ONE.MinimapButton, "chat") end
 end
 function M:Hide()
     if self.frame then self.frame:Hide() end
     Chat.visible = false
+    if chat.Launcher and chat.Launcher.Update then chat.Launcher:Update() end
 end
 
 -- Neue Nachricht (update = Haken/nicht zugestellt an einer schon gezeigten Nachricht)

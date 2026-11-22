@@ -10,6 +10,10 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.7.7-alpha"] = {
+        "Chat: Knopf „Zum WoW-Chat“, zurück über die Sprechblase",
+        "Quest-Kasten: NPC-Name bei mehreren Quests vorn, Questnamen in ihrer Farbe",
+    },
     ["0.7.6-alpha"] = {
         "Quest-Führung mit festen Routen je Volk und Klasse – ein Gebiet nach dem anderen, Ziele zusammengefasst",
         "Quest-Kasten: Zahnrad öffnet eigenes Aussehen (WoW-Look, Kompakt, Minimal, Farben, Hintergrund)",

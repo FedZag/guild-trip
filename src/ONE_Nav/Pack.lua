@@ -68,6 +68,26 @@ nav.Pack = {
             x = 0.618,
             y = 0.524,
         },
+        c15077 = {
+            faction = "Horde",
+            mapID = 1434,
+            name = "Riggle Bassbait",
+            quests = {[8193] = {title = "Anglermeister"}},
+            x = 0.274,
+            y = 0.769,
+        },
+        c15079 = {
+            faction = "Horde",
+            mapID = 1434,
+            name = "Fischbot 5000",
+            quests = {
+                [8221] = {title = "Besonderer Fisch - Keefers Engelfisch"},
+                [8224] = {title = "Besonderer Fisch - Dezianischer Königin"},
+                [8225] = {title = "Besonderer Fisch - Brownells blaugestrei"},
+            },
+            x = 0.274,
+            y = 0.769,
+        },
         c1738 = {
             faction = "Horde",
             mapID = 1420,
@@ -113,6 +133,14 @@ nav.Pack = {
             },
             x = 0.488,
             y = 0.691,
+        },
+        c215643 = {
+            faction = "Horde",
+            mapID = 1434,
+            name = "Tokal",
+            quests = {[79236] = {title = "Eine Kirsche für Eure Gedanken"}},
+            x = 0.27,
+            y = 0.773,
         },
         c2308 = {
             faction = "Horde",
@@ -224,6 +252,18 @@ nav.Pack = {
             },
             x = 0.659,
             y = 0.612,
+        },
+        c267806 = {
+            faction = "Horde",
+            mapID = 1434,
+            name = "\"Schwappflosse\"",
+            quests = {
+                [97065] = {title = "Schuppenhandel - Keefers Engelfisch"},
+                [97066] = {title = "Schuppenhandel - Brownells blaugestreift"},
+                [97067] = {title = "Schuppenhandel - Dezianischer Königinne"},
+            },
+            x = 0.278,
+            y = 0.769,
         },
         c268684 = {
             faction = "Horde",
@@ -872,6 +912,14 @@ nav.Pack = {
             x = 0.2,
             y = 0.137,
         },
+        o2076 = {
+            faction = "Horde",
+            mapID = 1434,
+            name = "Blubbernder Kessel",
+            quests = {[585] = {title = "Mit Nezzliok sprechen"}, [586] = {title = "Mit Gan'zulah sprechen"}},
+            x = 0.322,
+            y = 0.277,
+        },
         o3972 = {
             faction = "Horde",
             mapID = 1413,
@@ -921,6 +969,14 @@ nav.Pack = {
             name = "Trayexir",
             x = 0.564,
             y = 0.732,
+        },
+        c1148 = {
+            cats = {misc = true, recipe = true, thread = true, trade = true, vial = true, weapon = true},
+            faction = "Horde",
+            mapID = 1434,
+            name = "Nerrist",
+            x = 0.327,
+            y = 0.292,
         },
         c2118 = {
             cats = {

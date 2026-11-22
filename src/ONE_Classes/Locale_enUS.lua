@@ -780,3 +780,9 @@ EN["Stufe 1–3 – vorher: Frostrüstung, Arkane Intelligenz · Feuerball bis t
 EN["Stufe 4–9 – vorher: Frostrüstung, Arkane Intelligenz · 1 bis tot (bremst, Nahkämpfer erreichen dich kaum) · fast tot: 3 (ab 6) · ab 8: 2 bei vollem Mana · Mana knapp: 6, sobald du einen Zauberstab hast · Wasser herbeizaubern ab 4"] = "Level 4–9 – before: Frost Armor, Arcane Intellect · 1 until dead (slows, melee barely reach you) · nearly dead: 3 (from 6) · from 8: 2 at full mana · low mana: 6 once you have a wand · Conjure Water from 4"
 EN["Stufe 10–19 – vorher: Frostrüstung, Arkane Intelligenz · 1 Füller · nah: 4, zurückgehen, weiter 1 · Geschosssalve (ab 15) oder Freizauber (ab 17): sofort 2 · fast tot: 6 oder 3 · mehrere nah: 7 (ab 14) · Mana knapp: 6"] = "Level 10–19 – before: Frost Armor, Arcane Intellect · 1 filler · close: 4, step back, keep using 1 · Missile Barrage (from 15) or Clearcasting (from 17): 2 at once · nearly dead: 6 or 3 · several close: 7 (from 14) · low mana: 6"
 EN["Stufe 20–26 – vorher: Frostrüstung, Arkane Intelligenz · 9 zweimal (nicht öfter, sonst zu teuer) · dann 1 bis tot · Geschosssalve oder Freizauber: sofort 2 · nah: 4, zurückgehen · fast tot: 6 · Mana knapp: 6"] = "Level 20–26 – before: Frost Armor, Arcane Intellect · 9 twice (not more, too expensive) · then 1 until dead · Missile Barrage or Clearcasting: 2 at once · close: 4, step back · nearly dead: 6 · low mana: 6"
+-- Aussehen (22.11.2026)
+EN["Buff-Erinnerung: Aussehen"] = "Buff reminder: appearance"
+EN["In der Nähe: Aussehen"] = "Nearby: appearance"
+EN["Beschriftung"] = "Label"
+EN["Überschriften"] = "Headings"
+EN["Aussehen"] = "Appearance"

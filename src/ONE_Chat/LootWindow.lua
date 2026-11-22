@@ -14,6 +14,34 @@ local HEX_QUALITY = {["9d9d9d"] = 0, ["ffffff"] = 1, ["1eff00"] = 2, ["0070dd"] 
 
 local function Settings() return Chat:Settings() end
 
+-- Aussehen (Zahnrad, Nutzer 22.11.2026: eigene Optionen je Zusatzfenster): Hintergrund der Beuteliste,
+-- Schriftgroesse der Liste, Farbe der Kopfzeile. Gegenstaende behalten ihre Seltenheitsfarbe, Namen die Klassenfarbe.
+Loot.LOOK = {
+    id = "loot", title = "Beute: Aussehen", key = "lootLook",
+    store = function() return Settings() end,
+    defaultBg = "none",
+    roles = {{key = "head", label = "Überschriften", default = {1, .82, 0}}, {key = "text", label = "Text", default = {.8, .8, .8}}},
+    scale = {get = function() return Settings().lootFont or 1 end, set = function(v)
+        Settings().lootFont = math.max(.8, math.min(1.6, math.floor(v * 20 + .5) / 20))
+        Loot:ApplyLook()
+    end, step = .05},
+    onChange = function() Loot:ApplyLook() end,
+}
+function Loot:ApplyLook()
+    local WL, f = ONE.WindowLook, self.frame
+    if not (WL and f) then return end
+    WL.ApplyBg(self.LOOK, self.tint)
+    local log = self.log
+    if log and log.GetFont and log.SetFont then
+        local base = (ChatFontNormal and ChatFontNormal.GetFont and select(2, ChatFontNormal:GetFont())) or 14
+        local file, _, flags = log:GetFont()
+        if file then pcall(log.SetFont, log, file, math.floor(base * (Settings().lootFont or 1) + .5), flags or "") end
+    end
+    if self.head and self.head.SetTextColor then self.head:SetTextColor(WL.Color(self.LOOK, "head")) end
+    if self.count and self.count.SetTextColor then self.count:SetTextColor(WL.Color(self.LOOK, "text")) end
+    if self.empty and self.empty.SetTextColor then self.empty:SetTextColor(WL.Color(self.LOOK, "text")) end
+end
+
 -- Format-Text von WoW ("%s erhält Beute: %s.") in ein Lua-Muster
 local function Pattern(fmt)
     if type(fmt) ~= "string" then return nil end
@@ -177,6 +205,7 @@ function Loot:Build()
         local head = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         head:SetPoint("TOPLEFT", box, "TOPLEFT", 10, -10)
         head:SetText(T("Diese Sitzung"))
+        self.head = head
         local rule = f:CreateTexture(nil, "ARTWORK")
         rule:SetHeight(1)
         rule:SetPoint("TOPLEFT", box, "TOPLEFT", 6, -32)
@@ -222,6 +251,25 @@ function Loot:Build()
         if type(SetItemRef) == "function" then pcall(SetItemRef, link, text, button, frame) end
     end)
     self.log = log
+    -- Toenung hinter der Liste (Zahnrad: unsichtbar / Glas / dunkel)
+    self.tint = f:CreateTexture(nil, "BACKGROUND", nil, 2)
+    self.tint:SetPoint("TOPLEFT", log, "TOPLEFT", -6, 6)
+    self.tint:SetPoint("BOTTOMRIGHT", log, "BOTTOMRIGHT", 6, -6)
+    local gear = CreateFrame("Button", nil, f)
+    gear:SetSize(16, 16)
+    gear:SetPoint("RIGHT", q, "LEFT", -8, 0)
+    local gi = gear:CreateTexture(nil, "OVERLAY")
+    gi:SetAllPoints()
+    gi:SetTexture("Interface\\Buttons\\UI-OptionsButton")
+    gear:SetScript("OnClick", function() if ONE.WindowLook then ONE.WindowLook:Toggle(Loot.LOOK, f) end end)
+    gear:SetScript("OnEnter", function(b)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(b, "ANCHOR_LEFT")
+        GameTooltip:AddLine(T("Aussehen"), 1, .82, 0)
+        GameTooltip:Show()
+    end)
+    gear:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    self.gear = gear
     self.empty = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     self.empty:SetPoint("CENTER", log, "CENTER", 0, 0)
     self.empty:SetText(T("Noch keine Beute in dieser Sitzung."))
@@ -238,6 +286,8 @@ function Loot:Build()
     if not modern then ONE.Themes:RegisterWindow(f, bg, title) end
     if ONE.Themes.StyleTree then ONE.Themes:StyleTree(f) end
     f:Hide()
+    self.frame = self.frame or f
+    self:ApplyLook()
     return f
 end
 

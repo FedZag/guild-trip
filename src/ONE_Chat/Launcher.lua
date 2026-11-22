@@ -1,6 +1,6 @@
 -- Guild Trip Chat: sichtbarer Knopf zum Oeffnen (15.11.2026, "ich finde nicht, wo der Chat aufgeht").
 -- Kleine Sprechblase oben am WoW-Chatfenster (bei ElvUI & Co. frei unten links), mit Zaehler fuer
--- ungelesene Fluesternachrichten. Linksklick: Chat auf/zu. Umschalt+Ziehen: verschieben.
+-- ungelesene Fluesternachrichten. Linksklick: Chat auf/zu. Nur sichtbar, solange der Guild-Trip-Chat zu ist. Umschalt+Ziehen: verschieben.
 -- Dazu eine Taste unter Tastaturbelegung › AddOns (Bindings.xml).
 local _, chat = ...
 local ONE = _G.ProjectONE
@@ -78,7 +78,8 @@ end
 function Launcher:Update()
     local b = self.button
     if not b then return end
-    if Chat:Settings().launcher == false then b:Hide() return end
+    -- Nutzer 22.11.2026: bei offenem Guild-Trip-Chat ueberfluessig (dort gibt es "Zum WoW-Chat")
+    if Chat:Settings().launcher == false or Chat.visible then b:Hide() return end
     b:Show()
     local n = self.WhisperUnread()
     b.badge:SetText(n > 0 and tostring(math.min(n, 99)) or "")

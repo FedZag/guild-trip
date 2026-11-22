@@ -51,6 +51,8 @@ function WL.Alpha(def)
     if bg == "none" then return 0 end
     local a = WL.Look(def).alpha
     if type(a) == "number" then return Clamp(a, .05, 1) end
+    -- eigener Standard des Fensters (z. B. "In der Naehe" etwas heller als dunkel)
+    if type(def.defaultAlpha) == "number" and WL.Look(def).bg == nil then return def.defaultAlpha end
     return WL.BG[bg].alpha
 end
 function WL.RoleDefault(def, role)

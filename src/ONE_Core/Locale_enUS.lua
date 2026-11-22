@@ -408,6 +408,9 @@ EN["Heute"] = EN["Heute"] or "Today"
 EN["Begrüßungsfenster (Tagesüberblick) zeigen"] = "Show the welcome window (daily overview)"
 EN["Ziehen: Fenster größer/kleiner"] = "Drag: make the window bigger/smaller"
 
+-- Neuigkeiten 0.7.7
+EN["Chat: Knopf „Zum WoW-Chat“, zurück über die Sprechblase"] = "Chat: button \"To WoW chat\", back via the speech bubble"
+EN["Quest-Kasten: NPC-Name bei mehreren Quests vorn, Questnamen in ihrer Farbe"] = "Quest box: NPC name first with several quests, quest names in their colour"
 -- Neuigkeiten 0.7.6
 EN["Quest-Führung mit festen Routen je Volk und Klasse – ein Gebiet nach dem anderen, Ziele zusammengefasst"] = "Quest guide with fixed routes per race and class – one zone at a time, objectives grouped"
 EN["Quest-Kasten: Zahnrad öffnet eigenes Aussehen (WoW-Look, Kompakt, Minimal, Farben, Hintergrund)"] = "Quest box: the gear opens its own look (WoW look, compact, minimal, colours, background)"

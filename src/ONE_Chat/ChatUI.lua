@@ -217,11 +217,18 @@ function UI:BuildFrame(look)
     end)
     loot:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     self.lootButton = loot
+    -- Sprung zum WoW-Chat (Nutzer 22.11.2026), abschaltbar im Zahnrad
+    local jump = chat.Hider and chat.Hider:JumpButton(f)
+    if jump then
+        jump:SetPoint("RIGHT", loot, "LEFT", -6, 0)
+        jump:SetShown(chat.Hider.JumpShown())
+        self.jumpButton = jump
+    end
     if modern then
         -- Blizzard-Rahmen: Rand und Titelleiste liegen hoeher als normale Kinder -> Knoepfe darueber
         -- legen und gut sichtbar links neben das Schliessen-X setzen
         local level = (f.GetFrameLevel and f:GetFrameLevel() or 1) + 20
-        for _, b in ipairs({gear, loot}) do
+        for _, b in ipairs({gear, loot, jump}) do
             if b.SetFrameLevel then b:SetFrameLevel(level) end
             b:SetSize(16, 16)
         end
@@ -229,6 +236,7 @@ function UI:BuildFrame(look)
         gear:SetPoint("TOPRIGHT", f, "TOPRIGHT", -30, -4)
         loot:ClearAllPoints()
         loot:SetPoint("RIGHT", gear, "LEFT", -6, 0)
+        if jump then jump:ClearAllPoints() jump:SetPoint("RIGHT", loot, "LEFT", -6, 0) end
     end
     -- NICHT in UISpecialFrames: der Chat bleibt offen, wenn du ESC drueckst (Nutzer 19.11.2026);
     -- ESC in der Eingabezeile verlaesst nur das Feld. Schliessen ueber "×", Taste oder /trip chat.
@@ -1241,6 +1249,7 @@ end
 
 -- Ansicht zeigen (und Fenster oeffnen)
 function UI:Show(view)
+    if chat.Hider and chat.Hider.OnChatShown then chat.Hider:OnChatShown() end
     self:Build()
     if view then self.current = view end
     Chat.current, Chat.visible = self.current, true
@@ -1249,11 +1258,20 @@ function UI:Show(view)
     self:ApplyLook()
     self:Render()
     self:Refresh()
+    if chat.Launcher and chat.Launcher.Update then chat.Launcher:Update() end
     if ONE.MinimapButton and ONE.MinimapButton.ClearAlert then pcall(ONE.MinimapButton.ClearAlert, ONE.MinimapButton, "chat") end
 end
 function UI:Hide()
     if self.frame then self.frame:Hide() end
     Chat.visible = false
+    if chat.Launcher and chat.Launcher.Update then chat.Launcher:Update() end
+end
+-- Knopf "Zum WoW-Chat" ein/aus (beide Stile)
+function UI:RefreshJump()
+    local on = not chat.Hider or chat.Hider.JumpShown()
+    for _, b in ipairs({self.jumpButton, chat.Messenger and chat.Messenger.jumpButton}) do
+        if b and b.SetShown then b:SetShown(on) end
+    end
 end
 function UI:Toggle()
     if self.frame and self.frame:IsShown() then self:Hide() else self:Show() end

@@ -218,13 +218,16 @@ do
     local L = c.Launcher
     Chat.unread = {guild = 3, all = 5, ["w:Thrall"] = 2}
     local b = L:Build()
+    UI:Hide()
     L:Update()
     assert(b.shown and b.badge.text == "2", "Zaehler zeigt Fluestern")
     UI:Hide()
     b.scripts.OnClick(b)
     assert(UI.frame.shown, "Klick oeffnet den Chat")
+    assert(not b.shown, "bei offenem Chat keine Sprechblase (Nutzer 22.11.2026)")
     b.scripts.OnClick(b)
     assert(not UI.frame.shown, "zweiter Klick schliesst")
+    assert(b.shown, "Chat zu: Sprechblase wieder da")
     assert(UI.SettingOn("launcher"), "Knopf: Standard an")
     UI.SetSetting("launcher", false)
     L:Update()

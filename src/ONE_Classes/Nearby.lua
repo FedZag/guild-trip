@@ -443,6 +443,41 @@ local CLICKS = {"Linksklick", "Rechtsklick", "Umschalt + Linksklick"}
 
 -- Fenster im Blizzard-Aussehen, Texte in Theme-Farben
 local function Ink(text) return text end
+-- Aussehen (Zahnrad neben dem Titel, Nutzer 22.11.2026): Hintergrund, Titelfarbe. Namen bleiben in Klassenfarbe.
+local function LookGear(parent, def, anchor)
+    local gear = CreateFrame("Button", nil, parent)
+    gear:SetSize(14, 14)
+    gear:SetPoint("LEFT", anchor, "RIGHT", 4, 0)
+    local gi = gear:CreateTexture(nil, "OVERLAY")
+    gi:SetAllPoints()
+    gi:SetTexture("Interface\\Buttons\\UI-OptionsButton")
+    gear:SetScript("OnClick", function() if ONE.WindowLook then ONE.WindowLook:Toggle(def, parent) end end)
+    gear:SetScript("OnEnter", function(b)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(b, "ANCHOR_LEFT")
+        GameTooltip:AddLine(T("Aussehen"), 1, .82, 0)
+        GameTooltip:Show()
+    end)
+    gear:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    return gear
+end
+Nearby.LOOK = {
+    id = "nearby", title = "In der Nähe: Aussehen", key = "nearbyLook",
+    store = function() return ONE.db and (function()
+        ONE.db.classGuide = type(ONE.db.classGuide) == "table" and ONE.db.classGuide or {}
+        return ONE.db.classGuide
+    end)() end,
+    defaultBg = "dark", defaultAlpha = .55,
+    roles = {{key = "head", label = "Überschriften", default = {1, .82, 0}}},
+    onChange = function() Nearby:ApplyLook() end,
+}
+function Nearby:ApplyLook()
+    local f, WL = self.frame, ONE.WindowLook
+    if not (f and WL) then return end
+    WL.ApplyBg(self.LOOK, f.bg)
+    if f.title and f.title.SetTextColor then f.title:SetTextColor(WL.Color(self.LOOK, "head")) end
+end
+
 local function Themed(frame, bg, title, texts)
     local th = ONE.Themes
     if not th then return end
@@ -548,6 +583,9 @@ function Nearby:Frame()
     f.rows = {}
     f.bg = bg
     Themed(f, bg, f.title)
+    f.gear = LookGear(f, Nearby.LOOK, f.title)
+    self.frame = f
+    self:ApplyLook()
     -- Im Kampf ausblenden – ueber Blizzards sichere Zustandssteuerung
     if type(RegisterStateDriver) == "function" then pcall(RegisterStateDriver, f, "visibility", "[combat] hide; show") end
     self.frame = f

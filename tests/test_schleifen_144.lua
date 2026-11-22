@@ -246,7 +246,7 @@ do
             if r.kind == "nxTitle" then nextTitle, nextWho = r.text, rows[k + 1] and rows[k + 1].text end
         end
         assert(n2 == 3 and not big, "drei Teilziel-Zeilen, kein grosser Titel")
-        assert(nextTitle and nextTitle:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):find("Abgeben bei Dillinger", 1, true), "Abgeben bei NPC: " .. tostring(nextTitle))
+        assert(nextTitle and nextTitle:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):find("Dillinger: abgeben", 1, true), "NPC zuerst, dann abgeben: " .. tostring(nextTitle))
         assert(nextWho and not nextWho:find("Dillinger", 1, true), "darunter die Quests: " .. tostring(nextWho))
         Tr.Objectives = objs0
         GuildTripQuestDB.names = nil

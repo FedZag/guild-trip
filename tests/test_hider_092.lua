@@ -11,7 +11,7 @@ local function Region(kind, parent)
     function r:GetParent() return self.parent end
     return r
 end
-CreateFrame = function(kind, _, parent) return Region(kind, parent or UIParent) end
+CreateFrame = function(kind, _, parent) local r = Region(kind, parent or UIParent) r.CreateTexture = function() return Region("Texture") end return r end
 UIParent = Region("Frame")
 C_Timer = {After = function() end}
 ChatFrame1, ChatFrame1Tab, GeneralDockManager = Region("Frame", UIParent), Region("Button", UIParent), Region("Frame", UIParent)
@@ -47,4 +47,42 @@ Chat:Settings().hideBlizzard = true
 H:Apply()
 assert(ChatFrame1.parent == UIParent, "bei ElvUI nie ausblenden")
 assert(not H:Enabled())
+-- Springen zwischen Guild-Trip-Chat und WoW-Chat (Nutzer 22.11.2026)
+C_AddOns = nil
+local hidden = 0
+c.UI.Hide = function() hidden = hidden + 1 end
+Chat:Settings().hideBlizzard = true
+H:Apply()
+assert(ChatFrame1.parent ~= UIParent, "ersetzt")
+assert(H:ToWoW() and hidden == 1, "eigener Chat zu")
+assert(ChatFrame1.parent == UIParent and next(binds) == nil, "WoW-Chat voruebergehend da, Enter wieder fuer WoW")
+assert(Chat:Settings().hideBlizzard == true, "Einstellung bleibt")
+H:OnChatShown()
+assert(ChatFrame1.parent ~= UIParent and binds.ENTER == "GuildTripChatOpener", "zurueck: WoW-Chat wieder weg")
+-- im Kampf: nichts umhaengen, eigener Chat bleibt offen, danach erledigt
+InCombatLockdown = function() return true end
+assert(H:ToWoW() == false and hidden == 1 and ChatFrame1.parent ~= UIParent, "im Kampf nichts")
+assert(ONE.printed and ONE.printed:find("Kampf"), "Hinweis im Kampf")
+InCombatLockdown = function() return false end
+local ev
+local cf = CreateFrame
+CreateFrame = function(...) local r = cf(...) ev = ev or r return r end
+H:Initialize()
+CreateFrame = cf
+ev.scripts.OnEvent(ev, "PLAYER_REGEN_ENABLED")
+assert(ChatFrame1.parent == UIParent and hidden == 2, "nach dem Kampf: WoW-Chat da, eigener zu")
+H:OnChatShown()
+assert(ChatFrame1.parent ~= UIParent, "wieder ersetzt")
+-- ohne Ersetzen: nur eigener Chat zu, nichts umhaengen
+Chat:Settings().hideBlizzard = false
+H:Apply()
+assert(H:ToWoW() and hidden == 3 and not H.peek and ChatFrame1.parent == UIParent)
+-- Knopf abschaltbar, Standard an
+assert(H.JumpShown())
+Chat:Settings().jumpButton = false
+assert(not H.JumpShown())
+UIParent.CreateTexture = function() return Region("Texture") end
+local jp = Region("Frame") jp.CreateTexture = UIParent.CreateTexture
+local b = H:JumpButton(jp)
+assert(b.scripts.OnClick, "Knopf klickbar")
 print("OK test_hider_092")

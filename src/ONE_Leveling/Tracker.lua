@@ -441,7 +441,7 @@ function Tr:Rows(plan, budget)
             -- eine Zeile mit Fortschritt, die Quest klein rechts; keine Quest-Zahl, kein grosser Titel
             local tip = Tr.StepTip(plan, 1)
             for _, a in ipairs(s1.actions) do
-                local qn = "|cffa0a0a0" .. G.Title(a.id) .. "|r"
+                local qn = Tr.Code("title") .. G.Title(a.id) .. "|r"
                 local objs = Tr.Objectives(a.id)
                 if #objs == 0 then
                     rows[#rows + 1] = {text = G.LevelTitle(a.id), kind = "obj2", nav = {step = s1, qid = a.id}, block = "now", tip = tip}
@@ -619,10 +619,11 @@ function Tr.AtNPC(step)
     for _, a in ipairs(step.actions) do
         if a.kind == "accept" then acc = true elseif a.kind == "turnin" then tin = true end
     end
+    -- Name zuerst (Spieltest 22.11.2026: am Ende abgeschnitten, die Questgeber-Farbe war nicht zu sehen)
     who = Tr.Giver(who)
-    if acc and tin then return G.ICON.turnin .. " " .. T("Abgeben + annehmen bei %s", who) end
-    if tin then return G.ICON.turnin .. " " .. T("Abgeben bei %s", who) end
-    return G.ICON.accept .. " " .. T("Annehmen bei %s", who)
+    if acc and tin then return G.ICON.turnin .. " " .. T("%s: abgeben + annehmen", who) end
+    if tin then return G.ICON.turnin .. " " .. T("%s: abgeben", who) end
+    return G.ICON.accept .. " " .. T("%s: annehmen", who)
 end
 function Tr.NowTitle(step)
     if step.kind == "travel" or step.kind == "dungeon" or #(step.actions or {}) == 0 then return G:StepText(step, false, true) end
@@ -663,7 +664,8 @@ function Tr.NowWhoBase(step)
     if step.kind ~= "accept" and step.kind ~= "turnin" and step.kind ~= "obj" then return G:StepWho(step) end
     if Tr.AtNPC(step) then
         local names = {}
-        for _, a in ipairs(step.actions) do names[#names + 1] = G.Title(a.id) end
+        -- Questnamen in ihrer eigenen Farbe (Nutzer 22.11.2026), Trenner in Textfarbe
+        for _, a in ipairs(step.actions) do names[#names + 1] = Tr.Code("title") .. G.Title(a.id) .. "|r" end
         return table.concat(names, " · ")
     end
     local verbs, seen = {}, {}

@@ -31,7 +31,58 @@ end
 function Arrow:ApplyPosition()
     local s = self:Settings()
     self.frame:ClearAllPoints()
-    self.frame:SetPoint("CENTER", UIParent, "CENTER", s.x, s.y)
+    local scale = self.frame.GetScale and self.frame:GetScale() or 1
+    if type(scale) ~= "number" or scale <= 0 then scale = 1 end
+    self.frame:SetPoint("CENTER", UIParent, "CENTER", s.x / scale, s.y / scale)
+end
+
+-- ===== Aussehen (Zahnrad am Pfeil, Nutzer 22.11.2026: eigene Optionen je Zusatzfenster) =====
+Arrow.LOOK_PRESETS = {
+    standard = {},
+    compact = {hide = {hint = true, tip = true}},
+    minimal = {hide = {title = true, hint = true, tip = true}},
+}
+Arrow.LOOK = {
+    id = "arrow", title = "Navi-Pfeil: Aussehen", key = "look",
+    store = function() return Arrow:Settings() end,
+    presets = {
+        {value = "standard", bg = "none", text = "Standard", tooltip = "Pfeil mit Ziel, Entfernung und Hinweisen."},
+        {value = "compact", bg = "none", text = "Kompakt", tooltip = "Pfeil mit Ziel und Entfernung."},
+        {value = "minimal", bg = "none", text = "Minimal", tooltip = "Nur Pfeil und Entfernung."},
+    },
+    defaultPreset = "standard", defaultBg = "none",
+    roles = {
+        {key = "title", label = "Ziel", default = {1, .82, 0}},
+        {key = "dist", label = "Entfernung", default = {1, 1, 1}},
+        {key = "text", label = "Hinweise", default = {.85, .85, .85}},
+    },
+    scale = {get = function() return Arrow:Settings().scale or 1 end,
+        set = function(v) Arrow:SetScale(v) end, step = .05},
+    onChange = function() Arrow:ApplyLook() end,
+}
+function Arrow:SetScale(v)
+    v = math.max(.6, math.min(1.8, math.floor((v or 1) * 20 + .5) / 20))
+    self:Settings().scale = v
+    if self.frame then self.frame:SetScale(v) self:ApplyPosition() end
+end
+Arrow.LOOK_FIELDS = {{"title", "title"}, {"distance", "dist"}, {"hint", "text"}, {"tip", "text"}}
+function Arrow:ApplyLook()
+    local f = self.frame
+    local WL = ONE.WindowLook
+    if not (f and WL) then return end
+    local s = self:Settings()
+    if f.SetScale then f:SetScale(s.scale or 1) self:ApplyPosition() end
+    WL.ApplyBg(self.LOOK, f.bg, f.edges)
+    local pr = self.LOOK_PRESETS[WL.Preset(self.LOOK)] or self.LOOK_PRESETS.standard
+    local hide = pr.hide or {}
+    for _, pair in ipairs(Arrow.LOOK_FIELDS) do
+        local key, role = pair[1], pair[2]
+        local fs = self[key]
+        if fs then
+            if fs.SetTextColor then fs:SetTextColor(WL.Color(self.LOOK, role)) end
+            if fs.SetAlpha then fs:SetAlpha(hide[key] and 0 or 1) end
+        end
+    end
 end
 
 function Arrow:SavePosition()
@@ -175,6 +226,32 @@ function Arrow:Create()
     self.hint = Text(f, "GameFontHighlightSmall", nil, 236, self.distance, 2)
     self.tip = Text(f, "GameFontHighlightSmall", nil, 236, self.hint, 3)
     if self.tip.SetTextColor then self.tip:SetTextColor(.85, .85, .85) end
+    -- Hintergrund (Standard unsichtbar) und Zahnrad: eigenes Aussehen
+    f.bg = f:CreateTexture(nil, "BACKGROUND")
+    f.bg:SetAllPoints(f)
+    f.edges = {}
+    for i, side in ipairs({{"TOPLEFT", "TOPRIGHT"}, {"BOTTOMLEFT", "BOTTOMRIGHT"}}) do
+        local t = f:CreateTexture(nil, "BORDER")
+        t:SetPoint(side[1], f, side[1], 0, 0)
+        t:SetPoint(side[2], f, side[2], 0, 0)
+        if t.SetHeight then t:SetHeight(1) end
+        f.edges[i] = t
+    end
+    local gear = CreateFrame("Button", nil, f)
+    gear:SetSize(16, 16)
+    gear:SetPoint("TOPRIGHT", f, "TOP", -(ARROW_SIZE / 2 + 6), -3)
+    local gi = gear:CreateTexture(nil, "OVERLAY")
+    gi:SetAllPoints()
+    gi:SetTexture("Interface\\Buttons\\UI-OptionsButton")
+    gear:SetScript("OnClick", function() if ONE.WindowLook then ONE.WindowLook:Toggle(Arrow.LOOK, f) end end)
+    gear:SetScript("OnEnter", function(b)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(b, "ANCHOR_LEFT")
+        GameTooltip:AddLine(T("Aussehen des Pfeils"), 1, .82, 0)
+        GameTooltip:Show()
+    end)
+    gear:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    self.gear = gear
     local close = CreateFrame("Button", nil, f)
     close:SetSize(18, 18)
     close:SetPoint("TOPLEFT", f, "TOP", ARROW_SIZE / 2 + 6, -2)
@@ -188,6 +265,7 @@ function Arrow:Create()
     self.frame = f
     self.rotateElapsed, self.refreshElapsed = 0, 0
     f:SetScript("OnUpdate", function(_, elapsed) self:OnUpdate(elapsed or 0) end)
+    self:ApplyLook()
     self:ApplyPosition()
     self:SetLocked(self:Settings().locked)
 end

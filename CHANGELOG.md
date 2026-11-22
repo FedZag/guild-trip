@@ -4,6 +4,22 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.7.7-alpha (veröffentlicht 22.11.2026)
+
+```
+## 0.7.7-alpha
+
+**English**
+- Chat: new button "To WoW chat" – jumps to the normal WoW chat (if Guild Trip replaces it, only for the moment); the speech bubble at the WoW chat brings you back. Can be switched off. The bubble now only shows while the Guild Trip chat is closed.
+- Quest box: with several quests at the same NPC the name comes first (in quest giver colour) instead of being cut off at the end; quest names under the NPC and next to objectives use the quest name colour.
+
+**Deutsch**
+- Chat: neuer Knopf „Zum WoW-Chat“ – springt zum normalen WoW-Chat (ersetzt Guild Trip ihn, nur vorübergehend); zurück über die Sprechblase am WoW-Chat. Abschaltbar. Die Sprechblase erscheint jetzt nur, solange der Guild-Trip-Chat zu ist.
+- Quest-Kasten: Bei mehreren Quests am selben NPC steht der Name vorn (in Questgeber-Farbe), statt hinten abgeschnitten; Questnamen unter dem NPC und neben Teilzielen in der Questnamen-Farbe.
+```
+
+---
+
 ## 0.7.6-alpha (veröffentlicht 22.11.2026)
 
 ```

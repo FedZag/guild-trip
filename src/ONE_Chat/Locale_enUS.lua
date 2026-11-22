@@ -157,6 +157,12 @@ EN["Textfarbe in den Blasen …"] = "Text colour in bubbles …"
 EN["Farbe der Nachrichten in den Sprechblasen. Ohne Auswahl: weiß."] = "Colour of the messages in the speech bubbles. If not set: white."
 EN["Blasenfarben zurücksetzen"] = "Reset bubble colours"
 EN["Eigene Blasenfarbe, Textfarbe und Stärke wieder wie am Anfang."] = "Own bubble colour, text colour and strength back to default."
+-- Sprung zum WoW-Chat (22.11.2026)
+EN["Zum WoW-Chat"] = "To WoW chat"
+EN["Schließt diesen Chat und zeigt den WoW-Chat. Zurück: Sprechblase am WoW-Chat."] = "Closes this chat and shows the WoW chat. Back: speech bubble at the WoW chat."
+EN["Knopf „Zum WoW-Chat“"] = "“To WoW chat” button"
+EN["Kleiner Knopf oben im Chat: schließt diesen Chat und zeigt den WoW-Chat – auch wenn er ersetzt ist (nur vorübergehend). Zurück über die Sprechblase am WoW-Chat."] = "Small button at the top of the chat: closes this chat and shows the WoW chat – even if it is replaced (only temporarily). Back via the speech bubble at the WoW chat."
+EN["Im Kampf geht das nicht – der WoW-Chat kommt gleich nach dem Kampf."] = "Not possible in combat – the WoW chat appears right after combat."
 local function Add(de, en) EN[de] = EN[de] or en end
 for de, en in pairs({
     ["offline seit %d Jahren"] = "offline for %d years", ["offline seit 1 Monat"] = "offline for 1 month",
@@ -218,3 +224,8 @@ for de, en in pairs({
     ["Müde"] = "Tired", ["Warten"] = "Waiting", ["Kreis"] = "Circle", ["Diamant"] = "Diamond", ["Dreieck"] = "Triangle", ["Mond"] = "Moon",
     ["Quadrat"] = "Square", ["Totenschädel"] = "Skull",
 }) do Add(de, en) end
+-- Beute-Aussehen (22.11.2026)
+EN["Beute: Aussehen"] = "Loot: appearance"
+EN["Überschriften"] = "Headings"
+EN["Text"] = "Text"
+EN["Aussehen"] = "Appearance"

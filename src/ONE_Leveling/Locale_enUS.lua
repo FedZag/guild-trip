@@ -376,3 +376,7 @@ EN["Hinweise"] = "Hints"
 EN["Weitere Einstellungen der Quest-Führung …"] = "More quest guide settings …"
 EN["Aussehen und Einstellungen"] = "Appearance and settings"
 EN["Ziehen = verschieben, Rechtsklick = Quest-Seite, Pfeil = Navi, Zahnrad = Aussehen und Einstellungen."] = "Drag = move, right-click = quest page, arrow = navi, gear = appearance and settings."
+-- NPC zuerst (22.11.2026)
+EN["%s: abgeben + annehmen"] = "%s: turn in + accept"
+EN["%s: abgeben"] = "%s: turn in"
+EN["%s: annehmen"] = "%s: accept"

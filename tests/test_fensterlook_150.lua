@@ -123,4 +123,24 @@ end
 -- Zahnrad oeffnet die eigenen Optionen (nicht das Hauptfenster)
 local f = assert(io.open(root .. "/ONE_Leveling/Tracker.lua")) local src = f:read("*a") f:close()
 assert(src:find("ONE.WindowLook:Toggle(Tr.LOOK, f)", 1, true), "Zahnrad = eigenes Aussehen")
+-- eigener Standard je Fenster (In der Naehe: etwas heller als dunkel)
+local st2 = {}
+local d2 = {store = function() return st2 end, defaultBg = "dark", defaultAlpha = .55}
+assert(math.abs(WL.Alpha(d2) - .55) < 1e-9)
+WL.Set(d2, "bg", "dark")
+assert(math.abs(WL.Alpha(d2) - .72) < 1e-9, "ausdruecklich gewaehlt: Stufe")
+-- Regel: jedes Zusatzfenster hat ein Zahnrad mit eigenem Aussehen
+for _, file in ipairs({"ONE_Leveling/Tracker.lua", "ONE_Nav/Arrow.lua", "ONE_Chat/LootWindow.lua", "ONE_Classes/Buffs.lua", "ONE_Classes/Nearby.lua"}) do
+    local h = assert(io.open(root .. "/" .. file)) local code = h:read("*a") h:close()
+    assert(code:find("WindowLook:Toggle(", 1, true) and code:find("UI-OptionsButton", 1, true), "Zahnrad fehlt: " .. file)
+end
+-- mehrere Quests beim selben NPC: Name vorn (sonst abgeschnitten), in Questgeber-Farbe
+db.trackerLook = {colors = {giver = {1, 0, 0}}}
+local at = Tr.AtNPC({kind = "turnin", nr = 1, actions = {{kind = "turnin", id = 1}, {kind = "accept", id = 2}}})
+assert(at:find("|cffff0000Tonga|r: abgeben + annehmen", 1, true), at)
+-- darunter die Questnamen in Questnamen-Farbe
+db.trackerLook = {colors = {title = {0, 0, 1}}}
+G.Title = function(id) return "Quest " .. id end
+local who2 = Tr.NowWhoBase({kind = "turnin", nr = 1, actions = {{kind = "turnin", id = 1}, {kind = "accept", id = 2}}})
+assert(who2 == "|cff0000ffQuest 1|r · |cff0000ffQuest 2|r", who2)
 print("OK test_fensterlook_150")

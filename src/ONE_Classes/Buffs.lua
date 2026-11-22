@@ -30,6 +30,38 @@ local function Store()
     return ONE.db.classGuide
 end
 
+-- Aussehen (Zahnrad neben der Beschriftung, Nutzer 22.11.2026): Hintergrund hinter den Symbolen, Farbe der Beschriftung
+local function LookGear(parent, def, anchor)
+    local gear = CreateFrame("Button", nil, parent)
+    gear:SetSize(14, 14)
+    gear:SetPoint("LEFT", anchor, "RIGHT", 4, 0)
+    local gi = gear:CreateTexture(nil, "OVERLAY")
+    gi:SetAllPoints()
+    gi:SetTexture("Interface\\Buttons\\UI-OptionsButton")
+    gear:SetScript("OnClick", function() if ONE.WindowLook then ONE.WindowLook:Toggle(def, parent) end end)
+    gear:SetScript("OnEnter", function(b)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(b, "ANCHOR_LEFT")
+        GameTooltip:AddLine(T("Aussehen"), 1, .82, 0)
+        GameTooltip:Show()
+    end)
+    gear:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    return gear
+end
+Buffs.LOOK = {
+    id = "buffs", title = "Buff-Erinnerung: Aussehen", key = "buffLook",
+    store = function() return Store() end,
+    defaultBg = "none",
+    roles = {{key = "head", label = "Beschriftung", default = {1, .82, 0}}},
+    onChange = function() Buffs:ApplyLook() end,
+}
+function Buffs:ApplyLook()
+    local f, WL = self.frame, ONE.WindowLook
+    if not (f and WL) then return end
+    WL.ApplyBg(self.LOOK, f.bg)
+    if f.label and f.label.SetTextColor then f.label:SetTextColor(WL.Color(self.LOOK, "head")) end
+end
+
 local function InCombat() return type(InCombatLockdown) == "function" and InCombatLockdown() end
 local function Now() return (type(GetTime) == "function" and GetTime()) or 0 end
 
@@ -181,9 +213,14 @@ function Buffs:Frame()
     f.label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     f.label:SetPoint("BOTTOM", f, "TOP", 0, 2)
     f.buttons = {}
+    f.bg = f:CreateTexture(nil, "BACKGROUND")
+    f.bg:SetPoint("TOPLEFT", f, "TOPLEFT", -4, 18)
+    f.bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 4, -4)
+    f.gear = LookGear(f, Buffs.LOOK, f.label)
     -- Im Kampf ausblenden – ueber Blizzards sichere Zustandssteuerung
     if type(RegisterStateDriver) == "function" then pcall(RegisterStateDriver, f, "visibility", "[combat] hide; show") end
     self.frame = f
+    self:ApplyLook()
     return f
 end
 

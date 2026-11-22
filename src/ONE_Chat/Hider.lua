@@ -26,8 +26,54 @@ end
 
 function Hider:Enabled()
     local can = Chat:CanHideBlizzardChat()
-    return can and Chat:Settings().hideBlizzard == true
+    return can and Chat:Settings().hideBlizzard == true and not self.peek
 end
+
+-- ===== Springen zwischen Guild-Trip-Chat und WoW-Chat (Nutzer 22.11.2026) =====
+-- Knopf im Chat: Guild-Trip-Chat zu, WoW-Chat sichtbar. Ist "WoW-Chat ersetzen" an, wird er nur
+-- voruebergehend eingeblendet (self.peek, nicht gespeichert); die Einstellung bleibt. Zurueck: Sprechblase am
+-- WoW-Chat, Taste oder /trip chat – sobald der Guild-Trip-Chat aufgeht, ist der WoW-Chat wieder weg.
+function Hider:ToWoW()
+    local replacing = Chat:CanHideBlizzardChat() and Chat:Settings().hideBlizzard == true
+    if replacing then
+        self.peek = true
+        if InCombatLockdown and InCombatLockdown() then
+            -- im Kampf nichts umhaengen: erst danach, solange bleibt der Guild-Trip-Chat offen
+            self.wantApply, self.hideAfterCombat = true, true
+            ONE:Print(T("Im Kampf geht das nicht – der WoW-Chat kommt gleich nach dem Kampf."))
+            return false
+        end
+        self:Apply()
+    end
+    if UI.Hide then UI:Hide() end
+    return true
+end
+-- Guild-Trip-Chat geht auf: voruebergehend gezeigten WoW-Chat wieder ausblenden
+function Hider:OnChatShown()
+    if not self.peek then return end
+    self.peek, self.hideAfterCombat = nil, nil
+    self:Apply()
+end
+-- kleiner Knopf in der Titelleiste des Chats (abschaltbar: Einstellung "jumpButton")
+function Hider:JumpButton(parent)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(18, 18)
+    local t = b:CreateTexture(nil, "ARTWORK")
+    t:SetAllPoints(b)
+    t:SetTexture("Interface\\ChatFrame\\UI-ChatIcon-Chat-Up")
+    b:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+    b:SetScript("OnClick", function() Hider:ToWoW() end)
+    b:SetScript("OnEnter", function(btn)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(btn, "ANCHOR_LEFT")
+        GameTooltip:SetText(T("Zum WoW-Chat"))
+        GameTooltip:AddLine(T("Schließt diesen Chat und zeigt den WoW-Chat. Zurück: Sprechblase am WoW-Chat."), .8, .8, .8, true)
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    return b
+end
+function Hider.JumpShown() return Chat:Settings().jumpButton ~= false end
 
 function Hider:Apply()
     if InCombatLockdown and InCombatLockdown() then
@@ -90,12 +136,19 @@ end
 function Hider:Initialize()
     local f = CreateFrame("Frame")
     f:RegisterEvent("PLAYER_REGEN_ENABLED")
-    f:SetScript("OnEvent", function() if Hider.wantApply then Hider.wantApply = nil Hider:Apply() end end)
+    f:SetScript("OnEvent", function()
+        if Hider.wantApply then
+            Hider.wantApply = nil
+            Hider:Apply()
+            if Hider.hideAfterCombat and Hider.peek then Hider.hideAfterCombat = nil if UI.Hide then UI:Hide() end end
+        end
+    end)
     if C_Timer and C_Timer.After then C_Timer.After(1, function() if Hider:Enabled() then Hider:Apply() end end) end
     if ONE.RegisterSlash then
         -- Notausgang: bringt den WoW-Chat zurueck (auch wenn das Chatfenster mal weg sein sollte)
         ONE:RegisterSlash("wowchat", function()
             Chat:Settings().hideBlizzard = not Hider:Enabled()
+            Hider.peek = nil
             Hider:Apply()
             ONE:Print(Hider:Enabled() and T("WoW-Chat ist ausgeblendet. /trip wowchat bringt ihn zurück.") or T("WoW-Chat ist wieder da."))
         end, T("WoW-Chat aus-/einblenden"))
