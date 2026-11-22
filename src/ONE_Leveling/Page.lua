@@ -152,7 +152,7 @@ function Page:Build(parent, W, H, getMode)
                 or (n == 1 and T("nächste Stufe: 1 Abgabe, ~%d min", m))
                 or T("nächste Stufe: %d Abgaben, ~%d min", n, m))
         end
-        G.goalText = T("Stufe %d von 60", plan.level) .. "  ·  " .. T("Tempo: %s", T(G.TEMPO_NAMES[db.tempo] or db.tempo)) .. nextText
+        G.goalText = T("Stufe %d von 60", plan.level) .. nextText
         local items = Items(plan, mode)
         local journal = mode == "journal"
         -- Kit:List ist eine Tabelle; sichtbar/unsichtbar ist ihr Rahmen .box (Spieltest 19.11.2026: beide Listen
@@ -235,8 +235,11 @@ function Page:BuildGear(parent, W, H)
                 frame.icon:SetPoint("LEFT", frame, "LEFT", 88, 0)
                 if ONE.Glass and ONE.Glass.RoundIcon then ONE.Glass:RoundIcon(frame, frame.icon) end
             end
-            local tex = row.now and C_Item and type(C_Item.GetItemIconByID) == "function" and select(2, pcall(C_Item.GetItemIconByID, row.now.item.id))
+            -- leerer Platz: das, was als Naechstes kommt (Nutzer 22.11.2026), grau
+            local show = row.now or row.next
+            local tex = show and C_Item and type(C_Item.GetItemIconByID) == "function" and select(2, pcall(C_Item.GetItemIconByID, show.item.id))
             if tex then frame.icon:SetTexture(tex) frame.icon:Show() else frame.icon:Hide() end
+            if frame.icon.SetDesaturated then frame.icon:SetDesaturated(not row.now and tex and true or false) end
             if frame.icon.__oneRing then frame.icon.__oneRing:SetShown(tex and true or false) end
             cells.slot:SetText(T(row.slot.name))
             cells.slot:SetTextColor(.8, .8, .8)
@@ -260,6 +263,15 @@ function Page:BuildGear(parent, W, H)
             local who = row.now and Way.AskTarget(row.now.sources[1])
             frame.askRow, frame.askWho = row, who
             if who then frame.ask:Show() cells.src:SetWidth(SRCW - 78) else frame.ask:Hide() cells.src:SetWidth(SRCW) end
+            if not row.now and row.next then
+                local n = row.next
+                cells.item:SetText("|cff9d9d9d" .. Name(n.item.id) .. "|r")
+                cells.plus:SetText("|cff9d9d9d" .. T("bald") .. "|r")
+                cells.src:SetText("|cff9d9d9d" .. Way.SourceText(n.sources[1], true) .. "|r")
+                cells.src:SetTextColor(1, 1, 1)
+                cells.holds:SetText("|cff9d9d9d" .. T("ab %d", n.at or Way.ReqLevel(n.item)) .. "|r")
+                return
+            end
             if not row.now then
                 cells.item:SetText("|cff808080" .. T("nichts Passendes gefunden") .. "|r")
                 cells.plus:SetText("") cells.src:SetText("") cells.holds:SetText("")
@@ -277,10 +289,26 @@ function Page:BuildGear(parent, W, H)
             cells.holds:SetText(row.holdsTo and T("Stufe %d", row.holdsTo) or "|cff9d9d9d–|r")
         end,
         onClick = function(_, row)
-            if row.now then Way:Get(row.now.sources[1], row.now.item.id) end
+            local show = row.now or row.next
+            if show then Way:Get(show.sources[1], show.item.id) end
         end,
         onEnter = function(self, row)
-            if not (row.now and GameTooltip) then return end
+            if not GameTooltip then return end
+            if not row.now and row.next then
+                -- leerer Platz: kommt bald
+                local n = row.next
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                if GameTooltip.SetHyperlink then pcall(GameTooltip.SetHyperlink, GameTooltip, "item:" .. n.item.id) end
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddLine(T("Für diesen Platz gibt es auf deiner Stufe noch nichts – das hier kommt ab Stufe %d.", n.at or Way.ReqLevel(n.item)), .7, .9, 1, true)
+                for _, src in ipairs(n.all or n.sources) do
+                    GameTooltip:AddLine("• " .. Way.SourceText(src), src.sure and 1 or .6, src.sure and 1 or .6, src.sure and 1 or .6, true)
+                end
+                GameTooltip:AddLine(T("Klick: Navi zur Quelle mit Anleitung"), .3, 1, .3, true)
+                GameTooltip:Show()
+                return
+            end
+            if not row.now then return end
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             local it = row.now.item
             if GameTooltip.SetHyperlink then pcall(GameTooltip.SetHyperlink, GameTooltip, "item:" .. it.id) end
@@ -304,7 +332,7 @@ function Page:BuildGear(parent, W, H)
             else GameTooltip:AddLine(T("Hält lange – nichts deutlich Besseres in Sicht."), .7, .9, 1, true) end
             if row.next then
                 local n = row.next
-                GameTooltip:AddLine(T("Bald: %s ab Stufe %d – %s", Color(n.item, Name(n.item.id)), Way.ReqLevel(n.item), Way.SourceText(n.sources[1], true)), .9, .9, .9, true)
+                GameTooltip:AddLine(T("Bald: %s ab Stufe %d – %s", Color(n.item, Name(n.item.id)), n.at or Way.ReqLevel(n.item), Way.SourceText(n.sources[1], true)), .9, .9, .9, true)
             end
             GameTooltip:AddLine(T("Klick: Navi zur Quelle mit Anleitung – bei Questreihen zum ersten offenen Teil (Herstellung durch die Gilde: Anfrage im Flüsterchat)"), .3, 1, .3, true)
             GameTooltip:Show()

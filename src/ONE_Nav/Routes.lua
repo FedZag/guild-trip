@@ -5,14 +5,17 @@
 local _, nav = ...
 local Routes = {
     reach = 320,       -- so weit (Luftlinie) darf der nächste Netzknoten von Spieler/Ziel weg sein
-    offroad = 1.25,    -- Luftlinie zum/vom Netz zählt etwas teurer (kein Weg bekannt)
+    offroad = 1.5,     -- Luftlinie zum/vom Netz zählt teurer (kein Weg bekannt; wie abseits der Straße im Netz)
     candidates = 6,    -- so viele Knoten am Anfang/Ende ausprobieren
     direct = 120,      -- näher als das: direkt hin, kein Netz
     passRadius = 14,   -- Punkt gilt als erreicht
     offRoute = 70,     -- weiter weg von der Linie: neu planen
-    shortcut = 140,    -- Einstieg in den Weg: höchstens so weit Luftlinie abkürzen …
-    joinWithin = 400,  -- … auf die ersten so vielen Yards des Wegs
-    pull = 600,        -- Umweg querfeldein abkürzen, wenn die Gerade höchstens so lang ist …
+    shortcut = 80,     -- Einstieg in den Weg: höchstens so weit Luftlinie abkürzen …
+    joinWithin = 200,  -- … auf die ersten so vielen Yards des Wegs
+    -- Lange Abkürzungen querfeldein AUS (22.11.2026, Nutzer: „nutzt kaum Straßen … zu oft über Berge“): gemessen
+    -- gegen die SPF-Laufkarten führten sie 7–12 % der Strecke geradeaus durch Berge/Kanten, ohne sie 1,5 %.
+    -- Das Netz bevorzugt jetzt Straßen (bake_routes.lua ROADS 1,5), Abkürzen würde das wieder aufheben.
+    pull = 0,          -- Umweg querfeldein abkürzen, wenn die Gerade höchstens so lang ist (0 = aus) …
     pullRatio = 1.2,   -- … und der Weg dort mindestens so viel länger wäre
 }
 nav.Routes = Routes

@@ -17,8 +17,8 @@ crafting.TrainerPack = {
         kind = "class",
         map = 1458,
         what = "Magielehrerin",
-        x = 0.849,
-        y = 0.103,
+        x = 0.847,
+        y = 0.105,
     },
     Ansekhwa = {
         area = "Thunder Bluff",
@@ -72,7 +72,7 @@ crafting.TrainerPack = {
         map = 1456,
         what = "Kochkunstlehrerin",
         x = 0.509,
-        y = 0.528,
+        y = 0.525,
     },
     ["Bena Winterhoof"] = {
         area = "Thunder Bluff",
@@ -153,7 +153,7 @@ crafting.TrainerPack = {
         map = 1454,
         what = "Magielehrerin",
         x = 0.388,
-        y = 0.852,
+        y = 0.854,
     },
     ["Eunice Burch"] = {
         area = "Undercity",
@@ -161,8 +161,8 @@ crafting.TrainerPack = {
         kind = "class",
         map = 1458,
         what = "Kochkunstlehrerin",
-        x = 0.622,
-        y = 0.445,
+        x = 0.624,
+        y = 0.444,
     },
     ["Franklin Lloyd"] = {
         area = "Undercity",
@@ -207,8 +207,8 @@ crafting.TrainerPack = {
         kind = "weapon",
         map = 1454,
         what = "Waffenmeister",
-        x = 0.813,
-        y = 0.195,
+        x = 0.814,
+        y = 0.194,
     },
     ["Hesuwa Thunderhorn"] = {
         area = "Thunder Bluff",
@@ -235,8 +235,8 @@ crafting.TrainerPack = {
         kind = "other",
         map = 1458,
         what = "Schneiderfachmann",
-        x = 0.707,
-        y = 0.299,
+        x = 0.704,
+        y = 0.302,
     },
     ["Kah Mistrunner"] = {
         area = "Thunder Bluff",
@@ -286,11 +286,11 @@ crafting.TrainerPack = {
     ["Killian Hagey"] = {
         area = "Undercity",
         faction = "Horde",
-        kind = "class",
+        kind = "profession",
         map = 1458,
-        what = "Kürschnerlehrer",
+        what = "Kürschnereifachmann",
         x = 0.704,
-        y = 0.59,
+        y = 0.593,
     },
     ["Koch Torka"] = {
         area = "Durotar",
@@ -318,7 +318,7 @@ crafting.TrainerPack = {
         x = 0.468,
         y = 0.34,
     },
-    ["Lau'Tiki"] = {area = "Durotar", kind = "other", map = 1411, what = "Angler", x = 0.533, y = 0.817},
+    ["Lau'Tiki"] = {area = "Durotar", kind = "other", map = 1411, what = "Angler", x = 0.532, y = 0.815},
     ["Lexington Mortaim"] = {
         area = "Undercity",
         faction = "Horde",
@@ -340,11 +340,11 @@ crafting.TrainerPack = {
     Magar = {
         area = "Orgrimmar",
         faction = "Horde",
-        kind = "profession",
+        kind = "other",
         map = 1454,
-        what = "Gesellenschneiderei",
+        what = "Schneiderexperte",
         x = 0.634,
-        y = 0.501,
+        y = 0.499,
     },
     ["Mai'ah"] = {
         area = "Durotar",
@@ -367,11 +367,11 @@ crafting.TrainerPack = {
     ["Mary Edras"] = {
         area = "Undercity",
         faction = "Horde",
-        kind = "profession",
+        kind = "class",
         map = 1458,
-        what = "Lehrling für Erste Hilfe",
-        x = 0.735,
-        y = 0.556,
+        what = "Lehrerin für Erste Hilfe",
+        x = 0.734,
+        y = 0.553,
     },
     ["Melbin Powderfuse"] = {
         area = "Flusslande",
@@ -440,7 +440,7 @@ crafting.TrainerPack = {
         kind = "other",
         map = 1458,
         what = "Schneiderexpertin",
-        x = 0.705,
+        x = 0.704,
         y = 0.302,
     },
     Roxxik = {
@@ -449,8 +449,8 @@ crafting.TrainerPack = {
         kind = "other",
         map = 1454,
         what = "Ingenieurfachmann",
-        x = 0.76,
-        y = 0.253,
+        x = 0.759,
+        y = 0.25,
     },
     Sayoc = {
         area = "Orgrimmar",
@@ -459,7 +459,7 @@ crafting.TrainerPack = {
         map = 1454,
         weapons = {axe1 = true, fist = true},
         what = "Waffenmeister",
-        x = 0.815,
+        x = 0.816,
         y = 0.193,
     },
     ["Serge Hinott"] = {
@@ -493,8 +493,8 @@ crafting.TrainerPack = {
         kind = "class",
         map = 1454,
         what = "Schurkenlehrer",
-        x = 0.432,
-        y = 0.537,
+        x = 0.431,
+        y = 0.536,
     },
     ["Sian'dur"] = {
         area = "Orgrimmar",
@@ -537,8 +537,8 @@ crafting.TrainerPack = {
         kind = "class",
         map = 1456,
         what = "Magielehrer",
-        x = 0.252,
-        y = 0.206,
+        x = 0.25,
+        y = 0.207,
     },
     Thuul = {
         area = "Orgrimmar",
@@ -546,8 +546,8 @@ crafting.TrainerPack = {
         kind = "class",
         map = 1454,
         what = "Portallehrer",
-        x = 0.385,
-        y = 0.857,
+        x = 0.386,
+        y = 0.86,
     },
     Thuwd = {
         area = "Orgrimmar",
@@ -564,8 +564,8 @@ crafting.TrainerPack = {
         kind = "class",
         map = 1456,
         what = "Druidenlehrer",
-        x = 0.766,
-        y = 0.276,
+        x = 0.768,
+        y = 0.277,
     },
     ["Ug'thok"] = {
         area = "Orgrimmar",
@@ -634,7 +634,7 @@ crafting.TrainerPack = {
         kind = "other",
         map = 1434,
         what = "Tierausbilder",
-        x = 0.311,
+        x = 0.312,
         y = 0.289,
     },
 }

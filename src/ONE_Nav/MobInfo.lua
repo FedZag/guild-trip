@@ -49,6 +49,9 @@ function M:Rebuild()
     if not (Q and Q.q) then return end
     local wanted = {}
     self.mine = {}
+    -- meine offenen Ziele je Gegner (Nutzer 22.11.2026: "Niere gesammelt – Ausrufezeichen ueber den Schreitern
+    -- sollten weg sein"): mineNpc[npc][quest] = true nur fuer Gegner eines noch OFFENEN Ziels
+    self.mineNpc = {}
     for _, q in ipairs(nav.Quests and nav.Quests:Log() or {}) do
         if q.complete then
             self.mine[q.id] = false
@@ -59,10 +62,16 @@ function M:Rebuild()
                 if not o.finished and type(o.text) == "string" and o.text ~= "" then parts[#parts + 1] = o.text end
             end
             self.mine[q.id] = parts
+            for _, nr in ipairs(M.OpenTargets(Q, q.id, q.objectives)) do
+                self.mineNpc[nr] = self.mineNpc[nr] or {}
+                self.mineNpc[nr][q.id] = true
+            end
         end
     end
     for _, peer in ipairs(nav.QuestShare and nav.QuestShare:Peers() or {}) do
-        for id, e in pairs(peer.quests or {}) do if not e.done then wanted[id] = wanted[id] or {} end end
+        if M.InGroup(peer.name) then
+            for id, e in pairs(peer.quests or {}) do if not e.done then wanted[id] = wanted[id] or {} end end
+        end
     end
     for id in pairs(wanted) do
         local e = Q.q[id]
@@ -74,6 +83,41 @@ function M:Rebuild()
         end
     end
     self.titles = wanted
+end
+
+-- Gegner/Objekte der noch offenen Ziele einer Quest. Ziele je Art in Spielreihenfolge (monster/item/object) ->
+-- Q.obj[id].m/.i/.o. Offenes Ziel ohne Zuordnung (unbekannte Art, fehlende Daten): alle Ziel-Gegner der Quest ausser
+-- denen der schon erledigten Ziele (Spieltest 22.11.2026: Loewen und Ebenenschreiter fertig, Ausrufezeichen blieben –
+-- ein einziges unbekanntes offenes Ziel holte frueher ALLE Gegner zurueck)
+local KIND = {monster = "m", item = "i", object = "o"}
+function M.OpenTargets(Q, id, objectives)
+    local e = Q and Q.q and Q.q[id]
+    local all = e and type(e[8]) == "table" and e[8] or {}
+    local od = Q and Q.obj and Q.obj[id]
+    if not od then return all end
+    local out, seen, closed, idx, unknown = {}, {}, {}, {m = 0, i = 0, o = 0}, false
+    for _, o in ipairs(objectives or {}) do
+        local kind = KIND[o.type or ""]
+        local group
+        if kind then
+            idx[kind] = idx[kind] + 1
+            group = od[kind] and od[kind][idx[kind]]
+        end
+        if group and #group > 0 then
+            for _, nr in ipairs(group) do
+                if o.finished then closed[nr] = true
+                elseif not seen[nr] then seen[nr] = true out[#out + 1] = nr end
+            end
+        elseif not o.finished then
+            unknown = true
+        end
+    end
+    if unknown then
+        for _, nr in ipairs(all) do
+            if not seen[nr] and not closed[nr] then seen[nr] = true out[#out + 1] = nr end
+        end
+    end
+    return out
 end
 
 local function Title(id)
@@ -90,13 +134,31 @@ local function MyObjectives(id)
 end
 
 -- Wer aus Gruppe/Gilde braucht die Quest noch? "Bob 7/10"
-local function PeerText(id)
-    local parts = {}
-    for _, h in ipairs(nav.QuestShare and nav.QuestShare:Holders(id) or {}) do
-        if #parts >= M.maxPeers then parts[#parts + 1] = "…" break end
-        parts[#parts + 1] = h.name .. " " .. (h.done and T("fertig") or (h.r > 0 and ("%d/%d"):format(h.f, h.r) or ""))
+-- Nur Leute in meiner Gruppe zaehlen (Nutzer 22.11.2026: "brauche ich nur, wenn ich mit der Person in einer Gruppe
+-- bin, sonst interessiert mich das nicht")
+function M.InGroup(name)
+    local short = type(name) == "string" and (name:match("^[^-]+") or name) or nil
+    if not short then return false end
+    local raid = (Call(rawget(_G, "IsInRaid")) and true) or false
+    local prefix, n = raid and "raid" or "party", raid and 40 or 4
+    for i = 1, n do
+        local un = Call(rawget(_G, "UnitName"), prefix .. i)
+        if un and (un:match("^[^-]+") or un) == short then return true end
     end
-    return table.concat(parts, " · "), #parts
+    return false
+end
+-- Text der Gruppenmitglieder mit dieser Quest und wie viele sie noch brauchen (nicht fertig)
+local function PeerText(id)
+    local parts, open = {}, 0
+    for _, h in ipairs(nav.QuestShare and nav.QuestShare:Holders(id) or {}) do
+        if M.InGroup(h.name) then
+            if not h.done then open = open + 1 end
+            if #parts < M.maxPeers then
+                parts[#parts + 1] = h.name .. " " .. (h.done and T("fertig") or (h.r > 0 and ("%d/%d"):format(h.f, h.r) or ""))
+            elseif parts[#parts] ~= "…" then parts[#parts + 1] = "…" end
+        end
+    end
+    return table.concat(parts, " · "), open
 end
 
 -- Zeilen fuer den Tooltip: {{text, r, g, b}, …}; leer, wenn niemand den Gegner braucht
@@ -106,6 +168,8 @@ function M:Lines(npcID)
     for _, id in ipairs(self:Index()[npcID] or {}) do
         local mine = MyObjectives(id)
         local peers, n = PeerText(id)
+        -- eigene Quest, aber dieser Gegner gehoert zu keinem offenen Ziel mehr: nur noch, was die Gruppe braucht
+        if mine and not M.MineFor(npcID, id) then mine = nil end
         if mine ~= false and (mine or n > 0) then
             local head = "Guild Trip: " .. Title(id)
             if mine and #mine > 0 then head = head .. " – " .. table.concat(mine, ", ") end
@@ -116,14 +180,21 @@ function M:Lines(npcID)
     return out
 end
 
+-- Gehoert der Gegner zu einem meiner offenen Ziele dieser Quest?
+function M.MineFor(npcID, id)
+    local t = M.mineNpc and M.mineNpc[npcID]
+    return t and t[id] or false
+end
+
 -- Brauche ICH den Gegner (gelb) oder nur andere (blau)? nil = niemand
 function M:Need(npcID)
     if not npcID or not FeatureOn() then return nil end
     local other
     for _, id in ipairs(self:Index()[npcID] or {}) do
         local mine = MyObjectives(id)
-        if mine and #mine > 0 then return "me" end
-        if mine == nil and select(2, PeerText(id)) > 0 then other = true end
+        if mine and #mine > 0 and M.MineFor(npcID, id) then return "me" end
+        -- Gruppenmitglieder brauchen ihn noch (auch wenn mein Ziel schon erledigt ist): blau
+        if (mine == nil or not M.MineFor(npcID, id)) and select(2, PeerText(id)) > 0 then other = true end
     end
     return other and "other" or nil
 end
@@ -171,7 +242,7 @@ function M:Initialize()
         GameTooltip:HookScript("OnTooltipSetUnit", Hook)
     end
     local f = CreateFrame("Frame")
-    for _, ev in ipairs({"QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_REMOVED", "NAME_PLATE_UNIT_ADDED"}) do pcall(f.RegisterEvent, f, ev) end
+    for _, ev in ipairs({"QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_REMOVED", "GROUP_ROSTER_UPDATE", "NAME_PLATE_UNIT_ADDED"}) do pcall(f.RegisterEvent, f, ev) end
     local pending = false
     f:SetScript("OnEvent", function(_, event, unit)
         if event == "NAME_PLATE_UNIT_ADDED" then M:Plate(unit) return end

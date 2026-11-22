@@ -115,6 +115,22 @@ classes.LootPack = {
             c3461 = {count = 1, kind = "normal", mapID = 1413, name = "Oasenschnappkiefer", x = 0.461, y = 0.402},
         },
     },
+    [15210] = {
+        ilvl = 16,
+        minLevel = 11,
+        q = 2,
+        slot = "INVTYPE_WEAPON",
+        sources = {
+            c3381 = {
+                count = 1,
+                kind = "normal",
+                mapID = 1413,
+                name = "Brigant der Südmeerfreibeuter",
+                x = 0.638,
+                y = 0.479,
+            },
+        },
+    },
     [15268] = {
         ilvl = 16,
         minLevel = 11,
@@ -158,6 +174,15 @@ classes.LootPack = {
             },
         },
     },
+    [15477] = {
+        ilvl = 11,
+        minLevel = 6,
+        q = 2,
+        slot = "INVTYPE_LEGS",
+        sources = {
+            c3244 = {count = 1, kind = "normal", mapID = 1413, name = "Großer Ebenenschreiter", x = 0.491, y = 0.23},
+        },
+    },
     [2075] = {
         ilvl = 12,
         minLevel = 7,
@@ -179,7 +204,10 @@ classes.LootPack = {
         minLevel = 10,
         q = 2,
         slot = "INVTYPE_NON_EQUIP_IGNORE",
-        sources = {c3240 = {count = 1, kind = "normal", mapID = 1413, name = "Sturmschnauze", x = 0.466, y = 0.559}},
+        sources = {
+            c1781 = {count = 1, kind = "normal", mapID = 1421, name = "Nebelkrabbler", x = 0.351, y = 0.103},
+            c3240 = {count = 1, kind = "normal", mapID = 1413, name = "Sturmschnauze", x = 0.466, y = 0.559},
+        },
     },
     [249391] = {
         ilvl = 25,
@@ -257,6 +285,14 @@ classes.LootPack = {
                 x = 0.536,
                 y = 0.086,
             },
+            c3381 = {
+                count = 1,
+                kind = "normal",
+                mapID = 1413,
+                name = "Brigant der Südmeerfreibeuter",
+                x = 0.637,
+                y = 0.486,
+            },
         },
     },
     [4566] = {
@@ -265,7 +301,71 @@ classes.LootPack = {
         q = 2,
         slot = "INVTYPE_2HWEAPON",
         sources = {
+            c3244 = {count = 1, kind = "normal", mapID = 1413, name = "Großer Ebenenschreiter", x = 0.488, y = 0.239},
             c3255 = {count = 1, kind = "normal", mapID = 1413, name = "Bluthornkreischer", x = 0.529, y = 0.175},
+        },
+    },
+    [4569] = {
+        ilvl = 14,
+        minLevel = 9,
+        q = 2,
+        slot = "INVTYPE_WEAPONMAINHAND",
+        sources = {
+            c3415 = {count = 1, kind = "normal", mapID = 1413, name = "Savannenjägerin", x = 0.504, y = 0.231},
+        },
+    },
+    [4570] = {
+        ilvl = 15,
+        minLevel = 10,
+        q = 2,
+        slot = "INVTYPE_2HWEAPON",
+        sources = {
+            c1894 = {count = 1, kind = "elite", mapID = 1421, name = "Pyrewood-Wachposten", x = 0.447, y = 0.733},
+        },
+    },
+    [4577] = {
+        ilvl = 13,
+        minLevel = 8,
+        q = 2,
+        slot = "INVTYPE_RANGEDRIGHT",
+        sources = {
+            c3415 = {count = 1, kind = "normal", mapID = 1413, name = "Savannenjägerin", x = 0.512, y = 0.214},
+        },
+    },
+    [5069] = {
+        ilvl = 12,
+        minLevel = 7,
+        q = 2,
+        slot = "INVTYPE_RANGEDRIGHT",
+        sources = {
+            c1797 = {count = 1, kind = "normal", mapID = 1421, name = "Ergrauter Riesenbär", x = 0.46, y = 0.172},
+        },
+    },
+    [5071] = {
+        ilvl = 14,
+        minLevel = 9,
+        q = 2,
+        slot = "INVTYPE_RANGEDRIGHT",
+        sources = {
+            c1782 = {count = 1, kind = "normal", mapID = 1421, name = "Moonrage-Dunkelseele", x = 0.559, y = 0.459},
+        },
+    },
+    [6266] = {
+        ilvl = 13,
+        minLevel = 8,
+        q = 2,
+        slot = "INVTYPE_CHEST",
+        sources = {
+            c1867 = {count = 1, kind = "normal", mapID = 1421, name = "Lehrling von Dalaran", x = 0.509, y = 0.588},
+        },
+    },
+    [6269] = {
+        ilvl = 12,
+        minLevel = 7,
+        q = 2,
+        slot = "INVTYPE_LEGS",
+        sources = {
+            c1782 = {count = 1, kind = "normal", mapID = 1421, name = "Moonrage-Dunkelseele", x = 0.561, y = 0.484},
         },
     },
     [774] = {

@@ -129,14 +129,13 @@ local registered, openedCat = {}, nil
 ONE.UI.AddSetting = function(_, o) registered[o.id] = o return true end
 ONE.UI.OpenOptions = function(_, cat) openedCat = cat return true end
 assert(lev.Settings:Register())
-for _, id in ipairs({"levTempo", "levTempoHint", "lev.tracker", "lev.trackerBare", "lev.replaceBlizzard", "lev.autoNavi",
+for _, id in ipairs({"lev.gearQuests", "lev.tracker", "lev.trackerBare", "lev.replaceBlizzard", "lev.autoNavi",
     "lev.autoQuest", "lev.autoQuestAll", "levScale", "levSizeHint", "levReset"}) do
     assert(registered[id] and registered[id].category == "leveling" and registered[id].module == "leveling", id)
 end
 assert(registered["lev.autoQuestAll"].indent == 1, "Unterpunkt eingerueckt")
-assert(registered.levTempo.kind == "radio" and #registered.levTempo.options() == 3)
-registered.levTempo.set("all") assert(G:DB().tempo == "all" and registered.levTempo.get() == "all")
-assert(registered.levTempoHint.label():find("Alles außer grauen", 1, true))
+-- keine Tempo-Wahl mehr (Nutzer 22.11.2026: eine Route, die schnellste)
+assert(not registered.levTempo and not registered.levTempoHint, "keine Tempo-Wahl mehr")
 registered["lev.autoQuest"].set(true) assert(G:DB().autoQuest == true and registered["lev.autoQuest"].get())
 registered["lev.autoQuest"].set(false)
 -- Schrift A−/A+ und Zuruecksetzen
@@ -147,8 +146,6 @@ G:DB().trackerScale = 1.4 registered.levReset.onClick()
 assert(G:DB().trackerScale == nil, "Kasten zurueckgesetzt")
 lev.Settings:Open()
 assert(openedCat == "leveling", "Zahnrad: Optionen › Leveln")
-lev.Settings:Set("tempo", "balanced") assert(G:DB().tempo == "balanced")
-lev.Settings:Set("tempo", "need")
 -- WoW-Questliste ersetzen: umhaengen, Log-Quests im Kasten, zuruecksetzen
 local parent = {}
 ObjectiveTrackerFrame = {p = parent, SetParent = function(self, p) self.p = p end, GetParent = function(self) return self.p end}
@@ -219,7 +216,6 @@ assert(xpQuest)
 G:SetOverride(xpQuest, "no")
 assert(not G.plan.chosen[xpQuest])
 G:SetOverride(xpQuest, nil)
-assert(G:CycleTempo() == "balanced" and G:CycleTempo() == "all" and G:CycleTempo() == "need")
 -- Reiter "Leveln": drei Ansichten (Plan | Ausgelassen | Questlog), Questlog eingebettet (ONE_Nav)
 ONE.UI.Layout = {width = 726}
 ONE.Geometry = {tokens = {contentHeight = 437}}

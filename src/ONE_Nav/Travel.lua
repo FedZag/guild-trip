@@ -120,16 +120,36 @@ Travel.crossings = {
 -- Abflugorte fuer die Etappen-Navi (Classic-Koordinaten, ungefaehr; in Forever
 -- zu bestaetigen). from/to = Kontinent (0 Oestliche Koenigreiche, 1 Kalimdor),
 -- faction nil = beide Fraktionen.
+-- arrive = Ankunftsort drueben (22.11.2026: gewaehlt wird nach Weg zum Abflug + Weg vom Ankunftsort zum Ziel;
+-- vorher nur der naechste Abflug – vom Brachland ging es per Schiff nach Beutebucht und 18 km zu Fuss nach Unterstadt).
+local ORG, UC, GROM, RATCHET, BB = {1411, .508, .134}, {1420, .607, .588}, {1434, .316, .291}, {1413, .638, .387}, {1434, .258, .731}
+local AUBERDINE, THERAMORE, MENETHIL = {1439, .324, .438}, {1445, .715, .563}, {1437, .050, .600}
+local function Dep(name, faction, from, to, at, arrive)
+    return {name = name, faction = faction, from = from, to = to, mapID = at[1], x = at[2], y = at[3],
+        arrive = {mapID = arrive[1], x = arrive[2], y = arrive[3]}}
+end
 Travel.departures = {
-    {name = "Zeppelin ab Orgrimmar", faction = "Horde", from = 1, to = 0, mapID = 1411, x = .508, y = .134},
-    {name = "Schiff ab Ratchet", from = 1, to = 0, mapID = 1413, x = .638, y = .387},
-    {name = "Zeppelin ab Unterstadt", faction = "Horde", from = 0, to = 1, mapID = 1420, x = .607, y = .588},
-    {name = "Zeppelin ab Grom'gol", faction = "Horde", from = 0, to = 1, mapID = 1434, x = .316, y = .291},
-    {name = "Schiff ab Beutebucht", from = 0, to = 1, mapID = 1434, x = .258, y = .731},
-    {name = "Schiff ab Auberdine", faction = "Alliance", from = 1, to = 0, mapID = 1439, x = .324, y = .438},
-    {name = "Schiff ab Theramore", faction = "Alliance", from = 1, to = 0, mapID = 1445, x = .715, y = .563},
-    {name = "Schiff ab Menethil", faction = "Alliance", from = 0, to = 1, mapID = 1437, x = .050, y = .600},
+    Dep("Zeppelin ab Orgrimmar nach Unterstadt", "Horde", 1, 0, ORG, UC),
+    Dep("Zeppelin ab Orgrimmar nach Grom'gol", "Horde", 1, 0, ORG, GROM),
+    Dep("Schiff ab Ratchet nach Beutebucht", nil, 1, 0, RATCHET, BB),
+    Dep("Zeppelin ab Unterstadt nach Orgrimmar", "Horde", 0, 1, UC, ORG),
+    Dep("Zeppelin ab Grom'gol nach Orgrimmar", "Horde", 0, 1, GROM, ORG),
+    Dep("Schiff ab Beutebucht nach Ratchet", nil, 0, 1, BB, RATCHET),
+    Dep("Schiff ab Auberdine nach Menethil", "Alliance", 1, 0, AUBERDINE, MENETHIL),
+    Dep("Schiff ab Theramore nach Menethil", "Alliance", 1, 0, THERAMORE, MENETHIL),
+    Dep("Schiff ab Menethil nach Auberdine", "Alliance", 0, 1, MENETHIL, AUBERDINE),
+    Dep("Schiff ab Menethil nach Theramore", "Alliance", 0, 1, MENETHIL, THERAMORE),
 }
+-- Weltpunkt des Ankunftsorts (oder nil)
+function Travel.Arrival(d)
+    if d.arriveWorld == nil then
+        local a = d.arrive
+        local c, wx, wy
+        if a then c, wx, wy = Travel.World(a.mapID, a.x, a.y) end
+        d.arriveWorld = c and {c, wx, wy} or false
+    end
+    return d.arriveWorld or nil
+end
 
 -- Naechster passender Abflugort auf dem eigenen Kontinent Richtung Zielkontinent
 function Travel.Departure(player, target)
@@ -144,11 +164,18 @@ function Travel.Departure(player, target)
             end
             if d.world and d.world[1] == player.continent then
                 local dist = Travel.Distance(player.x, player.y, d.world[2], d.world[3])
-                if not bestDistance or dist < bestDistance then best, bestDistance = d, dist end
+                -- drueben: Weg vom Ankunftsort zum Ziel zaehlt mit
+                local arr = target.x and Travel.Arrival(d)
+                local rest = (arr and arr[1] == target.continent) and Travel.Distance(arr[2], arr[3], target.x, target.y) or 0
+                local score = dist + rest
+                if not best or score < best.score then best, bestDistance = {d = d, score = score}, dist end
             end
         end
     end
-    if best then return {name = best.name, continent = best.world[1], x = best.world[2], y = best.world[3], distance = bestDistance} end
+    if best then
+        local d = best.d
+        return {name = d.name, continent = d.world[1], x = d.world[2], y = d.world[3], distance = bestDistance}
+    end
 end
 
 function Travel.Faction()

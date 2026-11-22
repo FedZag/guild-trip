@@ -4,6 +4,28 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.7.9-alpha (veröffentlicht 22.11.2026)
+
+```
+## 0.7.9-alpha
+
+**English**
+- Navi: the path network now prefers roads and no longer takes long cross-country shortcuts – measured, about three times as much road and only a quarter of the stretches straight over mountains or ledges. To another continent it picks the zeppelin or ship by the whole trip (Barrens -> Undercity takes the zeppelin, not the ship to Booty Bay).
+- Quest guide: one fixed route, the fastest; the pace choice is gone. Quests you accept yourself are built in when they pay off. Objectives spread over several areas become separate steps; the target step only counts objectives still open (e.g. on to the thunder lizards once the rest is done).
+- Quest box: "Not in the plan" – click starts a detour after asking (navi to the quest, turn-in, back to the plan), right-click opens a menu. Several quests at one place grouped by quest, nothing cut off. Quest monsters only marked while an open objective (yours or your group's) still needs them.
+- Gear: only items for your class and race, items that need a profession only if your skill is high enough; empty slots show in grey what comes soon.
+- Chat: Guild Trip and add-on messages only under System; bubbles with even padding and no gap on the right.
+
+**Deutsch**
+- Navi: Das Wegenetz bevorzugt jetzt Straßen und kürzt nicht mehr lange querfeldein ab – gemessen etwa dreimal so viel Straße und nur noch ein Viertel der Stücke geradeaus über Berge oder Kanten. Zum anderen Kontinent wählt es Zeppelin oder Schiff nach dem ganzen Weg (Brachland -> Unterstadt nimmt den Zeppelin, nicht das Schiff nach Beutebucht).
+- Quest-Führung: eine feste Route, die schnellste; die Tempo-Wahl entfällt. Selbst angenommene Quests werden eingebaut, wenn sie sich lohnen. Ziele in mehreren Gebieten werden eigene Schritte; der Ziel-Schritt richtet sich nur nach den noch offenen Zielen (z. B. weiter zu den Donnerechsen, wenn der Rest erledigt ist).
+- Quest-Kasten: „Nicht im Plan“ – Klick startet nach Rückfrage einen Abstecher (Navi zur Quest, Abgabe, zurück zum Plan), Rechtsklick öffnet ein Menü. Mehrere Quests an einem Ort nach Quest gruppiert, nichts abgeschnitten. Quest-Gegner nur markiert, solange ein offenes Ziel (deins oder das deiner Gruppe) sie braucht.
+- Ausrüstung: nur Gegenstände für deine Klasse und dein Volk, Gegenstände mit Berufs-Voraussetzung nur mit ausreichender Fertigkeit; leere Plätze zeigen grau, was bald kommt.
+- Chat: Meldungen von Guild Trip und Addons nur unter System; Blasen mit gleichmäßigem Innenabstand und ohne Luft rechts.
+```
+
+---
+
 ## 0.7.8-alpha (veröffentlicht 22.11.2026)
 
 ```

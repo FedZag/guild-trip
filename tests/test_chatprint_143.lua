@@ -16,10 +16,12 @@ Chat.HookPrint()
 Chat.HookPrint() -- doppelt: nur einmal
 ONE:Print("Plan-Info: Stufe 15")
 assert(#blizz == 1, "WoW-Chat bekommt sie weiter")
-local all = Chat:Buffer("all")
+local all = Chat:Buffer("system")
 assert(#all == 1 and all[1].kind == "system" and all[1].text:find("Plan%-Info: Stufe 15"), "im Guild-Trip-Chat")
+-- 22.11.2026 (Nutzer): Guild-Trip-Meldungen nur unter "System & Addons", nicht in "Alle"
+assert(#Chat:Buffer("all") == 0, "nicht in Alle")
 -- WoW-Chat nicht ersetzt: keine Doppelung
 hidden = false
 ONE:Print("noch eine")
-assert(#blizz == 2 and #Chat:Buffer("all") == 1, "ohne Ersetzen nur im WoW-Chat")
+assert(#blizz == 2 and #Chat:Buffer("system") == 1, "ohne Ersetzen nur im WoW-Chat")
 print("OK test_chatprint_143")

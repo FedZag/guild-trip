@@ -709,4 +709,19 @@ do
     table.insert(Chat:Buffer("guild"), #Chat:Buffer("guild"), orig2)
     assert(M.FindQuoted("guild", reply) == orig2, "Original gefunden")
 end
+-- 26) Mehrzeilige Blase ohne Luft rechts (Spielbild 22.11.2026 "Texte nicht mittig")
+do
+    local r = M.bubbles[1]
+    r.text.GetNumLines = function(self)
+        local w = self:GetStringWidth()
+        return (self.w and self.w > 0) and math.max(1, math.ceil(w / self.w)) or 1
+    end
+    local text = string.rep("a", 50) -- 350 px breit, bei 300 px Fenster zweizeilig
+    M:FillBubble(r, {type = "bubble", entry = {kind = "whisper", author = "Ich", text = text, time = 0}, out = true}, 300, M:Palette())
+    local lines = r.text:GetNumLines()
+    assert(lines == 2, "zweizeilig: " .. lines)
+    -- Text so schmal wie moeglich bei gleicher Zeilenzahl: Blase = Text + Rand
+    assert(r.text.w <= 180 and r.w == r.text.w + 20, "schmal und gleichmaessig: " .. r.text.w .. " / " .. r.w)
+    r.text.GetNumLines = nil
+end
 print("OK test_messenger_146")

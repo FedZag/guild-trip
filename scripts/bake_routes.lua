@@ -13,7 +13,8 @@
 local spf = assert(arg[1], "Aufruf: luajit scripts/bake_routes.lua <shortest-path-forever-Ordner> [Ziel]")
 local dest = arg[2] or "src/ONE_Routes/Data.lua"
 -- Nachbarn, Versuche je Knoten, max. Luftlinie einer Kante, Knoten verschmelzen, Vereinfachung, Füllraster (Yards)
-local K, SECTORS, TRIES, MAXLEN, MERGE, TOL = 4, 8, 24, 1800, 6, 2.5
+local K, SECTORS, TRIES, MAXLEN, MERGE, TOL = 4, 8, 24, 1800, 6, tonumber(os.getenv("TOL") or "") or 4
+-- TOL 4 (22.11.2026): mit Strassen-Vorliebe folgen die Wege Kurven, 2,5 Yards machten die Datei 3,7 statt 2 MB
 local FILL = tonumber(os.getenv("FILL") or "") or 400
 
 local function Commit(dir)
@@ -26,13 +27,19 @@ end
 -- ===== SPF laden (Wegsucher + Laufkarten) =====
 local ns = {}
 for _, file in ipairs({"Data/Routes.lua", "Data/Transports.lua", "Data/Taxi.lua", "Data/Portals.lua", "Data/Teleports.lua",
-    "Data/Zones.lua", "Routing/PathGrid.lua", "Routing/Path.lua", "Routing/PathJobs.lua", "Routing/Planner.lua"}) do
+    "Data/Zones.lua", "Data/RoadCells.lua", "Data/RoadEdges.lua", "Routing/PathGrid.lua", "Routing/Path.lua", "Routing/PathJobs.lua", "Routing/Planner.lua"}) do
     assert(loadfile(spf .. "/" .. file))("ShortestPathForever", ns)
 end
 local CONTINENTS = {0, 1, 2991}
 for _, map in ipairs(CONTINENTS) do assert(loadfile(spf .. "/tools/load_nav.lua"))(map, spf) end
 local Path = ns.Path
 Path.graphKB, Path.cacheKB, Path.clusters = 131072, 196608, 2048
+-- Strassen bevorzugen (22.11.2026, Nutzer: „nutzt kaum Strassen … zu oft ueber Berge“): ein Yard abseits der
+-- Strasse kostet 1,5 (SPF-Standard „Follow roads“, Umweg 50 %). Gemessen: Strassenanteil 5 % -> ~20 %, Wege +6 %.
+local ROADS = tonumber(os.getenv("ROADS") or "") or 1.5
+local HZ = ROADS > 1 and {key = "gt:roads:" .. ROADS, roads = true, roadFactor = ROADS,
+    Point = function() return 1 end, Charged = function() return false end, Near = function() return false end,
+    Chord = function() return 1 end} or nil
 local function Landmass(p) return ns.Planner.Landmass(p, ns.Landmasses) end
 
 -- ===== Kartenrahmen (uiMapID -> Welt-Yards) =====
@@ -264,7 +271,7 @@ for _, c in ipairs(CONTINENTS) do
     local function Bake(a, b)
         local key = a.id < b.id and (a.id .. " " .. b.id) or (b.id .. " " .. a.id)
         if have[key] ~= nil then return have[key] end
-        local pts, cost = Path.FindSync(c, {map = c, x = a.x, y = a.y}, {map = c, x = b.x, y = b.y})
+        local pts, cost = Path.FindSync(c, {map = c, x = a.x, y = a.y}, {map = c, x = b.x, y = b.y}, nil, HZ)
         if type(pts) ~= "table" or #pts < 2 or type(cost) ~= "number" then
             have[key], fails = false, fails + 1
             return false

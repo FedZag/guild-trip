@@ -17,6 +17,10 @@ local log = {
 local peers = {
     {name = "Bob", quests = {[1] = {done = false}, [2] = {done = false}}},
 }
+-- Bob ist in meiner Gruppe (nur Gruppenmitglieder zaehlen, Nutzer 22.11.2026)
+local group = {party1 = "Bob"}
+UnitName = function(u) return group[u] end
+IsInRaid = function() return false end
 local nav = {
     Quests = {Log = function() return log end},
     QuestShare = {
@@ -89,6 +93,34 @@ local tt = {GetUnit = function() return "Wolf", "mouseover" end, AddLine = funct
 guids.mouseover = "Creature-0-1-1-1-500-1"
 M:OnTooltip(tt)
 assert(added[1] == "Guild Trip: Wolfsjagd – Wolf getötet: 3/10")
+-- 4b) je Ziel (Nutzer 22.11.2026: Niere gesammelt -> kein Ausrufezeichen mehr ueber den Schreitern, Loewen bleiben)
+GuildTripQuestDB.q[4] = {5, 1, 0, 0, false, {}, {}, {700, 701, 800}, false, false, 0, 0, 0, 1}
+GuildTripQuestDB.obj = {[4] = {i = {{700, 701}, {800}}}}
+log[#log + 1] = {id = 4, title = "Chens Fass", complete = false, objectives = {
+    {text = "Loewenhauer: 4/5", type = "item", finished = false}, {text = "Niere: 5/5", type = "item", finished = true}}}
+peers = {}
+M:Rebuild()
+assert(M:Need(700) == "me" and M:Need(701) == "me", "Loewen: Ziel offen")
+assert(M:Need(800) == nil, "Schreiter: Ziel erfuellt -> kein Zeichen")
+assert(#M:Lines(800) == 0, "Tooltip: nichts mehr fuer den Schreiter")
+-- Gruppenmitglied braucht die Quest noch: blau, auch wenn mein Ziel erledigt ist; nicht in der Gruppe: nichts
+peers = {{name = "Bob", quests = {[4] = {done = false}}}}
+M:Rebuild()
+assert(M:Need(800) == "other", "Gruppe braucht ihn noch -> blau")
+group = {}
+M:Rebuild()
+assert(M:Need(800) == nil and #M:Lines(800) == 0, "Gildenkollege ausserhalb der Gruppe zaehlt nicht")
+group = {party1 = "Bob"}
+peers = {}
+M:Rebuild()
+-- ohne Zuordnung (andere Art/fehlend): wie frueher alle Ziel-Gegner
+log[#log].objectives[1].type = "event"
+M:Rebuild()
+assert(M:Need(800) == "me", "unbekannte Zuordnung: lieber markieren")
+table.remove(log)
+GuildTripQuestDB.obj = nil
+M:Rebuild()
+
 -- 5) Abgeschaltet
 ONE.FeatureOn = function(_, id) return id ~= "nav.mobInfo" end
 assert(#M:Lines(500) == 0 and M:Need(500) == nil)

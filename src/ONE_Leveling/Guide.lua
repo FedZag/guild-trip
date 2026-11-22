@@ -18,7 +18,6 @@ end
 
 G.CLASS = {WARRIOR = 1, PALADIN = 2, HUNTER = 4, ROGUE = 8, PRIEST = 16, SHAMAN = 64, MAGE = 128, WARLOCK = 256, DRUID = 1024}
 G.RACE = {Human = 1, Orc = 2, Dwarf = 4, NightElf = 8, Scourge = 16, Undead = 16, Tauren = 32, Gnome = 64, Troll = 128}
-G.TEMPO_NAMES = {need = "Nur das Nötigste", balanced = "Ausgewogen", all = "Gründlich"}
 G.TAGS = {
     dungeon = {"DUNGEON", "ff9a2e"}, class = {"KLASSE", "f58cba"}, pre = {"VORQUEST", "ffb070"},
     xp = {"EP", "4fd14f"}, upgrade = {"UPGRADE", "5aa9ff"}, group = {"GRUPPE", "ff5a4a"}, rec = {"EMPFOHLEN", "ffd100"},
@@ -191,7 +190,11 @@ function G.Departures()
     for _, d in ipairs(tr.departures) do
         if not d.faction or d.faction == faction then
             local c, wx, wy = tr.World(d.mapID, d.x, d.y)
-            if c then out[#out + 1] = {c, wx, wy, from = d.from, to = d.to, name = d.name, mapID = d.mapID, mx = d.x, my = d.y} end
+            if c then
+                local arr = tr.Arrival and tr.Arrival(d)
+                out[#out + 1] = {c, wx, wy, from = d.from, to = d.to, name = d.name, mapID = d.mapID, mx = d.x, my = d.y,
+                    arrive = arr and {arr[1], arr[2], arr[3]} or nil}
+            end
         end
     end
     return out
@@ -386,6 +389,13 @@ function G:Context()
         end,
         inLog = function(id) return logSet[id] == true end,
         complete = function(id) return Try(C_QuestLog and C_QuestLog.IsComplete, id) == true end,
+        -- Ziel-Knoten der noch offenen Ziele (Planer: Zielgebiet/Spawnpunkte nur dafuer), nil = alle Ziele
+        targets = function(id)
+            local nv = Nav()
+            local mi = nv and nv.MobInfo
+            local list = Try(C_QuestLog and C_QuestLog.GetQuestObjectives, id)
+            if mi and mi.OpenTargets and type(list) == "table" then return mi.OpenTargets(rawget(_G, "GuildTripQuestDB"), id, list) end
+        end,
         -- Fortschritt im Log (erledigt, noetig) – Planer rechnet nur den Rest (Nutzer 20.11.2026)
         progress = function(id)
             local W = lev.WorkLog
@@ -436,35 +446,60 @@ end
 -- GuildTripQuestRoutes["Volk:Klasse"] = {{"a12 t13", n = NPC, l = erwartete Stufe}, …} (scripts/build_routes.sh).
 -- Im Spiel wird nichts umgerechnet: die Route ist der Fahrplan (ctx.follow), der Planer laeuft ihn nur ab.
 G.ROUTE_BEHIND = 2   -- Annehmen-Schritte so viele Stufen unter der eigenen gelten als verpasst (uebersprungen)
+-- Eine feste Route je Volk:Klasse – die schnellste (Nutzer 22.11.2026: "ich moechte weiterhin speed-leveln"; gerechnet
+-- mit Tempo "all", das war schneller und mit weniger Rueckwegen als die strengeren Schwellen)
 function G.Route(race, class)
     local all = rawget(_G, "GuildTripQuestRoutes")
     if type(all) ~= "table" or not race then return nil end
     local r = all[race .. ":" .. (class or 0)]
     if r then return r end
     -- andere Klasse desselben Volks: Klassenquests fremder Klassen fallen von selbst weg (passen nicht)
-    for k, v in pairs(all) do if k:match("^" .. race .. ":") then return v end end
+    for k, v in pairs(all) do if k:match("^" .. race .. ":%d+$") then return v end end
 end
--- Fahrplan aus der Route: Rang je Halt; zu niedrige Annehmen-Schritte (man ist voraus) fallen weg
-function G.RouteFollow(route, level, inLog)
-    local f, n = {}, 0
+-- Fahrplan aus der Route: Rang je Halt; zu niedrige Annehmen-Schritte (man ist voraus) fallen weg.
+-- Ziele in mehreren Gebieten (Routen-Bau 22.11.2026, "Chens leeres Faesschen": Loewen/Schreiter im Norden, Echsen im
+-- Sueden): die Route hat je Teil einen Schritt "o821.2" mit p = {Ziel-Knoten des Teils}. Es gilt der erste Teil, der
+-- noch offene Ziele hat – open(id) = Knoten der offenen Ziele (nil = unbekannt -> erster Teil).
+-- Liefert den Fahrplan und je Quest die Ziel-Knoten des geltenden Teils.
+function G.RouteFollow(route, level, inLog, open)
+    local f, n, parts = {}, 0, {}
     local kinds = {a = "accept", o = "obj", t = "turnin"}
     for _, st in ipairs(route) do
         if type(st[1]) == "string" then
-            for k, id in st[1]:gmatch("(%a)(%d+)") do
+            for k, id, part in st[1]:gmatch("(%a)(%d+)%.?(%d*)") do
                 id = tonumber(id)
                 local key = kinds[k] and (kinds[k] .. ":" .. id)
                 local behind = k == "a" and (st.l or 0) < level - G.ROUTE_BEHIND and not (inLog and inLog(id))
-                if key and not f[key] and not behind then n = n + 1 f[key] = n end
+                if key and part ~= "" and type(st.p) == "table" then
+                    n = n + 1
+                    parts[id] = parts[id] or {}
+                    table.insert(parts[id], {rank = n, nodes = st.p})
+                elseif key and not f[key] and not behind then n = n + 1 f[key] = n end
             end
         end
     end
-    return f
+    local nodes = {}
+    for id, list in pairs(parts) do
+        local o = open and inLog and inLog(id) and open(id) or nil
+        local set
+        if type(o) == "table" then set = {} for _, nr in ipairs(o) do set[nr] = true end end
+        local pick
+        for _, pt in ipairs(list) do
+            local hit = not set
+            if set then for _, nr in ipairs(pt.nodes) do if set[nr] then hit = true break end end end
+            if hit then pick = pt break end
+        end
+        pick = pick or list[#list]
+        f["obj:" .. id] = pick.rank
+        nodes[id] = pick.nodes
+    end
+    return f, nodes
 end
 -- Bessere Ausruestung aus Quests, die nicht in der Route sind (Nutzer 22.11.2026: "wird das bessere Gear mit
 -- eingerechnet?" – die Route bleibt fest, nur ein Hinweis im Kasten). Quelle: Seite Ausruestung (Way:Plan).
 -- rows = Way:Plan(...), follow = Fahrplan der Route; Ergebnis nach Verbesserung sortiert.
 G.GEAR_MIN_PLUS = 10   -- erst ab 10 % besser (oder leerer Platz) lohnt der Umweg
-function G.GearHints(rows, follow, planned)
+function G.GearHints(rows, follow, planned, done)
     local out = {}
     follow = follow or {}
     -- vom Planer schon eingebaut (G.GearChains): kein Hinweis mehr
@@ -475,7 +510,9 @@ function G.GearHints(rows, follow, planned)
         local plus = row.plus or 0
         if src and src.kind == "q" and src.quest and plus >= G.GEAR_MIN_PLUS then
             local id = src.quest
-            local dungeon = P and P.IsDungeonChain and P.IsDungeonChain(id)
+            -- ganze Reihe pruefen, nicht nur die Belohnungs-Quest (Stab von Orgrimmar, 22.11.2026)
+            local W = lev.Way
+            local dungeon = (W and W.ChainDungeon and W.ChainDungeon(id, done)) or (P and P.IsDungeonChain and P.IsDungeonChain(id))
             if not dungeon and not (follow["accept:" .. id] or follow["obj:" .. id] or follow["turnin:" .. id]) and not planned[id] then
                 out[#out + 1] = {item = now.item, src = src, plus = plus, slot = row.slot}
             end
@@ -585,7 +622,9 @@ function G:Replan(follow)
         local route = G.Route(ctx.me and ctx.me.race, ctx.me and ctx.me.class)
         if route then
             ctx.route, ctx.flow = true, true
-            ctx.follow = G.RouteFollow(route, ctx.me.level or 1, ctx.inLog)
+            -- selbst angenommene Quests: bereitwilliger einbauen (wer annimmt, will sie machen), nur ohne grossen Umweg
+            ctx.tempo = P.ROUTE_TEMPO
+            ctx.follow, ctx.objNodes = G.RouteFollow(route, ctx.me.level or 1, ctx.inLog, ctx.targets)
             ctx.followLoops = nil
             if self:GearOn() then
                 local gc = G.GearChains(self:GearRows(ctx.me.level or 1), ctx.follow, ctx.me.level, ctx.done)
@@ -620,7 +659,7 @@ function G:Replan(follow)
                 self.plan.vendorHint = best
             end
             -- bessere Ausruestung aus Quests ausserhalb der Route: nur Hinweis
-            local gh = G.GearHints(self:GearRows(ctx.me.level or 1), ctx.follow, self.plan.gearIn)
+            local gh = G.GearHints(self:GearRows(ctx.me.level or 1), ctx.follow, self.plan.gearIn, ctx.done)
             if #gh > 0 then self.plan.gearHint = gh end
         end
         -- Arbeitsgebiet je Figur merken (uebersteht Abstecher und /reload)
@@ -1039,15 +1078,6 @@ function G:SetOverride(id, value)
     local db = self:DB()
     db.override[id] = value
     self:Replan()
-end
-
-function G:CycleTempo()
-    local db = self:DB()
-    for i, k in ipairs(P.TEMPO_ORDER) do
-        if k == db.tempo then db.tempo = P.TEMPO_ORDER[i % #P.TEMPO_ORDER + 1] break end
-    end
-    self:Replan()
-    return db.tempo
 end
 
 -- Entfernung zum Schritt (Yards) fuer den Kasten

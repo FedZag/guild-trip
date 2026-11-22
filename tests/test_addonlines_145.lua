@@ -45,20 +45,20 @@ Chat.HookAddonLines()
 Chat.HookAddonLines() -- doppelt: nur einmal
 assert(#hooks == 2, "beide Fenster, nur einmal")
 ChatFrame1:AddMessage("|cffff7d0aDBM:|r Pull in 10")
-local all = Chat:Buffer("all")
+local all = Chat:Buffer("system")
 assert(#all == 1 and all[1].kind == "system" and all[1].addon == "DBM-Core" and all[1].text:find("Pull in 10"), "im Guild-Trip-Chat")
 ChatFrame2:AddMessage("|cffff7d0aDBM:|r Pull in 10") -- gleiche Zeile in zweitem Fenster
-assert(#Chat:Buffer("all") == 1, "nicht doppelt")
+assert(#Chat:Buffer("system") == 1, "nicht doppelt")
 clock = clock + 5
 ChatFrame1:AddMessage("|cffff7d0aDBM:|r Pull in 10")
-assert(#Chat:Buffer("all") == 2, "spaeter wiederholt: wieder zeigen")
+assert(#Chat:Buffer("system") == 2, "spaeter wiederholt: wieder zeigen")
 ChatFrame1:AddMessage("   ")
-assert(#Chat:Buffer("all") == 2, "leere Zeilen nicht")
+assert(#Chat:Buffer("system") == 2, "leere Zeilen nicht")
 stack = event
 ChatFrame1:AddMessage("[Gilde] Bob: hallo")
-assert(#Chat:Buffer("all") == 2, "Chat-Nachricht nicht doppelt")
+assert(#Chat:Buffer("system") == 2, "Chat-Nachricht nicht doppelt")
 -- WoW-Chat sichtbar: nichts holen
 stack, hidden = fromDBM, false
 ChatFrame1:AddMessage("noch eine")
-assert(#Chat:Buffer("all") == 2, "ohne Ersetzen bleibt es im WoW-Chat")
+assert(#Chat:Buffer("system") == 2, "ohne Ersetzen bleibt es im WoW-Chat")
 print("OK test_addonlines_145")

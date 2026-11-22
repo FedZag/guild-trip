@@ -53,7 +53,11 @@ for _, row in ipairs(plan) do
         assert(W.Usable(item, "WARRIOR", level), row.slot.key .. " nicht tragbar")
         for _, s in ipairs(row.now.sources) do kinds[s.kind] = true assert(s.sure) end
         if row.holdsTo then assert(row.holdsTo > level) end
-        if row.next then assert(W.ReqLevel(row.next.item) > level and W.ReqLevel(row.next.item) <= level + W.HORIZON) end
+    end
+    -- bald (auch fuer leere Plaetze, Nutzer 22.11.2026): erst ab einer hoeheren Stufe erreichbar, hoechstens HORIZON weiter
+    if row.next then
+        assert(row.next.at and row.next.at > level and row.next.at <= level + W.HORIZON, row.slot.key .. ": bald-Stufe")
+        assert(W.ReqLevel(row.next.item) <= row.next.at, row.slot.key .. ": ab dieser Stufe tragbar")
     end
 end
 assert(filled >= 10, "fast jeder Platz gefuellt: " .. filled)
@@ -186,5 +190,45 @@ do
     W:Get({kind = "c", status = "self", prof = "Schneiderei"}, 4368)
     assert(note:find("selbst herstellen", 1, true))
     W.Navi, W.Context, Q.q = oldNavi, oldCtx, saved
+end
+-- Beruf zum Tragen (Spieltest 22.11.2026: Fliegerbrille 4368 braucht Ingenieurskunst 100)
+do
+    local it = W.Item(4368)
+    assert(it and it.reqSkill == 202 and it.reqRank == 100, "Fliegerbrille: Ingenieurskunst 100")
+    assert(not W.SkillOK(it, {}) and not W.SkillOK(it, {[202] = 99}) and W.SkillOK(it, {[202] = 100}))
+    assert(W.SkillOK(W.Item(60), {}), "ohne Voraussetzung immer")
+    _G.GetProfessions = function() return 1, 2 end
+    _G.GetProfessionInfo = function(i)
+        if i == 1 then return "Ingenieurskunst", 0, 120, 150, 0, 0, nil end
+        return "Schneiderei", 0, 94, 150, 0, 0, 197
+    end
+    local sk = W.MySkills()
+    assert(sk[202] == 120 and sk[197] == 94, "Berufe nach Name und Fertigkeitslinie")
+    _G.GetProfessions, _G.GetProfessionInfo = nil, nil
+end
+-- nur fuer bestimmte Voelker/Klassen (Nutzer 22.11.2026)
+do
+    local tauren = W.Item(4964)
+    assert(tauren and tauren.raceMask == 32, "Tauren-Gegenstand")
+    assert(W.RaceOK(tauren, "Tauren") and not W.RaceOK(tauren, "Troll") and W.RaceOK(tauren, "Himmelsgeboren"), "unbekanntes Volk nicht ausschliessen")
+    local mage = W.Item(7509)
+    assert(mage and mage.classMask == 128 and W.Usable(mage, "MAGE", 20) ~= false, "Magier darf")
+    assert(not W.Usable(mage, "PRIEST", 20), "Priester nicht")
+    local warrior = W.Item(6966)
+    assert(warrior and not W.Usable(warrior, "MAGE", 20), "Krieger-Gegenstand nicht fuer Magier")
+end
+-- Dungeon irgendwo in der Reihe (Spieltest 22.11.2026: Stab von Orgrimmar, Belohnung in Orgrimmar, Teile im Ragefireabgrund)
+do
+    lev.Planner = lev.Planner or {}
+    local P = lev.Planner
+    local oldDC = P.IsDungeonChain
+    local Q = rawget(_G, "GuildTripQuestDB")
+    local saved = Q.q
+    Q.q = {[1] = {1, 1}, [2] = {2, 2, nil, nil, nil, nil, nil, nil, {1}}, [3] = {3, 3, nil, nil, nil, nil, nil, nil, {2}}}
+    P.IsDungeonChain = function(id) return id == 2 end
+    local none = function() return false end
+    assert(W.ChainDungeon(3, none), "Teil 2 im Dungeon -> Reihe zaehlt als Dungeon")
+    assert(not W.ChainDungeon(3, function(q) return q <= 2 end), "Dungeon-Teil schon erledigt -> keine Dungeon-Reihe mehr")
+    P.IsDungeonChain, Q.q = oldDC, saved
 end
 print("OK test_way_124")

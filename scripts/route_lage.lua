@@ -13,7 +13,7 @@ local function Stub() return setmetatable({}, {__index = function() return funct
 CreateFrame = function() return Stub() end
 UIParent = Stub()
 _G.ProjectONE = {db = {}, modules = {}, ns = {}}
-for _, f in ipairs({"ONE_QuestDB/Data", "ONE_QuestDB/Names_deDE", "ONE_Leveling/Rewards", "ONE_Leveling/ClassSpells", "ONE_Leveling/Routes"}) do
+for _, f in ipairs({"ONE_QuestDB/Data", "ONE_QuestDB/Names_deDE", "ONE_QuestDB/Objectives", "ONE_Leveling/Rewards", "ONE_Leveling/ClassSpells", "ONE_Leveling/Routes"}) do
     assert(loadfile(root .. "/" .. f .. ".lua"))()
 end
 local lev = {}
@@ -44,11 +44,12 @@ local never = function() return false end
 for id, e in pairs(GuildTripQuestDB.q) do
     if (e[1] or 0) > 0 and e[1] < doneBelow and not log[id] and P.Fits(id, e, past, never, never) then done[id] = true end
 end
+local tempo = "balanced" -- wie im Spiel (P.ROUTE_TEMPO): Schwelle fuer selbst angenommene Quests
 local route = assert(G.Route(race, class), "keine Route fuer " .. race .. ":" .. class)
 local inLog = function(id) return log[id] ~= nil end
 local ctx = {me = {level = level, xp = 0, xpMax = P.XP_NEED[level] or 13000, class = class, race = race, faction = faction, mapID = map, x = x, y = y},
     done = function(id) return done[id] == true end, inLog = inLog, complete = function(id) return log[id] == "done" end,
-    world = World, tempo = "need", speed = 7, departures = departures, route = true, flow = true,
+    world = World, tempo = tempo, speed = 7, departures = departures, route = true, flow = true,
     follow = G.RouteFollow(route, level, inLog)}
 -- Ausruestungs-Reihen wie im Spiel (G.GearChains): Umgebung GEAR="Belohnungsquest,Belohnungsquest" (Plus 50 %)
 if os.getenv("GEAR") then
@@ -58,6 +59,16 @@ if os.getenv("GEAR") then
     end
     ctx.gear = G.GearChains(rows, ctx.follow, level, ctx.done)
     for _, c in ipairs(ctx.gear) do print("Ausruestungs-Reihe: " .. table.concat(c, ",")) end
+end
+-- offene Ziele wie im Spiel (ctx.targets): Umgebung OPEN="821:3238,3239,3240;…" = nur diese Ziel-Knoten noch offen
+if os.getenv("OPEN") then
+    local open = {}
+    for q, list in os.getenv("OPEN"):gmatch("(%d+):([%d,%-]+)") do
+        local t = {}
+        for nr in list:gmatch("%-?%d+") do t[#t + 1] = tonumber(nr) end
+        open[tonumber(q)] = t
+    end
+    ctx.targets = function(id) return open[id] end
 end
 local c0 = os.clock()
 local plan = assert(P:Plan(ctx))

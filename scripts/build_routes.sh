@@ -2,10 +2,13 @@
 # Feste Routen der Quest-Fuehrung vorab rechnen (Neubau 21.11.2026, "wie RestedXP"): je Volk x Klasse ab Stufe 1 im
 # Startgebiet bis 60, mit fester Gebietsfolge (SIM_FLOW), aufgezeichnet mit SIM_RECORD -> src/ONE_Leveling/Routes.lua
 # Aufruf: bash scripts/build_routes.sh <shortest-path-forever-Ordner> [Schritte=3000]
+# Eine Route, die schnellste (Nutzer 22.11.2026 "ich moechte weiterhin speed-leveln"): Schwelle "all" – im Vergleich
+# need/balanced/all (22.11.) war sie am schnellsten und hatte die wenigsten Rueckwege
 spf="${1:?Aufruf: bash scripts/build_routes.sh <spf> [schritte]}"
 steps="${2:-3000}"
+tempo=all
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-out="${TMPDIR:-/tmp}/routes_$$"
+out="${TMPDIR:-/tmp}/routes_${tempo}_$$"
 mkdir -p "$out"
 # Volk (Maske) Fraktion Start (Karte x y) Heimat (Karte x y) Klassen
 starts=(
@@ -24,7 +27,7 @@ for line in "${starts[@]}"; do
   race=$1 rmask=$2 fac=$3 m=$4 x=$5 y=$6 hm=$7 hx=$8 hy=$9; shift 9
   for cls in "$@"; do
     key="$rmask:${CMASK[$cls]}"
-    ( SIM_SCEN="$fac,$race,$cls,$m,$x,$y,$hm,$hx,$hy" SIM_FLOW=1 SIM_NOKIPP=1 SIM_RECORD="$out/$key.lua" \
+    ( SIM_SCEN="$fac,$race,$cls,$m,$x,$y,$hm,$hx,$hy" SIM_TEMPO="$tempo" SIM_FLOW=1 SIM_NOKIPP=1 SIM_RECORD="$out/$key.lua" \
         lua5.1 scripts/sim_leveling.lua "$spf" custom "$steps" > "$out/$key.log" 2>&1
       echo "$key $race $cls: $(tail -2 "$out/$key.log" | head -1 | cut -c1-200)" ) &
   done
@@ -32,15 +35,15 @@ done
 wait
 dest=src/ONE_Leveling/Routes.lua
 {
-  echo "-- Guild Trip Quest-Fuehrung: feste Routen je Volk:Klasse (Masken) – ERZEUGT von scripts/build_routes.sh, nicht von Hand aendern."
-  echo "-- Je Schritt: {\"a12 t13 o14\" (annehmen/Ziel/abgeben), n = NPC/Ziel, l = erwartete Stufe} oder {k = \"bind\"|\"grind\"|\"fp\", …}."
+  echo "-- Guild Trip Quest-Fuehrung: feste Routen je Volk:Klasse (Masken), die schnellste (Tempo $tempo) – ERZEUGT von scripts/build_routes.sh, nicht von Hand aendern."
+  echo "-- Je Schritt: {\"a12 t13 o14\" (annehmen/Ziel/abgeben; o14.2 = Teil 2 der Ziele, p = Ziel-Knoten), n = NPC/Ziel, l = erwartete Stufe} oder {k = \"bind\"|\"grind\"|\"fp\", …}."
   echo "-- Gerechnet mit dem Planer (feste Gebietsfolge, harte Pruefungen) aus ONE_QuestDB; im Spiel wird nur noch gefolgt."
-  echo "GuildTripQuestRoutes = {"
+  echo "GuildTripQuestRoutes = GuildTripQuestRoutes or {}"
+  echo "local R = GuildTripQuestRoutes"
   for f in "$out"/*.lua; do
     key=$(basename "$f" .lua)
-    echo "[\"$key\"] = "
-    sed '1s/^return //' "$f" | sed '$s/}$/},/'
+    echo "R[\"$key\"] = "
+    sed '1s/^return //' "$f"
   done
-  echo "}"
 } > "$dest"
 echo "geschrieben: $dest ($(wc -c < "$dest") Bytes)"

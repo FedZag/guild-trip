@@ -438,6 +438,34 @@ lines.append("G.places = {")
 for n in sorted(places):
     lines.append("[%d]={%d,%g,%g}," % ((n,) + places[n]))
 lines.append("}")
+# Beruf zum Tragen (Spieltest 22.11.2026: Fliegerbrille braucht Ingenieurskunst 100) – aus cmangos item_template
+reqskill = {}
+for r in rows("item_template"):
+    sk, rank = int(r("RequiredSkill")), int(r("RequiredSkillRank"))
+    if sk > 0:
+        reqskill[int(r("entry"))] = (sk, rank)
+# Nur fuer bestimmte Voelker/Klassen (AllowableRace/-Class aus cmangos; -1/0 = alle) – Nutzer 22.11.2026:
+# "nur fuer die Klasse, Volk etc vorschlagen"
+ALL_RACES, ALL_CLASSES = 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128, 1 | 2 | 4 | 8 | 16 | 64 | 128 | 256 | 1024
+allow = {}
+for r in rows("item_template"):
+    ra, cl = int(r("AllowableRace")), int(r("AllowableClass"))
+    ra = 0 if ra <= 0 or (ra & ALL_RACES) == ALL_RACES else ra & ALL_RACES
+    cl = 0 if cl <= 0 or (cl & ALL_CLASSES) == ALL_CLASSES else cl & ALL_CLASSES
+    if ra or cl:
+        allow[int(r("entry"))] = (ra, cl)
+lines.append("-- allow[g] = {Voelker-Maske, Klassen-Maske} (0 = alle) – nur fuer bestimmte Voelker/Klassen")
+lines.append("G.allow = {")
+for i in sorted(out_items):
+    if i in allow:
+        lines.append("[%d]={%d,%d}," % (i, allow[i][0], allow[i][1]))
+lines.append("}")
+lines.append("-- reqSkill[g] = {Fertigkeit (SkillLine), Mindestwert} – Beruf/Fertigkeit noetig zum Tragen")
+lines.append("G.reqSkill = {")
+for i in sorted(out_items):
+    if i in reqskill:
+        lines.append("[%d]={%d,%d}," % (i, reqskill[i][0], reqskill[i][1]))
+lines.append("}")
 lines.append("G.npcs = {")
 for n in sorted(npcs):
     lines.append("[%d]=%s," % (n, lua_str(npcs[n])))

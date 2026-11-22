@@ -16,6 +16,7 @@ lev.Planner = P
 
 P.TEMPO = {need = 1.3, balanced = 1.0, all = 0}  -- Faktor auf "nur Monster hauen"
 P.TEMPO_ORDER = {"need", "balanced", "all"}
+P.ROUTE_TEMPO = "balanced"  -- feste Route: Schwelle fuer selbst angenommene Quests (Einbauen ab halber Monster-EP/min)
 -- Auswahl stabil halten (Spieltest 20.11.2026: in Ratchet nach Crossroads geschickt, in Crossroads nach Ratchet):
 -- schon gewaehlte Quests bleiben bis 80 % der Schwelle, neu dazukommende brauchen 115 % – ausser ihr Geber
 -- steht gleich nebenan (hoechstens P.NEW_HERE Minuten).
@@ -425,14 +426,22 @@ function P.Travel(a, b, net)
         return walk
     end
     -- anderer Kontinent: zur naechsten Abfahrt, drueben vom Ankunftsort (naechste Abfahrt zurueck) weiter
-    local best, bm
+    -- Abfahrt nach Gesamtweg: hin + drueben vom Ankunftsort weiter (22.11.2026: nicht einfach die naechste –
+    -- Brachland -> Unterstadt ging sonst per Schiff nach Beutebucht und 18 km zu Fuss)
+    local best, bm, bestScore
     for _, d in ipairs(net.departures or {}) do
         if d.from == a[1] and d.to == b[1] and d[1] == a[1] then
             local m = Walk(a, d)
-            if not bm or m < bm then best, bm = d, m end
+            local score = m
+            if d.arrive and d.arrive[1] == b[1] then score = m + P.Travel(d.arrive, b, net) end
+            if not bestScore or score < bestScore then best, bm, bestScore = d, m, score end
         end
     end
     if not best then return P.UNKNOWN_TRIP end
+    if best.arrive and best.arrive[1] == b[1] then
+        local rest, via = P.Travel(best.arrive, b, net)
+        return bm + P.BOAT_MIN + rest, {kind = "boat", dep = best, rest = via}
+    end
     local back = {}
     for _, d in ipairs(net.departures) do if d.from == b[1] and d.to == a[1] then back[#back + 1] = d end end
     local arrive = NearestOn(back, b[1], b)
@@ -598,6 +607,30 @@ function P:Plan(ctx)
         return best
     end
     local function DungeonOf(e) return dz[e[14] or 0] end
+    -- Ziel-Knoten einer Quest: im Log nur die der noch offenen Ziele (ctx.targets, Spieltest 22.11.2026: "Chens leeres
+    -- Faesschen" – Loewen und Nieren fertig, die Donnerechsen leben weiter noerdlich; der Guide schickte ins alte
+    -- Gebiet). Ohne Zuordnung oder nicht im Log: alle Ziele der Quest (e[8]).
+    -- Feste Route mit Ziel-Teilen (ctx.objNodes, Guide.RouteFollow): nur die Ziele des geltenden Teils
+    local openCache = {}
+    local function Targets(id)
+        local t = openCache[id]
+        if t == nil then
+            t = false
+            if ctx.targets and inLog(id) then
+                local ok, r = pcall(ctx.targets, id)
+                if ok and type(r) == "table" and #r > 0 then t = r end
+            end
+            local part = ctx.objNodes and ctx.objNodes[id]
+            if type(part) == "table" and #part > 0 then
+                local set, cut = {}, {}
+                for _, nr in ipairs(part) do set[nr] = true end
+                for _, nr in ipairs(t or (Q.q[id] or {})[8] or {}) do if set[nr] then cut[#cut + 1] = nr end end
+                if #cut > 0 then t = cut end
+            end
+            openCache[id] = t
+        end
+        return t or (Q.q[id] or {})[8] or {}
+    end
 
     -- 1) Kandidaten: passt zu mir, Stufe im Planungsfenster
     local cand = {}
@@ -637,7 +670,7 @@ function P:Plan(ctx)
         if dungeon then kind = kind - kind % 4 + (kind % 2) + 2 end
         local mobXP = P.MobXP(L, math.min(qlvl, L + 2))
         local giver = Nearest(e[6], here)
-        local target = Nearest(e[8], giver and giver.w or here)
+        local target = Nearest(Targets(id), giver and giver.w or here)
         local ender = Nearest(e[7], target and target.w or giver and giver.w)
         local travel = 0
         if giver and target then travel = travel + Trip(giver.w, target.w) end
@@ -1022,7 +1055,7 @@ function P:Plan(ctx)
         local function Set(id)
             if not targetSet[id] then
                 local t = {}
-                for _, n in ipairs((Q.q[id] or {})[8] or {}) do t[n] = true end
+                for _, n in ipairs(Targets(id)) do t[n] = true end
                 targetSet[id] = t
             end
             return targetSet[id]
@@ -2137,7 +2170,7 @@ function P:Plan(ctx)
             last.actions[#last.actions + 1] = {kind = s.kind, id = s.id}
             if Q.q[s.id] and #(last.area or {}) < P.AREA_MAX then
                 last.area = last.area or {}
-                for _, nr in ipairs(Q.q[s.id][8] or {}) do
+                for _, nr in ipairs(Targets(s.id)) do
                     local a = World(nr)
                     if a and #last.area < P.AREA_MAX then last.area[#last.area + 1] = {a[1], a[2], a[3]} end
                 end
@@ -2148,7 +2181,7 @@ function P:Plan(ctx)
             local area
             if s.kind == "obj" and Q.q[s.id] then
                 area = {}
-                for _, nr in ipairs(Q.q[s.id][8] or {}) do
+                for _, nr in ipairs(Targets(s.id)) do
                     local a = World(nr)
                     if a then area[#area + 1] = {a[1], a[2], a[3]} end
                     if #area >= P.AREA_MAX then break end

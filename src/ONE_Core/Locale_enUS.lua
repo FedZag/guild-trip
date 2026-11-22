@@ -408,6 +408,11 @@ EN["Heute"] = EN["Heute"] or "Today"
 EN["Begrüßungsfenster (Tagesüberblick) zeigen"] = "Show the welcome window (daily overview)"
 EN["Ziehen: Fenster größer/kleiner"] = "Drag: make the window bigger/smaller"
 
+-- Neuigkeiten 0.7.9
+EN["Navi: Wege bevorzugen Straßen und gehen um Berge herum; richtiger Zeppelin oder richtiges Schiff zum anderen Kontinent"] = "Navi: paths prefer roads and go around mountains; the right zeppelin or ship to another continent"
+EN["Quest-Führung: eine feste, schnellste Route; Ziele nach dem, was noch offen ist"] = "Quest guide: one fixed, fastest route; objectives by what is still open"
+EN["Quest-Kasten: „Nicht im Plan“ als Abstecher mit Rückfrage"] = "Quest box: \"Not in the plan\" as a detour after asking"
+EN["Ausrüstung: nur Passendes für Klasse, Volk und Beruf; leere Plätze zeigen, was bald kommt"] = "Gear: only what fits your class, race and profession; empty slots show what comes soon"
 -- Neuigkeiten 0.7.8
 EN["Optionen › Grafik: versteckte Grafik-Einstellungen (Gras, Zoom, Wetter, Licht, Wasser, FPS) mit Vorlagen"] = "Options › Graphics: hidden graphics settings (grass, zoom, weather, light, water, FPS) with presets"
 EN["Chat: Antworten mit Zitat (Doppelklick auf eine Blase), fehlende WoW-Chatmeldungen im Guild-Trip-Chat"] = "Chat: reply with a quote (double-click a bubble), missing WoW chat messages in the Guild Trip chat"

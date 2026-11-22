@@ -129,7 +129,45 @@ G.DB = function() return {} end
 local rows = Tr:Rows({steps = plan.steps, offRoute = off})
 local hit
 for _, r in ipairs(rows) do if r.text and r.text:find("Nicht im Plan", 1, true) then hit = r end end
-assert(hit and hit.click, "Zeile 'Nicht im Plan' mit Abbrechen (Rueckfrage)")
+assert(hit and hit.click and hit.menu, "Zeile 'Nicht im Plan': Klick + Rechtsklick-Menue")
+-- Abstecher (Nutzer 22.11.2026): Klick = Navi zur Quest, danach zurueck zum Plan; Abbrechen nur ueber Menue mit Rueckfrage
+do
+    ONE.Print = ONE.Print or function() end
+    local A = {active = true, target = nil}
+    local navTo = {}
+    local oldNs = ONE.ns.nav
+    ONE.ns.nav = {Arrow = A, Quests = {Navi = function(_, q) navTo[#navTo + 1] = (q.complete and "abgabe:" or "ziel:") .. q.id
+        A.target, A.active = q.title .. (q.complete and " (Abgabe)" or ""), true return true end}}
+    local inLog, complete = {[9] = true}, {}
+    C_QuestLog = {GetLogIndexForQuestID = function(id) return inLog[id] and 1 or nil end, IsComplete = function(id) return complete[id] == true end}
+    local asked, guideNavi = 0, nil
+    local oldAsk, oldNavi = G.AskAbandon, G.Navi
+    G.AskAbandon = function() asked = asked + 1 return true end
+    G.Navi = function(_, step) guideNavi = step A.target = "Plan" return true end
+    -- Rueckfrage zuerst (Nutzer 22.11.2026), erst "Ja" startet den Abstecher
+    StaticPopupDialogs, StaticPopup_Show = {}, function() end
+    hit.click()
+    assert(#navTo == 0 and StaticPopupDialogs.GUILDTRIP_DETOUR, "erst Rueckfrage, noch kein Navi")
+    StaticPopupDialogs.GUILDTRIP_DETOUR.OnAccept()
+    StaticPopupDialogs, StaticPopup_Show = nil, nil
+    assert(navTo[1] == "ziel:9" and Tr.detour and Tr.detour.id == 9 and asked == 0, "Klick: Abstecher, kein Abbrechen")
+    assert(Tr:CheckDetour({steps = plan.steps}) == nil, "laeuft noch")
+    complete[9] = true
+    assert(Tr:CheckDetour({steps = plan.steps}) == "turnin" and navTo[2] == "abgabe:9", "fertig -> zur Abgabe")
+    inLog[9] = nil
+    assert(Tr:CheckDetour({steps = plan.steps}) == "back" and guideNavi == plan.steps[1] and not Tr.detour, "abgegeben -> zurueck zum Plan")
+    -- anderes Ziel selbst gewaehlt: Abstecher vergessen, Plan nicht anfassen
+    inLog[9], complete[9], guideNavi = true, nil, nil
+    Tr:Detour(9)
+    A.target = "Wegpunkt"
+    Tr:CheckDetour({steps = plan.steps})
+    assert(not Tr.detour and guideNavi == nil, "eigenes Ziel bleibt")
+    -- ohne Menue: Abbrechen nur mit Rueckfrage (AskAbandon zeigt die Frage)
+    MenuUtil = nil
+    Tr:OffMenu({}, {9})
+    assert(asked == 1, "Abbrechen geht ueber die Rueckfrage")
+    G.AskAbandon, G.Navi, ONE.ns.nav, C_QuestLog = oldAsk, oldNavi, oldNs, nil
+end
 -- Teilziele der aktuellen Quest stehen direkt unter der Quest, der Hinweis erst danach (Nutzer 22.11.2026)
 do
     local oldObj = Tr.Objectives
@@ -171,14 +209,17 @@ print("OK test_route_145")
 
 -- 6) die erzeugte Routen-Datei (falls vorhanden): laedt, jede Route hat Schritte bis in hohe Stufen, Stufen steigen
 do
-    local fn = loadfile(root .. "/ONE_Leveling/Routes.lua")
+  -- eine Route, die schnellste (Nutzer 22.11.2026: keine Tempo-Wahl mehr)
+  for _, spec in ipairs({{"Routes", ""}}) do
+    local fn = loadfile(root .. "/ONE_Leveling/" .. spec[1] .. ".lua")
+    assert(fn or spec[2] == "", spec[1] .. ".lua fehlt")
     if fn then
         GuildTripQuestRoutes = nil
         fn()
-        local n = 0
+        local n, nParts = 0, 0
         for key, r in pairs(GuildTripQuestRoutes) do
             n = n + 1
-            assert(key:match("^%d+:%d+$"), "Schluessel Volk:Klasse " .. key)
+            assert(key:match("^%d+:%d+" .. spec[2] .. "$"), "Schluessel Volk:Klasse" .. spec[2] .. " " .. key)
             assert(#r > 200, "Route " .. key .. " hat Schritte")
             local last = 0
             for _, st in ipairs(r) do
@@ -186,8 +227,34 @@ do
                 last = math.max(last, st.l or 0)
             end
             assert(last >= 50, "Route " .. key .. " reicht bis mindestens Stufe 50 (" .. last .. ")")
+            -- Ziel-Teile (Ziele in mehreren Gebieten): je Teil Knoten, alle Teile da, zwischen Annehmen und Abgeben,
+            -- kein ungeteilter Ziel-Schritt daneben
+            local acc, turn, plain, partsOf = {}, {}, {}, {}
+            for i, st in ipairs(r) do
+                for k, id, part in (st[1] or ""):gmatch("(%a)(%d+)%.?(%d*)") do
+                    id = tonumber(id)
+                    if k == "a" then acc[id] = acc[id] or i
+                    elseif k == "t" then turn[id] = turn[id] or i
+                    elseif k == "o" and part ~= "" then
+                        assert(type(st.p) == "table" and #st.p > 0, key .. ": Ziel-Teil o" .. id .. "." .. part .. " ohne Knoten")
+                        partsOf[id] = partsOf[id] or {}
+                        partsOf[id][tonumber(part)] = i
+                    elseif k == "o" then plain[id] = true end
+                end
+            end
+            for id, list in pairs(partsOf) do
+                nParts = nParts + 1
+                assert(not plain[id], key .. ": Quest " .. id .. " geteilt und ungeteilt")
+                for pn = 1, #list do
+                    local at = assert(list[pn], key .. ": Quest " .. id .. " Teil " .. pn .. " fehlt")
+                    assert(not acc[id] or acc[id] < at, key .. ": Teil von " .. id .. " vor dem Annehmen")
+                    assert(not turn[id] or at < turn[id], key .. ": Teil von " .. id .. " nach dem Abgeben")
+                end
+            end
         end
         assert(n >= 40, "alle Volk-Klasse-Kombinationen: " .. n)
+        print(("  %s: %d geteilte Ziel-Schritte"):format(spec[1], nParts))
     end
+  end
 end
 print("OK test_route_145 (Routen-Datei)")

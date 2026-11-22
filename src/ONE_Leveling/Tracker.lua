@@ -455,18 +455,16 @@ function Tr:Rows(plan, budget)
         if not preset.noLabels then rows[#rows + 1] = {text = T("JETZT"), kind = "label", block = "now"} end
         local multi = s1.kind == "obj" and #(s1.actions or {}) > 1
         if multi then
-            -- mehrere Quests an einem Ort (wie RestedXP: ein Schritt = ein Ort, Nutzer 21.11.2026): je Teilziel
-            -- eine Zeile mit Fortschritt, die Quest klein rechts; keine Quest-Zahl, kein grosser Titel
+            -- mehrere Quests an einem Ort (Nutzer 21.11.2026: ein Schritt = ein Ort). Nach Quest gruppiert
+            -- (Nutzer 22.11.2026 "nicht uebersichtlich": Quest rechts wiederholt, Ziele abgeschnitten): je Quest
+            -- der Name einmal in Questnamen-Farbe, darunter ihre Teilziele eingerueckt in voller Breite
             local tip = Tr.StepTip(plan, 1)
             for _, a in ipairs(s1.actions) do
-                local qn = Tr.Code("title") .. G.Title(a.id) .. "|r"
-                local objs = Tr.Objectives(a.id)
-                if #objs == 0 then
-                    rows[#rows + 1] = {text = G.LevelTitle(a.id), kind = "obj2", nav = {step = s1, qid = a.id}, block = "now", tip = tip}
-                end
-                for _, o in ipairs(objs) do
-                    rows[#rows + 1] = {text = (o.done and "|cff808080" or "") .. o.text .. (o.done and "|r" or ""), kind = "obj2",
-                        right = qn, nav = {step = s1, qid = a.id}, block = "now", tip = tip}
+                local nav = {step = s1, qid = a.id}
+                rows[#rows + 1] = {text = Tr.Code("title") .. G.Title(a.id) .. "|r", kind = "obj2", nav = nav, block = "now", tip = tip}
+                for _, o in ipairs(Tr.Objectives(a.id)) do
+                    rows[#rows + 1] = {text = (o.done and "|cff808080" or "") .. o.text .. (o.done and "|r" or ""), kind = "obj",
+                        nav = nav, block = "now", tip = tip}
                 end
             end
             if s1.levelUp then rows[#rows + 1] = {text = T("danach Stufe %d", s1.levelUp), kind = "who", block = "now"} end
@@ -549,9 +547,12 @@ function Tr:Rows(plan, budget)
             local more = #off > 2 and (" " .. T("(+%d)", #off - 2)) or ""
             local ids = {}
             for _, o in ipairs(off) do ids[#ids + 1] = o.id end
+            -- Linksklick = Abstecher (Navi dorthin, danach zurueck zum Plan), Rechtsklick = Menue (Navi / Abbrechen mit
+            -- Rueckfrage) – Nutzer 22.11.2026: "zusaetzlich machen, ohne den Plan zu zerstoeren"
             rows[#rows + 1] = {text = Tr.Code("hint") .. T("Nicht im Plan: %s", table.concat(names, ", ")) .. more .. "|r", kind = "who", block = "now",
-                tip = T("Gehört nicht zur Route. Nebenbei machen oder abbrechen – klicken: abbrechen mit Rückfrage, Guild Trip bricht nie von selbst ab."),
-                click = function() G:AskAbandon(ids) end}
+                tip = T("Gehört nicht zur Route – du kannst sie nebenbei machen. Klick: Abstecher dorthin (mit Rückfrage), danach führt der Pfeil zurück zum Plan. Rechtsklick: Menü (Navi oder abbrechen, beides mit Rückfrage)."),
+                click = function() Tr:AskDetour(ids[1]) end,
+                menu = function(owner) Tr:OffMenu(owner, ids) end}
         end
     end
     -- ALS NAECHSTES (Nutzer 18.11.2026, statt "Noch annehmen"): die naechsten hoechstens MAX_NEXT
@@ -891,6 +892,92 @@ function Tr.NaviTo(nav)
     if nav.qid and nv and nv.Quests and nv.Quests.Navi then return nv.Quests:Navi({id = nav.qid, title = nav.title or G.Title(nav.qid)}) end
 end
 
+-- ===== Abstecher zu einer Quest ausserhalb des Plans (Nutzer 22.11.2026) =====
+-- Pfeil zur Quest (offene Ziele, fertig: Abgabe); ist sie abgegeben oder abgebrochen, zurueck zum Plan.
+-- Der Plan selbst bleibt unveraendert.
+local function InLog(id)
+    local QL = C_QuestLog
+    if QL and type(QL.GetLogIndexForQuestID) == "function" then
+        local ok, idx = pcall(QL.GetLogIndexForQuestID, id)
+        return ok and type(idx) == "number" and idx > 0
+    end
+    return true
+end
+local function Complete(id)
+    local QL = C_QuestLog
+    if QL and type(QL.IsComplete) == "function" then local ok, v = pcall(QL.IsComplete, id) return ok and v == true end
+    return false
+end
+function Tr:Detour(id)
+    if not id then return false end
+    local nv = ONE.ns and ONE.ns.nav
+    if not (nv and nv.Quests and nv.Quests.Navi) then return false end
+    local title = G.Title(id)
+    local done = Complete(id)
+    local ok = nv.Quests:Navi({id = id, title = title, complete = done})
+    if ok then
+        local A = nv.Arrow
+        self.detour = {id = id, complete = done, label = A and A.target or title}
+        ONE:Print(T("Abstecher: %s – danach führt der Pfeil zurück zum Plan.", title))
+    end
+    return ok
+end
+-- mit Rueckfrage (Nutzer 22.11.2026: "vor dem Abstecher auch eine Rueckfrage"); ohne Rueckfrage-Fenster direkt
+function Tr:AskDetour(id)
+    if not id then return false end
+    if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then return self:Detour(id) end
+    StaticPopupDialogs.GUILDTRIP_DETOUR = {
+        text = T("Abstecher zu „%s“?", G.Title(id)) .. "\n\n" .. T("Der Plan bleibt, wie er ist. Wenn du die Quest abgegeben hast, führt der Pfeil zurück zum Plan."),
+        button1 = T("Ja"), button2 = T("Nein"),
+        OnAccept = function() Tr:Detour(id) end,
+        timeout = 0, whileDead = 1, hideOnEscape = 1, preferredIndex = 3,
+    }
+    StaticPopup_Show("GUILDTRIP_DETOUR")
+    return true
+end
+-- bei jedem Neuplanen: Abstecher weiterfuehren (fertig -> zur Abgabe) oder beenden (abgegeben -> zurueck zum Plan)
+function Tr:CheckDetour(plan)
+    local d = self.detour
+    if not d then return end
+    local nv = ONE.ns and ONE.ns.nav
+    local A = nv and nv.Arrow
+    -- Spieler hat inzwischen selbst ein anderes Ziel gewaehlt: Abstecher vergessen
+    if A and A.active and A.target ~= d.label then self.detour = nil return end
+    if not InLog(d.id) then
+        self.detour = nil
+        local s1 = plan and plan.steps and plan.steps[1]
+        if s1 then
+            G.autoKey = nil
+            G:Navi(s1, true)
+            ONE:Print(T("Abstecher erledigt – weiter mit dem Plan."))
+        end
+        return "back"
+    end
+    if not d.complete and Complete(d.id) then
+        d.complete = true
+        if nv.Quests and nv.Quests.Navi and nv.Quests:Navi({id = d.id, title = G.Title(d.id), complete = true}) then
+            d.label = A and A.target or d.label
+        end
+        return "turnin"
+    end
+end
+-- Rechtsklick-Menue: je Quest "Navi hierhin" und "Abbrechen …" (Abbrechen immer mit Rueckfrage)
+function Tr:OffMenu(owner, ids)
+    if type(MenuUtil) == "table" and type(MenuUtil.CreateContextMenu) == "function" then
+        local ok = pcall(MenuUtil.CreateContextMenu, owner, function(_, root)
+            if root.CreateTitle then root:CreateTitle(T("Nicht im Plan")) end
+            for _, id in ipairs(ids) do
+                local title = G.Title(id)
+                root:CreateButton(T("Navi hierhin: %s", title), function() Tr:AskDetour(id) end)
+                root:CreateButton(T("Abbrechen: %s …", title), function() G:AskAbandon({id}) end)
+            end
+        end)
+        if ok then return true end
+    end
+    -- ohne Menue: wie bisher abbrechen mit Rueckfrage
+    return G:AskAbandon(ids)
+end
+
 -- Quests einer Zeile (zum Abwaehlen)
 function Tr.QuestIDs(nav)
     local out = {}
@@ -917,6 +1004,7 @@ function Tr:Hit(i, r, st, y, W)
         if b.RegisterForClicks then b:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
         b:SetScript("OnClick", function(self, button)
             if button == "RightButton" then
+                if self.menu then self.menu(self) return end
                 -- Quest(s) dieser Zeile abwaehlen (mit Rueckfrage); ohne Quest: Quest-Seite wie am Rand
                 local ids = Tr.QuestIDs(self.nav)
                 if #ids > 0 then G:AskSkip(ids) elseif ONE.UI then ONE.UI:Show() ONE.UI:OpenLink("leveling") end
@@ -937,7 +1025,7 @@ function Tr:Hit(i, r, st, y, W)
         b:SetScript("OnLeave", function() Tr:Frame(false) if GameTooltip then GameTooltip:Hide() end end)
         self.hits[i] = b
     end
-    b.nav, b.tip, b.click = r.nav, r.tip, r.click
+    b.nav, b.tip, b.click, b.menu = r.nav, r.tip, r.click, r.menu
     if ONE.Fit then
         b.__fitTexts = {fs, right}
         if not b.__fitHooked then ONE.Fit:Line(fs, b) end
@@ -958,6 +1046,7 @@ function Tr:Update(plan, resizing)
         return
     end
     self.step = plan.steps[1]
+    if not resizing then pcall(self.CheckDetour, self, plan) end
     local W = (f.GetWidth and f:GetWidth()) or G:DB().trackerWidth or Tr.WIDTH
     local H = (f.GetHeight and f:GetHeight()) or G:DB().trackerHeight or Tr.HEIGHT
     if type(W) ~= "number" or W <= 0 then W = G:DB().trackerWidth or Tr.WIDTH end

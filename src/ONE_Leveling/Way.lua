@@ -98,11 +98,28 @@ function W.Item(id)
     if dmin and dmax and speed and speed > 0 then it.stats.dps = math.floor((dmin + dmax) / 2 / (speed / 1000) * 10 + .5) / 10 end
     -- ohne Mindeststufe: Gegenstandsstufe als Anhalt (Quests/Drops dieser Stufe)
     if it.req == 0 then it.reqGuess = math.max(1, it.ilvl - 5) end
+    -- Beruf zum Tragen (z. B. Fliegerbrille: Ingenieurskunst 100)
+    local rs = d.reqSkill and d.reqSkill[id]
+    if type(rs) == "table" then it.reqSkill, it.reqRank = rs[1], rs[2] or 0 end
+    -- nur fuer bestimmte Voelker/Klassen (Nutzer 22.11.2026: "nur fuer die Klasse, Volk etc")
+    local al = d.allow and d.allow[id]
+    if type(al) == "table" then
+        if (al[1] or 0) > 0 then it.raceMask = al[1] end
+        if (al[2] or 0) > 0 and not (it.classMask and it.classMask > 0) then it.classMask = al[2] end
+    end
     cache[id] = it
     return it
 end
 function W.ReqLevel(it) return it.req > 0 and it.req or it.reqGuess or 1 end
 
+W.RACE_BIT = {Human = 1, Orc = 2, Dwarf = 4, NightElf = 8, Scourge = 16, Undead = 16, Tauren = 32, Gnome = 64, Troll = 128}
+-- Darf dieses Volk ihn tragen? (unbekanntes Volk, z. B. neue Forever-Voelker: nicht ausschliessen)
+function W.RaceOK(it, raceFile)
+    if not (it and it.raceMask and it.raceMask > 0) then return true end
+    local bit = W.RACE_BIT[raceFile or ""]
+    if not bit then return true end
+    return math.floor(it.raceMask / bit) % 2 == 1
+end
 -- Darf die Klasse den Gegenstand tragen/fuehren?
 function W.Usable(it, classFile, level)
     if it.classMask and it.classMask > 0 then
@@ -132,7 +149,8 @@ function W:Context()
     local classes = ONE.ns and ONE.ns.classes
     local _, classFile = Try(UnitClass, "player")
     local level = Try(UnitLevel, "player") or 1
-    local ctx = {classFile = classFile, level = level, spec = "", faction = Try(UnitFactionGroup, "player")}
+    local _, raceFile = Try(UnitRace, "player")
+    local ctx = {classFile = classFile, raceFile = raceFile, level = level, spec = "", faction = Try(UnitFactionGroup, "player"), skills = W.MySkills()}
     -- Quest-Filter wie die Fuehrung (Fraktion, Volk, Klasse, erledigt, Vorquests)
     local g = lev.Guide and Try(lev.Guide.Context, lev.Guide)
     if g then ctx.me, ctx.done, ctx.inLog = g.me, g.done, g.inLog end
@@ -215,6 +233,33 @@ end
 W.NpcFits = NpcFits
 
 -- Eigene Berufe: {["Schneiderei"] = {skill, max}}
+-- Fertigkeitslinien (SkillLine) der Berufe, die Gegenstaende zum Tragen verlangen
+W.SKILL_NAMES = {[164] = {"Schmiedekunst", "Blacksmithing"}, [182] = {"Kräuterkunde", "Herbalism"},
+    [202] = {"Ingenieurskunst", "Engineering"}, [356] = {"Angeln", "Fishing"}, [165] = {"Lederverarbeitung", "Leatherworking"},
+    [197] = {"Schneiderei", "Tailoring"}, [171] = {"Alchemie", "Alchemy"}, [333] = {"Verzauberkunst", "Enchanting"},
+    [186] = {"Bergbau", "Mining"}, [393] = {"Kürschnerei", "Skinning"}}
+-- Eigene Berufe als {[SkillLine] = Fertigkeit} (Spieltest 22.11.2026: Fliegerbrille vorgeschlagen ohne Ingenieurskunst)
+function W.MySkills()
+    local out = {}
+    local list = {Try(GetProfessions)}
+    for i = 1, 6 do
+        local index = list[i]
+        if type(index) == "number" then
+            local name, _, rank, _, _, _, line = Try(GetProfessionInfo, index)
+            if type(line) == "number" and line > 0 then out[line] = math.max(out[line] or 0, tonumber(rank) or 0) end
+            for id, names in pairs(W.SKILL_NAMES) do
+                if name == names[1] or name == names[2] then out[id] = math.max(out[id] or 0, tonumber(rank) or 0) end
+            end
+        end
+    end
+    return out
+end
+-- Darf man den Gegenstand mit seinen Berufen tragen?
+function W.SkillOK(it, skills)
+    if not (it and it.reqSkill) then return true end
+    return ((skills or {})[it.reqSkill] or 0) >= (it.reqRank or 0)
+end
+
 function W.MyProfessions()
     local crafting = ONE.ns and ONE.ns.crafting
     if crafting and crafting.Trainers and crafting.Trainers.MyProfessions then return crafting.Trainers:MyProfessions() end
@@ -330,7 +375,7 @@ function W:Plan(ctx)
     local bySlot = {}
     for id in pairs(d.items) do
         local it = W.Item(id)
-        if it and W.Usable(it, ctx.classFile, L + W.HORIZON) then
+        if it and W.Usable(it, ctx.classFile, L + W.HORIZON) and W.SkillOK(it, ctx.skills) and W.RaceOK(it, ctx.raceFile) then
             local slot = W.SlotOf(it)
             if slot then
                 local req = W.ReqLevel(it)
@@ -353,10 +398,14 @@ function W:Plan(ctx)
         row.wornScore, row.wornLink = wornScore, wornLink
         -- erreichbare Quelle (verlaesslich) fuer Stufe <= lvl
         local srcCache = {}
+        local listCache = {}
         local function Reach(it, maxReq)
             if W.ReqLevel(it) > maxReq then return nil end
-            if srcCache[it.id] == nil then
-                local ss = self:Sources(it.id, ctx)
+            -- je Gegenstand UND Stufe merken (vorher nur je Gegenstand: hoehere Stufe bekam die alte Antwort)
+            local key = it.id .. ":" .. maxReq
+            if srcCache[key] == nil then
+                listCache[it.id] = listCache[it.id] or self:Sources(it.id, ctx)
+                local ss = listCache[it.id]
                 local sure = {}
                 for _, s in ipairs(ss) do
                     local okLevel = true
@@ -366,19 +415,24 @@ function W:Plan(ctx)
                     if s.kind == "q" and s.level and s.level > maxReq + W.QUEST_ABOVE then okLevel = false end
                     if s.sure and okLevel then sure[#sure + 1] = s end
                 end
-                srcCache[it.id] = #sure > 0 and {sure = sure, all = ss} or false
+                srcCache[key] = #sure > 0 and {sure = sure, all = ss} or false
             end
-            return srcCache[it.id] or nil
+            return srcCache[key] or nil
         end
         for _, it in ipairs(cands) do
             local r = Reach(it, L)
             if r then row.now = {item = it, sources = r.sure, all = r.all} break end
         end
         local base = row.now and row.now.item.score or wornScore
+        -- bald: erst ab einer hoeheren Stufe erreichbar – wegen der Mindeststufe ODER weil die Quest noch zu hoch ist
+        -- (Kette ab 10, Quest Stufe 20; Nutzer 22.11.2026: leere Plaetze zeigen, was kommt); at = erste passende Stufe
         for _, it in ipairs(cands) do
-            if W.ReqLevel(it) > L and it.score > base * W.BETTER then
-                local r = Reach(it, L + W.HORIZON)
-                if r then row.next = {item = it, sources = r.sure, all = r.all} break end
+            if it.score > base * W.BETTER and (W.ReqLevel(it) > L or not Reach(it, L)) then
+                for lvl = L + 1, L + W.HORIZON do
+                    local r = Reach(it, lvl)
+                    if r then row.next = {item = it, sources = r.sure, all = r.all, at = lvl} break end
+                end
+                if row.next then break end
             end
         end
         -- haelt bis: erste Stufe, ab der es (verlaesslich) 15 % Besseres gibt
@@ -475,6 +529,29 @@ function W.ChainStart(id, done)
     return id, #list, #list
 end
 
+-- Fuehrt ein noch offener Teil der Reihe (oder ein Nachfolger der Belohnungs-Quest) in einen Dungeon?
+-- (Spieltest 22.11.2026: Stab von Orgrimmar – Belohnungs-Quest selbst in Orgrimmar, Teile davor im Ragefireabgrund)
+function W.ChainDungeon(id, done)
+    local P, Q = Planner(), QuestDB()
+    if not (P and P.IsDungeonChain and Q and Q.q) then return false end
+    local cur, seen, n = id, {}, 0
+    while cur and not seen[cur] and n < W.CHAIN_MAX do
+        seen[cur], n = true, n + 1
+        if not (done and done(cur)) and Try(P.IsDungeonChain, cur) then return true end
+        local e = Q.q[cur]
+        local pre = e and ((type(e[9]) == "table" and e[9][1]) or (type(e[5]) == "table" and e[5][1])) or nil
+        if e and type(e[5]) == "table" and done then for _, p in ipairs(e[5]) do if done(p) then pre = p break end end end
+        if pre and done and done(pre) then pre = nil end
+        cur = pre
+    end
+    local nx, k = (Q.q[id] or {})[12], 0
+    while nx and nx > 0 and k < W.CHAIN_MAX do
+        if Try(P.IsDungeonChain, nx) then return true end
+        nx, k = (Q.q[nx] or {})[12], k + 1
+    end
+    return false
+end
+
 local function ItemName(id)
     local name = (C_Item and C_Item.GetItemNameByID and Try(C_Item.GetItemNameByID, id)) or Try(GetItemInfo, id)
     if not name and C_Item and C_Item.RequestLoadItemDataByID then Try(C_Item.RequestLoadItemDataByID, id) end
@@ -500,7 +577,7 @@ function W:Get(s, itemID)
         end
         -- Belohnung nur ueber einen Dungeon (Nutzer 22.11.2026): kein Navi, nur sagen, wo die Reihe beginnt
         local P = Planner()
-        if P and P.IsDungeonChain and Try(P.IsDungeonChain, s.quest) then
+        if P and W.ChainDungeon(s.quest, ctx.done) then
             local Q = QuestDB()
             local e = Q and Q.q and Q.q[start]
             local giver = e and type(e[6]) == "table" and e[6][1]

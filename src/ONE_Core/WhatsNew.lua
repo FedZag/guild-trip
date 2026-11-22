@@ -10,6 +10,12 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.7.9-alpha"] = {
+        "Navi: Wege bevorzugen Straßen und gehen um Berge herum; richtiger Zeppelin oder richtiges Schiff zum anderen Kontinent",
+        "Quest-Führung: eine feste, schnellste Route; Ziele nach dem, was noch offen ist",
+        "Quest-Kasten: „Nicht im Plan“ als Abstecher mit Rückfrage",
+        "Ausrüstung: nur Passendes für Klasse, Volk und Beruf; leere Plätze zeigen, was bald kommt",
+    },
     ["0.7.8-alpha"] = {
         "Optionen › Grafik: versteckte Grafik-Einstellungen (Gras, Zoom, Wetter, Licht, Wasser, FPS) mit Vorlagen",
         "Chat: Antworten mit Zitat (Doppelklick auf eine Blase), fehlende WoW-Chatmeldungen im Guild-Trip-Chat",

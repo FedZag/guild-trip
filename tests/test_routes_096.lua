@@ -63,8 +63,9 @@ assert(#cut == 3 and cut[2].x == 0 and cut[2].y == 100 and cut[3].y == 500, "dir
 local far = R.Shortcut({{x = 50, y = 0}, {x = 100, y = 100}, {x = 0, y = 100}, {x = 0, y = 500}}, 50, 400)
 assert(#far == 4, "zu weit für eine Abkürzung -> Weg bleibt")
 
--- 1c) Umweg über die Straße querfeldein glätten (Nutzer 19.11.2026)
-assert(PULL and PULL > 0, "Querfeldein im Spiel an")
+-- 1c) Umweg über die Straße querfeldein glätten (Nutzer 19.11.2026) – im Spiel seit 22.11.2026 AUS
+-- (Straßen-Vorliebe; gemessen 7–12 % der Strecke geradeaus durch Berge), die Funktion bleibt
+assert(PULL == 0, "lange Abkürzungen querfeldein im Spiel aus")
 local road = {{x = 0, y = 0}, {x = 0, y = 200}, {x = 300, y = 200}, {x = 300, y = 0}, {x = 600, y = 0}}
 local pulled = R.Pull(road, 600, 1.2)
 assert(#pulled == 2 and pulled[2].x == 600, "Umweg 700 statt 600 -> geradeaus")

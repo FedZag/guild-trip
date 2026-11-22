@@ -38,7 +38,20 @@ local leg = Travel.Departure({continent = 1, x = 1439 + 300, y = 400}, {continen
 assert(leg and leg.name:find("^Schiff ab Auberdine"), leg and leg.name)
 faction = "Horde"
 leg = Travel.Departure({continent = 1, x = 1411 + 500, y = 130}, {continent = 0})
-assert(leg and leg.name == "Zeppelin ab Orgrimmar", leg and leg.name)
+assert(leg and leg.name:find("^Zeppelin ab Orgrimmar"), leg and leg.name)
+-- 3b) Abfahrt nach Gesamtweg (22.11.2026): Brachland -> Unterstadt nicht per Schiff nach Beutebucht
+Travel.World = function(mapID, x, y)
+    local P = {[1411] = {1, 1500, -4400}, [1413] = {1, -900, -3700}, [1420] = {0, 2050, 300}, [1434] = {0, -12400, 200}}
+    local p = P[mapID] or {0, 0, 0}
+    return p[1], p[2], p[3]
+end
+for _, d in ipairs(Travel.departures) do d.world, d.arriveWorld = nil, nil end
+-- Spieler im Brachland naeher an Ratschet als an Orgrimmar, Ziel Unterstadt
+leg = Travel.Departure({continent = 1, x = -700, y = -3500}, {continent = 0, x = 1800, y = 200})
+assert(leg and leg.name == "Zeppelin ab Orgrimmar nach Unterstadt", leg and leg.name)
+-- Ziel Schlingendorntal (Beutebucht nah): dann das Schiff
+leg = Travel.Departure({continent = 1, x = -700, y = -3500}, {continent = 0, x = -12000, y = 300})
+assert(leg and leg.name == "Schiff ab Ratchet nach Beutebucht", leg and leg.name)
 faction = "Alliance"
 
 -- 4) Gildenausflug: Treffpunkt Hauptstadt = Sturmwind

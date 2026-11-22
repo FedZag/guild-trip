@@ -541,7 +541,11 @@ function Chat:Store(entry)
         views[#views + 1] = view
         self:TouchWhisper(Short(entry.author), not entry.inform and not entry.auto)
     end
-    for _, t in ipairs(self:Tabs()) do if t.kinds[entry.kind] then views[#views + 1] = t.id end end
+    -- Meldungen von Guild Trip und anderen Addons nur unter "System & Addons", nicht in "Alle" (Nutzer 22.11.2026)
+    local own = entry.event == "GUILDTRIP" or entry.event == "ADDON"
+    for _, t in ipairs(self:Tabs()) do
+        if t.kinds[entry.kind] and not (own and t.id == "all") then views[#views + 1] = t.id end
+    end
     for _, view in ipairs(views) do
         local buf = self:Buffer(view)
         buf[#buf + 1] = entry

@@ -42,8 +42,7 @@ end
 
 function S:Set(key, value)
     local db = G:DB()
-    if key == "tempo" then db.tempo = value
-    elseif key == "trackerScale" then lev.Tracker:SetScale(value)
+    if key == "trackerScale" then lev.Tracker:SetScale(value)
     else db[key] = value and true or false end
     -- "Ohne Rahmen" hier = Hintergrund "Unsichtbar" im Zahnrad-Menue (gleiche Einstellung)
     if key == "trackerBare" and type(db.trackerLook) == "table" then
@@ -54,15 +53,10 @@ function S:Set(key, value)
             db.trackerLook.bg = bg ~= "none" and bg or "dark"
         end
     end
-    if key == "tempo" or key == "gearQuests" then G:Replan() else lev.Tracker:Update(G.plan) end
+    if key == "gearQuests" then G:Replan() else lev.Tracker:Update(G.plan) end
     if ONE.UI and ONE.UI.Refresh then ONE.UI:Refresh() end
 end
 
-S.TEMPO_HINT = {
-    need = "Quest muss mind. 30 % besser sein als Monster hauen.",
-    balanced = "Quest muss besser sein als Monster hauen.",
-    all = "Alles außer grauen Quests.",
-}
 
 -- Kasten auf Lage/Groesse/Schrift ab Werk
 function S:ResetTracker()
@@ -101,17 +95,8 @@ function S:Register()
     local UI = ONE.UI
     if not (UI and UI.AddSetting) then return false end
     local function Add(o) o.category, o.module = "leveling", "leveling" UI:AddSetting(o) end
-    Add({id = "levTempo", section = "Tempo", order = 10, kind = "radio",
-        options = function()
-            local out = {}
-            for _, key in ipairs(lev.Planner.TEMPO_ORDER) do out[#out + 1] = {value = key, text = G.TEMPO_NAMES[key]} end
-            return out
-        end,
-        get = function() return G:DB().tempo end, set = function(v) S:Set("tempo", v) end})
-    Add({id = "levTempoHint", section = "Tempo", order = 11, kind = "text",
-        label = function()
-            return T(S.TEMPO_HINT[G:DB().tempo] or "") .. " " .. T("Dungeon-, Klassen- und Vorquests sind immer dabei.")
-        end})
+    -- keine Tempo-Wahl mehr (Nutzer 22.11.2026): eine feste Route, die schnellste; wer mehr questen will, nimmt
+    -- Quests selbst an – sie werden eingebaut, wenn sie ohne grossen Umweg passen
     -- Sehr empfohlene Reihe (Schlafsack) mit Vorrang – je Figur (Frage im Kasten ab Stufe 14)
     Add({id = "lev.recFirst", section = "Navi und Quests", order = 45, label = "Schlafsack-Reihe mit Vorrang (diese Figur)",
         tooltip = "Die Schritte der Questreihe zum Schlafsack kommen zuerst, auch mit weitem Weg. Aus: Die Reihe läuft ohne Vorrang mit.",

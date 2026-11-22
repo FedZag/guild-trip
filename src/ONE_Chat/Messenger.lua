@@ -1428,6 +1428,8 @@ local function NewBubble(log)
     return r
 end
 
+-- Innenabstand der Blasen oben/unten
+M.PAD_TOP, M.PAD_BOTTOM = 7, 6
 -- Groesse der Emojis, wenn eine Nachricht nur aus Emojis besteht
 function M.BigEmojiSize(fsize) return math.floor((fsize or 14) * 2.2) end
 
@@ -1642,20 +1644,22 @@ function M:FillBubble(r, it, W, p)
         return bh, "CENTER"
     end
     if it.type == "new" then
-        r:SetSize(W - 16, 16)
+        -- schmaler: rechts unten sitzt der Knopf "Nach unten" (Spielbild 22.11.2026: Linie lief darunter)
+        local NW = W - 70
+        r:SetSize(NW, 16)
         r.text:SetFontObject(GameFontNormalSmall)
         r.text:SetJustifyH("CENTER")
-        r.text:SetWidth(W - 16)
+        r.text:SetWidth(NW)
         r.text:SetText(it.count == 1 and T("1 neue Nachricht") or T("%d neue Nachrichten", it.count))
         r.text:SetTextColor(g[1], g[2], g[3])
         r.text:ClearAllPoints()
         r.text:SetPoint("CENTER", r, "CENTER", 0, 0)
         r.text:Show()
-        local tw = math.min(W - 40, (r.text:GetStringWidth() or 100) + 16)
+        local tw = math.min(NW - 24, (r.text:GetStringWidth() or 100) + 16)
         r.line1:SetColorTexture(g[1], g[2], g[3], .5)
         r.line2:SetColorTexture(g[1], g[2], g[3], .5)
-        r.line1:ClearAllPoints() r.line1:SetPoint("LEFT", r, "LEFT", 0, 0) r.line1:SetWidth(math.max(1, (W - 16 - tw) / 2))
-        r.line2:ClearAllPoints() r.line2:SetPoint("RIGHT", r, "RIGHT", 0, 0) r.line2:SetWidth(math.max(1, (W - 16 - tw) / 2))
+        r.line1:ClearAllPoints() r.line1:SetPoint("LEFT", r, "LEFT", 0, 0) r.line1:SetWidth(math.max(1, (NW - tw) / 2))
+        r.line2:ClearAllPoints() r.line2:SetPoint("RIGHT", r, "RIGHT", 0, 0) r.line2:SetWidth(math.max(1, (NW - tw) / 2))
         r.line1:Show() r.line2:Show()
         return 16, "CENTER"
     end
@@ -1736,8 +1740,27 @@ function M:FillBubble(r, it, W, p)
         timeBelow = true
     end
     r.text:SetWidth(bw - 2 * pad - (timeBelow and 0 or (8 + stampW)))
+    -- Mehrzeilig: WoW misst die Breite der ungebrochenen Zeile -> rechts blieb Luft (Spielbild 22.11.2026
+    -- "Texte nicht mittig"). Schmalste Breite mit gleich vielen Zeilen suchen, Blase daran anpassen.
+    if timeBelow and not big and r.text.GetNumLines then
+        local w = bw - 2 * pad
+        local lines = r.text:GetNumLines()
+        local lo, hi = math.max(40, whoW, stampW), w
+        if lines and lines > 1 and lo < hi then
+            for _ = 1, 7 do
+                local mid = math.floor((lo + hi) / 2)
+                r.text:SetWidth(mid)
+                if r.text:GetNumLines() > lines then lo = mid + 1 else hi = mid end
+            end
+            r.text:SetWidth(hi)
+            bw = hi + 2 * pad
+        else
+            r.text:SetWidth(w)
+        end
+    end
     th = r.text:GetStringHeight() or th
-    bh = 5 + whoH + th + (timeBelow and 12 or 0) + 4
+    -- oben und unten gleich viel Luft (Spielbild 22.11.2026)
+    bh = M.PAD_TOP + whoH + th + (timeBelow and 12 or 0) + M.PAD_BOTTOM
     -- grosses Emoji: WoW zaehlt die Bildhoehe nicht zur Texthoehe -> selbst rechnen, Namenszeile mitzaehlen
     if big then bh = 4 + whoH + (it.name and 1 or 0) + math.max(th, M.BigEmojiSize(fsize)) + 4 end
     -- Blase
@@ -1798,7 +1821,7 @@ function M:FillBubble(r, it, W, p)
     end
     if it.name then
         r.who:ClearAllPoints()
-        r.who:SetPoint("TOPLEFT", r, "TOPLEFT", pad + clsW, -4)
+        r.who:SetPoint("TOPLEFT", r, "TOPLEFT", pad + clsW, -M.PAD_TOP)
         if clsW > 0 then
             r.clsAv:ClearAllPoints()
             r.clsAv:SetPoint("RIGHT", r.who, "LEFT", -3, 0)
@@ -1808,7 +1831,7 @@ function M:FillBubble(r, it, W, p)
         -- Farbe wie bei WhatsApp je Person: Klassenfarbe der zitierten Person (Spielbild 22.11.2026:
         -- Gold auf goldener Blase zu wenig Kontrast), sonst ein ruhiges Blau
         local g0 = M.QuoteColor(qName)
-        local top = -(4 + nameH + (nameH > 0 and 3 or 2))
+        local top = -(M.PAD_TOP + nameH + (nameH > 0 and 3 or 2))
         r.qbox:ClearAllPoints()
         r.qbox:SetPoint("TOPLEFT", r, "TOPLEFT", pad - 4, top)
         r.qbox:SetPoint("TOPRIGHT", r, "TOPRIGHT", -(pad - 4), top)
@@ -1832,11 +1855,11 @@ function M:FillBubble(r, it, W, p)
         for _, q in ipairs({r.qbox, r.qbar, r.qname, r.qtext}) do q:Show() end
     end
     r.text:ClearAllPoints()
-    r.text:SetPoint("TOPLEFT", r, "TOPLEFT", pad, -(4 + whoH + (it.name and 1 or 0)))
+    r.text:SetPoint("TOPLEFT", r, "TOPLEFT", pad, -(M.PAD_TOP + whoH + (it.name and 1 or 0)))
     r.text:Show()
     if not big then
         r.time:ClearAllPoints()
-        r.time:SetPoint("BOTTOMRIGHT", r, "TOPRIGHT", -(pad + tickW), -(bh - 3))
+        r.time:SetPoint("BOTTOMRIGHT", r, "TOPRIGHT", -(pad + tickW), -(bh - M.PAD_BOTTOM + 2))
         r.time:SetTextColor(it.out and .82 or .6, it.out and .85 or .6, it.out and .82 or .62)
         r.time:Show()
         if tickW > 0 then

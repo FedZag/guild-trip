@@ -8,7 +8,7 @@ local want, maxSteps, verbose = arg[2] or "alle", tonumber(arg[3] or "") or 40, 
 for i = 1, #arg do if arg[i] == "-v" then verbose = true end end
 local root = "src"
 GetLocale = function() return "deDE" end
-for _, f in ipairs({"ONE_QuestDB/Data", "ONE_QuestDB/Names_deDE", "ONE_QuestDB/Services", "ONE_Leveling/Rewards", "ONE_Leveling/ClassSpells"}) do
+for _, f in ipairs({"ONE_QuestDB/Data", "ONE_QuestDB/Names_deDE", "ONE_QuestDB/Objectives", "ONE_QuestDB/Services", "ONE_Leveling/Rewards", "ONE_Leveling/ClassSpells"}) do
     assert(loadfile(root .. "/" .. f .. ".lua"))()
 end
 local lev = {}
@@ -28,7 +28,8 @@ do
         local f = {}
         for x in v:gmatch("[^,]+") do f[#f + 1] = x end
         customScen = {key = "custom", fac = f[1], race = f[2], class = f[3], level = 1, map = tonumber(f[4]), x = tonumber(f[5]),
-            y = tonumber(f[6]), home = {tonumber(f[7]), tonumber(f[8]), tonumber(f[9])}, doneBelow = 0}
+            y = tonumber(f[6]), home = {tonumber(f[7]), tonumber(f[8]), tonumber(f[9])}, doneBelow = 0,
+            tempo = os.getenv("SIM_TEMPO")}  -- SIM_TEMPO = need/balanced/all (Optionen › Leveln, eigene Route je Stufe)
     end
 end
 local Q = GuildTripQuestDB
@@ -579,6 +580,131 @@ local function Run(sc)
         stats.routeLog = maxLog
         if verbose then print("  NACHPOLIERT: " .. moved .. " Annahmen nach vorn, Rest-Besuche nur zum Annehmen " .. rest .. ", Log hoechstens " .. stats.routeLog) end
     end
+    -- Ziele in mehreren Gebieten (Spieltest 22.11.2026, "Chens leeres Faesschen": Loewen und Ebenenschreiter im
+    -- Norden, Donnerechsen im Sueden – wie ein Leitfaden je Gebiet einen eigenen Schritt): jede Zielgruppe der Quest
+    -- (Gegner/Gegenstand/Objekt) bekommt zwischen Annehmen und Abgeben die Stelle der Route, die ueber ihren naechsten
+    -- Spawnpunkt am wenigsten Umweg kostet. Landen alle an derselben Stelle, bleibt es ein Schritt "o821"; sonst je
+    -- Stelle ein Teil "o821.1", "o821.2" … mit p = seinen Ziel-Knoten (im Spiel gilt der erste Teil mit offenen
+    -- Zielen, Guide.RouteFollow). Weit verteilte Gegner (Loewen ueberall im Brachland) kommen dorthin, wo man ohnehin ist.
+    do
+        local route = stats.route or {}
+        local function Points(nodes)
+            local pts = {}
+            for _, nr in ipairs(nodes) do
+                local nd = Q.n and Q.n[nr]
+                for i = 2, #(nd or {}), 3 do
+                    local c, x, y = World(nd[i], nd[i + 1] / 1000, nd[i + 2] / 1000)
+                    if c then pts[#pts + 1] = {c, x, y, m = nd[i], nr = nr} end
+                end
+            end
+            return pts
+        end
+        local function Groups(id)
+            local od = Q.obj and Q.obj[id]
+            if not od then return nil end
+            local groups = {}
+            for _, kind in ipairs({"m", "i", "o"}) do
+                for _, g in ipairs(od[kind] or {}) do
+                    if #g > 0 then
+                        local pts = Points(g)
+                        if #pts == 0 then return nil end
+                        groups[#groups + 1] = {nodes = g, pts = pts}
+                    end
+                end
+            end
+            return #groups >= 2 and groups or nil
+        end
+        local function Has(r, k, id) return r.q and (" " .. r.q .. " "):find(" " .. k .. id .. " ", 1, true) end
+        -- beste Stelle k (Einfuegen vor route[k]) in ia+1 .. it fuer eine Gruppe, ohne den Halt bei skip
+        local function Best(g, ia, it, skip)
+            local bd, bk, bp
+            for k = ia + 1, it do
+                local a
+                for q = k - 1, 1, -1 do if q ~= skip and route[q].w then a = route[q].w break end end
+                local nb = k
+                if nb == skip then nb = nb + 1 end
+                local b = route[nb] and route[nb].w
+                if a then
+                    for _, p in ipairs(g.pts) do
+                        if p[1] == a[1] then
+                            local d = Dist(a, p) + ((b and b[1] == p[1]) and (Dist(p, b) - Dist(a, b)) or 0)
+                            if not bd or d < bd - 1 then bd, bk, bp = d, k, p end
+                        end
+                    end
+                end
+            end
+            return bk, bp
+        end
+        local split = 0
+        local i = 1
+        while i <= #route do
+            local r = route[i]
+            local did = false
+            for id in (r.q or ""):gmatch("o(%d+)") do
+                id = tonumber(id)
+                local groups = not did and Has(r, "o", id) and Groups(id)
+                if groups then
+                    local ia, it = 0, #route + 1
+                    for k = i, 1, -1 do if Has(route[k], "a", id) then ia = k break end end
+                    for k = i, #route do if Has(route[k], "t", id) then it = k break end end
+                    -- je Gruppe die beste Stelle; der eigene Ziel-Halt (i) zaehlt nicht als Nachbar
+                    local slots, order = {}, {}
+                    for _, g in ipairs(groups) do
+                        local k, p = Best(g, math.max(ia, 0), it, i)
+                        if not k then slots = nil break end
+                        -- an der Stelle des alten Ziel-Halts (direkt davor/danach) = dort bleiben
+                        if k == i or k == i + 1 then k = i end
+                        if not slots[k] then slots[k] = {nodes = {}, p = p} order[#order + 1] = k end
+                        for _, nr in ipairs(g.nodes) do slots[k].nodes[#slots[k].nodes + 1] = nr end
+                    end
+                    if slots and #order >= 2 then
+                        local toks = {}
+                        for tok in r.q:gmatch("%S+") do if tok ~= "o" .. id then toks[#toks + 1] = tok end end
+                        table.sort(order)
+                        -- Teile dicht beieinander (MERGE_YD) sind ein Schritt: an die fruehere Stelle
+                        local MERGE_YD = 600
+                        local m = 2
+                        while m <= #order do
+                            local into
+                            for q = 1, m - 1 do
+                                local pa, pb = slots[order[q]].p, slots[order[m]].p
+                                if pa[1] == pb[1] and Dist(pa, pb) <= MERGE_YD then into = order[q] break end
+                            end
+                            if into then
+                                for _, nr in ipairs(slots[order[m]].nodes) do table.insert(slots[into].nodes, nr) end
+                                slots[order[m]] = nil
+                                table.remove(order, m)
+                            else m = m + 1 end
+                        end
+                        -- Teile in Routen-Reihenfolge nummerieren, von hinten einfuegen (Indizes bleiben gueltig)
+                        local entries = {}
+                        if #order >= 2 then split = split + 1 did = true else order = {} end
+                        for pn, k in ipairs(order) do
+                            local sl = slots[k]
+                            entries[pn] = {k = k, e = {q = ("o%d.%d"):format(id, pn), n = sl.p.nr, l = (route[k - 1] or r).l,
+                                map = sl.p.m, w = {sl.p[1], sl.p[2], sl.p[3]}, p = sl.nodes}}
+                        end
+                        if #order > 0 then r.q = #toks > 0 and table.concat(toks, " ") or nil end
+                        for pn = #entries, 1, -1 do
+                            local en = entries[pn]
+                            if en.k == i and #toks > 0 then en.k = i + 1 end -- Halt hat noch andere Quests: eigener Schritt danach
+                            if en.k == i then
+                                -- am alten Halt: ihn selbst zum Teil machen (Lage/Knoten des Teils)
+                                r.q = r.q and (r.q .. " " .. en.e.q) or en.e.q
+                                r.p, r.n, r.map, r.w = en.e.p, en.e.n, en.e.map, en.e.w
+                            else
+                                table.insert(route, en.k, en.e)
+                                if en.k <= i then i = i + 1 end
+                            end
+                        end
+                    end
+                end
+            end
+            if not route[i].q and not route[i].k then table.remove(route, i) else i = i + 1 end
+        end
+        stats.route = route
+        if verbose then print("  ZIELE GETEILT: " .. split .. " Quests mit Zielen in mehreren Gebieten") end
+    end
     -- SIM_RECORD=<datei>: aufgezeichnete Route als Lua-Tabelle schreiben (scripts/build_routes.sh)
     if os.getenv("SIM_RECORD") then
         local fh = assert(io.open(os.getenv("SIM_RECORD"), "w"))
@@ -590,6 +716,7 @@ local function Run(sc)
             for _, k in ipairs({"k", "n", "l", "z", "inn", "to", "m", "x", "y"}) do
                 if r[k] ~= nil then parts[#parts + 1] = k .. "=" .. (type(r[k]) == "string" and ("%q"):format(r[k]) or tostring(r[k])) end
             end
+            if r.p then parts[#parts + 1] = "p={" .. table.concat(r.p, ",") .. "}" end
             fh:write("{", table.concat(parts, ","), "},\n")
         end
         fh:write("}\n")

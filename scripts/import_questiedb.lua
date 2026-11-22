@@ -172,6 +172,9 @@ end
 
 -- ===== Quests =====
 local q, kept, skipped = {}, 0, 0
+-- je Ziel die Gegner/Objekte (Nutzer 22.11.2026: Ausrufezeichen ueber Gegnern weg, sobald DIESES Ziel erfuellt ist)
+-- objT[id] = {m = {{npc,…} je Toetungsziel}, o = {{-objekt} je Objektziel}, i = {{npc/-objekt,…} je Gegenstandsziel}}
+local objT = {}
 local ids = {}
 for id in pairs(quests) do ids[#ids + 1] = id end
 table.sort(ids)
@@ -212,6 +215,27 @@ for _, id in ipairs(ids) do
         end
         local targets = {}
         for _, nr in ipairs(Unique(objs)) do if nr and AddNode(nr, 12) then targets[#targets + 1] = nr end end
+        do
+            local t = {m = {}, o = {}, i = {}}
+            for _, c in ipairs(obj[1] or {}) do t.m[#t.m + 1] = {c[1]} end
+            for _, kc in ipairs(obj[5] or {}) do
+                local list = type(kc[1]) == "table" and kc[1] or {}
+                local g = {}
+                for _, n in ipairs(list) do g[#g + 1] = n end
+                if kc[2] then g[#g + 1] = kc[2] end
+                if #g > 0 then t.m[#t.m + 1] = g end
+            end
+            for _, o in ipairs(obj[2] or {}) do t.o[#t.o + 1] = {-o[1]} end
+            for _, it in ipairs(obj[3] or {}) do
+                local g, src = {}, items[it[1]]
+                if type(src) == "table" then
+                    for _, u in ipairs(src[2] or {}) do if #g < 12 then g[#g + 1] = u end end
+                    for _, o in ipairs(src[3] or {}) do if #g < 12 then g[#g + 1] = -o end end
+                end
+                t.i[#t.i + 1] = g
+            end
+            if #t.m + #t.o + #t.i > 0 then objT[id] = t end
+        end
         -- Erkundungsziel (triggerEnd = {text, {[gebiet] = {{x,y}}}})
         local trig = d[9]
         if type(trig) == "table" and type(trig[2]) == "table" then
@@ -285,6 +309,32 @@ for _, loc in ipairs({"deDE", "enUS"}) do
             name = nr > 0 and npcs[nr] and npcs[nr][1] or (nr < 0 and objects[-nr] and objects[-nr][1]) or nil
         end
         if type(name) == "string" then out:write("[" .. nr .. "]=" .. Str(name) .. ",\n") end
+    end
+    out:write("}\n")
+    out:close()
+end
+
+-- ===== Ziele je Quest (Objectives.lua) =====
+do
+    local out = assert(io.open(dest .. "/Objectives.lua", "w"))
+    out:write(header)
+    out:write("-- obj[quest] = {m = {{npc,…} je Toetungsziel}, o = {{-objekt} je Objektziel}, i = {{npc/-objekt,…} je Gegenstandsziel}}\n")
+    out:write("-- in der Reihenfolge der Quest-Ziele je Art (wie das Spiel sie listet)\n")
+    out:write("local D = GuildTripQuestDB\nD.obj = {\n")
+    local function G(list)
+        local parts = {}
+        for k, g in ipairs(list) do parts[k] = L(g) == "false" and "{}" or L(g) end
+        return "{" .. table.concat(parts, ",") .. "}"
+    end
+    for _, id in ipairs(qids) do
+        local t = objT[id]
+        if t then
+            local f2 = {}
+            if #t.m > 0 then f2[#f2 + 1] = "m=" .. G(t.m) end
+            if #t.o > 0 then f2[#f2 + 1] = "o=" .. G(t.o) end
+            if #t.i > 0 then f2[#f2 + 1] = "i=" .. G(t.i) end
+            out:write("[" .. id .. "]={" .. table.concat(f2, ",") .. "},\n")
+        end
     end
     out:write("}\n")
     out:close()

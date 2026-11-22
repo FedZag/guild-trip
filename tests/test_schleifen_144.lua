@@ -235,17 +235,21 @@ do
         local o = {kind = "obj", actions = {{kind = "obj", id = 1}, {kind = "obj", id = 2}}, mapID = 1, x = .1, y = .1}
         local t = {kind = "turnin", nr = 11, actions = {{kind = "turnin", id = 1}, {kind = "turnin", id = 2}}, mapID = 1, x = .1, y = .1}
         local rows = Tr:Rows({steps = {o, t}})
-        local n2, big, nextTitle, nextWho = 0, false, nil, nil
+        -- nach Quest gruppiert (22.11.2026): Questname einmal, darunter die Ziele eingerueckt, nichts rechts
+        local n2, nObj, big, nextTitle, nextWho = 0, 0, false, nil, nil
+        local order = {}
         for k, r in ipairs(rows) do
-            if r.kind == "obj2" then
-                n2 = n2 + 1
-                assert(r.right and r.nav and r.nav.qid, "Quest rechts, Zeile gehoert zu einer Quest")
-                assert(#Tr.QuestIDs(r.nav) == 1, "Rechtsklick waehlt nur diese Quest ab")
+            if r.kind == "obj2" or (r.kind == "obj" and r.block == "now") then
+                assert(not r.right, "nichts rechts daneben")
+                assert(r.nav and r.nav.qid and #Tr.QuestIDs(r.nav) == 1, "Zeile gehoert zu genau einer Quest")
+                order[#order + 1] = r.kind .. r.nav.qid
+                if r.kind == "obj2" then n2 = n2 + 1 else nObj = nObj + 1 end
             end
             if r.kind == "now" then big = true end
             if r.kind == "nxTitle" then nextTitle, nextWho = r.text, rows[k + 1] and rows[k + 1].text end
         end
-        assert(n2 == 3 and not big, "drei Teilziel-Zeilen, kein grosser Titel")
+        assert(n2 == 2 and nObj == 3 and not big, "zwei Questnamen, drei Ziele, kein grosser Titel")
+        assert(table.concat(order, " ") == "obj21 obj1 obj22 obj2 obj2", "Name, dann seine Ziele: " .. table.concat(order, " "))
         assert(nextTitle and nextTitle:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):find("Dillinger: abgeben", 1, true), "NPC zuerst, dann abgeben: " .. tostring(nextTitle))
         assert(nextWho and not nextWho:find("Dillinger", 1, true), "darunter die Quests: " .. tostring(nextWho))
         Tr.Objectives = objs0
