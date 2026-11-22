@@ -168,6 +168,25 @@ do
     log = {}
 end
 
+-- 5c) Gleiche Gegner fuer zwei Quests: ein Schritt mit beiden Zielen, danach zusammen abgeben (Spieltest 21.11.2026
+-- Tirisfal: "Remnants of War" und "The Cult of the Damned" – geplant war A, abgeben, wieder raus fuer B)
+do
+    Fresh()
+    GuildTripQuestDB.q[7] = {12, 8, 0, 0, false, {11}, {11}, {21}, false, false, 1100, 0, 0, 1}
+    local plan = assert(P:Plan(Ctx()))
+    local both
+    for _, st in ipairs(plan.steps) do
+        if st.kind == "obj" then
+            local ids = {}
+            for _, a in ipairs(st.actions) do ids[a.id] = true end
+            if ids[1] and ids[7] then both = true end
+            assert(not (ids[1] or ids[7]) or (ids[1] and ids[7]), "Quest 1 und 7 nicht getrennt: " .. Order(plan))
+        end
+    end
+    assert(both, "ein Schritt mit beiden Zielen: " .. Order(plan))
+    Fresh()
+end
+
 -- 5b) Beruf noetig (Spieltest 21.11.2026: Kamari "Bestien des Donnergrats" nur fuer Lederverarbeiter)
 do
     local e = {10, 6, 178, 0, false, {11}, {11}, {}, false, false, 840, 0, 0, 14, {165, 1}}
@@ -204,6 +223,34 @@ do
     assert(G:StepText(vs):find("Händler: Taschen leeren", 1, true) and G:StepWho(vs):find("Haendlerin"))
     assert(Tr.StepTip({steps = {vs}}, 1):find("Verkaufen machst du selbst"), "nichts automatisch")
     assert(Tr.StepTip({steps = {{kind = "turnin", onWay = true, actions = {}}}}, 1):find("Liegt am Weg"), "Grund: am Weg")
+    -- mehrere Quests an einem Ort (wie RestedXP): je Teilziel eine Zeile, Quest rechts, kein grosser Titel;
+    -- mehrere Abgaben beim selben NPC: "Abgeben bei X", Quests darunter (Nutzer 21.11.2026 "bau das")
+    do
+        GuildTripQuestDB.names = {[11] = "Dillinger"}
+        local objs0 = Tr.Objectives
+        Tr.Objectives = function(id)
+            if id == 1 then return {{text = "Kristalle: 3/8"}} end
+            return {{text = "Kultisten: 2/6"}, {text = "Akolythen: 4/4", done = true}}
+        end
+        local o = {kind = "obj", actions = {{kind = "obj", id = 1}, {kind = "obj", id = 2}}, mapID = 1, x = .1, y = .1}
+        local t = {kind = "turnin", nr = 11, actions = {{kind = "turnin", id = 1}, {kind = "turnin", id = 2}}, mapID = 1, x = .1, y = .1}
+        local rows = Tr:Rows({steps = {o, t}})
+        local n2, big, nextTitle, nextWho = 0, false, nil, nil
+        for k, r in ipairs(rows) do
+            if r.kind == "obj2" then
+                n2 = n2 + 1
+                assert(r.right and r.nav and r.nav.qid, "Quest rechts, Zeile gehoert zu einer Quest")
+                assert(#Tr.QuestIDs(r.nav) == 1, "Rechtsklick waehlt nur diese Quest ab")
+            end
+            if r.kind == "now" then big = true end
+            if r.kind == "nxTitle" then nextTitle, nextWho = r.text, rows[k + 1] and rows[k + 1].text end
+        end
+        assert(n2 == 3 and not big, "drei Teilziel-Zeilen, kein grosser Titel")
+        assert(nextTitle and nextTitle:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):find("Abgeben bei Dillinger", 1, true), "Abgeben bei NPC: " .. tostring(nextTitle))
+        assert(nextWho and not nextWho:find("Dillinger", 1, true), "darunter die Quests: " .. tostring(nextWho))
+        Tr.Objectives = objs0
+        GuildTripQuestDB.names = nil
+    end
     -- Fahrplan mit Runden wird gemerkt
     assert(G.FollowLoops(plan)[plan.orderKeys[1]] == 1)
     -- alter Fahrplan (ohne Runden, vom gierigen Planer) wird nach dem Update nicht weitergefahren

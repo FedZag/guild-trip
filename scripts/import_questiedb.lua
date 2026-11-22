@@ -182,14 +182,24 @@ local HOLIDAY = {[-22] = true, [-41] = true, [-364] = true, [-365] = true, [-366
 for _, id in ipairs(ids) do
     local d = quests[id]
     local starts = Unique(Starters(d[2]))
+    -- Start durch einen Gegenstand (Nutzer 22.11.2026, Spieltest "Chens leeres Faesschen"): liegt er an festen
+    -- Stellen (Objekt, z. B. das Faesschen im Brachland), sind diese Objekte der "Geber" und die Quest ist planbar;
+    -- faellt er von Gegnern, gibt es keinen Geber – der Guide nimmt sie, sobald sie im Log ist. Feld 16 = Gegenstand.
+    local startItem
+    if #starts == 0 and type(d[2]) == "table" and type(d[2][3]) == "table" and d[2][3][1] then
+        startItem = d[2][3][1]
+        local it = items[startItem]
+        for _, o in ipairs(type(it) == "table" and it[3] or {}) do starts[#starts + 1] = -o end
+    end
     -- Feiertage/Weltereignisse (an der Questart erkannt) und Quests ohne Geber (nur Gegenstand) auslassen.
     -- NICHT specialFlags 2: das heisst bei Questie "wird durch ein Ereignis abgeschlossen" (Begleit- und
     -- Erkundungsquests wie 155 "Die Bruderschaft der Defias") – bis 17.11.2026 fielen so 188 normale Quests weg.
-    if HOLIDAY[d[17] or 0] or #starts == 0 then
+    if HOLIDAY[d[17] or 0] or (#starts == 0 and not startItem) then
         skipped = skipped + 1
     else
         local givers = {}
-        for _, nr in ipairs(starts) do if AddNode(nr, 5) then givers[#givers + 1] = nr end end
+        for _, nr in ipairs(starts) do if AddNode(nr, startItem and 9 or 5) then givers[#givers + 1] = nr end end
+        local drop = startItem and #givers == 0 and startItem or nil
         local ends = {}
         for _, nr in ipairs(Unique(Starters(d[3]))) do if AddNode(nr, 5) then ends[#ends + 1] = nr end end
         local objs, obj = {}, d[10] or {}
@@ -208,12 +218,12 @@ for _, id in ipairs(ids) do
             local byMap, best = ByMap(trig[2])
             if Put(TRIGGER + id, 0, byMap, best, 3) then targets[#targets + 1] = TRIGGER + id end
         end
-        if #givers > 0 then
+        if #givers > 0 or (drop and #ends > 0) then
             q[id] = {d[5] or 0, d[4] or 0, Race(d[6]), d[7] or 0, List(d[13]), givers, ends, targets,
                 List(d[12]), List(d[16]), XP[id] or 0, d[22] or 0, d[32] or 0, d[17] or 0,
                 -- Beruf noetig (requiredSkill {Beruf, Mindestwert}), z. B. Lederverarbeitung (Spieltest 21.11.2026:
                 -- Kamari "Bestien des Donnergrats" nur fuer Lederverarbeiter)
-                type(d[18]) == "table" and tonumber(d[18][1]) and {d[18][1], d[18][2] or 1} or nil}
+                type(d[18]) == "table" and tonumber(d[18][1]) and {d[18][1], d[18][2] or 1} or nil, startItem}
             kept = kept + 1
         else
             skipped = skipped + 1
@@ -242,8 +252,9 @@ for id in pairs(q) do qids[#qids + 1] = id end
 table.sort(qids)
 for _, id in ipairs(qids) do
     local e = q[id]
-    f:write(string.format("[%d]={%d,%d,%d,%d,%s,%s,%s,%s,%s,%s,%d,%d,%d,%d%s},\n", id, e[1], e[2], e[3], e[4],
-        L(e[5]), L(e[6]), L(e[7]), L(e[8]), L(e[9]), L(e[10]), e[11], e[12], e[13], e[14], e[15] and ("," .. L(e[15])) or ""))
+    f:write(string.format("[%d]={%d,%d,%d,%d,%s,%s,%s,%s,%s,%s,%d,%d,%d,%d%s%s},\n", id, e[1], e[2], e[3], e[4],
+        L(e[5]), L(e[6]), L(e[7]), L(e[8]), L(e[9]), L(e[10]), e[11], e[12], e[13], e[14],
+        (e[15] or e[16]) and ("," .. L(e[15])) or "", e[16] and ("," .. e[16]) or ""))
 end
 f:write("}\nD.n = {\n")
 local nids = {}

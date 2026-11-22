@@ -3,7 +3,7 @@
 ## Notes: Dungeons mit Quests, Vorquests, Klassenquests und gildeninternem Gruppenfinder
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later
-## Version: 0.7.5-alpha
+## Version: 0.7.6-alpha
 ## Dependencies: ONE_Core
 ## OptionalDeps: ONE_Nav
 ## X-Credits: Forever Dungeon Quests (Sundee, MIT); Dungeon Codex by Baxter × DLDVLPR (bosses and loot, with permission); cmangos classic-db (GPL-3)

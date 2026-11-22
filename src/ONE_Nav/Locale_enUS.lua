@@ -241,3 +241,6 @@ EN["Fliegen spart etwa %d min"] = "Flying saves about %d min"
 -- 0.7.2: Quest-Ziel als Gebiet
 EN["Im Zielgebiet"] = "In the objective area"
 EN["Ziele sind hier in der Nähe · Richtung zum nächsten"] = "Objectives are nearby · direction to the nearest"
+-- Ankunftsklang (22.11.2026)
+EN["Klang bei Ankunft"] = "Sound on arrival"
+EN["Kommst du am Ziel an, spielt Guild Trip einen kurzen Klang – je nach Ziel verschieden: Questgeber, Abgabe, Zielgebiet oder Flugmeister/Lehrer/Händler. Probehören: /trip klang"] = "When you reach the destination, Guild Trip plays a short sound – different per destination: quest giver, turn-in, objective area or flight master/trainer/vendor. Preview: /trip klang"

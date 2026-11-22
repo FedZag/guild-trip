@@ -30,8 +30,14 @@ Glass.skins = {
     glas     = { name = "Glas (Blau)",     tint = Hex("091420"), glow = Hex("6fd3ff"), title = Hex("eaf5fb") },
     horde    = { name = "Horde",           tint = Hex("140909"), glow = Hex("e8743b"), title = Hex("ffc08a") },
     alliance = { name = "Allianz",         tint = Hex("07101f"), glow = Hex("5aa2ff"), title = Hex("e3c26a") },
+    -- 22.11.2026 (Nutzer: "verschiedene Farbeinstellungen anbieten")
+    nightelf = { name = "Nachtelf (Lila)", tint = Hex("0f0a18"), glow = Hex("b48cff"), title = Hex("e6d7ff") },
+    forest   = { name = "Wald (Grün)",     tint = Hex("08120a"), glow = Hex("6fcf5a"), title = Hex("d8f0c8") },
+    frost    = { name = "Frost (Eisblau)", tint = Hex("08141a"), glow = Hex("9fe8ff"), title = Hex("eefbff") },
+    blood    = { name = "Blut (Rot)",      tint = Hex("160606"), glow = Hex("e23a3a"), title = Hex("ffb0a0") },
+    dark     = { name = "Dunkel (Grau)",   tint = Hex("0b0b0c"), glow = Hex("b8b8b8"), title = Hex("f0f0f0") },
 }
-Glass.order = { "azeroth", "glas", "horde", "alliance", "custom" }
+Glass.order = { "azeroth", "glas", "horde", "alliance", "nightelf", "forest", "frost", "blood", "dark", "custom" }
 Glass.DEFAULT_ALPHA = .80
 
 -- Pruefen/ergaenzen einer Farb-Ablage {skin, tint, glow, alpha}

@@ -4,6 +4,28 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.7.6-alpha (veröffentlicht 22.11.2026)
+
+```
+## 0.7.6-alpha
+
+**English**
+- Quest guide follows fixed routes per race and class, calculated in advance (like a levelling guide) – in game you just follow. One zone at a time: quests accepted elsewhere wait until the zone is done. Objectives with the same monsters or close together become one step; several quests at one place get one line per objective, turn-ins at the same NPC are grouped. Quests started by an item you find are included. Trips into capital cities (lifts, rings) are counted realistically. A short detour (e.g. shopping) no longer throws the route over.
+- Quest box: the gear icon opens its own look – styles (Guild Trip, WoW look, compact, minimal), freely chosen colours (e.g. quest giver names) and background (invisible, light glass, strong glass, dark, with opacity).
+- Quest sounds: arrival sound depending on the kind of goal (quest giver, turn-in, objective area, service). Optional own sounds for quest accepted / objectives done / turned in (off by default).
+- Chat: more colour presets (night elf, forest, frost, blood, dark), own bubble colour, text colour, bubble colour strength, reset. Shift-click a name in a whisper conversation inserts it (e.g. guild invite). Bubbles with a big emoji no longer overlap.
+- Fixes: navigation footprints were missing; dungeon quests are never offered for abandoning.
+
+**Deutsch**
+- Quest-Führung folgt festen Routen je Volk und Klasse, vorab gerechnet (wie ein Leveling-Guide) – im Spiel nur noch folgen. Ein Gebiet nach dem anderen: woanders angenommene Quests warten, bis das Gebiet fertig ist. Ziele mit gleichen Gegnern oder dicht beieinander werden ein Schritt; mehrere Quests an einem Ort je Teilziel eine Zeile, Abgaben beim selben NPC zusammengefasst. Quests, die durch einen Fund starten, sind dabei. Wege in Hauptstädte (Aufzüge, Ringe) werden realistisch gerechnet. Ein kurzer Abstecher (z. B. Einkaufen) wirft die Route nicht mehr um.
+- Quest-Kasten: Das Zahnrad öffnet ein eigenes Aussehen – Vorlagen (Guild Trip, WoW-Look, Kompakt, Minimal), frei wählbare Farben (z. B. Questgeber-Namen) und Hintergrund (unsichtbar, leichtes Glas, kräftiges Glas, dunkel, mit Deckkraft).
+- Questklänge: Ankunftsklang je Ziel-Art (Questgeber, Abgabe, Zielgebiet, Dienst). Wahlweise eigene Klänge für Quest angenommen / Ziele erfüllt / abgegeben (Standard aus).
+- Chat: mehr Farbvorlagen (Nachtelf, Wald, Frost, Blut, Dunkel), eigene Blasenfarbe, Textfarbe, Stärke der Blasenfarbe, zurücksetzen. Umschalt+Klick auf einen Namen im Flüstergespräch fügt ihn ein (z. B. Gildeneinladung). Blasen mit großem Emoji überlappen nicht mehr.
+- Fixes: Fußspuren der Navi fehlten; Dungeonquests werden nie zum Abbrechen angeboten.
+```
+
+---
+
 ## 0.7.5-alpha (veröffentlicht 21.11.2026)
 
 ```

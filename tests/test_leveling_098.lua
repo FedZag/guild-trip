@@ -238,10 +238,16 @@ do
     -- (Ein Flug fuer eine Runde mit normalen Quests ist erlaubt.)
     for i, st in ipairs(pf.steps) do
         if st.kind == "travel" then
-            local nx = pf.steps[i + 1]
-            local onlyDungeon = nx and #nx.actions > 0
-            for _, a in ipairs(nx and nx.actions or {}) do if not (pf.info[a.id] and pf.info[a.id].forDungeon) then onlyDungeon = false end end
-            assert(not onlyDungeon, "kein Flug nur fuer eine Dungeonquest: " .. tostring(nx and nx.stopKey))
+            -- ganzer Aufenthalt bis zur naechsten Reise: mindestens eine normale Quest
+            local onlyDungeon, k = false, i + 1
+            while pf.steps[k] and pf.steps[k].kind ~= "travel" do
+                for _, a in ipairs(pf.steps[k].actions or {}) do
+                    if pf.info[a.id] and pf.info[a.id].forDungeon then onlyDungeon = onlyDungeon == false and true or onlyDungeon
+                    else onlyDungeon = nil end
+                end
+                k = k + 1
+            end
+            assert(onlyDungeon ~= true, "kein Flug nur fuer eine Dungeonquest: " .. tostring(pf.steps[i + 1] and pf.steps[i + 1].stopKey))
         end
     end
     assert(pf.info[2040] and pf.info[2040].forDungeon, "2040 ist Dungeonquest")

@@ -145,7 +145,8 @@ for _, o in ipairs(UI:SettingDefs()) do
     if o.label == "Ton bei Gildennachrichten" then guildBox = o end
 end
 -- 19.11.2026: dazu Aussehen + Glas-Farben (2 Auswahlfelder) und zwei Farbknoepfe; 21.11.: Stil + 3 Emoji-Schalter
-assert(checks == #UI.settingChecks + 2 + 5 and drops == #UI.settingDrops + 2 + 1, "alle Chat-Schalter da")
+-- 22.11.: Staerke der Blasenfarbe (Auswahl) + 3 Knoepfe (meine Blasen, Textfarbe, zuruecksetzen)
+assert(checks == #UI.settingChecks + 2 + 5 + 3 and drops == #UI.settingDrops + 2 + 1 + 1, "alle Chat-Schalter da")
 assert(guildBox and guildBox.get() == false and guildBox.section == "Verhalten & Töne")
 -- im Fenster: Zeilen fuer alle sichtbaren Einstellungen
 UI:OpenSettings()

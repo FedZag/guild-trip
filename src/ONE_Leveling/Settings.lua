@@ -43,6 +43,15 @@ function S:Set(key, value)
     if key == "tempo" then db.tempo = value
     elseif key == "trackerScale" then lev.Tracker:SetScale(value)
     else db[key] = value and true or false end
+    -- "Ohne Rahmen" hier = Hintergrund "Unsichtbar" im Zahnrad-Menue (gleiche Einstellung)
+    if key == "trackerBare" and type(db.trackerLook) == "table" then
+        db.trackerLook.bg = value and "none" or nil
+        db.trackerLook.alpha = nil
+        if not value and db.trackerLook.preset and lev.Tracker.PRESETS[db.trackerLook.preset] then
+            local bg = lev.Tracker.PRESETS[db.trackerLook.preset].bg
+            db.trackerLook.bg = bg ~= "none" and bg or "dark"
+        end
+    end
     if key == "tempo" then G:Replan() else lev.Tracker:Update(G.plan) end
     if ONE.UI and ONE.UI.Refresh then ONE.UI:Refresh() end
 end

@@ -469,7 +469,7 @@ function W:Navi(s, itemID)
         local e = Q and Q.q and Q.q[s.quest]
         for _, nr in ipairs(e and e[6] or {}) do
             local m, x, y = P and P.NodePoint and P.NodePoint(Q, nr)
-            if m then return navi:PointTo(lev.Guide.Title(s.quest), m, x, y) end
+            if m then return navi:PointTo(lev.Guide.Title(s.quest), m, x, y, {arrive = "accept"}) end
         end
         ONE:Print(T("Für diese Quest kennt Guild Trip keinen Questgeber-Ort."))
         return false

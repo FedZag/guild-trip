@@ -344,4 +344,88 @@ local kum
 for _, b in ipairs(M.convRows) do if b.shown and b.name and b.name.shown and b.name.text == "Kumpel#1234" then kum = b end end
 assert(kum and kum.online.shown, "Battle.net-Gespraech in der Liste, online")
 C_BattleNet = nil
+-- 16) Fluestern: Name oben per Umschalt+Klick in den Gilden-Einladungsdialog (Spieltest 22.11.2026)
+do
+    UI:Show(Chat:OpenWhisper("Lyra"))
+    assert(M.headHit and M.headHit.shown ~= false, "Name oben anklickbar")
+    local edit = Region("EditBox")
+    local popup = {EditBox = edit}
+    -- neuer Client: StaticPopup_Visible liefert Name UND Fenster, Feld heisst EditBox
+    StaticPopup_Visible = function(which) if which == "ADD_GUILDMEMBER" then return "StaticPopup1", popup end end
+    local oldShift = IsShiftKeyDown
+    IsShiftKeyDown = function() return true end
+    M.headHit.scripts.OnClick(M.headHit, "LeftButton")
+    assert(edit.text == "Lyra", "Name im Einladungsdialog")
+    -- ohne Umschalt: Namens-Menue
+    IsShiftKeyDown = function() return false end
+    local opened
+    local pm = ONE.PlayerMenu.Open
+    ONE.PlayerMenu.Open = function(_, _, n) opened = n end
+    M.headHit.scripts.OnClick(M.headHit, "LeftButton")
+    assert(opened == "Lyra", "Klick oeffnet Namens-Menue")
+    ONE.PlayerMenu.Open, IsShiftKeyDown, StaticPopup_Visible = pm, oldShift, nil
+end
+-- 17) Nur-Emoji-Blase mit Name: hoch genug fuer Name + grosses Bild (Spieltest 22.11.2026: ragte in die Blase darunter)
+do
+    local log = Region("Frame")
+    local r = M.bubbles and M.bubbles[1] or nil
+    assert(r, "Blase vorhanden")
+    local e = {kind = "guild", author = "Xiltor", text = ":D", time = 0}
+    local h = M:FillBubble(r, {type = "bubble", entry = e, name = true, out = false}, 300, M:Palette())
+    local fs = Chat:Settings().fontSize or 14
+    assert(h >= 13 + M.BigEmojiSize(fs) + 8, "Blase zu niedrig: " .. tostring(h))
+    assert(r.who.shown, "Name sichtbar")
+end
+-- 18) Farbeinstellungen im Chat (Nutzer 22.11.2026): Vorlagen, eigene Blasenfarbe, Textfarbe, Staerke, zuruecksetzen
+do
+    local ids = {}
+    for _, l in ipairs(UI:SettingsLines()) do if l.def then ids[l.def.id] = l.def end end
+    for _, id in ipairs({"chat.glassSkin", "chat.bubbleStrength", "chat.ownBubble", "chat.bubbleText"}) do assert(ids[id], id) end
+    assert(not ids["chat.bubbleReset"], "Zuruecksetzen erst, wenn etwas geaendert ist")
+    local G = ONE.Glass
+    if G and G.skins then for _, id in ipairs({"nightelf", "forest", "frost", "blood", "dark"}) do assert(G.skins[id], id) end end
+    local p = M:Palette()
+    local s = Chat:Settings()
+    -- eigene Blasenfarbe ersetzt die Leuchtfarbe im Rand
+    local _, _, _, _, er, eg, eb = M.BubbleColor(p, true, false, "guild")
+    s.ownBubble = {0, 1, 0}
+    local _, _, _, _, er2, eg2, eb2 = M.BubbleColor(p, true, false, "guild")
+    assert(er2 == 0 and eg2 == 1 and eb2 == 0 and not (er == 0 and eg == 1 and eb == 0), "eigene Blasenfarbe")
+    s.ownBubble = {5, 0, 0}
+    local _, _, _, _, er3 = M.BubbleColor(p, true, false, "guild")
+    assert(er3 == p.glow[1], "kaputte Farbe wird ignoriert")
+    s.ownBubble = nil
+    -- Staerke: kraeftiger = deutlicherer Rand
+    local function EdgeA(v) s.bubbleStrength = v local a = select(8, M.BubbleColor(p, false, false, "guild")) return a end
+    assert(EdgeA(.5) < EdgeA(1) and EdgeA(1) < EdgeA(2.6), "Staerke wirkt")
+    s.bubbleStrength = 7
+    assert(M.BubbleStrength() == 1, "unbekannte Staerke = normal")
+    s.bubbleStrength = nil
+    -- Farbwahl: Uebernehmen setzt, Abbrechen stellt zurueck
+    local cpf = {}
+    function cpf:GetColorRGB() return .2, .4, .6 end
+    function cpf:SetupColorPickerAndShow(info) self.info = info end
+    ColorPickerFrame = cpf
+    ids["chat.bubbleText"].onClick()
+    cpf.info.swatchFunc()
+    assert(s.bubbleText[1] == .2 and s.bubbleText[3] == .6, "Textfarbe gesetzt")
+    ids["chat.ownBubble"].onClick()
+    cpf.info.swatchFunc()
+    cpf.info.cancelFunc()
+    assert(s.ownBubble == nil, "Abbrechen stellt zurueck")
+    -- Textfarbe kommt in der Blase an
+    local r = M.bubbles[1]
+    local tc
+    r.text.SetTextColor = function(_, a, b, c) tc = {a, b, c} end
+    M:FillBubble(r, {type = "bubble", entry = {kind = "guild", author = "Xiltor", text = "hallo", time = 0}, name = true}, 300, p)
+    assert(tc and tc[1] == .2 and tc[2] == .4, "Textfarbe in der Blase")
+    -- zuruecksetzen
+    s.bubbleStrength = 1.8
+    local reset
+    for _, l in ipairs(UI:SettingsLines()) do if l.def and l.def.id == "chat.bubbleReset" then reset = l.def end end
+    assert(reset, "Zuruecksetzen sichtbar")
+    reset.onClick()
+    assert(s.bubbleText == nil and s.bubbleStrength == nil and s.ownBubble == nil, "alles zurueck")
+    ColorPickerFrame = nil
+end
 print("OK test_messenger_146")

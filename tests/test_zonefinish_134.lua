@@ -17,7 +17,7 @@ GuildTripQuestDB = {
         [14] = {0, 1, 620, 610},
     },
 }
-GuildTripLeveling = {r = {}, i = {}, dz = {}}
+GuildTripLeveling = {r = {}, i = {}, dz = {}, sp = {[5] = 1234}}  -- Quest 5 bringt einen Zauber bei
 local lev = {}
 assert(loadfile(root .. "/ONE_Leveling/Planner.lua"))("ONE_Leveling", lev)
 local P = lev.Planner
@@ -49,8 +49,15 @@ for _, improve in ipairs({false, true}) do
     -- ohne die Regel: Flug zur Stadt (ca. 4 min) knapp vor 1300 yd Fussweg zur Abgabe
     assert(o:sub(1, 2) == "t1", "erst die fertige Abgabe im Gebiet, dann fliegen: " .. o)
     assert(plan.chosen[4] == nil, "Stufe-4-Quest ist grau, keine Klassenquest: " .. tostring(plan.chosen[4]))
-    assert(plan.chosen[5] == "class", "echte Klassenquest bleibt")
+    assert(plan.chosen[5] == "class", "echte Klassenquest (mit Zauber) bleibt")
 end
+-- Klassenquest ohne Zauber und ohne Verbesserung: zaehlt wie jede andere Quest (Nutzer 21.11.2026)
+GuildTripLeveling.sp = {}
+do
+    local plan = assert(P:Plan(ctx))
+    assert(plan.chosen[5] ~= "class" and plan.info[5].class == false, "ohne Zauber kein Klassen-Vorrang: " .. tostring(plan.chosen[5]))
+end
+GuildTripLeveling.sp = {[5] = 1234}
 -- weit weg (mehr als P.ZONE_FINISH Minuten): dann zaehlt wieder der echte Weg
 GuildTripQuestDB.n[11] = {0, 1, 950, 50}
 ctx.improve = false

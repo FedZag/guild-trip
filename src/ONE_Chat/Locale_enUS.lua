@@ -12,6 +12,8 @@ EN["Befehle gehen hier nicht – bitte im WoW-Chat."] = EN["Befehle gehen hier n
 EN["Senden geht in diesem Client nicht."] = EN["Senden geht in diesem Client nicht."] or "Sending isn't possible in this client."
 EN["Senden ging nicht."] = EN["Senden ging nicht."] or "Sending failed."
 EN["%s ist nicht in deiner Battle.net-Freundesliste."] = EN["%s ist nicht in deiner Battle.net-Freundesliste."] or "%s is not on your Battle.net friends list."
+EN["Umschalt+Klick: Name einfügen (z. B. Gildeneinladung)"] = EN["Umschalt+Klick: Name einfügen (z. B. Gildeneinladung)"] or "Shift-click: insert name (e.g. guild invite)"
+EN["Klick: Namens-Menü"] = EN["Klick: Namens-Menü"] or "Click: name menu"
 EN["An %s"] = EN["An %s"] or "To %s"
 EN["Guild Trip Chat"] = EN["Guild Trip Chat"] or "Guild Trip Chat"
 EN["Menü"] = EN["Menü"] or "Menu"
@@ -143,6 +145,18 @@ EN["Chat-Aussehen prüfen (für Fehlersuche)"] = "Check chat look (for troublesh
 EN["Gespräch schließen"] = "Close conversation"
 
 -- Messenger-Stil, Emojis, Einstellungen im Chat (21.11.2026)
+-- Blasenfarben (22.11.2026)
+EN["Stärke der Blasenfarbe"] = "Bubble colour strength"
+EN["Wie deutlich die Sprechblasen gefärbt sind."] = "How strongly the speech bubbles are tinted."
+EN["dezent"] = EN["dezent"] or "subtle"
+EN["kräftig"] = EN["kräftig"] or "strong"
+EN["sehr kräftig"] = EN["sehr kräftig"] or "very strong"
+EN["Farbe meiner Blasen …"] = "Colour of my bubbles …"
+EN["Farbe deiner eigenen Sprechblasen. Ohne Auswahl: die Leuchtfarbe des Chats."] = "Colour of your own speech bubbles. If not set: the chat's glow colour."
+EN["Textfarbe in den Blasen …"] = "Text colour in bubbles …"
+EN["Farbe der Nachrichten in den Sprechblasen. Ohne Auswahl: weiß."] = "Colour of the messages in the speech bubbles. If not set: white."
+EN["Blasenfarben zurücksetzen"] = "Reset bubble colours"
+EN["Eigene Blasenfarbe, Textfarbe und Stärke wieder wie am Anfang."] = "Own bubble colour, text colour and strength back to default."
 local function Add(de, en) EN[de] = EN[de] or en end
 for de, en in pairs({
     ["offline seit %d Jahren"] = "offline for %d years", ["offline seit 1 Monat"] = "offline for 1 month",

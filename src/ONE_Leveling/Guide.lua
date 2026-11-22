@@ -366,16 +366,24 @@ function G:Context()
     local home, hearthIn = G.HearthState()
     local bags = G.FreeBagSlots()
     local needVendor = bags and bags <= G.VENDOR_BAGS
+    local doneMemo, logSet = {}, {}
+    for _, id in ipairs(G.LogIDs()) do logSet[id] = true end
     return {
         me = {level = level, xp = Try(UnitXP, "player") or 0, xpMax = Try(UnitXPMax, "player") or 0,
             class = class and G.CLASS[class], race = race and G.RACE[race],
             faction = Try(UnitFactionGroup, "player") or "?", inGroup = (Try(IsInGroup) and true) or false,
             mapID = mapID, x = x, y = y, skills = G.Skills()},
-        done = function(id) return Try(C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted, id) == true end,
-        inLog = function(id)
-            local i = Try(C_QuestLog and C_QuestLog.GetLogIndexForQuestID, id)
-            return type(i) == "number" and i > 0
+        -- je Neuplanung gemerkt (Spieltest 22.11.2026: ~1 s Hänger nach Annehmen/Abgeben – der Planer fragt das
+        -- Spiel sonst zehntausende Male nach denselben Quests; in der Nachstellung sind das nur Tabellen)
+        done = function(id)
+            local v = doneMemo[id]
+            if v == nil then
+                v = Try(C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted, id) == true
+                doneMemo[id] = v
+            end
+            return v
         end,
+        inLog = function(id) return logSet[id] == true end,
         complete = function(id) return Try(C_QuestLog and C_QuestLog.IsComplete, id) == true end,
         -- Fortschritt im Log (erledigt, noetig) – Planer rechnet nur den Rest (Nutzer 20.11.2026)
         progress = function(id)
@@ -423,6 +431,49 @@ end
 
 -- follow = true: dem letzten Plan folgen (Fahrplan), ausser seitdem gab es eine echte Aenderung (self.fresh:
 -- Stufenaufstieg, Quest abgebrochen, Gruppe, Einstellungen). Ohne follow wird immer frisch geplant.
+-- ===== Feste Route (Neubau 21.11.2026, Nutzer: "bau es wie bei RestedXP") =====
+-- GuildTripQuestRoutes["Volk:Klasse"] = {{"a12 t13", n = NPC, l = erwartete Stufe}, …} (scripts/build_routes.sh).
+-- Im Spiel wird nichts umgerechnet: die Route ist der Fahrplan (ctx.follow), der Planer laeuft ihn nur ab.
+G.ROUTE_BEHIND = 2   -- Annehmen-Schritte so viele Stufen unter der eigenen gelten als verpasst (uebersprungen)
+function G.Route(race, class)
+    local all = rawget(_G, "GuildTripQuestRoutes")
+    if type(all) ~= "table" or not race then return nil end
+    local r = all[race .. ":" .. (class or 0)]
+    if r then return r end
+    -- andere Klasse desselben Volks: Klassenquests fremder Klassen fallen von selbst weg (passen nicht)
+    for k, v in pairs(all) do if k:match("^" .. race .. ":") then return v end end
+end
+-- Fahrplan aus der Route: Rang je Halt; zu niedrige Annehmen-Schritte (man ist voraus) fallen weg
+function G.RouteFollow(route, level, inLog)
+    local f, n = {}, 0
+    local kinds = {a = "accept", o = "obj", t = "turnin"}
+    for _, st in ipairs(route) do
+        if type(st[1]) == "string" then
+            for k, id in st[1]:gmatch("(%a)(%d+)") do
+                id = tonumber(id)
+                local key = kinds[k] and (kinds[k] .. ":" .. id)
+                local behind = k == "a" and (st.l or 0) < level - G.ROUTE_BEHIND and not (inLog and inLog(id))
+                if key and not f[key] and not behind then n = n + 1 f[key] = n end
+            end
+        end
+    end
+    return f
+end
+-- Quests im Log, die nicht zur Route gehoeren (Nutzer: "eigener Hinweis – abbrechen oder nebenbei")
+function G.OffRoute(follow, logIDs, plan)
+    local out = {}
+    -- vom Planer passend eingebaut (Drop-Quests, selbst angenommene): gehoert dann zum Plan
+    local inPlan = G.FollowKeys(plan) or {}
+    for _, id in ipairs(logIDs or {}) do
+        local planned = inPlan["obj:" .. id] or inPlan["turnin:" .. id]
+        local inRoute = follow["obj:" .. id] or follow["turnin:" .. id] or follow["accept:" .. id]
+        -- Dungeonquests und ihre Vorquests nie (Nutzer 22.11.2026: "diese Frage sollte nie bei Dungeonquests gestellt werden")
+        if not (planned or inRoute) and not P.IsDungeonChain(id) then
+            out[#out + 1] = {id = id}
+        end
+    end
+    return out
+end
 function G.FollowKeys(plan)
     if not (plan and plan.orderKeys) then return nil end
     local f = {}
@@ -436,13 +487,22 @@ function G.FollowLoops(plan)
     for i, k in ipairs(plan.orderKeys) do if not f[k] then f[k] = plan.orderLoops[i] end end
     return f
 end
+-- Stoppuhr je Neuplanung (ms), gemerkt in den Einstellungen (db.timing): wo die Zeit im Spiel bleibt
+local function Clock() local f = rawget(_G, "debugprofilestop") return f and f() or 0 end
 function G:Replan(follow)
+    local t0, tm = Clock(), {}
     if not self:Available() or (ONE.IsEnabled and not ONE:IsEnabled("leveling")) then
         self.plan = nil
     else
         self.planAt = G.PlayerWorldPos()
         local ctx = self:Context()
-        if follow and not self.fresh then
+        tm.context = Clock() - t0
+        local route = G.Route(ctx.me and ctx.me.race, ctx.me and ctx.me.class)
+        if route then
+            ctx.route, ctx.flow = true, true
+            ctx.follow = G.RouteFollow(route, ctx.me.level or 1, ctx.inLog)
+            ctx.followLoops = nil
+        elseif follow and not self.fresh then
             local saved = not self.plan and self:SavedFollow() or nil
             -- Fahrplan vom alten Planer (vor den Schleifen, 21.11.2026, ohne Runden): nicht weiterfahren – frisch planen
             if saved and not saved.orderLoops then saved = nil end
@@ -450,8 +510,27 @@ function G:Replan(follow)
             ctx.followLoops = G.FollowLoops(self.plan) or G.FollowLoops(saved)
         else ctx.followLoops = nil end
         self.fresh = false
+        local t1 = Clock()
         local ok, plan = pcall(P.Plan, P, ctx)
+        tm.plan = Clock() - t1
         self.plan = ok and plan or nil
+        if self.plan and route then
+            self.plan.offRoute = G.OffRoute(ctx.follow, G.LogIDs(), self.plan)
+            self.plan.route = true
+            -- Lehrer sind kein Routen-Schritt (Nutzer 21.11.2026: "neue Skills lernen nur als Info bei Stufenaufstieg")
+            local tr = ctx.train
+            if tr and (tr.now or 0) > 0 then self.plan.trainHint = {n = tr.now, spots = tr.spots} end
+            -- Taschen (fast) voll: naechster Haendler im Gebiet als Hinweis (Nutzer: "Verkauf von Schrott mit
+            -- einplanen" – in der festen Route kein eigener Schritt, nur am Weg)
+            if ctx.bags and ctx.bags <= P.BAG_LOW and ctx.vendors and ctx.vendors[1] then
+                local me, best, bd = ctx.me, nil, nil
+                for _, v in ipairs(ctx.vendors) do
+                    local d = (me.x and v.x) and ((v.x - me.x) ^ 2 + (v.y - me.y) ^ 2) or 0
+                    if not bd or d < bd then best, bd = v, d end
+                end
+                self.plan.vendorHint = best
+            end
+        end
         -- Arbeitsgebiet je Figur merken (uebersteht Abstecher und /reload)
         if self.plan then
             local db = self:DB()
@@ -463,8 +542,18 @@ function G:Replan(follow)
         end
         if not ok and ONE.Debug then ONE:Debug("Quest-Führung: " .. tostring(plan)) end
     end
+    local t2 = Clock()
     for _, fn in ipairs(self.listeners) do pcall(fn, self.plan) end
+    tm.show = Clock() - t2
+    local t3 = Clock()
     pcall(self.AutoNavi, self, self.plan)
+    tm.navi = Clock() - t3
+    tm.total = Clock() - t0
+    local db = self:DB()
+    -- die letzten 10 Neuplanungen
+    db.timing = type(db.timing) == "table" and db.timing or {}
+    table.insert(db.timing, 1, tm)
+    while #db.timing > 10 do table.remove(db.timing) end
     return self.plan
 end
 function G:OnChange(fn) self.listeners[#self.listeners + 1] = fn end
@@ -752,7 +841,7 @@ function G:Navi(step, quiet)
         local label = step.via and step.via.kind == "flight" and (step.via.from.name or T("Flugmeister"))
             or (step.kind == "fp" and T("Flugmeister")) or (step.kind == "bind" and (step.name or T("Gastwirt")))
             or (step.kind == "train" and (step.name or T("Lehrer"))) or (step.kind == "vendor" and (step.name or T("Händler"))) or T("Abfahrt")
-        local ok = ns.Arrow:StartWorld(label, step.world[1], step.world[2], step.world[3], quiet and {quiet = true} or nil)
+        local ok = ns.Arrow:StartWorld(label, step.world[1], step.world[2], step.world[3], {quiet = quiet or nil})
         if ok then self.autoKey, self.autoLabel = step.stopKey, ns.Arrow.target end
         return ok
     end
@@ -767,7 +856,9 @@ function G:Navi(step, quiet)
     elseif step.kind == "grind" then return false
     elseif step.actions[1] then label = G.Title(step.actions[1].id)
     else label = step.name or "" end
-    local opts = (quiet or step.area) and {quiet = quiet or nil, area = step.area} or nil
+    -- Ankunftsklang je Ziel-Art (Questgeber, Abgabe, Zielgebiet)
+    local first = step.actions and step.actions[1]
+    local opts = {quiet = quiet or nil, area = step.area, arrive = first and first.kind or nil}
     local ok = nav:PointTo(T(label or ""), step.mapID, step.x, step.y, opts)
     local arrow = Nav() and Nav().Arrow
     if ok and arrow then self.autoKey, self.autoLabel = step.stopKey, arrow.target end
@@ -1002,6 +1093,17 @@ end
 
 -- Lohnt sich Neuplanen? (Spart Rechenzeit beim Questen: WoW meldet QUEST_LOG_UPDATE nach fast jedem Kill.)
 -- Fortschritt "3/8" zeigt der Kasten selbst an – neu geplant wird nur, wenn sich am Plan etwas aendern kann.
+-- Quest-IDs im Log (ohne Kopfzeilen)
+function G.LogIDs()
+    local QL = C_QuestLog
+    local n = Try(QL and QL.GetNumQuestLogEntries) or 0
+    local out = {}
+    for i = 1, n do
+        local info = Try(QL.GetInfo, i)
+        if type(info) == "table" and info.questID and not info.isHeader then out[#out + 1] = info.questID end
+    end
+    return out
+end
 function G.LogSignature()
     local QL = C_QuestLog
     local n = Try(QL and QL.GetNumQuestLogEntries) or 0

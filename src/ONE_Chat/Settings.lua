@@ -111,6 +111,37 @@ function UI:SettingDefs()
         get = function() return Chat:Settings().bubbleColors ~= false end,
         set = function(on) Chat:Settings().bubbleColors = on and true or false end,
         onChange = function() UI:Render() end})
+    -- Farben der Blasen (Nutzer 22.11.2026: "verschiedene Farbeinstellungen anbieten")
+    local function Repaint() UI:Render() if chat.Messenger and chat.Messenger.LayoutLog then pcall(chat.Messenger.LayoutLog, chat.Messenger) end end
+    Add({id = "chat.bubbleStrength", section = SECTION[2], order = 149.1, kind = "dropdown", label = "Stärke der Blasenfarbe", width = 180,
+        visible = Messenger, tooltip = "Wie deutlich die Sprechblasen gefärbt sind.",
+        options = function()
+            local names = {T("dezent"), T("normal"), T("kräftig"), T("sehr kräftig")}
+            local out = {}
+            for i, v in ipairs(chat.Messenger and chat.Messenger.STRENGTHS or {1}) do out[#out + 1] = {value = v, text = names[i]} end
+            return out
+        end,
+        get = function() return chat.Messenger and chat.Messenger.BubbleStrength() or 1 end,
+        set = function(v) Chat:Settings().bubbleStrength = v ~= 1 and v or nil end,
+        onChange = Repaint})
+    Add({id = "chat.ownBubble", section = SECTION[2], order = 149.2, kind = "button", label = "Farbe meiner Blasen …", visible = Messenger,
+        tooltip = "Farbe deiner eigenen Sprechblasen. Ohne Auswahl: die Leuchtfarbe des Chats.",
+        onClick = function()
+            local p = chat.Messenger and chat.Messenger:Palette()
+            UI.PickChatColor("ownBubble", p and p.glow, Repaint)
+        end})
+    Add({id = "chat.bubbleText", section = SECTION[2], order = 149.3, kind = "button", label = "Textfarbe in den Blasen …", visible = Messenger,
+        tooltip = "Farbe der Nachrichten in den Sprechblasen. Ohne Auswahl: weiß.",
+        onClick = function() UI.PickChatColor("bubbleText", {1, 1, 1}, Repaint) end})
+    Add({id = "chat.bubbleReset", section = SECTION[2], order = 149.4, kind = "button", label = "Blasenfarben zurücksetzen",
+        visible = function() local s = Chat:Settings() return Messenger() and (s.ownBubble ~= nil or s.bubbleText ~= nil or s.bubbleStrength ~= nil) end,
+        tooltip = "Eigene Blasenfarbe, Textfarbe und Stärke wieder wie am Anfang.",
+        onClick = function()
+            local s = Chat:Settings()
+            s.ownBubble, s.bubbleText, s.bubbleStrength = nil, nil, nil
+            Repaint()
+            if UI.LayoutSettingsPanel then UI:LayoutSettingsPanel() end
+        end})
     Add({id = "chat.classIcons", section = SECTION[2], order = 148, label = "Klassen-Symbol vor dem Namen", visible = Messenger,
         tooltip = "In den Sprechblasen ein kleines rundes Klassen-Symbol vor dem Namen – wenn WoW die Klasse kennt.",
         get = function() return Chat:Settings().classIcons ~= false end,
@@ -131,6 +162,30 @@ function UI:SettingDefs()
     end
     table.sort(out, function(a, b) return (a.order or 0) < (b.order or 0) end)
     return out
+end
+
+-- Farbwahl von WoW fuer eine Chat-Farbe (Schluessel in den Chat-Einstellungen); Abbrechen stellt zurueck
+function UI.PickChatColor(key, default, after)
+    local cpf = _G.ColorPickerFrame
+    if not cpf then return false end
+    local s = Chat:Settings()
+    local old = s[key]
+    local start = (chat.Messenger and chat.Messenger.ValidColor(old)) or default or {1, 1, 1}
+    local function Done() if after then pcall(after) end if UI.LayoutSettingsPanel then pcall(UI.LayoutSettingsPanel, UI) end end
+    local function Current()
+        local r, g, b = cpf:GetColorRGB()
+        s[key] = {r, g, b}
+        Done()
+    end
+    local function Cancel() s[key] = old Done() end
+    if cpf.SetupColorPickerAndShow then
+        cpf:SetupColorPickerAndShow({r = start[1], g = start[2], b = start[3], hasOpacity = false, swatchFunc = Current, cancelFunc = Cancel})
+    else
+        cpf.func, cpf.cancelFunc, cpf.hasOpacity = Current, Cancel, false
+        if cpf.SetColorRGB then cpf:SetColorRGB(start[1], start[2], start[3]) end
+        if ShowUIPanel then ShowUIPanel(cpf) else cpf:Show() end
+    end
+    return true
 end
 
 -- Optionen › Chat im Hauptfenster: nur noch der Weg in den Chat

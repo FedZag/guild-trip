@@ -18,6 +18,88 @@ Tr.NARROW = 260          -- schmaler als das: NPC-Spalte bei "Noch annehmen" nur
 Tr.SCALE, Tr.MIN_SCALE, Tr.MAX_SCALE = 1.15, .8, 1.6
 Tr.MAX_NEXT = 25
 Tr.MAX_NEXT = 3          -- "Als nächstes": hoechstens so viele Schritte (Nutzer 18.11.2026)
+-- Aussehen (Nutzer 22.11.2026, Regel fuer alle Zusatzfenster): Zahnrad = eigene Optionen des Kastens –
+-- Stil-Vorlage, Farben (vor allem Questgeber-Namen), Hintergrund. Gemeinsamer Baustein: ONE_Core/WindowLook.lua.
+-- Vorlagen sind eigene Gestaltung (nichts von anderen Addons uebernommen); jede schlaegt einen Hintergrund vor.
+Tr.PRESETS = {
+    guildtrip = {maxNext = 3, bg = "dark"},
+    -- wie die WoW-Questverfolgung: ohne Kasten, ohne Ueberschriften und Bloecke, Ziele eingerueckt
+    wow = {maxNext = 3, bg = "none", noLabels = true, noBlocks = true, nextLines = {nxTitle = true, nxWho = true},
+        style = {now = {"GameFontNormal", 17, 10}, who = {"GameFontHighlightSmall", 14, 22}, where = {"GameFontHighlightSmall", 13, 22},
+            eta = {"GameFontHighlightSmall", 13, 22}, obj = {"GameFontHighlightSmall", 14, 22}, obj2 = {"GameFontHighlightSmall", 14, 22},
+            nxTitle = {"GameFontNormal", 16, 10}, nxWho = {"GameFontHighlightSmall", 13, 22}, nxGap = {"GameFontHighlightSmall", 6, 10},
+            gap = {"GameFontHighlightSmall", 10, 10}}},
+    -- dicht: kleinere Schrift, mehr naechste Schritte (nur der Name je Schritt)
+    compact = {maxNext = 6, bg = "glassLight", nextLines = {nxTitle = true},
+        style = {now = {"GameFontNormal", 16, 14}, who = {"GameFontHighlightSmall", 13, 14}, where = {"GameFontHighlightSmall", 12, 14},
+            eta = {"GameFontHighlightSmall", 13, 14}, label = {"GameFontNormalSmall", 13, 10}, zone = {"GameFontNormalSmall", 13, 10},
+            zoneSub = {"GameFontHighlightSmall", 12, 10}, nxTitle = {"GameFontHighlightSmall", 14, 14}, nxGap = {"GameFontHighlightSmall", 1, 10},
+            obj = {"GameFontHighlightSmall", 13, 24}, obj2 = {"GameFontHighlightSmall", 14, 14}, gap = {"GameFontHighlightSmall", 4, 10}}},
+    -- nur der naechste Schritt und seine Ziele, kein Kasten
+    minimal = {maxNext = 0, bg = "none", noLabels = true, noBlocks = true, noZone = true,
+        style = {now = {"GameFontNormal", 17, 6}, who = {"GameFontHighlightSmall", 14, 6}, where = {"GameFontHighlightSmall", 13, 6},
+            eta = {"GameFontHighlightSmall", 13, 6}, obj = {"GameFontHighlightSmall", 14, 14}, obj2 = {"GameFontHighlightSmall", 14, 6}}},
+}
+Tr.LOOK = {
+    id = "tracker", title = "Quest-Führung: Aussehen", key = "trackerLook",
+    store = function() return G:DB() end,
+    presets = {
+        {value = "guildtrip", bg = "dark", text = "Guild Trip", tooltip = "Blöcke JETZT und ALS NÄCHSTES mit Gebiet, Ort und Zeit."},
+        {value = "wow", bg = "none", text = "WoW-Look", tooltip = "Wie die Questverfolgung von WoW: ohne Kasten, Ziele eingerückt."},
+        {value = "compact", bg = "glassLight", text = "Kompakt", tooltip = "Kleiner und dichter, bis zu 6 nächste Schritte als Liste."},
+        {value = "minimal", bg = "none", text = "Minimal", tooltip = "Nur der nächste Schritt mit seinen Zielen, ohne Kasten."},
+    },
+    defaultPreset = "guildtrip",
+    defaultBg = function()
+        if G:DB().trackerBare then return "none" end
+        local pr = Tr.PRESETS[Tr.Preset()]
+        return pr and pr.bg or "dark"
+    end,
+    roles = {
+        {key = "giver", label = "Questgeber-Namen", default = {.45, .8, 1}},
+        {key = "title", label = "Questnamen", default = {1, .82, 0}},
+        {key = "head", label = "Überschriften", default = {1, .82, 0}},
+        {key = "text", label = "Text", default = {1, 1, 1}},
+        {key = "place", label = "Orte", default = {.85, .85, .85}},
+        {key = "dist", label = "Entfernung und Zeit", default = {.85, .85, .85}},
+        {key = "hint", label = "Hinweise", default = {.62, .62, .62}},
+    },
+    scale = {get = function() return G:DB().trackerScale or Tr.SCALE end, set = function(v) Tr:SetScale(v) end, step = .05},
+    extra = {{label = "Weitere Einstellungen der Quest-Führung …", onClick = function() lev.Settings:Open() end}},
+    onChange = function()
+        local db = G:DB()
+        local WL = ONE.WindowLook
+        if WL then db.trackerBare = WL.Bg(Tr.LOOK) == "none" end
+        Tr:Update(G.plan)
+    end,
+}
+function Tr.Preset()
+    local look = G:DB().trackerLook
+    local v = type(look) == "table" and look.preset
+    return Tr.PRESETS[v] and v or "guildtrip"
+end
+function Tr.PresetDef() return Tr.PRESETS[Tr.Preset()] or Tr.PRESETS.guildtrip end
+function Tr:Bare()
+    local WL = ONE.WindowLook
+    if WL then return WL.Bg(Tr.LOOK) == "none" end
+    return G:DB().trackerBare and true or false
+end
+-- Farbe einer Rolle (WindowLook) bzw. Farbcode fuer Text
+function Tr.RoleColor(role)
+    local WL = ONE.WindowLook
+    if WL then return WL.Color(Tr.LOOK, role) end
+    for _, r in ipairs(Tr.LOOK.roles) do if r.key == role then return r.default[1], r.default[2], r.default[3] end end
+    return 1, 1, 1
+end
+function Tr.Code(role)
+    local r, g, b = Tr.RoleColor(role)
+    return ("|cff%02x%02x%02x"):format(math.floor(r * 255 + .5), math.floor(g * 255 + .5), math.floor(b * 255 + .5))
+end
+function Tr.Giver(name)
+    if not name or name == "" then return name end
+    return Tr.Code("giver") .. name .. "|r"
+end
+
 -- WoW-Questliste (je nach Client heisst sie anders)
 Tr.BLIZZARD = {"ObjectiveTrackerFrame", "QuestWatchFrame", "WatchFrame"}
 
@@ -99,10 +181,12 @@ function Tr:Create()
     gear.icon = gear:CreateTexture(nil, "ARTWORK")
     gear.icon:SetAllPoints(gear)
     gear.icon:SetTexture("Interface\\Buttons\\UI-OptionsButton")
-    gear:SetScript("OnClick", function() lev.Settings:Toggle() end)
+    gear:SetScript("OnClick", function()
+        if ONE.WindowLook then ONE.WindowLook:Toggle(Tr.LOOK, f) else lev.Settings:Toggle() end
+    end)
     gear:SetScript("OnEnter", function(self)
         Tr:Frame(true)
-        if GameTooltip then GameTooltip:SetOwner(self, "ANCHOR_LEFT") GameTooltip:AddLine(T("Einstellungen der Quest-Führung"), 1, .82, 0) GameTooltip:Show() end
+        if GameTooltip then GameTooltip:SetOwner(self, "ANCHOR_LEFT") GameTooltip:AddLine(T("Aussehen und Einstellungen"), 1, .82, 0) GameTooltip:Show() end
     end)
     gear:SetScript("OnLeave", function() Tr:Frame(false) if GameTooltip then GameTooltip:Hide() end end)
     f.gear = gear
@@ -118,7 +202,7 @@ function Tr:Create()
         if GameTooltip then
             GameTooltip:SetOwner(self, "ANCHOR_LEFT")
             GameTooltip:AddLine(T("Guild Trip: Quest-Führung"), 1, .82, 0)
-            GameTooltip:AddLine(T("Ziehen = verschieben, Rechtsklick = Quest-Seite, Pfeil = Navi, Zahnrad = Einstellungen."), 1, 1, 1, true)
+            GameTooltip:AddLine(T("Ziehen = verschieben, Rechtsklick = Quest-Seite, Pfeil = Navi, Zahnrad = Aussehen und Einstellungen."), 1, 1, 1, true)
             GameTooltip:Show()
         end
     end)
@@ -244,7 +328,7 @@ end
 function Tr:StrokeAll()
     local f = self.frame
     if not f then return end
-    local on = G:DB().trackerBare and true or false
+    local on = self:Bare()
     for _, fs in ipairs(self.lines or {}) do self:Stroke(fs, on) end
     for _, fs in ipairs(self.rights or {}) do self:Stroke(fs, on) end
     if f.head then self:Stroke(f.head, on) end
@@ -255,6 +339,7 @@ end
 function Tr:Frame(hover)
     local f = self.frame
     if not f then return end
+    if ONE.WindowLook then ONE.WindowLook.ApplyBg(Tr.LOOK, f.bg, f.border, hover) return end
     local show = not G:DB().trackerBare or hover
     f.bg:SetShown(show)
     for _, t in ipairs(f.border) do t:SetShown(show) end
@@ -279,6 +364,7 @@ Tr.BLOCK_COLOR = {now = {1, .82, 0}, next = {.75, .75, .75}}
 function Tr:Blocks(list)
     local f = self.frame
     if not f.CreateTexture then return end
+    if Tr.PresetDef().noBlocks then list = {} end
     self.blockTex = self.blockTex or {}
     for k, b in ipairs(list) do
         local t = self.blockTex[k]
@@ -329,7 +415,8 @@ function Tr:Rows(plan, budget)
     -- UEBER ALLEM (Nutzer 18.11.2026): Gebiet · Quests im Plan · Zeit · Stufe beim Verlassen,
     -- darunter die naechste Stufe (stand frueher unten)
     local zone, sub = Tr.ZoneLine(plan)
-    if zone then
+    local preset = Tr.PresetDef()
+    if zone and not preset.noZone then
         rows[#rows + 1] = {text = zone, kind = "zone"}
         if sub then rows[#rows + 1] = {text = sub, kind = "zoneSub"} end
         rows[#rows + 1] = {kind = "nxGap"}
@@ -347,10 +434,29 @@ function Tr:Rows(plan, budget)
     end
     if s1 then
         -- grosser Block (Nutzer 18.11.2026): Name gross, darunter was/bei wem, wo, wie weit/wie lange
-        rows[#rows + 1] = {text = T("JETZT"), kind = "label", block = "now"}
-        rows[#rows + 1] = {text = Tr.NowTitle(s1), kind = "now", nav = {step = s1}, block = "now", tip = Tr.StepTip(plan, 1)}
-        local who = Tr.NowWho(s1)
-        if who then rows[#rows + 1] = {text = who, kind = "who", block = "now"} end
+        if not preset.noLabels then rows[#rows + 1] = {text = T("JETZT"), kind = "label", block = "now"} end
+        local multi = s1.kind == "obj" and #(s1.actions or {}) > 1
+        if multi then
+            -- mehrere Quests an einem Ort (wie RestedXP: ein Schritt = ein Ort, Nutzer 21.11.2026): je Teilziel
+            -- eine Zeile mit Fortschritt, die Quest klein rechts; keine Quest-Zahl, kein grosser Titel
+            local tip = Tr.StepTip(plan, 1)
+            for _, a in ipairs(s1.actions) do
+                local qn = "|cffa0a0a0" .. G.Title(a.id) .. "|r"
+                local objs = Tr.Objectives(a.id)
+                if #objs == 0 then
+                    rows[#rows + 1] = {text = G.LevelTitle(a.id), kind = "obj2", nav = {step = s1, qid = a.id}, block = "now", tip = tip}
+                end
+                for _, o in ipairs(objs) do
+                    rows[#rows + 1] = {text = (o.done and "|cff808080" or "") .. o.text .. (o.done and "|r" or ""), kind = "obj2",
+                        right = qn, nav = {step = s1, qid = a.id}, block = "now", tip = tip}
+                end
+            end
+            if s1.levelUp then rows[#rows + 1] = {text = T("danach Stufe %d", s1.levelUp), kind = "who", block = "now"} end
+        else
+            rows[#rows + 1] = {text = Tr.NowTitle(s1), kind = "now", nav = {step = s1}, block = "now", tip = Tr.StepTip(plan, 1)}
+            local who = Tr.NowWho(s1)
+            if who then rows[#rows + 1] = {text = who, kind = "who", block = "now"} end
+        end
         local where = Tr.NowWhere(s1)
         if where then rows[#rows + 1] = {text = where, kind = "where", block = "now"} end
         rows[#rows + 1] = {text = Tr:NowEta(s1) or "", kind = "eta", block = "now"}
@@ -371,42 +477,79 @@ function Tr:Rows(plan, budget)
             local more = #ab > 2 and (" " .. T("(+%d)", #ab - 2)) or ""
             local abIDs = {}
             for _, o in ipairs(ab) do abIDs[#abIDs + 1] = o.id end
-            rows[#rows + 1] = {text = "|cff9d9d9d" .. T("Abbrechen lohnt: %s", table.concat(names, ", ")) .. more .. "|r", kind = "who", block = "now",
+            rows[#rows + 1] = {text = Tr.Code("hint") .. T("Abbrechen lohnt: %s", table.concat(names, ", ")) .. more .. "|r", kind = "who", block = "now",
                 tip = T("Bringt kaum noch etwas (grau, nur mit Gruppe oder sehr viel Aufwand). Klicken: abbrechen – mit Rückfrage, Guild Trip bricht nie von selbst ab."),
                 click = function() G:AskAbandon(abIDs) end}
         end
-        if s1.kind == "obj" then
-            for _, o in ipairs(Tr.Objectives(s1.actions[1].id)) do
-                rows[#rows + 1] = {text = (o.done and "|cff808080" or "") .. o.text .. (o.done and "|r" or ""), kind = "obj"}
+        -- feste Route: neue Zauber beim Lehrer nur als Hinweis (kein Routen-Schritt), Klick = Navi zum Lehrer
+        local th = plan.trainHint
+        if th then
+            local spot = th.spots and th.spots[1]
+            rows[#rows + 1] = {text = Tr.Code("hint") .. T("Neue Zauber beim Lehrer (%d)", th.n) .. "|r", kind = "who", block = "now",
+                tip = T("Kein Teil der Route – lerne sie, wenn du ohnehin in der Stadt bist. Klicken: Navi zum Lehrer."),
+                click = spot and function()
+                    local nav = ONE.modules and ONE.modules.nav
+                    if nav and nav.PointTo then nav:PointTo(spot.name or T("Lehrer"), spot.mapID, spot.x, spot.y) end
+                end or nil}
+        end
+        local vh = plan.vendorHint
+        if vh then
+            rows[#rows + 1] = {text = Tr.Code("hint") .. T("Taschen fast voll – Händler: %s", vh.name or "?") .. "|r", kind = "who", block = "now",
+                tip = T("Verkaufen machst du selbst (oder der Plunder-Verkauf von Guild Trip). Klicken: Navi zum Händler."),
+                click = function()
+                    local nav = ONE.modules and ONE.modules.nav
+                    if nav and nav.PointTo then nav:PointTo(vh.name or T("Händler"), vh.mapID, vh.x, vh.y) end
+                end}
+        end
+        -- feste Route: Quests im Log, die nicht dazugehoeren (Nutzer 21.11.2026: "eigener Hinweis")
+        local off = plan.offRoute or {}
+        if #off > 0 then
+            local names = {}
+            for i = 1, math.min(2, #off) do names[#names + 1] = G.Title(off[i].id) end
+            local more = #off > 2 and (" " .. T("(+%d)", #off - 2)) or ""
+            local ids = {}
+            for _, o in ipairs(off) do ids[#ids + 1] = o.id end
+            rows[#rows + 1] = {text = Tr.Code("hint") .. T("Nicht im Plan: %s", table.concat(names, ", ")) .. more .. "|r", kind = "who", block = "now",
+                tip = T("Gehört nicht zur Route. Nebenbei machen oder abbrechen – klicken: abbrechen mit Rückfrage, Guild Trip bricht nie von selbst ab."),
+                click = function() G:AskAbandon(ids) end}
+        end
+        if s1.kind == "obj" and not multi then
+            for _, a in ipairs(s1.actions) do
+                for _, o in ipairs(Tr.Objectives(a.id)) do
+                    rows[#rows + 1] = {text = (o.done and "|cff808080" or "") .. o.text .. (o.done and "|r" or ""), kind = "obj"}
+                end
             end
         end
     end
     -- ALS NAECHSTES (Nutzer 18.11.2026, statt "Noch annehmen"): die naechsten hoechstens MAX_NEXT
     -- Schritte der Fuehrung, wie sie kommen – aktualisiert sich mit dem Plan.
     local nexts = {}
-    for i = 2, math.min(#plan.steps, 1 + Tr.MAX_NEXT) do nexts[#nexts + 1] = plan.steps[i] end
+    for i = 2, math.min(#plan.steps, 1 + (preset.maxNext or Tr.MAX_NEXT)) do nexts[#nexts + 1] = plan.steps[i] end
     -- ALS NAECHSTES: so viele, wie in die Hoehe passen (mindestens einer); je Schritt ein kleiner Block
     -- wie JETZT (Name, was/bei wem, Ort · Zeit), blau statt gold (Nutzer 18.11.2026)
     local used = 0
-    for _, r in ipairs(rows) do used = used + (Tr.STYLE[r.kind] or Tr.STYLE.next)[5] end
-    local per = Tr.STYLE.nxTitle[5] + Tr.STYLE.nxWho[5] + Tr.STYLE.nxWhere[5] + Tr.STYLE.nxGap[5]
+    for _, r in ipairs(rows) do used = used + Tr.St(r.kind)[5] end
+    local nl = preset.nextLines
+    local per = Tr.St("nxTitle")[5] + ((not nl or nl.nxWho) and Tr.St("nxWho")[5] or 0)
+        + ((not nl or nl.nxWhere) and Tr.St("nxWhere")[5] or 0) + Tr.St("nxGap")[5]
     local fit = #nexts
     if budget then
-        local head = Tr.STYLE.gap[5] + Tr.STYLE.label[5]
+        local head = Tr.St("gap")[5] + (preset.noLabels and 0 or Tr.St("label")[5])
         fit = math.max(1, math.floor((budget - used - head) / per))
     end
     fit = math.min(fit, #nexts)
     if fit > 0 then
-        local ins = {{kind = "gap"}, {text = T("ALS NÄCHSTES"), kind = "label"}}
+        local ins = {{kind = "gap"}}
+        if not preset.noLabels then ins[2] = {text = T("ALS NÄCHSTES"), kind = "label"} end
         for k = 1, fit do
             local st = nexts[k]
             local id = "next" .. k
             if k > 1 then ins[#ins + 1] = {kind = "nxGap"} end
             ins[#ins + 1] = {text = Tr.NowTitle(st), kind = "nxTitle", nav = {step = st}, block = id, blockColor = "next", tip = Tr.StepTip(plan, k + 1)}
             local who = Tr.NowWho(st)
-            if who then ins[#ins + 1] = {text = who, kind = "nxWho", block = id, blockColor = "next"} end
+            if who and (not nl or nl.nxWho) then ins[#ins + 1] = {text = who, kind = "nxWho", block = id, blockColor = "next"} end
             local where = Tr.NextWhere(st)
-            if where then ins[#ins + 1] = {text = where, kind = "nxWhere", block = id, blockColor = "next"} end
+            if where and (not nl or nl.nxWhere) then ins[#ins + 1] = {text = where, kind = "nxWhere", block = id, blockColor = "next"} end
         end
         for _, r in ipairs(ins) do rows[#rows + 1] = r end
     end
@@ -435,7 +578,7 @@ function Tr.StepTip(plan, i)
         for k = i, #plan.steps do
             local st = plan.steps[k]
             if st.loop ~= loop and st.kind ~= "travel" then break end
-            if st.kind == "obj" then objs = objs + 1 end
+            if st.kind == "obj" then objs = objs + math.max(1, #(st.actions or {})) end
             for _, a in ipairs(st.actions or {}) do if a.kind == "turnin" then turnins = turnins + 1 last = st end end
         end
         local where = last and last.mapID and last.x and Tr.NearName(last.mapID, last.x, last.y)
@@ -467,8 +610,24 @@ function Tr.Warning(step)
     end
 end
 
+-- mehrere Abgaben/Annahmen beim selben NPC: "Abgeben bei X", die Quests in Zeile 2 (Nutzer 21.11.2026)
+function Tr.AtNPC(step)
+    if not (step.kind == "accept" or step.kind == "turnin") or #(step.actions or {}) < 2 then return nil end
+    local who = G.NodeName(step.nr)
+    if not who then return nil end
+    local acc, tin = false, false
+    for _, a in ipairs(step.actions) do
+        if a.kind == "accept" then acc = true elseif a.kind == "turnin" then tin = true end
+    end
+    who = Tr.Giver(who)
+    if acc and tin then return G.ICON.turnin .. " " .. T("Abgeben + annehmen bei %s", who) end
+    if tin then return G.ICON.turnin .. " " .. T("Abgeben bei %s", who) end
+    return G.ICON.accept .. " " .. T("Annehmen bei %s", who)
+end
 function Tr.NowTitle(step)
     if step.kind == "travel" or step.kind == "dungeon" or #(step.actions or {}) == 0 then return G:StepText(step, false, true) end
+    local at = Tr.AtNPC(step)
+    if at then return at end
     local icon, names = nil, {}
     for _, a in ipairs(step.actions or {}) do
         icon = icon or G.ICON[a.kind] or G.ICON.obj
@@ -477,6 +636,12 @@ function Tr.NowTitle(step)
     return (icon and (icon .. " ") or "") .. table.concat(names, "  ·  ")
 end
 
+-- Start durch einen Gegenstand an festen Stellen (Questdaten Feld 16 = Gegenstand, Geber = die Fundstellen)
+function Tr.PickupStart(id)
+    local Q = rawget(_G, "GuildTripQuestDB")
+    local e = Q and Q.q and Q.q[id]
+    return e and e[16] and type(e[6]) == "table" and #e[6] > 0 or false
+end
 -- Zeile 2: was zu tun ist und bei wem ("annehmen bei Tonga Runetotem")
 Tr.VERB = {accept = "annehmen", turnin = "abgeben", obj = "erledigen"}
 -- zweite Zeile + Hinweis, wenn dieser Schritt den Aufstieg bringt (Nutzer 20.11.2026)
@@ -496,6 +661,11 @@ function Tr.NowWho(step)
 end
 function Tr.NowWhoBase(step)
     if step.kind ~= "accept" and step.kind ~= "turnin" and step.kind ~= "obj" then return G:StepWho(step) end
+    if Tr.AtNPC(step) then
+        local names = {}
+        for _, a in ipairs(step.actions) do names[#names + 1] = G.Title(a.id) end
+        return table.concat(names, " · ")
+    end
     local verbs, seen = {}, {}
     for _, a in ipairs(step.actions or {}) do
         local v = Tr.VERB[a.kind]
@@ -503,9 +673,14 @@ function Tr.NowWhoBase(step)
     end
     local verb = table.concat(verbs, " + ")
     local who = G.NodeName(step.nr)
+    -- Quest beginnt mit einem Gegenstand, der dort liegt (z. B. Chens leeres Faesschen im Brachland, Nutzer 22.11.2026):
+    -- aufheben, dann im Rucksack anklicken
+    if step.kind == "accept" and who and #(step.actions or {}) == 1 and Tr.PickupStart(step.actions[1].id) then
+        return T("%s aufheben, im Rucksack anklicken", who)
+    end
     if step.kind == "obj" then return who and T("Ziel: %s", who) or (verb ~= "" and verb or nil) end
     if not who then return verb ~= "" and verb or nil end
-    return verb .. " " .. T("bei %s", who)
+    return verb .. " " .. T("bei %s", Tr.Giver(who))
 end
 
 -- naechster bekannter Ortsname (Flugpunkt/Stadt) zu einem Kartenpunkt; WoW nennt Ortsnamen
@@ -639,6 +814,7 @@ Tr.STYLE = {
     nxWhere = {"GameFontHighlightSmall", .75, .75, .75, 14, 14},
     nxGap = {"GameFontHighlightSmall", 0, 0, 0, 4, 10},
     obj = {"GameFontHighlightSmall", .9, .9, .9, 14, 28},
+    obj2 = {"GameFontHighlight", 1, 1, 1, 16, 14},
     next = {"GameFontHighlightSmall", .9, .9, .9, 15, 10},
     label = {"GameFontNormalSmall", 1, .82, 0, 15, 10},
     log = {"GameFontHighlightSmall", .9, .9, .9, 15, 10},
@@ -646,6 +822,18 @@ Tr.STYLE = {
     foot = {"GameFontDisableSmall", .6, .6, .6, 14, 10},
     gap = {"GameFontHighlightSmall", 0, 0, 0, 6, 10},
 }
+
+-- Farbe je Zeilenart (Rollen in Tr.LOOK, frei waehlbar ueber das Zahnrad)
+Tr.KIND_ROLE = {now = "title", nxTitle = "title", who = "text", nxWho = "text", obj = "text", obj2 = "text", next = "text",
+    log = "text", where = "place", nxWhere = "place", eta = "dist", zone = "head", label = "head", zoneSub = "hint", dim = "hint", foot = "hint"}
+-- Schrift/Hoehe/Einrueckung einer Zeilenart: Vorlage ueberschreibt {Schrift, Hoehe, Einrueckung}
+function Tr.St(kind)
+    local base = Tr.STYLE[kind] or Tr.STYLE.next
+    local o = Tr.PresetDef().style
+    o = o and o[kind]
+    if not o then return base end
+    return {o[1], base[2], base[3], base[4], o[2], o[3]}
+end
 
 -- rechte Spalte (Fortschritt im Questlog)
 function Tr:Right(i)
@@ -672,7 +860,8 @@ end
 function Tr.QuestIDs(nav)
     local out = {}
     if not nav then return out end
-    if nav.qid then out[1] = nav.qid end
+    -- Zeile einer einzelnen Quest (Teilziel bei mehreren Quests an einem Ort): nur diese
+    if nav.qid then out[1] = nav.qid return out end
     for _, a in ipairs(nav.step and nav.step.actions or {}) do if a.id then out[#out + 1] = a.id end end
     return out
 end
@@ -752,7 +941,7 @@ function Tr:Update(plan, resizing)
     for i, r in ipairs(rows) do
         local fs = self:Line(i)
         local right = self:Right(i)
-        local st = Tr.STYLE[r.kind] or Tr.STYLE.next
+        local st = Tr.St(r.kind)
         if fs.SetFontObject and _G[st[1]] then fs:SetFontObject(_G[st[1]]) end
         fs:ClearAllPoints()
         fs:SetPoint("TOPLEFT", f, "TOPLEFT", st[6], y)
@@ -776,7 +965,8 @@ function Tr:Update(plan, resizing)
         end
         fs:SetWidth(W - st[6] - 10 - rw)
         if fs.SetMaxLines then fs:SetMaxLines(1) end
-        fs:SetTextColor(st[2], st[3], st[4])
+        local role = Tr.KIND_ROLE[r.kind]
+        if role then fs:SetTextColor(Tr.RoleColor(role)) else fs:SetTextColor(st[2], st[3], st[4]) end
         fs:SetText(r.text or "")
         fs:Show()
         if rw > 0 then right:Show() else right:SetText("") right:Hide() end

@@ -54,6 +54,15 @@ classes.LootPack = {
             c3461 = {count = 1, kind = "normal", mapID = 1413, name = "Oasenschnappkiefer", x = 0.461, y = 0.402},
         },
     },
+    [15303] = {
+        ilvl = 14,
+        minLevel = 9,
+        q = 2,
+        slot = "INVTYPE_LEGS",
+        sources = {
+            c3272 = {count = 1, kind = "normal", mapID = 1413, name = "Zänker der Kolkar", x = 0.451, y = 0.205},
+        },
+    },
     [15305] = {
         ilvl = 18,
         minLevel = 13,

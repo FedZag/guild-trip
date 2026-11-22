@@ -24,7 +24,7 @@ function ONE:Print(m) printed[#printed + 1] = m end
 function ONE:IsEnabled() return true end
 function ONE:RegisterSlash(n, fn) self.slashes[n] = fn return true end
 local played = 0
-ONE.Sound = {Play = function() played = played + 1 end}
+ONE.Sound = {Play = function() played = played + 1 end, PlayAlert = function(_, key) played = played + 1 ONE.lastAlert = key end}
 -- Spieler steht in Weltkoordinaten (px, py); Karte = Welt 1:1 (Kontinent 1)
 local px, py = 0, 0
 local nav = {}
@@ -59,6 +59,7 @@ A:Refresh()
 assert(A.tip.text:find("Danach weiter zu Quest"), A.tip.text)
 px = 100 A:Refresh()
 assert(A.arrivedAt and played == 1 and printed[#printed]:find("Angekommen"), "Ankunft gemeldet")
+assert(ONE.lastAlert == "arriveService", "Haendler: neutraler Ankunftsklang")
 px = 110 A:Refresh()
 assert(A.probe.name == "Händler", "beim Haendler noch nicht zurueck")
 px = 140 A:Refresh()

@@ -102,7 +102,10 @@ local rows = Shown()
 assert(rows[1]:find("^%d+ Quests") and rows[2]:find("nächste Stufe") and rows[1]:find("min") and rows[1]:find("·"), "Gebietszeile oben: " .. tostring(rows[1]))
 while rows[1] ~= "JETZT" do table.remove(rows, 1) end
 -- JETZT gross: Name, dann "annehmen bei …", Gebiet/Ort, Entfernung + Zeit (Nutzer 18.11.2026)
-assert(f.shown and rows[1] == "JETZT" and not rows[2]:find("annehmen") and rows[3]:find("annehmen bei ", 1, true), "jetzt: Name gross, darunter was/bei wem")
+-- (mehrere Quests beim selben NPC: "Annehmen bei X" gross, darunter die Questnamen – Kasten-Umbau 21.11.2026)
+local multiNow = rows[2]:find("Annehmen bei ", 1, true) ~= nil
+assert(f.shown and rows[1] == "JETZT" and (multiNow or (not rows[2]:find("annehmen") and rows[3]:find("annehmen bei ", 1, true))),
+    "jetzt: Name gross, darunter was/bei wem")
 assert(rows[4]:find("%(%d+, %d+%)") and rows[5]:find("140 m") and rows[5]:find("min"), "Ort + Entfernung/Zeit: " .. tostring(rows[4]) .. " / " .. tostring(rows[5]))
 assert(f.dist.text == "", "Entfernung nicht mehr im Kopf")
 assert(Tr.blockTex and Tr.blockTex[1].bg.shown and Tr.blockTex[2] and Tr.blockTex[2].bg.shown, "JETZT und naechste Schritte hinterlegt")

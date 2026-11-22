@@ -34,9 +34,9 @@ crafting.TrainerPack = {
         area = "Vorgebirge von Hillsbrad",
         kind = "profession",
         map = 1424,
-        what = "Fachmännische Kräuterkunde",
+        what = "Expertenkräuterkunde",
         x = 0.617,
-        y = 0.195,
+        y = 0.196,
     },
     Arnok = {
         area = "Orgrimmar",
@@ -74,6 +74,15 @@ crafting.TrainerPack = {
         x = 0.514,
         y = 0.743,
     },
+    ["Doktor Martin Felben"] = {
+        area = "Undercity",
+        faction = "Horde",
+        kind = "class",
+        map = 1458,
+        what = "Alchimiegesellenlehrer",
+        x = 0.468,
+        y = 0.744,
+    },
     Enyo = {
         area = "Orgrimmar",
         faction = "Horde",
@@ -92,6 +101,15 @@ crafting.TrainerPack = {
         x = 0.624,
         y = 0.444,
     },
+    ["Franklin Lloyd"] = {
+        area = "Undercity",
+        faction = "Horde",
+        kind = "other",
+        map = 1458,
+        what = "Ingenieursexperte",
+        x = 0.76,
+        y = 0.735,
+    },
     ["Garen Largo"] = {
         area = "Undercity",
         faction = "Horde",
@@ -102,6 +120,15 @@ crafting.TrainerPack = {
         y = 0.15,
     },
     Gorg = {area = "Flusslande", kind = "other", map = 2548, what = "Koch", x = 0.587, y = 0.447},
+    ["Graham Van Talen"] = {
+        area = "Undercity",
+        faction = "Horde",
+        kind = "other",
+        map = 1458,
+        what = "Ingenieursgeselle",
+        x = 0.756,
+        y = 0.734,
+    },
     Hanashi = {
         area = "Orgrimmar",
         faction = "Horde",
@@ -228,6 +255,7 @@ crafting.TrainerPack = {
         x = 0.385,
         y = 0.854,
     },
+    ["Rand Rhobart"] = {area = "Tirisfal", kind = "other", map = 1420, what = "Kürschner", x = 0.655, y = 0.601},
     Rawrk = {
         area = "Durotar",
         faction = "Horde",
@@ -263,6 +291,14 @@ crafting.TrainerPack = {
         what = "Alchimieexperte",
         x = 0.616,
         y = 0.192,
+    },
+    ["Shelene Rhobart"] = {
+        area = "Tirisfal",
+        kind = "profession",
+        map = 1420,
+        what = "Lederverarbeitungslehrling",
+        x = 0.655,
+        y = 0.601,
     },
     Shenthul = {
         area = "Orgrimmar",
@@ -316,6 +352,15 @@ crafting.TrainerPack = {
         what = "Portallehrer",
         x = 0.386,
         y = 0.86,
+    },
+    ["Turak Runetotem"] = {
+        area = "Thunder Bluff",
+        faction = "Horde",
+        kind = "class",
+        map = 1456,
+        what = "Druidenlehrer",
+        x = 0.768,
+        y = 0.277,
     },
     ["Ug'thok"] = {
         area = "Orgrimmar",

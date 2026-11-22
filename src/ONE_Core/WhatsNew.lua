@@ -10,6 +10,13 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.7.6-alpha"] = {
+        "Quest-Führung mit festen Routen je Volk und Klasse – ein Gebiet nach dem anderen, Ziele zusammengefasst",
+        "Quest-Kasten: Zahnrad öffnet eigenes Aussehen (WoW-Look, Kompakt, Minimal, Farben, Hintergrund)",
+        "Ankunftsklang je Ziel-Art; eigene Questklänge wahlweise (Standard aus)",
+        "Chat: mehr Farbvorlagen, eigene Blasen- und Textfarbe",
+        "Fußspuren der Navi sind wieder da",
+    },
     ["0.7.5-alpha"] = {
         "Chat: Battle.net-Nachrichten kommen an – Flüstern von Battle.net-Freunden mit eigenem Gespräch, antworten direkt dort",
         "Quest-Führung springt unterwegs nicht mehr um und nimmt nur Kurzes am Weg mit",

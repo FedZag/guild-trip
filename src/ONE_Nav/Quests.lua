@@ -154,7 +154,7 @@ function Q:Navi(q)
     local loc = self:Where(q)
     local navi = ONE.modules and ONE.modules.nav
     if not loc then ONE:Print(T("Für „%s“ kennt das Spiel gerade keinen Ort.", q.title)) return false end
-    if navi and navi.PointTo then return navi:PointTo(q.title, loc.mapID, loc.x, loc.y) end
+    if navi and navi.PointTo then return navi:PointTo(q.title, loc.mapID, loc.x, loc.y, {arrive = q.complete and "turnin" or "obj"}) end
 end
 
 -- Gruppe fuer eine Elite-Quest suchen: Gesuch an die Gilde (nur Mitglieder mit

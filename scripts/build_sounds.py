@@ -87,3 +87,20 @@ save('ChatWhisper.ogg', soft(mix([(0, A5, .9), (.11, E6, .7)], .9), -12))
 save('ChatMessage.ogg', soft(pluck(D6, .35, .09), -18))
 # Gesendet: winziges Tippen (tief, sehr kurz)
 save('ChatSent.ogg', soft(pluck(C5 * 2, .12, .025), -22))
+
+# Quest-Fuehrung (22.11.2026): eigene Klaenge statt Muenz-Klingeln, je Anlass erkennbar verschieden
+G4, C6, A3, A4, D5, A5b = 392.0, 1046.5, 220.0, 440.0, 587.33, 880.0
+# Ankunft beim Questgeber: ein heller, kurzer Glockenschlag
+save('AnkunftGeber.ogg', soft(mix([(0, G5, 1.0)], .9), -10))
+# Ankunft bei der Abgabe: zwei Toene aufwaerts (C5, G5)
+save('AnkunftAbgabe.ogg', soft(mix([(0, C5, .9), (.13, G5, 1.0)], 1.1), -9))
+# Ankunft im Zielgebiet: dezenter, tiefer Doppelton (Zupfen)
+save('AnkunftZiel.ogg', soft(np.concatenate([pluck(A3, .18, .1), pluck(A4, .4, .14)]), -13))
+# Ankunft bei Flugmeister, Lehrer, Haendler, Treffpunkt: neutrales Holz-Zupfen
+save('AnkunftDienst.ogg', soft(pluck(E5, .4, .1), -14))
+# Quest angenommen: kurzes Zupfen aufwaerts (D5, A5)
+save('QuestAngenommen.ogg', soft(np.concatenate([pluck(D5, .1, .06), pluck(A5b, .45, .14)]), -10))
+# Alle Ziele erfuellt: drei schnelle Toene aufwaerts (C5, E5, G5)
+save('QuestZiele.ogg', soft(mix([(0, C5, .8), (.09, E5, .85), (.18, G5, 1.0)], 1.2), -9))
+# Quest abgegeben: Glocken-Dreiklang, dann hohes C, klingt laenger
+save('QuestAbgegeben.ogg', soft(mix([(0, C5, .7), (0, E5, .6), (0, G5, .6), (.22, C6, 1.0)], 1.8), -7))

@@ -8,7 +8,7 @@ local want, maxSteps, verbose = arg[2] or "alle", tonumber(arg[3] or "") or 40, 
 for i = 1, #arg do if arg[i] == "-v" then verbose = true end end
 local root = "src"
 GetLocale = function() return "deDE" end
-for _, f in ipairs({"ONE_QuestDB/Data", "ONE_QuestDB/Names_deDE", "ONE_QuestDB/Services", "ONE_Leveling/Rewards"}) do
+for _, f in ipairs({"ONE_QuestDB/Data", "ONE_QuestDB/Names_deDE", "ONE_QuestDB/Services", "ONE_Leveling/Rewards", "ONE_Leveling/ClassSpells"}) do
     assert(loadfile(root .. "/" .. f .. ".lua"))()
 end
 local lev = {}
@@ -20,6 +20,17 @@ end
 local P = lev.Planner
 -- SIM_SET="NAME=Wert,NAME=Wert": Planer-Werte probeweise aendern (z. B. SIM_SET=FOLLOW_WORK=3)
 for k, v in (os.getenv("SIM_SET") or ""):gmatch("([%w_]+)=([%d.]+)") do P[k] = tonumber(v) end
+-- SIM_SCEN="Fraktion,Volk,KLASSE,Karte,x,y,HeimKarte,hx,hy": eigene Lage (Schluessel "custom", fuer build_routes.sh)
+local customScen
+do
+    local v = os.getenv("SIM_SCEN")
+    if v then
+        local f = {}
+        for x in v:gmatch("[^,]+") do f[#f + 1] = x end
+        customScen = {key = "custom", fac = f[1], race = f[2], class = f[3], level = 1, map = tonumber(f[4]), x = tonumber(f[5]),
+            y = tonumber(f[6]), home = {tonumber(f[7]), tonumber(f[8]), tonumber(f[9])}, doneBelow = 0}
+    end
+end
 local Q = GuildTripQuestDB
 local spfns = {}
 assert(loadfile(spf .. "/Data/Zones.lua"))("ShortestPathForever", spfns)
@@ -74,11 +85,16 @@ local SCEN = {
     {key = "h-barrens-15", fac = "Horde", race = "Troll", class = "MAGE", level = 15, map = 1413, x = .627, y = .372, home = {1413, .520, .297}, doneBelow = 13},
     {key = "h-barrens-20", fac = "Horde", race = "Tauren", class = "WARRIOR", level = 20, map = 1413, x = .449, y = .591, home = {1413, .520, .297}, doneBelow = 18},
     {key = "h-orgrimmar-12", fac = "Horde", race = "Orc", class = "WARRIOR", level = 12, map = 1454, x = .52, y = .62, home = {1413, .520, .297}, doneBelow = 11, log = {5726}},
+    {key = "h-mid-30", fac = "Horde", race = "Undead", class = "MAGE", level = 30, map = 1441, x = .461, y = .510, home = {1441, .461, .510}, doneBelow = 28},
+    {key = "a-mid-30", fac = "Alliance", race = "Human", class = "WARRIOR", level = 30, map = 1424, x = .51, y = .59, home = {1431, .738, .444}, doneBelow = 28},
+    {key = "h-mid-45", fac = "Horde", race = "Orc", class = "HUNTER", level = 45, map = 1446, x = .515, y = .28, home = {1446, .517, .275}, doneBelow = 43},
+    {key = "a-mid-45", fac = "Alliance", race = "Dwarf", class = "PRIEST", level = 45, map = 1446, x = .52, y = .29, home = {1446, .525, .29}, doneBelow = 43},
     {key = "h-mulgore-6", fac = "Horde", race = "Tauren", class = "DRUID", level = 6, map = 1412, x = .469, y = .602, home = {1412, .469, .602}, doneBelow = 4},
     {key = "h-silverpine-12", fac = "Horde", race = "Undead", class = "PRIEST", level = 12, map = 1421, x = .435, y = .412, home = {1421, .432, .415}, doneBelow = 10},
     {key = "h-stonetalon-22", fac = "Horde", race = "Orc", class = "HUNTER", level = 22, map = 1442, x = .454, y = .594, home = {1413, .520, .297}, doneBelow = 20},
     {key = "h-needles-27", fac = "Horde", race = "Troll", class = "SHAMAN", level = 27, map = 1441, x = .461, y = .510, home = {1413, .520, .297}, doneBelow = 25},
     {key = "h-mulgore-1", fac = "Horde", race = "Tauren", class = "HUNTER", level = 1, map = 1412, x = .449, y = .772, home = {1412, .469, .602}, doneBelow = 0},
+    {key = "h-tirisfal-mage-1", fac = "Horde", race = "Undead", class = "MAGE", level = 1, map = 1420, x = .303, y = .713, home = {1420, .612, .526}, doneBelow = 0},
     {key = "h-tirisfal-1", fac = "Horde", race = "Undead", class = "WARLOCK", level = 1, map = 1420, x = .303, y = .713, home = {1420, .612, .526}, doneBelow = 0},
     {key = "a-elwynn-1", fac = "Alliance", race = "Human", class = "PALADIN", level = 1, map = 1429, x = .484, y = .418, home = {1429, .437, .658}, doneBelow = 0},
     {key = "a-dunmorogh-1", fac = "Alliance", race = "Dwarf", class = "PALADIN", level = 1, map = 1426, x = .297, y = .717, home = {1426, .474, .524}, doneBelow = 0},
@@ -149,7 +165,7 @@ local function Run(sc)
         local e = Q.q[a.id]
         if a.kind == "accept" then
             if (e[2] or 0) > (levelAt[m] or 0) then return false end
-            local function Was(p) return (doneAt[p] and doneAt[p] < m) or (done[p] and not doneAt[p]) or not Q.q[p] end
+            local function Was(p) return (doneAt[p] and doneAt[p] < m) or (done[p] and not doneAt[p]) end
             if type(e[9]) == "table" then for _, p in ipairs(e[9]) do if not Was(p) then return false end end end
             if type(e[5]) == "table" and #e[5] > 0 then
                 local ok = false
@@ -200,6 +216,7 @@ local function Run(sc)
             workZone = workZone,
             prevChosen = plan and plan.chosen or nil,
             prevLog = plan and plan.logSeen or nil,
+            flow = os.getenv("SIM_FLOW") ~= nil or nil,
             prefer = plan and plan.steps[1] and plan.steps[1].stopKey,
         }
         if plan and plan.orderKeys then
@@ -299,6 +316,24 @@ local function Run(sc)
         end
         local desc
         local lvlBefore = me.level
+        -- Route aufzeichnen (Neubau 21.11.2026: feste Route statt Live-Planer): je ausgefuehrtem Schritt Art,
+        -- Quests ("a12 t13"), NPC, erwartete Stufe; Reisen nicht (die Wegfuehrung findet den Weg selbst)
+        if st.kind ~= "travel" then
+            stats.route = stats.route or {}
+            local r = {l = me.level, step = n}
+            if #st.actions > 0 then
+                local acts = {}
+                for _, a in ipairs(st.actions) do acts[#acts + 1] = a.kind:sub(1, 1) .. a.id end
+                r.q = table.concat(acts, " ")
+                r.n = st.nr
+            else
+                r.k = st.kind
+                if st.kind == "bind" then r.inn = st.inn
+                elseif st.kind == "grind" then r.to = st.lvl
+                elseif st.kind == "fp" and st.mapID and st.x then r.m, r.x, r.y = st.mapID, math.floor(st.x * 1000 + .5), math.floor(st.y * 1000 + .5) end
+            end
+            if r.q or r.k == "bind" or r.k == "grind" or r.k == "fp" then stats.route[#stats.route + 1] = r end
+        end
         if st.kind == "travel" then
             -- Reise + der Halt danach als ein Schritt
             local nx = plan.steps[2]
@@ -343,7 +378,10 @@ local function Run(sc)
                 local d = tw[1] == from[1] and Dist(from, tw) or 0
                 stats.walkYd = stats.walkYd + d
                 t = t + d * P.DETOUR / 7 / 60
+                local m0 = me.mapID
                 MoveTo(tw, st.mapID)
+                -- Hauptstadt hinein/hinaus (Aufzuege, Ringe) wie im Planer
+                if m0 ~= me.mapID then t = t + (P.CITY_IN[m0] or 0) + (P.CITY_IN[me.mapID] or 0) end
             end
             -- Rueckweg: hier schon einmal gewesen (danach > 1000 yd weg) und haette ALLES dieses Besuchs schon damals
             -- erledigen koennen (kommt man ohnehin fuer etwas Neues zurueck, ist Mitnehmen kein Rueckweg)
@@ -414,6 +452,7 @@ local function Run(sc)
             end
             if st.stopKey then executed[st.stopKey] = true end
             local here = Pos()
+            do local lr = stats.route and stats.route[#stats.route] if lr and lr.step == n then lr.w, lr.map = here, me.mapID end end
             local isHubWork = true
             local mark = ""
 
@@ -431,6 +470,31 @@ local function Run(sc)
             visits[#visits + 1] = {w = here, n = n, hub = isHubWork}
             local zn = ZoneName(me.mapID)
             stats.zones[zn] = (stats.zones[zn] or 0) + 1
+            -- HARTE PRUEFUNGEN (Spielmeldungen 21.11.2026): Besuch eines Gebiets/einer Stadt fuer nur eine Quest
+            -- (Grenzorte < 800 yd vom vorigen Gebiet zaehlen nicht), Ruhestein in der Hauptstadt
+            do
+                local seg = stats.seg
+                if not seg or seg.map ~= me.mapID then
+                    if seg and seg.n <= 1 and seg.far and not seg.spell then
+                        local city = Z[seg.map] and Z[seg.map].city
+                        stats.hard = (stats.hard or 0) + 1
+                        Line(("      !! PRUEFUNG: %s nur fuer %s (%s)"):format(ZoneName(seg.map), seg.what or "?", city and "Stadt" or "Gebiet"))
+                    end
+                    local far = not seg or not seg.last or seg.last[1] ~= here[1] or Dist(seg.last, here) > 800
+                    seg = {map = me.mapID, n = 0, ids = {}, far = far}
+                    stats.seg = seg
+                end
+                for _, a in ipairs(st.actions) do
+                    if not seg.ids[a.id] then seg.ids[a.id] = true seg.n = seg.n + 1 seg.what = a.kind .. " " .. a.id end
+                    if (GuildTripLeveling.sp or {})[a.id] then seg.spell = true end
+                end
+                if st.kind == "grind" or st.kind == "bind" or st.kind == "fp" then seg.n = seg.n + 1 end
+                seg.last = here
+                if st.kind == "bind" and Z[me.mapID] and Z[me.mapID].city then
+                    stats.hard = (stats.hard or 0) + 1
+                    Line("      !! PRUEFUNG: Ruhestein in der Hauptstadt")
+                end
+            end
             -- Gebietswechsel (ohne Hauptstaedte) und Rueckkehr in ein Gebiet, das man vor < 3 Stufen verlassen hat
             -- (nur Annehmen/Abgeben zaehlt: Questgeber stehen im Gebiet; Ziele liegen oft an der Grenze)
             local gz = (st.kind == "accept" or st.kind == "turnin") and st.mapID
@@ -445,6 +509,8 @@ local function Run(sc)
                 end
                 curZ = gz
             end
+            local lp = st.loop and plan.loops and plan.loops[st.loop]
+            if lp and lp.pass and lp.pass > 1 then mark = mark .. (lp.pass == 3 and "  [weit]" or "  [schwach]") end
             Line(("%3d %6.1f min  St %2d  %-12s  %-6s %5d yd  %s%s%s"):format(n, t, me.level, zn, st.kind,
                 tw and tw[1] == from[1] and math.floor(Dist(from, tw)) or 0, table.concat(acts, " "),
                 me.level > lvlBefore and ("  -> Stufe " .. me.level) or "", mark))
@@ -456,9 +522,131 @@ local function Run(sc)
     end
     stats.minutes = t
     stats.level, stats.xpLeft = me.level, me.xp
+    -- Route nachpolieren (wie ein Leitfaden von Hand, 22.11.2026): kommt die Route an einen Ort nur zurueck, um
+    -- Quests anzunehmen, die dort schon beim frueheren Besuch moeglich waren, wandern die Annahmen nach vorn
+    do
+        local route = stats.route or {}
+        local moved = 0
+        for i = 2, #route do
+            local r = route[i]
+            if r.q and r.w and not r.q:find("[ot]") then
+                local keep = {}
+                for id in r.q:gmatch("a(%d+)") do
+                    id = tonumber(id)
+                    local target
+                    -- nur innerhalb desselben Aufenthalts im Gebiet (kein Gebietswechsel dazwischen), sonst nimmt
+                    -- man an und reist weg (Nachstellung 22.11.2026: Eschental -> Daemmerwald)
+                    local from = i
+                    while from > 1 and route[from - 1].map == r.map do from = from - 1 end
+                    for j = from, i - 1 do
+                        local e = route[j]
+                        if e.q and e.w and e.w[1] == r.w[1] and Dist(e.w, r.w) <= 80 and CouldAt({kind = "accept", id = id}, e.step) then
+                            target = e break
+                        end
+                    end
+                    if target then target.q = target.q .. " a" .. id moved = moved + 1
+                    else keep[#keep + 1] = "a" .. id end
+                end
+                r.q = #keep > 0 and table.concat(keep, " ") or nil
+            end
+        end
+        local out = {}
+        for _, r in ipairs(route) do if r.q or r.k then out[#out + 1] = r end end
+        stats.route = out
+        stats.moved = moved
+        -- uebrig: Besuche nur zum Annehmen an einem Ort, an dem man schon war (Annahme dort vorher nicht moeglich)
+        local rest = 0
+        for i, r in ipairs(out) do
+            if r.q and r.w and not r.q:find("[ot]") then
+                for j = 1, i - 1 do
+                    local e = out[j]
+                    if e.w and e.w[1] == r.w[1] and Dist(e.w, r.w) <= 80 and i - j > 3 then rest = rest + 1 break end
+                end
+            end
+        end
+        stats.revisit = rest
+        -- Questlog entlang der polierten Route: hoechstens wie viele gleichzeitig?
+        local open, maxLog = {}, 0
+        local cnt = 0
+        for _, r in ipairs(out) do
+            for k, id in (r.q or ""):gmatch("(%a)(%d+)") do
+                id = tonumber(id)
+                if k == "a" and not open[id] then open[id] = true cnt = cnt + 1
+                elseif k == "t" and open[id] then open[id] = nil cnt = cnt - 1 end
+            end
+            if cnt > maxLog then maxLog = cnt end
+        end
+        stats.routeLog = maxLog
+        if verbose then print("  NACHPOLIERT: " .. moved .. " Annahmen nach vorn, Rest-Besuche nur zum Annehmen " .. rest .. ", Log hoechstens " .. stats.routeLog) end
+    end
+    -- SIM_RECORD=<datei>: aufgezeichnete Route als Lua-Tabelle schreiben (scripts/build_routes.sh)
+    if os.getenv("SIM_RECORD") then
+        local fh = assert(io.open(os.getenv("SIM_RECORD"), "w"))
+        fh:write("return {\n")
+        for _, r in ipairs(stats.route or {}) do
+            local parts = {}
+            if r.q then parts[#parts + 1] = ("%q"):format(r.q) end
+            r.z = r.map
+            for _, k in ipairs({"k", "n", "l", "z", "inn", "to", "m", "x", "y"}) do
+                if r[k] ~= nil then parts[#parts + 1] = k .. "=" .. (type(r[k]) == "string" and ("%q"):format(r[k]) or tostring(r[k])) end
+            end
+            fh:write("{", table.concat(parts, ","), "},\n")
+        end
+        fh:write("}\n")
+        fh:close()
+    end
+    -- PRUEFUNG "gute Quest ausgelassen" (Nutzer 21.11.2026: "wichtig ist nur, dass keine guten Quests ausgelassen
+    -- werden"): passt zu Volk/Klasse, Stufe <= erreichte Stufe - 3, keine Gruppe/Dungeon/Beruf, Gebiet wurde besucht,
+    -- Vorquests erledigt, lohnt bei ihrer Stufe (EP/min >= Monster hauen) – aber nie angenommen
+    do
+        local visited = {}
+        for zn in pairs(stats.zones) do visited[zn] = true end
+        local miss = {}
+        local R = GuildTripLeveling
+        for id, e in pairs(Q.q) do
+            local ql = e[1] or 0
+            if ql > 0 and ql <= me.level - 3 and not done[id] and not acceptedAt[id] and type(e[7]) == "table" and e[7][1] then
+                local past = {level = math.max(ql, e[2] or 1), class = me.class, race = me.race, faction = me.faction}
+                local ok = P.Fits(id, e, past, function(p) return done[p] == true end, function() return false end)
+                -- Vorquests erledigt (eine von e[5], alle von e[9]) – sonst kam man gar nicht an die Quest
+                if ok and type(e[5]) == "table" and #e[5] > 0 then
+                    local any = false
+                    for _, p in ipairs(e[5]) do if done[p] then any = true end end
+                    ok = any
+                end
+                if ok and type(e[9]) == "table" then for _, p in ipairs(e[9]) do if not done[p] then ok = false end end end
+                local rew = P.Rew(R, id)
+                local kind = rew and rew[3] or 0
+                local work = rew and rew[2] or 0
+                if ok and kind == 0 and not e[15] then
+                    local zoneOf
+                    local g = Q.n[(e[6] or {})[1] or 0]
+                    if g then zoneOf = ZoneName(g[2]) end
+                    local xp = P.QuestXP(e[11] or 0, ql, ql)
+                    local mins = 2 + work * P.KILL_SEC / 60
+                    -- Wege der Quest selbst: Geber -> Ziel -> Abgabe (Botengaenge in eine andere Stadt sind nicht "gut")
+                    local function W(nr) local n = Q.n[nr or 0] if n then local c, x, y = World(n[2], n[3] / 1000, n[4] / 1000) if c then return {c, x, y} end end end
+                    local a, t, b = W((e[6] or {})[1]), W((e[8] or {})[1]), W((e[7] or {})[1])
+                    local path, prev = 0, a
+                    for _, w in ipairs({t or false, b or false}) do
+                        if w and prev then path = path + (w[1] == prev[1] and Dist(prev, w) * P.DETOUR / 7 / 60 or 15) prev = w end
+                    end
+                    mins = mins + path
+                    if zoneOf and visited[zoneOf] and xp / mins >= P.GrindEPM(ql) then
+                        miss[#miss + 1] = ("%d(St%d %s %.0fEP/min)"):format(id, ql, zoneOf, xp / mins)
+                    end
+                end
+            end
+        end
+        stats.missed = #miss
+        table.sort(miss)
+        stats.missList = miss
+        if verbose then print("  AUSGELASSEN (" .. #miss .. "): " .. table.concat(miss, " ")) end
+    end
     return stats
 end
 
+if customScen then SCEN[#SCEN + 1] = customScen end
 local total = {returns = 0, pingpong = 0, reorder = 0}
 local t0 = os.clock()
 for _, sc in ipairs(SCEN) do
@@ -468,9 +656,9 @@ for _, sc in ipairs(SCEN) do
         local zl = {}
         for z, c in pairs(s.zones) do zl[#zl + 1] = z .. " " .. c end
         table.sort(zl)
-        print(("%-17s %3d Schr. %5.0f min  St %d->%d  %6d EP/h  %3d Quests  Rückweg %d  Hin-Her %d  Umsort. %d  Kippt %d  Flüge %d  RS %d  Hauen %d (%.0f min)  Log max %d  Leer %d min  Gebietswechsel %d (zurück %d)  Planen Ø %d ms max %d ms | %s")
+        print(("%-17s %3d Schr. %5.0f min  St %d->%d  %6d EP/h  %3d Quests  Rückweg %d  Hin-Her %d  Umsort. %d  Kippt %d  PRUEF %d  Ausgel. %d  Flüge %d  RS %d  Hauen %d (%.0f min)  Log max %d  Leer %d min  Gebietswechsel %d (zurück %d)  Planen Ø %d ms max %d ms | %s")
             :format(sc.key, s.steps, s.minutes, s.startLevel, s.level, math.floor(s.xp / math.max(1, s.minutes) * 60), s.quests,
-                s.returns, s.pingpong, s.reorder, s.flip or 0, s.flights, s.hearths, s.grind, s.grindMin, s.logMax, s.idle or 0, s.switches or 0, s.zoneBack or 0, (s.planSum or 0) / math.max(1, s.planN or 1) * 1000, (s.planMax or 0) * 1000, table.concat(zl, ", ")))
+                s.returns, s.pingpong, s.reorder, s.flip or 0, s.hard or 0, s.missed or 0, s.flights, s.hearths, s.grind, s.grindMin, s.logMax, s.idle or 0, s.switches or 0, s.zoneBack or 0, (s.planSum or 0) / math.max(1, s.planN or 1) * 1000, (s.planMax or 0) * 1000, table.concat(zl, ", ")))
         total.returns, total.pingpong, total.reorder = total.returns + s.returns, total.pingpong + s.pingpong, total.reorder + s.reorder
         total.flip = (total.flip or 0) + (s.flip or 0)
     end

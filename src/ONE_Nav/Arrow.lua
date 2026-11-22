@@ -31,7 +31,56 @@ end
 function Arrow:ApplyPosition()
     local s = self:Settings()
     self.frame:ClearAllPoints()
-    self.frame:SetPoint("CENTER", UIParent, "CENTER", s.x, s.y)
+    local scale = self.frame.GetScale and self.frame:GetScale() or 1
+    if type(scale) ~= "number" or scale <= 0 then scale = 1 end
+    self.frame:SetPoint("CENTER", UIParent, "CENTER", s.x / scale, s.y / scale)
+end
+
+-- ===== Aussehen (Zahnrad am Pfeil, Nutzer 22.11.2026: eigene Optionen je Zusatzfenster) =====
+Arrow.LOOK_PRESETS = {
+    standard = {},
+    compact = {hide = {hint = true, tip = true}},
+    minimal = {hide = {title = true, hint = true, tip = true}},
+}
+Arrow.LOOK = {
+    id = "arrow", title = "Navi-Pfeil: Aussehen", key = "look",
+    store = function() return Arrow:Settings() end,
+    presets = {
+        {value = "standard", bg = "none", text = "Standard", tooltip = "Pfeil mit Ziel, Entfernung und Hinweisen."},
+        {value = "compact", bg = "none", text = "Kompakt", tooltip = "Pfeil mit Ziel und Entfernung."},
+        {value = "minimal", bg = "none", text = "Minimal", tooltip = "Nur Pfeil und Entfernung."},
+    },
+    defaultPreset = "standard", defaultBg = "none",
+    roles = {
+        {key = "title", label = "Ziel", default = {1, .82, 0}},
+        {key = "dist", label = "Entfernung", default = {1, 1, 1}},
+        {key = "text", label = "Hinweise", default = {.85, .85, .85}},
+    },
+    scale = {get = function() return Arrow:Settings().scale or 1 end,
+        set = function(v) Arrow:SetScale(v) end, step = .05},
+    onChange = function() Arrow:ApplyLook() end,
+}
+function Arrow:SetScale(v)
+    v = math.max(.6, math.min(1.8, math.floor((v or 1) * 20 + .5) / 20))
+    self:Settings().scale = v
+    if self.frame then self.frame:SetScale(v) self:ApplyPosition() end
+end
+function Arrow:ApplyLook()
+    local f = self.frame
+    local WL = ONE.WindowLook
+    if not (f and WL) then return end
+    local s = self:Settings()
+    if f.SetScale then f:SetScale(s.scale or 1) self:ApplyPosition() end
+    WL.ApplyBg(self.LOOK, f.bg, f.edges)
+    local pr = self.LOOK_PRESETS[WL.Preset(self.LOOK)] or self.LOOK_PRESETS.standard
+    local hide = pr.hide or {}
+    for key, role in pairs({title = "title", distance = "dist", hint = "text", tip = "text"}) do
+        local fs = self[key]
+        if fs then
+            if fs.SetTextColor then fs:SetTextColor(WL.Color(self.LOOK, role)) end
+            if fs.SetAlpha then fs:SetAlpha(hide[key] and 0 or 1) end
+        end
+    end
 end
 
 function Arrow:SavePosition()
@@ -175,6 +224,32 @@ function Arrow:Create()
     self.hint = Text(f, "GameFontHighlightSmall", nil, 236, self.distance, 2)
     self.tip = Text(f, "GameFontHighlightSmall", nil, 236, self.hint, 3)
     if self.tip.SetTextColor then self.tip:SetTextColor(.85, .85, .85) end
+    -- Hintergrund (Standard unsichtbar) und Zahnrad: eigenes Aussehen
+    f.bg = f:CreateTexture(nil, "BACKGROUND")
+    f.bg:SetAllPoints(f)
+    f.edges = {}
+    for i, side in ipairs({{"TOPLEFT", "TOPRIGHT"}, {"BOTTOMLEFT", "BOTTOMRIGHT"}}) do
+        local t = f:CreateTexture(nil, "BORDER")
+        t:SetPoint(side[1], f, side[1], 0, 0)
+        t:SetPoint(side[2], f, side[2], 0, 0)
+        t:SetHeight(1)
+        f.edges[i] = t
+    end
+    local gear = CreateFrame("Button", nil, f)
+    gear:SetSize(16, 16)
+    gear:SetPoint("TOPRIGHT", f, "TOP", -(ARROW_SIZE / 2 + 6), -3)
+    local gi = gear:CreateTexture(nil, "OVERLAY")
+    gi:SetAllPoints()
+    gi:SetTexture("Interface\\Buttons\\UI-OptionsButton")
+    gear:SetScript("OnClick", function() if ONE.WindowLook then ONE.WindowLook:Toggle(Arrow.LOOK, f) end end)
+    gear:SetScript("OnEnter", function(b)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(b, "ANCHOR_LEFT")
+        GameTooltip:AddLine(T("Aussehen des Pfeils"), 1, .82, 0)
+        GameTooltip:Show()
+    end)
+    gear:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    self.gear = gear
     local close = CreateFrame("Button", nil, f)
     close:SetSize(18, 18)
     close:SetPoint("TOPLEFT", f, "TOP", ARROW_SIZE / 2 + 6, -2)
@@ -188,6 +263,7 @@ function Arrow:Create()
     self.frame = f
     self.rotateElapsed, self.refreshElapsed = 0, 0
     f:SetScript("OnUpdate", function(_, elapsed) self:OnUpdate(elapsed or 0) end)
+    self:ApplyLook()
     self:ApplyPosition()
     self:SetLocked(self:Settings().locked)
 end
@@ -246,7 +322,7 @@ function Arrow:StartPoint(label, mapID, x, y, opts)
     self:Create()
     self:RememberForReturn(opts)
     self.probe = {name = label or T("Ziel"), mapID = mapID, x = x, y = y, service = opts and opts.service, corpse = opts and opts.corpse,
-        area = opts and opts.area}
+        area = opts and opts.area, arrive = opts and opts.arrive}
     self.arrivedAt, self.leftAfterArrival = nil, nil
     self:SetDelegated(self:Delegate(mapID, x, y, self.probe.name))
     self.target = self.probe.name
@@ -268,7 +344,8 @@ function Arrow:StartWorld(label, continent, x, y, opts)
     if type(continent) ~= "number" or type(x) ~= "number" or type(y) ~= "number" then return false end
     self:Create()
     self:RememberForReturn(opts)
-    self.probe = {name = label or T("Ziel"), world = {continent, x, y}, service = opts and opts.service, area = opts and opts.area}
+    self.probe = {name = label or T("Ziel"), world = {continent, x, y}, service = opts and opts.service, area = opts and opts.area,
+        arrive = opts and opts.arrive}
     self.arrivedAt, self.leftAfterArrival = nil, nil
     self:CancelDelegate() -- Weltkoordinaten (ohne Karte) kann Shortest Path Forever nicht annehmen
     self.target = self.probe.name
@@ -348,7 +425,7 @@ function Arrow:RememberForReturn(opts)
     if self.probe and (self.probe.service or self.probe.corpse) then return end -- Abstecher vom Abstecher: altes Ziel bleibt
     if self.probe then
         local p = self.probe
-        self.resume = {name = p.name, mapID = p.mapID, x = p.x, y = p.y, world = p.world, area = p.area}
+        self.resume = {name = p.name, mapID = p.mapID, x = p.x, y = p.y, world = p.world, area = p.area, arrive = p.arrive}
     elseif self.target then
         self.resume = {peer = self.target}
     end
@@ -359,13 +436,21 @@ function Arrow:Resume()
     if not r then self:Stop() return false end
     ONE:Print(T("Weiter zu %s.", r.peer and ShortName(r.peer) or r.name))
     if r.peer then return self:Start(r.peer) end
-    if r.world then return self:StartWorld(r.name, r.world[1], r.world[2], r.world[3], {quiet = true, area = r.area}) end
-    return self:StartPoint(r.name, r.mapID, r.x, r.y, {quiet = true, area = r.area})
+    if r.world then return self:StartWorld(r.name, r.world[1], r.world[2], r.world[3], {quiet = true, area = r.area, arrive = r.arrive}) end
+    return self:StartPoint(r.name, r.mapID, r.x, r.y, {quiet = true, area = r.area, arrive = r.arrive})
 end
 
 -- Ankunft: einmal melden (Ton + Chat), Abstecher -> nach dem Weggehen zurueck zum alten Ziel,
 -- feste Ziele ohne Rueckweg -> nach einer Weile ausblenden. Gildenmitglieder bewegen sich: kein Ende.
 Arrow.arrivedHold, Arrow.leaveDistance = 15, 30
+-- Ankunftsklang je Ziel-Art (22.11.2026, statt Muenz-Klingeln): Questgeber, Abgabe, Zielgebiet, sonst neutral
+function Arrow.ArriveSound(probe)
+    local k = probe and probe.arrive
+    if k == "accept" then return "arriveGiver" end
+    if k == "turnin" then return "arriveTurnin" end
+    if k == "obj" or (probe and probe.area) then return "arriveArea" end
+    return "arriveService"
+end
 function Arrow:CheckArrival(advice, distance)
     local now = Clock()
     if advice and advice.kind == "arrived" then
@@ -373,7 +458,9 @@ function Arrow:CheckArrival(advice, distance)
             self.arrivedAt = now
             if self.probe and not self.probe.corpse then
                 ONE:Print(T("Angekommen: %s", self.probe.name))
-                if ONE.Sound and ONE.Sound.Play then pcall(ONE.Sound.Play, ONE.Sound, "seal") end
+                if ONE.Sound and ONE.Sound.PlayAlert and not (ONE.FeatureOn and not ONE:FeatureOn("nav.arriveSound")) then
+                    pcall(ONE.Sound.PlayAlert, ONE.Sound, Arrow.ArriveSound(self.probe))
+                end
             end
         end
     end

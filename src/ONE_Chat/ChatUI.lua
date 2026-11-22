@@ -1058,10 +1058,13 @@ function UI.ShiftLink(link, text, button, owner)
         -- offener Dialog (Gilde einladen, Freund, Ignorieren …): Name ins Feld
         if type(StaticPopup_Visible) == "function" then
             for _, which in ipairs(UI.namePopups) do
-                local frameName = StaticPopup_Visible(which)
-                local popup = frameName and _G[frameName]
-                local edit = popup and (popup.editBox or popup.EditBox or _G[frameName .. "EditBox"])
-                if edit and edit.SetText then edit:SetText(name) if edit.SetFocus then edit:SetFocus() end return true end
+                -- alter Client: Name des Fensters; neuer: Name und Fenster (StaticPopup_Visible liefert beides)
+                local a, b = StaticPopup_Visible(which)
+                local popup = (type(b) == "table" and b) or (type(a) == "table" and a) or (type(a) == "string" and _G[a])
+                local edit = type(popup) == "table" and (popup.editBox or popup.EditBox
+                    or (type(popup.GetEditBox) == "function" and select(2, pcall(popup.GetEditBox, popup))))
+                if not (type(edit) == "table") and type(a) == "string" then edit = _G[a .. "EditBox"] end
+                if type(edit) == "table" and edit.SetText then edit:SetText(name) if edit.SetFocus then edit:SetFocus() end return true end
             end
         end
         if UI:InsertIntoInput(name) then return true end

@@ -75,6 +75,8 @@ if ONE.RegisterFeature then
         tooltip = "Setzt die nächste Abbiegung als WoW-Wegpunkt – so siehst du sie auch in der Spielwelt. Einen eigenen Wegpunkt von dir überschreibt Guild Trip nicht."})
     ONE:RegisterFeature("nav.trackerNavi", {module = "nav", section = "Quests", order = 34, label = "Klick auf ? oder … in der Zielverfolgung startet das Navi",
         tooltip = "Klickst du in der Quest-Zielverfolgung auf das Fragezeichen oder die drei Punkte, zeigt der Pfeil zur Quest (Ziel bzw. Abgabe)."})
+    ONE:RegisterFeature("nav.arriveSound", {module = "nav", section = "Pfeil", order = 13, label = "Klang bei Ankunft",
+        tooltip = "Kommst du am Ziel an, spielt Guild Trip einen kurzen Klang – je nach Ziel verschieden: Questgeber, Abgabe, Zielgebiet oder Flugmeister/Lehrer/Händler. Probehören: /trip klang"})
     ONE:RegisterFeature("nav.corpse", {module = "nav", section = "Pfeil", order = 14, label = "Nach dem Tod: Pfeil zur Leiche",
         tooltip = "Als Geist zeigt der Pfeil zu deiner Leiche; danach geht es zum vorherigen Ziel weiter. Aus, solange Polestar läuft (eigener Pfeil)."})
     ONE:RegisterFeature("nav.merchants", {module = "nav", section = "Händler", order = 40, label = "Händler-Verzeichnis",

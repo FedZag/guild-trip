@@ -173,6 +173,19 @@ function M:Palette()
     if G and G.Palette then return G:Palette(Chat:GlassStore()) end
     return {tint = {.04, .05, .07}, glow = {1, .82, 0}, title = {1, .82, 0}, alpha = .8, onGlow = {.07, .06, .03}}
 end
+-- Farbe {r, g, b} aus den Einstellungen pruefen (sonst nil)
+function M.ValidColor(c)
+    if type(c) ~= "table" then return nil end
+    for i = 1, 3 do if type(c[i]) ~= "number" or c[i] < 0 or c[i] > 1 then return nil end end
+    return c
+end
+-- Staerke der Blasenfarbe: 1 = normal (Spieltest 21.11.), kleiner dezenter, groesser kraeftiger
+M.STRENGTHS = {.5, 1, 1.8, 2.6}
+function M.BubbleStrength()
+    local v = Chat:Settings().bubbleStrength
+    for _, x in ipairs(M.STRENGTHS) do if v == x then return v end end
+    return 1
+end
 -- Blasen: eigene in der Leuchtfarbe (gedaempft), andere hell auf dem Glas
 -- Sprechblase aus Glas (Nutzer 21.11.2026): durchscheinende Flaeche, heller Rand, Glanz oben.
 -- Andere leicht in der Farbe ihrer Art (Gilde gruen, Gruppe blau …), eigene in der Leuchtfarbe.
@@ -180,18 +193,21 @@ end
 function M.BubbleColor(p, out, failed, kind)
     -- Spieltest 21.11.2026: "viel zu hell, durchscheinender, nur ein leichter Akzent", dann "noch etwas weniger"
     if failed then return .55, .14, .14, .45, 1, .45, .45, .32 end
-    local t, g = p.tint, p.glow
+    -- Einstellungen (22.11.2026): eigene Blasenfarbe statt Leuchtfarbe, Staerke der Farbe
+    local s = Chat:Settings()
+    local f = M.BubbleStrength()
+    local t, g = p.tint, M.ValidColor(s.ownBubble) or p.glow
     if out then
-        local k = .20
-        return t[1] + (g[1] - t[1]) * k, t[2] + (g[2] - t[2]) * k, t[3] + (g[3] - t[3]) * k, .40,
-            g[1], g[2], g[3], .22
+        local k = math.min(.8, .20 * f)
+        return t[1] + (g[1] - t[1]) * k, t[2] + (g[2] - t[2]) * k, t[3] + (g[3] - t[3]) * k, math.min(.85, .40 + (f - 1) * .1),
+            g[1], g[2], g[3], math.min(.8, .22 * f)
     end
     local r, gg, b = t[1] + (1 - t[1]) * .09, t[2] + (1 - t[2]) * .09, t[3] + (1 - t[3]) * .09
-    local c = kind and Chat:Settings().bubbleColors ~= false and Chat.kindByKey[kind] and Chat.kindByKey[kind].color
+    local c = kind and s.bubbleColors ~= false and Chat.kindByKey[kind] and Chat.kindByKey[kind].color
     if type(c) == "table" and c[1] then
-        local k = .035
+        local k = math.min(.6, .035 * f * f)
         r, gg, b = r + (c[1] - r) * k, gg + (c[2] - gg) * k, b + (c[3] - b) * k
-        return r, gg, b, .34, c[1], c[2], c[3], .12
+        return r, gg, b, .34, c[1], c[2], c[3], math.min(.7, .12 * f)
     end
     return r, gg, b, .34, 1, 1, 1, .09
 end
@@ -846,6 +862,16 @@ function M:BuildMain(f)
     name:SetPoint("RIGHT", head, "RIGHT", -60, 0)
     if name.SetWordWrap then name:SetWordWrap(false) end
     self.headName = name
+    -- Fluestern: Name oben anklickbar (Spieltest 22.11.2026: Umschalt+Klick fuer Gildeneinladung ging nicht,
+    -- weil im Fluestergespraech kein Name in den Blasen steht). Umschalt+Klick = wie ein Name im WoW-Chat
+    -- (Einladungsdialog, Eingabefeld), Klick = Namens-Menue
+    local hit = CreateFrame("Button", nil, head)
+    hit:SetPoint("TOPLEFT", name, "TOPLEFT", -2, 2)
+    hit:SetPoint("BOTTOMRIGHT", name, "BOTTOMRIGHT", 2, -2)
+    if hit.RegisterForClicks then pcall(hit.RegisterForClicks, hit, "LeftButtonUp", "RightButtonUp") end
+    hit:SetScript("OnClick", function(btn, button) M:HeadNameClick(btn, button) end)
+    Tip(hit, function() return {{T("Umschalt+Klick: Name einfügen (z. B. Gildeneinladung)")}, {T("Klick: Namens-Menü"), .6, .6, .6}} end)
+    self.headHit = hit
     local sub = Text(head, "GameFontDisableSmall")
     sub:SetPoint("BOTTOMLEFT", av, "BOTTOMRIGHT", 8, -1)
     sub:SetPoint("RIGHT", head, "RIGHT", -60, 0)
@@ -1175,6 +1201,27 @@ local function NewBubble(log)
     return r
 end
 
+-- Groesse der Emojis, wenn eine Nachricht nur aus Emojis besteht
+function M.BigEmojiSize(fsize) return math.floor((fsize or 14) * 2.2) end
+
+-- Name oben im Fluestergespraech: Spielername dazu (Battle.net-Freund: sein Charakter, wenn er WoW spielt)
+function M.HeadPlayer(view)
+    if type(view) ~= "string" or view:sub(1, 2) ~= "w:" then return nil end
+    local name = view:sub(3)
+    if Chat.IsBN and Chat.IsBN(name) then
+        local b = Chat.BNInfo and Chat.BNInfo(Chat.BNFind(name))
+        return b and b.online and b.character and b.character ~= "" and b.character or nil
+    end
+    return name
+end
+function M:HeadNameClick(owner, button)
+    local name = M.HeadPlayer(UI.current)
+    if not name then return end
+    local link = "player:" .. name
+    if UI.ShiftLink and UI.ShiftLink(link, "[" .. name .. "]", button or "LeftButton", owner) then return end
+    if ONE.PlayerMenu then ONE.PlayerMenu:Open(owner, name) end
+end
+
 -- Rechtsklick auf eine Blase: Antworten, Text kopieren, Namens-Menue
 function M:BubbleMenu(owner, item)
     local e = item.entry
@@ -1268,12 +1315,13 @@ function M:FillBubble(r, it, W, p)
     r.text:SetFontObject(ChatFontNormal or GameFontHighlight)
     if file and r.text.SetFont then pcall(r.text.SetFont, r.text, file, fsize, "") end
     r.text:SetJustifyH("LEFT")
-    r.text:SetTextColor(1, 1, 1)
+    local tc = M.ValidColor(s.bubbleText)
+    if tc then r.text:SetTextColor(tc[1], tc[2], tc[3]) else r.text:SetTextColor(1, 1, 1) end
     local big = s.bigEmoji ~= false and s.emojiImages ~= false and chat.Emoji and chat.Emoji.OnlyEmoji(e.text)
     local maxW = math.floor(W * .78)
     local pad = 10
     local inner = maxW - 2 * pad
-    local txt = M.Show(e.text, big and math.floor(fsize * 2.2) or 0)
+    local txt = M.Show(e.text, big and M.BigEmojiSize(fsize) or 0)
     r.text:SetWidth(inner)
     r.text:SetText(txt)
     local tw = r.text:GetStringWidth() or 60
@@ -1321,7 +1369,8 @@ function M:FillBubble(r, it, W, p)
     r.text:SetWidth(bw - 2 * pad - (timeBelow and 0 or (8 + stampW)))
     th = r.text:GetStringHeight() or th
     bh = 5 + whoH + th + (timeBelow and 12 or 0) + 4
-    if big then bh = th + 8 end
+    -- grosses Emoji: WoW zaehlt die Bildhoehe nicht zur Texthoehe -> selbst rechnen, Namenszeile mitzaehlen
+    if big then bh = 4 + whoH + (it.name and 1 or 0) + math.max(th, M.BigEmojiSize(fsize)) + 4 end
     -- Blase
     local cr, cg, cb, ca, er, eg, eb, ea = M.BubbleColor(p, it.out, e.failed, e.kind)
     r.flat:ClearAllPoints()
@@ -1515,6 +1564,7 @@ function M:RefreshHead()
     if M.IsMuted(view) then sub = (sub ~= "" and (sub .. "  ·  ") or "") .. T("stumm") end
     self.headSub:SetText(sub)
     self.headMenu:SetShown(whisper and ONE.PlayerMenu ~= nil)
+    if self.headHit then self.headHit:SetShown(whisper and true or false) end
     if self.headClose then self.headClose:SetShown(whisper) end
     local to = whisper and c.whisper or (chatType and M.SendLabel(view)) or nil
     if self.placeholder then
