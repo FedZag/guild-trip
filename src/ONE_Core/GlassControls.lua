@@ -141,6 +141,26 @@ function Glass:StyleEdit(edit)
     for _, key in ipairs({"Left", "Middle", "Right", "Mid"}) do Hide(edit[key]) end
     local name = edit.GetName and edit:GetName()
     if name then for _, key in ipairs({"Left", "Middle", "Right", "Mid"}) do Hide(rawget(_G, name .. key)) end end
+    -- Suchfeld (SearchBoxTemplate): Lupe und Platzhalter sassen ohne Blizzard-Rahmen direkt am Rand
+    -- der Glasflaeche (Nutzer 22.11.2026) -> 6 Punkte nach innen, Text rueckt mit
+    local icon = rawget(edit, "searchIcon") or rawget(edit, "SearchIcon")
+    if icon and icon.ClearAllPoints and not edit.__oneSearchInset then
+        edit.__oneSearchInset = true
+        local PAD = 6
+        icon:ClearAllPoints()
+        icon:SetPoint("LEFT", edit, "LEFT", PAD, -1)
+        if edit.GetTextInsets and edit.SetTextInsets then
+            local l, r, t, b = edit:GetTextInsets()
+            edit:SetTextInsets((l or 16) + PAD, r or 20, t or 0, b or 0)
+        end
+        local hint = rawget(edit, "Instructions")
+        if hint and hint.ClearAllPoints then
+            local l = (edit.GetTextInsets and edit:GetTextInsets()) or (16 + PAD)
+            hint:ClearAllPoints()
+            hint:SetPoint("TOPLEFT", edit, "TOPLEFT", l, 0)
+            hint:SetPoint("BOTTOMRIGHT", edit, "BOTTOMRIGHT", -20, 0)
+        end
+    end
     local s = self:Surface(edit, "select")
     if s then
         local focus = false

@@ -8,7 +8,7 @@ local ONE = _G.ProjectONE
 local Pass = {peers = {}, maxTrips = 60, minGap = 3600}
 dungeons.Passport = Pass
 
-local function Call(fn, ...) if type(fn) ~= "function" then return nil end local ok, a, b, c = pcall(fn, ...) if ok then return a, b, c end end
+local function Call(fn, ...) if type(fn) ~= "function" then return nil end local r = {pcall(fn, ...)} if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil end
 local function Now() return Call(GetServerTime) or Call(time) or 0 end
 local function Me() return Call(UnitName, "player") or "?" end
 local function Short(name) return type(name) == "string" and (name:match("^[^-]+") or name) or "?" end

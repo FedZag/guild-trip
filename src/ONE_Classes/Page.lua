@@ -62,7 +62,7 @@ local function NewIcon(parent, size, labelWidth)
     b.label:SetPoint("TOP", b, "BOTTOM", 0, -3)
     b.label:SetWidth(labelWidth or (size + 14))
     b.label:SetJustifyH("CENTER")
-    if b.label.SetWordWrap then b.label:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(b.label, b) end
     b:SetScript("OnEnter", function(self)
         if not self.spellID or not GameTooltip then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -169,7 +169,7 @@ function Page:Build(panel)
     self.talentIcon:SetPoint("TOPLEFT", talent, "TOPLEFT", 12, -36)
     self.talentName = Text(talent, "GameFontHighlight", 56, -38, RIGHT_W - 68, "text")
     -- lange Namen (z. B. „Verbessertes Schattenwort: Schmerz“) einzeilig, voller Name im Tooltip
-    if self.talentName.SetWordWrap then self.talentName:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(self.talentName, talent) end
     if self.talentName.SetMaxLines then self.talentName:SetMaxLines(1) end
     self.talentRank = Text(talent, "GameFontHighlightSmall", 56, -56, RIGHT_W - 68, "soft")
     self.talentNote = Text(talent, "GameFontHighlightSmall", 12, -84, RIGHT_W - 24, "soft")
@@ -206,7 +206,7 @@ function Page:Build(panel)
     trainer:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     self.trainer = Text(trainer, "GameFontHighlightLarge", 12, -36, RIGHT_W - 24, "text")
     self.trainerNote = Text(trainer, "GameFontHighlightSmall", 12, -62, RIGHT_W - 24, "soft")
-    if self.trainerNote.SetWordWrap then self.trainerNote:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(self.trainerNote, trainer) end
 
     local gear = Card(bv, RIGHT_X, -264, RIGHT_W, 84, "Werte")
     if gear.EnableMouse then gear:EnableMouse(true) end

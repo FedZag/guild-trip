@@ -15,8 +15,9 @@ classes.Buffs = Buffs
 
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c = pcall(fn, ...)
-    if ok then return a, b, c end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 
 local function IsSecret(v)
@@ -217,6 +218,10 @@ function Buffs:Frame()
     f.bg:SetPoint("TOPLEFT", f, "TOPLEFT", -4, 18)
     f.bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 4, -4)
     f.gear = LookGear(f, Buffs.LOOK, f.label)
+    -- Zahnrad nur beim Drueberfahren, Rechtsklick auf "Buffs fehlen" -> Einstellungen (22.11.2026)
+    if ONE.WindowLook and ONE.WindowLook.Attach then
+        ONE.WindowLook:Attach(f, f.gear, {def = Buffs.LOOK, label = f.label, title = "Buff-Erinnerung", inset = {20, -4, -6, 24}})
+    end
     -- Im Kampf ausblenden – ueber Blizzards sichere Zustandssteuerung
     if type(RegisterStateDriver) == "function" then pcall(RegisterStateDriver, f, "visibility", "[combat] hide; show") end
     self.frame = f

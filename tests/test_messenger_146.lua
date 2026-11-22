@@ -294,7 +294,27 @@ for i, rr in ipairs(lr) do
     end
 end
 assert(sawWhisperAfterLabel, "Fluester-Gespraech in der Liste")
-assert(lastConv.view == "system" and lr[#lr - 1].label == "SYSTEM", "System & Addons ganz unten")
+-- 22.11.2026: Bereich SYSTEM = "System & Addons" + "Beute & Fortschritt", ganz unten
+assert(lastConv.view == "progress" and lr[#lr - 1].conv.view == "system" and lr[#lr - 2].label == "SYSTEM", "System ganz unten")
+-- Ruhige Liste (Nutzer 22.11.2026: "permanenter Wechsel zwischen Beute und Alle"):
+-- "Alle" fest oben, stumme Gespraeche rutschen nicht hoch
+do
+    local now = os.time() + 1000
+    Chat:Buffer("trade")[#Chat:Buffer("trade") + 1] = {kind = "trade", author = "X", text = "wts", time = now + 50}
+    Chat:Buffer("near")[#Chat:Buffer("near") + 1] = {kind = "say", author = "Y", text = "hi", time = now}
+    Chat:Buffer("all")[#Chat:Buffer("all") + 1] = {kind = "say", author = "Y", text = "hi", time = now - 500}
+    local gs = {}
+    local cur
+    for _, rr in ipairs(M:ListRows()) do
+        if rr.label then cur = rr.label gs[cur] = {} elseif rr.conv then table.insert(gs[cur], rr.conv.view) end
+    end
+    local g = gs["GESPRÄCHE"]
+    assert(g[1] == "all", "Alle fest oben: " .. table.concat(g, ","))
+    local pos = {}
+    for i, v in ipairs(g) do pos[v] = i end
+    assert(pos.near < pos.trade, "stummer Handel rutscht trotz neuester Nachricht nicht hoch")
+    assert(pos.trade == #g, "stumme unten")
+end
 -- 13) Glas-Kreise mit Bildern: Gilde = Wappenrock, Klassen-Symbol vor dem Namen in der Blase
 Chat:OnEvent("CHAT_MSG_GUILD", "Feuerball!", "Zauberin-Forever", "", "", "", "", 0, 0, "", 0, 99, "Player-1-MAGE")
 UI:Show("guild")
@@ -427,5 +447,266 @@ do
     reset.onClick()
     assert(s.bubbleText == nil and s.bubbleStrength == nil and s.ownBubble == nil, "alles zurueck")
     ColorPickerFrame = nil
+end
+-- 19) Online-Anzeige (Spieltest 22.11.2026: "gerade offline" direkt nach ihrer Nachricht)
+do
+    local now = 100000
+    local oldTime, oldGT = time, GetTime
+    time = function() return now end
+    GetTime = function() return now end
+    GetNumGuildMembers = function() return 1, 0 end
+    GetGuildRosterInfo = function() return "Bonsai-Forever", "", 0, 30, "Magier", "Orgrimmar", "", "", false, 0, "MAGE" end
+    GetGuildRosterLastOnline = function() return 0, 0, 0, 0 end
+    local asked = 0
+    C_GuildInfo = {GuildRoster = function() asked = asked + 1 end}
+    IsInGuild = function() return true end
+    Chat.buffers["w:Bonsai"] = {{kind = "whisper", author = "Bonsai-Forever", text = "hi", time = now - 30}}
+    assert(M.PersonInfo("Bonsai").online, "wer gerade schreibt, ist online")
+    now = now + 600
+    local i = M.PersonInfo("Bonsai")
+    assert(not i.online and M.OfflineText(i) == "gerade offline", "alte Nachricht: Gildenliste gilt")
+    -- eigene Nachricht zaehlt nicht
+    Chat.buffers["w:Bonsai"][2] = {kind = "whisper", author = "Bonsai", inform = true, text = "x", time = now}
+    assert(not M.PersonInfo("Bonsai").online, "eigene Nachricht beweist nichts")
+    -- Gildenliste wird angefordert, aber hoechstens alle 15 s
+    M.rosterAsked = nil
+    assert(M.RequestRoster() and asked == 1)
+    assert(not M.RequestRoster() and asked == 1, "gebremst")
+    now = now + 20
+    assert(M.RequestRoster() and asked == 2)
+    time, GetTime = oldTime, oldGT
+    GetNumGuildMembers, GetGuildRosterInfo, GetGuildRosterLastOnline, C_GuildInfo, IsInGuild = nil, nil, nil, nil, nil
+    Chat.buffers["w:Bonsai"] = nil
+end
+-- 20) Gilden-Einladen ohne Sperre (Spieltest 22.11.2026: "ONE_Chat wurde geblockt")
+do
+    -- Einfuegen ruft keine Blizzard-Funktion am Fenster auf
+    local edit = Region("EditBox")
+    local popup = {editBox = edit, GetEditBox = function() error("darf nicht aufgerufen werden") end}
+    StaticPopup_Visible = function(which) if which == "ADD_GUILDMEMBER" then return "StaticPopup1", popup end end
+    local oldShift = IsShiftKeyDown
+    IsShiftKeyDown = function() return true end
+    assert(UI.ShiftLink("player:Lyra", "[Lyra]", "LeftButton", nil) and edit.text == "Lyra", "Name im Feld, ohne Funktionsaufruf")
+    IsShiftKeyDown, StaticPopup_Visible = oldShift, nil
+    -- sicherer Makro-Knopf: nur ausserhalb des Kampfs, nicht fuer Gildenmitglieder
+    local attrs, made2 = {}, nil
+    local cf = CreateFrame
+    CreateFrame = function(kind, name, parent, template)
+        local r = cf(kind, name, parent, template)
+        if template == "SecureActionButtonTemplate" then
+            made2 = r
+            r.template = template
+            function r:SetAttribute(k, v) attrs[k] = v end
+            function r:RegisterEvent() end
+        end
+        return r
+    end
+    IsInGuild = function() return true end
+    CanGuildInvite = function() return true end
+    UnitName = function() return "Ich" end
+    UI:Show(Chat:OpenWhisper("Lyra"))
+    M.head.IsVisible = function() return true end
+    M.headMenu.IsVisible = function() return true end
+    M.inviteButton = nil
+    M:UpdateInviteButton()
+    assert(made2 and made2.template == "SecureActionButtonTemplate", "sicherer Knopf")
+    assert(attrs.type == "macro" and attrs.macrotext == "/ginvite Lyra" and made2.shown, "Makro /ginvite")
+    -- schon in der Gilde: kein Knopf
+    GetNumGuildMembers = function() return 1, 1 end
+    GetGuildRosterInfo = function() return "Lyra-Forever", "", 0, 20, "Magier", "Ort", "", "", true, 0, "MAGE" end
+    M:UpdateInviteButton()
+    assert(not made2.shown, "Gildenmitglied: kein Knopf")
+    GetNumGuildMembers, GetGuildRosterInfo = nil, nil
+    -- keine Rechte: kein Knopf
+    CanGuildInvite = function() return false end
+    M:UpdateInviteButton()
+    assert(not made2.shown, "ohne Einlade-Recht kein Knopf")
+    -- im Kampf nichts aendern
+    CanGuildInvite = function() return true end
+    InCombatLockdown = function() return true end
+    attrs.macrotext = nil
+    M:UpdateInviteButton()
+    assert(attrs.macrotext == nil, "im Kampf unveraendert")
+    InCombatLockdown = nil
+    CreateFrame = cf
+    IsInGuild, CanGuildInvite = nil, nil
+end
+-- 21) Links in Blasen anklicken (Spieltest 22.11.2026: Berufs-Link [Verzauberkunst] ging nicht)
+do
+    local r = M.bubbles[1]
+    local called, printed
+    SetItemRef = function(link) called = link end
+    local oldPrint = ONE.Print
+    ONE.Print = function(_, m) printed = m end
+    r.scripts.OnHyperlinkClick(r, "item:2589", "[Leinenstoff]", "LeftButton")
+    assert(called == "item:2589", "Gegenstands-Link geht an WoW")
+    assert(ONE.db.chatLinkDiag[1].kind == "item" and ONE.db.chatLinkDiag[1].ok, "Klick gemerkt")
+    SetItemRef = function() error("kaputt") end
+    r.scripts.OnHyperlinkClick(r, "item:2589", "[Leinenstoff]", "LeftButton")
+    assert(printed and printed:find("nicht öffnen", 1, true) and ONE.db.chatLinkDiag[1].err:find("kaputt"), "Fehler sichtbar")
+    -- Tooltip fuer Berufs-Links
+    local tipText
+    GameTooltip = {SetOwner = function() end, SetText = function(_, t) tipText = t end, AddLine = function() end,
+        Show = function() end, Hide = function() end}
+    r.scripts.OnHyperlinkEnter(r, "trade:Player-1-ABC:7411:333")
+    assert(tipText == "Berufs-Link", "Hinweis beim Drueberfahren")
+    SetItemRef, ONE.Print, GameTooltip = nil, oldPrint, nil
+end
+-- 22) Forever meldet Link-Klicks in Blasen nicht: eigener Klick (Spieltest 22.11.2026)
+do
+    local r = M.bubbles[1]
+    local e = {kind = "guild", author = "Bonsai-Forever", time = 0,
+        text = "biete |cffffd000|Htrade:Player-6945-00B7B687:13920:333|h[Verzauberkunst]|h|r gegen mats"}
+    r.item = {type = "bubble", entry = e, name = true}
+    r.linkHandled = nil
+    local called
+    SetItemRef = function(link) called = link end
+    local oldTimer = C_Timer
+    -- sofort, nicht verzoegert (Berufsfenster nur waehrend des echten Klicks)
+    C_Timer = {After = function() end}
+    GetCursorPosition = function() return 0, 0 end
+    r.GetTop = function() return 100 end
+    local menuTitle
+    MenuUtil = {CreateContextMenu = function(_, fn)
+        local root = {CreateTitle = function(_, t) menuTitle = t end, CreateButton = function() return {} end, CreateDivider = function() end}
+        fn(nil, root)
+    end}
+    r.scripts.OnMouseUp(r, "LeftButton")
+    assert(called == nil and menuTitle and menuTitle:find("Bonsai") and menuTitle:find("Verzauberkunst"),
+        "Berufs-Link: Forever oeffnet kein fremdes Berufsfenster -> Info-Menue: " .. tostring(menuTitle))
+    -- kommt der echte Link-Klick doch an, nicht doppelt
+    called = nil
+    M.lastClick = nil
+    GetTime = GetTime or function() return 0 end
+    r.linkHandled = GetTime()
+    r.scripts.OnMouseUp(r, "LeftButton")
+    assert(called == nil, "nicht doppelt")
+    r.linkHandled = nil
+    -- Klick auf die Namenszeile: Namens-Menue
+    r.who.shown = true
+    GetCursorPosition = function() return 0, 95 end
+    local opened
+    local pm = ONE.PlayerMenu.Open
+    ONE.PlayerMenu.Open = function(_, _, n) opened = n end
+    M.lastClick = nil
+    r.scripts.OnMouseUp(r, "LeftButton")
+    assert(opened == "Bonsai" and called == nil, "Name -> Namens-Menue")
+    -- Doppelklick: Antworten mit Zitat (Nutzer 22.11.2026)
+    r.scripts.OnMouseUp(r, "LeftButton")
+    assert(M.replyTo and M.replyTo.name == "Bonsai", "Doppelklick startet die Antwort")
+    M:CancelReply()
+    M.lastClick = nil
+    ONE.PlayerMenu.Open = pm
+    -- mehrere Links: Auswahl
+    assert(#M.LinksIn("|Hitem:1|h[A]|h und |Hitem:2|h[B]|h") == 2)
+    C_Timer, SetItemRef, GetCursorPosition = oldTimer, nil, nil
+end
+-- 23) Klassenfarbe nach /reload (Spieltest 22.11.2026: Namen ohne Farbe/Symbol – Verlauf ohne GUID)
+do
+    GetNumGuildMembers = function() return 1, 1 end
+    GetGuildRosterInfo = function() return "Bonsai Mambo-Forever", "", 0, 30, "Magier", "Ort", "", "", true, 0, "MAGE" end
+    M.classCache = nil
+    assert(M.ClassOfGuid(nil, "Bonsai Mambo") == "MAGE", "Klasse ueber die Gildenliste")
+    GetNumGuildMembers, GetGuildRosterInfo = nil, nil
+    -- Verlauf speichert die Spieler-GUID mit
+    local s = Chat:Settings()
+    s.keepHistory = true
+    Chat.buffers = {guild = {{time = (time and time()) or os.time(), kind = "guild", event = "CHAT_MSG_GUILD", text = "hi", author = "Bonsai Mambo",
+        guid = "Player-6945-00B7B687"}}}
+    Chat:SaveHistory()
+    Chat.buffers = {}
+    Chat:LoadHistory()
+    local b = Chat:Buffer("guild")
+    assert(b[#b] and b[#b].guid == "Player-6945-00B7B687", "GUID nach Neustart da")
+end
+-- 24) Berufs-Info: Rezepte aus Gilden-Daten und Chat-Links (Spieltest 22.11.2026)
+do
+    local names = {[7420] = "Armschiene - Schwache Gesundheit", [7457] = "Armschiene - Schwache Ausdauer"}
+    ONE.ns = ONE.ns or {}
+    ONE.ns.crafting = {
+        Recipes = {Store = function() return {guild = {["Bonsai Mambo-Forever"] = {Verzauberkunst = {skill = 265, max = 300, recipes = {[7420] = 0}}}}} end,
+            Name = function(_, id) return names[id] end},
+        ChatLinks = {Data = function() return {["Bonsai Mambo"] = {recipes = {[7457] = {prof = "Verzauberkunst"}, [999] = {prof = "Schneiderei"}}}} end},
+    }
+    local info = UI.TradeInfo("trade:Player-1-ABC:13920:333", "[Verzauberkunst]", "Bonsai Mambo")
+    assert(info.skill == 265 and #info.recipes == 2, "Stufe und beide Rezepte, nicht Schneiderei")
+    UI.ShowTradeInfo(nil, "trade:Player-1-ABC:13920:333", "[Verzauberkunst]", "Bonsai Mambo")
+    assert(UI.lastTradeInfo.head == "Bonsai Mambo – Verzauberkunst 265/300", UI.lastTradeInfo.head)
+    ONE.ns.crafting = nil
+    MenuUtil = nil
+end
+-- 25) Antworten mit Zitat wie WhatsApp (Nutzer 22.11.2026)
+do
+    -- Zitat: reiner Text, gekuerzt, UTF-8-sicher, kein Zitat im Zitat
+    assert(M.QuoteText("falls wer was braucht") == "falls wer was braucht")
+    local q = M.QuoteText("Wie muss ich mich denn beim Gildenmeister melden? wegen den Herbstputz")
+    assert(q:sub(-3) == "…" and not q:find("|", 1, true), q)
+    assert(M.QuoteText("|cffffd000|Htrade:x|h[Verzauberkunst]|h|r ok") == "[Verzauberkunst] ok", "Links als Text")
+    assert(M.QuoteText(M.WithQuote("A", "alt", "neu")) == "neu", "kein Zitat im Zitat")
+    assert(M.QuoteText("äöüäöüäöüäöüäöüäöüäöüäöüäöüäöüäöü"):find("…$"), "Umlaute heil gekuerzt")
+    local n, qq, rest = M.SplitQuote("@Bonsai „falls wer…“ Ich brauch was!")
+    assert(n == "Bonsai" and qq == "falls wer…" and rest == "Ich brauch was!")
+    assert(M.SplitQuote("@Bonsai hallo") == nil, "normales @ ist kein Zitat")
+    -- Namen mit Leerzeichen (Forever, Spielbild 22.11.2026)
+    local n2, q2, r2 = M.SplitQuote("@Mechthild Verfallstag „hallo“ jetzt gehs")
+    assert(n2 == "Mechthild Verfallstag" and q2 == "hallo" and r2 == "jetzt gehs", tostring(n2))
+    -- Ablauf: Rechtsklick › Antworten -> Leiste, Senden mit Zitat, danach weg
+    UI:Show("guild")
+    local orig = {kind = "guild", author = "Bonsai Mambo-Forever", text = "falls wer was braucht", time = os.time()}
+    table.insert(Chat:Buffer("guild"), orig)
+    M:StartReply(orig)
+    assert(M.replyTo and M.replyBar and M.replyBar.shown, "Leiste sichtbar")
+    assert(M.replyBar.text.text:find("Bonsai Mambo", 1, true) and M.replyBar.text.text:find("falls wer was braucht", 1, true), "Gilde: Name + Zitat")
+    assert(not M.replyBar.text.text:find("Antwort an", 1, true), "nur das Zitat (Nutzer 22.11.2026)")
+    local sentText
+    local oldSend = Chat.Send
+    Chat.Send = function(_, _, text) sentText = text return true end
+    M.input:SetText("Ich brauch was!")
+    M:SendInput()
+    assert(sentText == "@Bonsai Mambo „falls wer was braucht“ Ich brauch was!", tostring(sentText))
+    assert(not M.replyTo and not M.replyBar.shown, "nach dem Senden weg")
+    -- Befehle bekommen kein Zitat
+    M:StartReply(orig)
+    M.input:SetText("/s hallo")
+    M:SendInput()
+    assert(sentText == "/s hallo")
+    -- zu lang fuer WoW: ohne Zitat statt kaputt
+    M:StartReply(orig)
+    local long = string.rep("x", 250)
+    M.input:SetText(long)
+    M:SendInput()
+    assert(sentText == long, "zu lang: ohne Zitat")
+    Chat.Send = oldSend
+    -- Fluestern: nur das Zitat, ohne Namen; Leiste schiebt die Blasen hoch
+    UI:Show(Chat:OpenWhisper("Lyra"))
+    M:StartReply({kind = "whisper", author = "Lyra", text = "hallo", time = os.time()})
+    assert(M.replyBar.text.text:find("hallo", 1, true) and not M.replyBar.text.text:find("Lyra", 1, true), "Fluestern: nur Zitat")
+    M:CancelReply()
+    UI:Show("guild")
+    -- Gespraech wechseln verwirft die Antwort
+    M:StartReply(orig)
+    UI:Show("group")
+    assert(not M.replyTo, "anderes Gespraech: Antwort verworfen")
+    -- Blase zeigt den Zitat-Kasten, Klick springt zum Original
+    UI:Show("guild")
+    local reply = {kind = "guild", author = "Ich", text = "@Bonsai „falls wer was…“ Ich brauch was!", time = os.time()}
+    table.insert(Chat:Buffer("guild"), reply)
+    local r = M.bubbles[1]
+    M:FillBubble(r, {type = "bubble", entry = reply, out = true}, 300, M:Palette())
+    assert(r.quoted and r.quoted.name == "Bonsai" and r.text.text:find("brauch was!", 1, true) and not r.text.text:find("@Bonsai", 1, true),
+        "Zitat-Kasten statt @-Text")
+    local h0 = r.h
+    assert(r.qbox.shown and r.qbar.shown and r.qname.text == "Bonsai" and r.qtext.text:find("falls wer", 1, true), "Kasten wie WhatsApp")
+    assert(not r.text.text:find("falls wer", 1, true), "Zitat nicht doppelt im Text")
+    -- Farbe: unbekannte Person ruhiges Blau, nicht die (goldene) Leuchtfarbe
+    M.classCache = nil
+    local qc = M.QuoteColor("Unbekannt")
+    assert(qc[1] < .5 and qc[3] == 1, "Blau als Rueckfall")
+    -- ohne Zitat: Kasten weg, Blase niedriger
+    M:FillBubble(r, {type = "bubble", entry = {kind = "guild", author = "Ich", text = "Ich brauch was!", time = os.time()}, out = true}, 300, M:Palette())
+    assert(not r.qbox.shown and r.h < h0, "Kasten nur bei Zitat")
+    local orig2 = {kind = "guild", author = "Bonsai-Forever", text = "falls wer was braucht", time = os.time()}
+    table.insert(Chat:Buffer("guild"), #Chat:Buffer("guild"), orig2)
+    assert(M.FindQuoted("guild", reply) == orig2, "Original gefunden")
 end
 print("OK test_messenger_146")

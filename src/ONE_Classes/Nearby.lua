@@ -55,8 +55,9 @@ Nearby.manaClasses = {PRIEST = true, MAGE = true, WARLOCK = true, DRUID = true, 
 
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c, d = pcall(fn, ...)
-    if ok then return a, b, c, d end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 local function IsSecret(v)
     if type(issecretvalue) ~= "function" then return false end
@@ -584,6 +585,10 @@ function Nearby:Frame()
     f.bg = bg
     Themed(f, bg, f.title)
     f.gear = LookGear(f, Nearby.LOOK, f.title)
+    -- Zahnrad nur beim Drueberfahren, Rechtsklick auf den Titel -> Einstellungen (22.11.2026)
+    if ONE.WindowLook and ONE.WindowLook.Attach then
+        ONE.WindowLook:Attach(f, f.gear, {def = Nearby.LOOK, label = f.title, title = "In der Nähe"})
+    end
     self.frame = f
     self:ApplyLook()
     -- Im Kampf ausblenden – ueber Blizzards sichere Zustandssteuerung

@@ -155,12 +155,10 @@ function Arrow:ShowTooltip(owner)
     GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
     GameTooltip:SetText(T("Guild Trip Navi"))
     GameTooltip:AddLine(T("Zeigt die Richtung (Luftlinie), keine Wegführung."), 1, 1, 1, true)
-    if self:Settings().locked then
-        GameTooltip:AddLine(T("Rechtsklick: zum Verschieben lösen"), .7, .7, .7)
-    else
+    if not self:Settings().locked then
         GameTooltip:AddLine(T("Linke Maustaste ziehen: verschieben"), .7, .7, .7)
-        GameTooltip:AddLine(T("Rechtsklick: festsetzen"), .7, .7, .7)
     end
+    GameTooltip:AddLine(T("Rechtsklick: Festsetzen, Navi beenden, Aussehen"), .7, .7, .7)
     GameTooltip:AddLine(T("/trip navi stil: Pfeil-Aussehen wechseln"), .7, .7, .7)
     GameTooltip:Show()
 end
@@ -209,12 +207,6 @@ function Arrow:Create()
         frame:StopMovingOrSizing()
         self:SavePosition()
     end)
-    f:SetScript("OnMouseUp", function(frame, button)
-        if button == "RightButton" then
-            self:SetLocked(not self:Settings().locked)
-            if GameTooltip and GameTooltip.IsOwned and GameTooltip:IsOwned(frame) then self:ShowTooltip(frame) end
-        end
-    end)
     f:SetScript("OnEnter", function(frame) self:ShowTooltip(frame) end)
     f:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     local arrow = f:CreateTexture(nil, "ARTWORK")
@@ -252,6 +244,16 @@ function Arrow:Create()
     end)
     gear:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     self.gear = gear
+    -- Zahnrad nur beim Drueberfahren; Rechtsklick -> Menue (Festsetzen, Navi beenden, Aussehen) – 22.11.2026
+    if ONE.WindowLook and ONE.WindowLook.Attach then
+        ONE.WindowLook:Attach(f, gear, {def = Arrow.LOOK, frameClick = true, title = "Navi-Pfeil", menu = function()
+            return {
+                {text = "Festsetzen", checked = function() return self:Settings().locked end,
+                    func = function() self:SetLocked(not self:Settings().locked) end},
+                {text = "Navi beenden", func = function() self:Stop() end},
+            }
+        end})
+    end
     local close = CreateFrame("Button", nil, f)
     close:SetSize(18, 18)
     close:SetPoint("TOPLEFT", f, "TOP", ARROW_SIZE / 2 + 6, -2)

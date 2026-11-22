@@ -130,6 +130,32 @@ local rows = Tr:Rows({steps = plan.steps, offRoute = off})
 local hit
 for _, r in ipairs(rows) do if r.text and r.text:find("Nicht im Plan", 1, true) then hit = r end end
 assert(hit and hit.click, "Zeile 'Nicht im Plan' mit Abbrechen (Rueckfrage)")
+-- Teilziele der aktuellen Quest stehen direkt unter der Quest, der Hinweis erst danach (Nutzer 22.11.2026)
+do
+    local oldObj = Tr.Objectives
+    Tr.Objectives = function() return {{text = "Kanonier getoetet: 0/6"}} end
+    local r2 = Tr:Rows({steps = {{kind = "obj", nr = 1, mapID = 1, x = .5, y = .5, actions = {{kind = "obj", id = 1}}}}, offRoute = off})
+    local iObj, iOff
+    for i, r in ipairs(r2) do
+        if r.kind == "obj" then iObj = iObj or i end
+        if r.text and r.text:find("Nicht im Plan", 1, true) then iOff = i end
+    end
+    Tr.Objectives = oldObj
+    assert(iObj and iOff and iObj < iOff, "Teilziele vor 'Nicht im Plan'")
+end
+-- bessere Ausruestung aus Quests ausserhalb der Route: Hinweis (Nutzer 22.11.2026), Route bleibt gleich
+do
+    local function Row(q, plus, up) return {slot = {name = "Waffe"}, upgrade = up ~= false, plus = plus,
+        now = {item = {id = 100 + q}, sources = {{kind = "q", quest = q}}}} end
+    local gh = G.GearHints({Row(5730, 100), Row(852, 50), Row(7, 5), Row(8, 80, false),
+        {slot = {name = "Hals"}}, {slot = {name = "Kopf"}, upgrade = true, plus = 100, now = {item = {id = 1}, sources = {{kind = "c"}}}}},
+        {["accept:852"] = 1})
+    assert(#gh == 1 and gh[1].src.quest == 5730, "nur Quests, nicht in der Route, ab 10 % besser: " .. #gh)
+    local r3 = Tr:Rows({steps = plan.steps, gearHint = gh})
+    local h
+    for _, r in ipairs(r3) do if r.text and r.text:find("Besser für dich", 1, true) then h = r end end
+    assert(h and h.click and h.tip, "Hinweis 'Besser für dich' mit Navi")
+end
 -- neue Zauber beim Lehrer: nur Hinweis-Zeile (Nutzer: "nur als Info bei Stufenaufstieg, nicht Teil der Route")
 rows = Tr:Rows({steps = plan.steps, trainHint = {n = 2, spots = {{mapID = 1, x = .1, y = .1, name = "Lehrer"}}}})
 hit = nil

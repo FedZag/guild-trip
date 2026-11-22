@@ -11,6 +11,7 @@ _G.GetNumGuildMembers = function() return 1 end
 _G.GetGuildRosterInfo = function() return "Gildi-Forever", nil, nil, 30, nil, nil, nil, nil, true end
 local ONE = { ns = {}, modules = {} }
 _G.ProjectONE = ONE
+assert(loadfile(root .. "/ONE_Core/PlayerMenu.lua"))("ONE_Core", ONE) -- ONE:Whisper
 function ONE:Print() end
 local lev = {}
 assert(loadfile(root .. "/ONE_Leveling/GearData.lua"))("ONE_Leveling", lev)
@@ -134,4 +135,56 @@ local function HasDungeon(id, faction, key)
     for _, s in ipairs(W:Sources(id, {faction = faction, level = 15})) do if s.kind == "d" and s.dungeon == key then return true end end
 end
 assert(not HasDungeon(270227, "Horde", "thanes") and HasDungeon(270227, "Alliance", "thanes"), "Thanen-Beute nur fuer Allianz")
+-- Anfrage an Hersteller nur, wenn jemand online ist (22.11.2026)
+local opened, printed
+_G.ChatFrame_OpenChat = function(t) opened = t end
+function ONE:Print(t) printed = t end
+local off = {kind = "c", status = "guild", prof = "Ingenieurskunst", guild = {{name = "Miss-Realm", online = false}}}
+assert(W.AskTarget(off) == nil and W:Ask(off, 4368) == false and not opened and printed:find("offline"), "offline: keine Anfrage")
+assert(W.SourceText(off, true):find("(offline)", 1, true))
+local on = {kind = "c", status = "guild", prof = "Ingenieurskunst", guild = {{name = "Anna-Realm", online = false}, {name = "Bert-Realm", online = true}}}
+assert(W.AskTarget(on).name == "Bert-Realm", "erster, der online ist")
+assert(W:Ask(on, 4368) and opened:find("^/w Bert%-Realm Hallo Bert,"), "Fluesterfenster an den Online-Hersteller")
+assert(W.AskTarget({kind = "q"}) == nil)
+-- Questreihe: beim ersten offenen Teil anfangen (Nutzer 22.11.2026: Stab von Orgrimmar = Ende von "Verborgene Feinde")
+do
+    local Q = rawget(_G, "GuildTripQuestDB")
+    local saved = Q.q
+    Q.q = {[1] = {1, 1}, [2] = {2, 2, nil, nil, nil, nil, nil, nil, {1}}, [3] = {3, 3, nil, nil, {2, 7}, nil, nil, nil, nil}, [7] = {3, 3}}
+    local function Done(set) return function(id) return set[id] == true end end
+    local st, part, total = W.ChainStart(3, Done({}))
+    assert(st == 1 and part == 1 and total == 3, "Anfang der Reihe: " .. tostring(st))
+    st, part = W.ChainStart(3, Done({[1] = true}))
+    assert(st == 2 and part == 2, "Teil 1 erledigt -> Teil 2")
+    st = W.ChainStart(3, Done({[7] = true}))
+    assert(st == 3, "eine-von schon erledigt (andere Vorquest) -> direkt Teil 3")
+    assert(W.ChainStart(1, Done({})) == 1)
+    -- Klick: Meldung + Navi zum Anfang
+    local note, navTo
+    function ONE:Notify(t) note = t end
+    local oldNavi = W.Navi
+    W.Navi = function(_, s) navTo = s.quest end
+    local oldCtx = W.Context
+    W.Context = function() return {done = Done({})} end
+    W:Get({kind = "q", quest = 3}, 4368)
+    assert(navTo == 1 and note and note:find("Teil 1", 1, true), tostring(note))
+    -- Belohnung nur ueber einen Dungeon: kein Navi (Nutzer 22.11.2026)
+    lev.Planner = lev.Planner or {}
+    local P = lev.Planner
+    local oldDC = P.IsDungeonChain
+    do
+        P.IsDungeonChain = function() return true end
+        navTo = nil
+        W:Get({kind = "q", quest = 3}, 4368)
+        assert(navTo == nil and note:find("kein Navi", 1, true), "Dungeon-Belohnung ohne Navi")
+        P.IsDungeonChain = oldDC
+    end
+    local navD
+    W.Navi = function() navD = true end
+    W:Get({kind = "d", dungeon = "rfc", npc = 1}, 4368)
+    assert(not navD and note:find("kein Navi", 1, true), "Dungeon-Beute ohne Navi")
+    W:Get({kind = "c", status = "self", prof = "Schneiderei"}, 4368)
+    assert(note:find("selbst herstellen", 1, true))
+    W.Navi, W.Context, Q.q = oldNavi, oldCtx, saved
+end
 print("OK test_way_124")

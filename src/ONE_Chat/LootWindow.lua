@@ -270,6 +270,10 @@ function Loot:Build()
     end)
     gear:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     self.gear = gear
+    -- Zahnrad nur beim Drueberfahren, Rechtsklick ins Fenster -> Einstellungen (22.11.2026)
+    if ONE.WindowLook and ONE.WindowLook.Attach then
+        ONE.WindowLook:Attach(f, gear, {def = Loot.LOOK, frameClick = true, title = "Beutefenster"})
+    end
     self.empty = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     self.empty:SetPoint("CENTER", log, "CENTER", 0, 0)
     self.empty:SetText(T("Noch keine Beute in dieser Sitzung."))

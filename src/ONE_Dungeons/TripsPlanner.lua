@@ -153,7 +153,7 @@ function Planner:Build(panel, onDone)
     local hx, hw = (half + 12), half
     local head = Text(f, "GameFontNormalLarge", hx, -4, hw, "accent", "Termin planen")
     Text(f, "GameFontHighlightSmall", hx, -24, hw, "soft", "Pflicht: nur Art, Titel und Tag")
-    if head.SetWordWrap then head:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(head) end
     local C1 = {x = 0, w = half}
     local C2 = {x = (half + 12), w = half}
     -- Kasten 1: drei Reihen Arten; Kasten 2: vier Zeilen (Tag, Beginn+Dauer, Wiederholen, Erinnerung)
@@ -293,7 +293,7 @@ function Planner:Build(panel, onDone)
     local summary = Text(f, "GameFontHighlight", sumX, sumY, sumW, "text")
     if summary.SetWordWrap then summary:SetWordWrap(true) end
     local missing = Text(f, "GameFontHighlightSmall", sumX, -390, (W - 2 * 140 - 30), "soft")
-    if missing.SetWordWrap then missing:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(missing) end
     local BW = 120
     local bx = (W) - 2 * BW - 8
     local by = -386

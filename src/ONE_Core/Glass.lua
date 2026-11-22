@@ -367,7 +367,7 @@ Glass.WINDOW = { width = 1100, height = 540, col1X = 10, col1W = 150, col2X = 16
 local function FS(parent, font, layer)
     local f = parent:CreateFontString(nil, layer or "OVERLAY", font or "GameFontHighlight")
     f:SetJustifyH("LEFT")
-    if f.SetWordWrap then f:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(f) end
     return f
 end
 
@@ -579,7 +579,7 @@ function Glass:ShowGuild(top)
             if cc then r.label:SetTextColor(cc.r, cc.g, cc.b) else r.label:SetTextColor(1, 1, 1) end
             r.dot:SetVertexColor(.12, 1, .35, 1)
             r:SetScript("OnClick", function()
-                if type(ChatFrame_OpenChat) == "function" then ChatFrame_OpenChat("/w " .. m.name .. " ") end
+                ONE:Whisper(m.name)
             end)
             r:SetScript("OnEnter", function(self2)
                 self2.sel.hover = true Glass:Paint(self2.sel)

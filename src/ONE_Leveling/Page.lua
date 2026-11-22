@@ -224,7 +224,7 @@ function Page:BuildGear(parent, W, H)
             {key = "slot", title = "PLATZ", width = 74, indent = 4},
             {key = "item", title = "BESTES FÜR DICH", width = 198, indent = 22},
             {key = "plus", title = "BESSER", width = 50, align = "RIGHT"},
-            {key = "src", title = "WOHER", width = 262},
+            {key = "src", title = "WOHER", width = 262}, -- Breite auch unten bei SRCW
             {key = "holds", title = "HÄLT BIS", width = 64, align = "RIGHT"},
         },
         render = function(frame, row, cells)
@@ -240,6 +240,26 @@ function Page:BuildGear(parent, W, H)
             if frame.icon.__oneRing then frame.icon.__oneRing:SetShown(tex and true or false) end
             cells.slot:SetText(T(row.slot.name))
             cells.slot:SetTextColor(.8, .8, .8)
+            -- Knopf "Anfragen": nur wenn ein Hersteller aus der Gilde gerade online ist (22.11.2026)
+            local SRCW = 262
+            if not frame.ask then
+                frame.ask = ONE.Widgets:Button(frame, T("Anfragen"), 70, 18, "RIGHT", -74, 0, function(b)
+                    local r = frame.askRow
+                    if r and r.now then Way:Ask(r.now.sources[1], r.now.item.id) end
+                end)
+                frame.ask:HookScript("OnEnter", function(b)
+                    local r, g = frame.askRow, frame.askWho
+                    if not (GameTooltip and r and g) then return end
+                    GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+                    GameTooltip:AddLine(T("Anfrage an %s", g.name:match("^[^%-]+") or g.name), 1, .82, 0)
+                    GameTooltip:AddLine(T("Öffnet ein Flüsterfenster mit fertigem Text – du drückst nur noch Enter."), 1, 1, 1, true)
+                    GameTooltip:Show()
+                end)
+                frame.ask:HookScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+            end
+            local who = row.now and Way.AskTarget(row.now.sources[1])
+            frame.askRow, frame.askWho = row, who
+            if who then frame.ask:Show() cells.src:SetWidth(SRCW - 78) else frame.ask:Hide() cells.src:SetWidth(SRCW) end
             if not row.now then
                 cells.item:SetText("|cff808080" .. T("nichts Passendes gefunden") .. "|r")
                 cells.plus:SetText("") cells.src:SetText("") cells.holds:SetText("")
@@ -257,7 +277,7 @@ function Page:BuildGear(parent, W, H)
             cells.holds:SetText(row.holdsTo and T("Stufe %d", row.holdsTo) or "|cff9d9d9d–|r")
         end,
         onClick = function(_, row)
-            if row.now then Way:Navi(row.now.sources[1], row.now.item.id) end
+            if row.now then Way:Get(row.now.sources[1], row.now.item.id) end
         end,
         onEnter = function(self, row)
             if not (row.now and GameTooltip) then return end
@@ -286,7 +306,7 @@ function Page:BuildGear(parent, W, H)
                 local n = row.next
                 GameTooltip:AddLine(T("Bald: %s ab Stufe %d – %s", Color(n.item, Name(n.item.id)), Way.ReqLevel(n.item), Way.SourceText(n.sources[1], true)), .9, .9, .9, true)
             end
-            GameTooltip:AddLine(T("Klick: Navi zur Quelle (Herstellung durch die Gilde: Anfrage im Flüsterchat)"), .5, .5, .5, true)
+            GameTooltip:AddLine(T("Klick: Navi zur Quelle mit Anleitung – bei Questreihen zum ersten offenen Teil (Herstellung durch die Gilde: Anfrage im Flüsterchat)"), .3, 1, .3, true)
             GameTooltip:Show()
         end,
     })
@@ -302,7 +322,7 @@ function Page:BuildGear(parent, W, H)
         else pendingAt = nil list:Update() end
     end)
     local foot = Text(parent, "GameFontDisableSmall", 4, -(H - 18), W - 8, "soft",
-        "Bewertet wie im Tooltip „besser für dich“. Quests passend zu Fraktion und Klasse; seltene Drops nur im Tooltip.")
+        "Klick auf eine Zeile: Navi und Anleitung, wie du es bekommst. Bewertet wie im Tooltip „besser für dich“.")
     return function()
         local L = (UnitLevel and UnitLevel("player")) or 1
         local now = (GetTime and GetTime()) or 0

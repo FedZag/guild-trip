@@ -305,7 +305,7 @@ function WL:Fill(def)
             local t = FS(b, "GameFontHighlightSmall")
             t:SetPoint("LEFT", sw, "RIGHT", 6, 0)
             t:SetPoint("RIGHT", b, "RIGHT", -2, 0)
-            if t.SetWordWrap then t:SetWordWrap(false) end
+            if ONE.Fit then ONE.Fit:Line(t, b) end
             t:SetText(T(r.label))
             b:SetScript("OnClick", function() PickColor(def, r.key) end)
             b:SetScript("OnEnter", function(self)
@@ -337,6 +337,101 @@ function WL:Refresh()
     local p = self.panel
     if not (p and p:IsShown()) then return end
     for _, fn in ipairs(p.refresh or {}) do pcall(fn) end
+end
+
+-- ===== Zahnrad nur beim Drueberfahren, Einstellungen per Rechtsklick (Nutzer 22.11.2026) =====
+-- WL:Attach(owner, gear, opts) fuer schwebende Fenster (Buffs, In der Naehe, Pfeil, Beute, Quest-Kasten):
+--   * Zahnrad unsichtbar, erscheint nur, solange die Maus ueber dem Fenster ist (oder sein Aussehen offen ist)
+--   * Rechtsklick auf die Beschriftung (opts.label) bzw. aufs Fenster (opts.frameClick) -> Kontextmenue
+--     mit opts.menu() = {{text=, func=, checked=function}} und "Aussehen …"
+-- opts.def = Aussehen-Definition, opts.title = Menue-Ueberschrift, opts.inset = {oben, unten, links, rechts}
+WL.attached = {}
+local function Over(e)
+    local o = e.owner
+    if not (o and o.IsVisible and o:IsVisible()) then return false end
+    local p = WL.panel
+    if p and p.IsShown and p:IsShown() and p.def == e.def then return true end
+    if e.gear.IsMouseOver and e.gear:IsMouseOver() then return true end
+    if e.hit and e.hit.IsMouseOver and e.hit:IsMouseOver() then return true end
+    if not o.IsMouseOver then return false end
+    local i = e.inset or {}
+    local ok, over = pcall(o.IsMouseOver, o, i[1] or 0, i[2] or 0, i[3] or 0, i[4] or 0)
+    return ok and over or false
+end
+WL.Over = Over
+function WL:UpdateGears()
+    for _, e in ipairs(self.attached) do
+        local show = Over(e)
+        if e.shown ~= show then
+            e.shown = show
+            if e.gear.SetAlpha then e.gear:SetAlpha(show and 1 or 0) end
+            if e.gear.EnableMouse then e.gear:EnableMouse(show) end
+        end
+    end
+end
+function WL:ContextMenu(e)
+    local items = e.menu and e.menu() or {}
+    if type(MenuUtil) == "table" and type(MenuUtil.CreateContextMenu) == "function" then
+        local ok = pcall(MenuUtil.CreateContextMenu, e.owner, function(_, root)
+            if e.title and root.CreateTitle then root:CreateTitle(T(e.title)) end
+            for _, it in ipairs(items) do
+                if it.checked and root.CreateCheckbox then
+                    root:CreateCheckbox(T(it.text), function() return it.checked() and true or false end, function() it.func() end)
+                else
+                    root:CreateButton(T(it.text), function() it.func() end)
+                end
+            end
+            if e.def then root:CreateButton(T("Aussehen …"), function() WL:Toggle(e.def, e.owner) end) end
+        end)
+        if ok then return true end
+    end
+    if e.def then self:Toggle(e.def, e.owner) return true end
+    return false
+end
+function WL:Attach(owner, gear, opts)
+    opts = opts or {}
+    local e = {owner = owner, gear = gear, def = opts.def, menu = opts.menu, title = opts.title, inset = opts.inset}
+    self.attached[#self.attached + 1] = e
+    if gear.SetAlpha then gear:SetAlpha(0) end
+    if gear.EnableMouse then gear:EnableMouse(false) end
+    e.shown = false
+    -- Rechtsklick auf die Beschriftung: kleine Flaeche nur ueber dem Text, nimmt nur den rechten Klick
+    if opts.label and CreateFrame then
+        local ok, hit = pcall(CreateFrame, "Button", nil, owner)
+        if ok and hit then
+            hit:SetPoint("TOPLEFT", opts.label, "TOPLEFT", -2, 2)
+            hit:SetPoint("BOTTOMRIGHT", opts.label, "BOTTOMRIGHT", 2, -2)
+            if hit.RegisterForClicks then hit:RegisterForClicks("RightButtonUp") end
+            if hit.SetPropagateMouseClicks then pcall(hit.SetPropagateMouseClicks, hit, false) end
+            hit:SetScript("OnClick", function() WL:ContextMenu(e) end)
+            hit:SetScript("OnEnter", function(b)
+                if not GameTooltip then return end
+                GameTooltip:SetOwner(b, "ANCHOR_TOP")
+                GameTooltip:AddLine(T("Rechtsklick: Einstellungen"), .8, .8, .8)
+                GameTooltip:Show()
+            end)
+            hit:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+            e.hit = hit
+        end
+    end
+    if opts.frameClick and owner.HookScript then
+        owner:HookScript("OnMouseUp", function(_, button) if button == "RightButton" then WL:ContextMenu(e) end end)
+    end
+    -- ein gemeinsamer, gebremster Takt fuer alle Zahnraeder
+    if not self.gearTicker and CreateFrame then
+        local ok, t = pcall(CreateFrame, "Frame")
+        if ok and t then
+            local acc = 0
+            t:SetScript("OnUpdate", function(_, dt)
+                acc = acc + (dt or 0)
+                if acc < .15 then return end
+                acc = 0
+                WL:UpdateGears()
+            end)
+            self.gearTicker = t
+        end
+    end
+    return e
 end
 
 -- Zahnrad: oeffnen/schliessen, neben dem Fenster (Seite mit mehr Platz)

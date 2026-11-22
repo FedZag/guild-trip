@@ -13,7 +13,7 @@ local function Text(parent, font, x, y, width, role, text)
     fs:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     fs:SetWidth(width)
     fs:SetJustifyH("LEFT")
-    if fs.SetWordWrap then fs:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(fs) end
     fs:SetText(T(text or ""))
     if ONE.Themes then ONE.Themes:RegisterText(fs, role or "text") end
     return fs

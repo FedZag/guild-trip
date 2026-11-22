@@ -10,6 +10,14 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.7.8-alpha"] = {
+        "Optionen › Grafik: versteckte Grafik-Einstellungen (Gras, Zoom, Wetter, Licht, Wasser, FPS) mit Vorlagen",
+        "Chat: Antworten mit Zitat (Doppelklick auf eine Blase), fehlende WoW-Chatmeldungen im Guild-Trip-Chat",
+        "Ausrüstung: Klick führt zum richtigen Ziel, „Anfragen“ bei Herstellern, die online sind; Ausrüstungs-Quests in der Route",
+        "Lehrer: Unterkategorien, Ortsnamen, neutrale Lehrer markiert",
+        "Keine abgeschnittenen Texte mehr – voller Text im Tooltip",
+        "Schwebende Fenster: Zahnrad nur beim Drüberfahren, Rechtsklick öffnet die Einstellungen",
+    },
     ["0.7.7-alpha"] = {
         "Chat: Knopf „Zum WoW-Chat“, zurück über die Sprechblase",
         "Quest-Kasten: NPC-Name bei mehreren Quests vorn, Questnamen in ihrer Farbe",

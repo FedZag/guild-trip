@@ -11,6 +11,7 @@ local ONE = _G.ProjectONE
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 local Weapons = {}
 classes.Weapons = Weapons
+ONE.Weapons = Weapons -- auch fuer die Lehrer-Seite (Unterkategorie Waffenart)
 
 -- key, deutscher Name, Zauber-Nummern (Classic, Forever); free = braucht keinen Lehrer
 Weapons.types = {
@@ -60,8 +61,9 @@ Weapons.seedTeaches = {
 
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a = pcall(fn, ...)
-    if ok then return a end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 
 -- Beherrschst du die Waffe? true / false; nil, wenn das Spiel es nicht verraet

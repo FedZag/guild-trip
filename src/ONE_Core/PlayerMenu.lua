@@ -13,8 +13,9 @@ ONE.PlayerMenu = PlayerMenu
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a = pcall(fn, ...)
-    if ok then return a end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 local function Short(name) return type(name) == "string" and (name:match("^[^-]+") or name) or "" end
 PlayerMenu.Short = Short
@@ -78,13 +79,30 @@ function PlayerMenu:Open(owner, name, ctx)
     return false
 end
 
+-- ===== Fluestern (gemeinsam fuer alle Knoepfe, 22.11.2026) =====
+-- Im Guild-Trip-Chat, wenn er an ist und "Fluestern hier" gilt oder der WoW-Chat ersetzt ist; sonst WoW-Chat.
+-- Vorher oeffneten Knoepfe wie "Anfragen" die versteckte WoW-Eingabezeile – es passierte scheinbar nichts.
+function ONE:Whisper(name, text)
+    if not name or name == "" then return false end
+    local c = self.modules and self.modules.chat
+    if c and c.Compose then
+        local ok, done = pcall(c.Compose, c, name, text)
+        if ok and done then return true end
+    end
+    if text and text ~= "" and type(ChatFrame_OpenChat) == "function" then
+        return pcall(ChatFrame_OpenChat, "/w " .. name .. " " .. text) == true
+    end
+    if type(ChatFrame_SendTell) == "function" then return pcall(ChatFrame_SendTell, name) == true end
+    if type(ChatFrame_OpenChat) == "function" then return pcall(ChatFrame_OpenChat, "/w " .. name .. " ") == true end
+    return false
+end
+
 -- ===== Grundeintraege =====
 -- ctx.online == false (Mitgliederliste, offline): nur, was auch offline geht
 local function Online(_, ctx) return not (type(ctx) == "table" and ctx.online == false) end
 PlayerMenu:Register({id = "whisper", order = 10, label = "Flüstern", available = Online,
     run = function(name)
-        if type(ChatFrame_SendTell) == "function" then return ChatFrame_SendTell(name) end
-        if type(ChatFrame_OpenChat) == "function" then return ChatFrame_OpenChat("/w " .. name .. " ") end
+        return ONE:Whisper(name)
     end})
 PlayerMenu:Register({id = "invite", order = 20, label = "In Gruppe einladen",
     available = function(name, ctx)

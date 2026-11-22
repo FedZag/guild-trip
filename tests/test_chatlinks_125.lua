@@ -73,6 +73,7 @@ local tabs = {}
 ONE.UI = {Layout = {width = 726}, activeTab = "crafting", frame = UIParent,
     AddTab = function(_, id, _, builder) tabs[id] = builder(Region("Frame")) return true end}
 _G.ProjectONE = ONE
+assert(loadfile(root .. "/ONE_Core/PlayerMenu.lua"))("ONE_Core", ONE) -- ONE:Whisper
 for _, f in ipairs({"Themes.lua", "Kit.lua", "Geometry.lua", "Widgets.lua"}) do
     assert(loadfile(root .. "/ONE_Core/" .. f))("ONE_Core", ONE)
 end

@@ -25,6 +25,8 @@ S.SECTIONS = {
             tip = "Nimmt eingeplante Quests an und gibt fertige Quests aus deinem Questlog ab (Folgequests inklusive). Bei mehreren Belohnungen wählst du selbst. Shift gedrückt halten = für dieses Gespräch nicht."},
         {key = "autoQuestAll", label = "… auch Quests außerhalb der Führung annehmen", indent = 1,
             tip = "Nimmt alle nicht-grauen, nicht wiederholbaren Quests an."},
+        {key = "gearQuests", label = "Ausrüstungs-Quests einbauen", default = true,
+            tip = "Baut Quests mit deutlich besserer Ausrüstung (ab 10 % besser oder leerer Platz) in die Route ein – nur ohne Dungeon, höchstens 3 Stufen über dir und nur in Gebieten, durch die die Route ohnehin kommt. Ändert nur die Vorschläge."},
     }},
     {title = "Reisetagebuch", options = {
         {key = "journal", label = "Reisetagebuch führen", default = true,
@@ -52,7 +54,7 @@ function S:Set(key, value)
             db.trackerLook.bg = bg ~= "none" and bg or "dark"
         end
     end
-    if key == "tempo" then G:Replan() else lev.Tracker:Update(G.plan) end
+    if key == "tempo" or key == "gearQuests" then G:Replan() else lev.Tracker:Update(G.plan) end
     if ONE.UI and ONE.UI.Refresh then ONE.UI:Refresh() end
 end
 

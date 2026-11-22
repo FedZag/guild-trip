@@ -17,8 +17,9 @@ chat.Chat = Chat
 
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c = pcall(fn, ...)
-    if ok then return a, b, c end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 local function Short(name) return type(name) == "string" and (name:match("^[^-]+") or name) or "?" end
 Chat.Short = Short
@@ -39,14 +40,54 @@ Chat.KINDS = {
     {key = "whisper", label = "Flüstern", events = {"CHAT_MSG_WHISPER", "CHAT_MSG_WHISPER_INFORM",
         "CHAT_MSG_BN_WHISPER", "CHAT_MSG_BN_WHISPER_INFORM"}, send = "WHISPER", color = {1, .5, 1}},
     {key = "system", label = "System", events = {"CHAT_MSG_SYSTEM",
-        "CHAT_MSG_BN_INLINE_TOAST_ALERT", "CHAT_MSG_BN_INLINE_TOAST_BROADCAST", "CHAT_MSG_BN_WHISPER_PLAYER_OFFLINE"}, color = {1, 1, 0}},
+        "CHAT_MSG_BN_INLINE_TOAST_ALERT", "CHAT_MSG_BN_INLINE_TOAST_BROADCAST", "CHAT_MSG_BN_WHISPER_PLAYER_OFFLINE",
+        -- 22.11.2026 (Pruefung "alle WoW-Chatfunktionen"): Kanal-Meldungen, Erfolge, Schlachtfeld, Ignoriert, Gefiltert
+        "CHAT_MSG_CHANNEL_NOTICE", "CHAT_MSG_CHANNEL_NOTICE_USER", "CHAT_MSG_ACHIEVEMENT", "CHAT_MSG_GUILD_ACHIEVEMENT",
+        "CHAT_MSG_BG_SYSTEM_NEUTRAL", "CHAT_MSG_BG_SYSTEM_ALLIANCE", "CHAT_MSG_BG_SYSTEM_HORDE",
+        "CHAT_MSG_IGNORED", "CHAT_MSG_FILTERED", "CHAT_MSG_RESTRICTED"}, color = {1, 1, 0}},
+    -- NPCs (Questgeber, Bosse): fehlten, solange der WoW-Chat ersetzt ist
+    {key = "npc", label = "NPC-Gespräche", events = {"CHAT_MSG_MONSTER_SAY", "CHAT_MSG_MONSTER_YELL", "CHAT_MSG_MONSTER_EMOTE",
+        "CHAT_MSG_MONSTER_WHISPER", "CHAT_MSG_MONSTER_PARTY", "CHAT_MSG_RAID_BOSS_EMOTE", "CHAT_MSG_RAID_BOSS_WHISPER"}, color = {1, 1, .62}},
+    -- Beute, Geld, Erfahrung, Ruf, Fertigkeiten: eigenes Gespraech (stumm), damit nichts verloren geht
+    {key = "progress", label = "Beute & Fortschritt", events = {"CHAT_MSG_LOOT", "CHAT_MSG_MONEY", "CHAT_MSG_CURRENCY",
+        "CHAT_MSG_COMBAT_XP_GAIN", "CHAT_MSG_COMBAT_FACTION_CHANGE", "CHAT_MSG_COMBAT_HONOR_GAIN", "CHAT_MSG_SKILL",
+        "CHAT_MSG_TRADESKILLS", "CHAT_MSG_OPENING", "CHAT_MSG_PET_INFO"}, color = {.55, .8, 1}},
 }
+-- Abwesend/Nicht stoeren: automatische Antwort gehoert ins Fluestergespraech (ohne Zaehler und Ton)
+Chat.autoReplyEvents = {CHAT_MSG_AFK = "Abwesend", CHAT_MSG_DND = "Nicht stören"}
 Chat.kindByKey, Chat.kindByEvent = {}, {}
 for _, k in ipairs(Chat.KINDS) do
     Chat.kindByKey[k.key] = k
     for _, e in ipairs(k.events or {}) do Chat.kindByEvent[e] = k.key end
 end
 Chat.kindByEvent.CHAT_MSG_CHANNEL = "channel"
+for e in pairs(Chat.autoReplyEvents) do Chat.kindByEvent[e] = "whisper" end
+-- als schlichte Zeile zeigen (ohne Blase/Namen): Arten und einzelne Ereignisse
+Chat.plainKinds = {system = true, progress = true}
+Chat.plainEvents = {CHAT_MSG_TEXT_EMOTE = true, CHAT_MSG_MONSTER_EMOTE = true, CHAT_MSG_RAID_BOSS_EMOTE = true}
+function Chat.IsPlain(entry)
+    return type(entry) == "table" and (Chat.plainKinds[entry.kind] or Chat.plainEvents[entry.event] or false) and true or false
+end
+-- "%s" im Text durch den Namen ersetzen (NPC-Emotes, Erfolge – so macht es auch der WoW-Chat)
+function Chat.FillName(text, name)
+    text = tostring(text or "")
+    if not text:find("%s", 1, true) then return text end
+    local ok, out = pcall(string.format, (text:gsub("%%([^s])", "%%%%%1")), tostring(name or ""))
+    return ok and out or text
+end
+-- Kanal-Meldung ("Kanal betreten: 2. Handel") aus dem Kennwort von WoW
+function Chat.ChannelNoticeText(event, token, args)
+    local fmt = rawget(_G, "CHAT_" .. tostring(token) .. "_NOTICE_BN") or rawget(_G, "CHAT_" .. tostring(token) .. "_NOTICE")
+    if type(fmt) ~= "string" then return nil end
+    local num, name = args[8], args[4]
+    local ok, out
+    if event == "CHAT_MSG_CHANNEL_NOTICE_USER" then
+        ok, out = pcall(string.format, fmt, num, name, args[2], args[5])
+    else
+        ok, out = pcall(string.format, fmt, num, name)
+    end
+    return ok and out or nil
+end
 
 -- Kanalname -> Art (deutsch und englisch, Gross/Klein egal)
 Chat.channelKinds = {
@@ -109,13 +150,15 @@ end
 -- ===== Einstellungen und Reiter =====
 Chat.DEFAULT_TABS = {
     {id = "all", label = "Alle", kinds = {guild = true, officer = true, group = true, say = true, yell = true, emote = true,
-        whisper = true, system = true, trade = true, general = true, lfg = true, channel = true}, send = "general", builtin = true},
+        whisper = true, system = true, trade = true, general = true, lfg = true, channel = true, npc = true}, send = "general", builtin = true},
     {id = "guild", label = "Gilde", kinds = {guild = true, officer = true}, send = "guild", builtin = true},
     {id = "group", label = "Gruppe", kinds = {group = true}, send = "group", builtin = true},
     {id = "trade", label = "Handel", kinds = {trade = true}, send = "trade", builtin = true},
-    {id = "near", label = "In der Nähe", kinds = {say = true, yell = true, emote = true}, send = "say", builtin = true},
+    {id = "near", label = "In der Nähe", kinds = {say = true, yell = true, emote = true, npc = true}, send = "say", builtin = true},
     -- 21.11.2026: Systemzeilen und Meldungen anderer Addons als eigenes Gespraech (Messenger)
     {id = "system", label = "System & Addons", kinds = {system = true}, builtin = true},
+    -- 22.11.2026: Beute, Geld, Erfahrung, Ruf (stumm)
+    {id = "progress", label = "Beute & Fortschritt", kinds = {progress = true}, builtin = true},
 }
 function Chat:Settings()
     ONE.db.chat = type(ONE.db.chat) == "table" and ONE.db.chat or {}
@@ -140,10 +183,21 @@ function Chat:Settings()
         for _, t in ipairs(s.tabs) do if t.id == "system" then has = true end end
         if not has then s.tabs[#s.tabs + 1] = {id = "system", label = "System & Addons", kinds = {system = true}, builtin = true} end
     end
+    -- 22.11.2026: NPC-Gespraeche (in "Alle" und "In der Naehe") und "Beute & Fortschritt" nachtragen
+    if s.npcTabV ~= 1 then
+        s.npcTabV = 1
+        local has = false
+        for _, t in ipairs(s.tabs) do
+            if t.builtin and (t.id == "all" or t.id == "near") and type(t.kinds) == "table" then t.kinds.npc = true end
+            if t.id == "progress" then has = true end
+        end
+        if not has then s.tabs[#s.tabs + 1] = {id = "progress", label = "Beute & Fortschritt", kinds = {progress = true}, builtin = true} end
+        if type(s.muted) == "table" then s.muted.progress = true end
+    end
     -- Messenger (Nutzer 21.11.2026): Stil, angeheftete und stumme Gespraeche, Emojis
     if s.style ~= "classic" then s.style = "messenger" end
     if type(s.pinned) ~= "table" then s.pinned = {"guild"} end
-    if type(s.muted) ~= "table" then s.muted = {trade = true} end
+    if type(s.muted) ~= "table" then s.muted = {trade = true, progress = true} end
     if s.emojiImages == nil then s.emojiImages = true end
     if s.asciiSmileys == nil then s.asciiSmileys = true end
     if s.bigEmoji == nil then s.bigEmoji = true end
@@ -302,13 +356,33 @@ function Chat:OnEvent(event, ...)
             author = ""
         end
     end
+    local auto
+    if not bn then
+        if event == "CHAT_MSG_CHANNEL_NOTICE" or event == "CHAT_MSG_CHANNEL_NOTICE_USER" then
+            text = Chat.ChannelNoticeText(event, text, args)
+            if not text then return nil end
+            author = ""
+        elseif event == "CHAT_MSG_IGNORED" then
+            local fmt = rawget(_G, "CHAT_IGNORED")
+            local ok, out = pcall(string.format, type(fmt) == "string" and fmt or "%s ignoriert dich.", Short(author))
+            text, author = ok and out or tostring(author), ""
+        elseif event == "CHAT_MSG_ACHIEVEMENT" or event == "CHAT_MSG_GUILD_ACHIEVEMENT" then
+            text, author = Chat.FillName(text, Short(author)), ""
+        elseif Chat.plainEvents[event] or event == "CHAT_MSG_RAID_BOSS_WHISPER" then
+            text = Chat.FillName(text, author)
+        elseif Chat.autoReplyEvents[event] then
+            auto = T(Chat.autoReplyEvents[event])
+        end
+    end
     -- Ignorierte nie zeigen (Fluestern blockt der Server, Kanaele nicht immer)
     if not bn and author and author ~= "" and C_FriendList and type(C_FriendList.IsIgnored) == "function" and Call(C_FriendList.IsIgnored, author) then
         return nil
     end
     local entry = {time = (type(time) == "function" and time()) or 0, kind = kind, event = event, text = text or "",
         author = author or "", channel = channelName, lineID = lineID, guid = guid, bn = bn or nil,
-        inform = event == "CHAT_MSG_WHISPER_INFORM" or event == "CHAT_MSG_BN_WHISPER_INFORM"}
+        inform = event == "CHAT_MSG_WHISPER_INFORM" or event == "CHAT_MSG_BN_WHISPER_INFORM",
+        npc = kind == "npc" or nil, auto = auto and true or nil}
+    if auto then entry.text = auto .. ": " .. tostring(text or "") end
     -- Zugestellt-Haken: die Bestaetigung des Servers ersetzt die schon gezeigte eigene Nachricht
     if entry.inform then
         local pending = self:ConfirmPending(entry)
@@ -465,7 +539,7 @@ function Chat:Store(entry)
     if entry.kind == "whisper" then
         local view = self.WhisperView(entry.author)
         views[#views + 1] = view
-        self:TouchWhisper(Short(entry.author), not entry.inform)
+        self:TouchWhisper(Short(entry.author), not entry.inform and not entry.auto)
     end
     for _, t in ipairs(self:Tabs()) do if t.kinds[entry.kind] then views[#views + 1] = t.id end end
     for _, view in ipairs(views) do
@@ -473,7 +547,7 @@ function Chat:Store(entry)
         buf[#buf + 1] = entry
         if #buf > self.maxLines then table.remove(buf, 1) end
         -- ungelesen, ausser man schaut gerade hin (eigene Fluester-Antworten nie)
-        if not entry.inform and not (self.visible and self.current == view) then
+        if not entry.inform and not entry.auto and not (self.visible and self.current == view) then
             self.unread[view] = (self.unread[view] or 0) + 1
         end
     end
@@ -511,7 +585,9 @@ function Chat:SaveHistory()
                 if e and (e.time or 0) >= oldest then
                     local n = index[e]
                     if not n then
-                        entries[#entries + 1] = {t = e.time, k = e.kind, ev = e.event, x = e.text, a = e.author, c = e.channel, i = e.inform or nil}
+                        entries[#entries + 1] = {t = e.time, k = e.kind, ev = e.event, x = e.text, a = e.author, c = e.channel, i = e.inform or nil,
+                            -- 22.11.2026: Spieler-GUID mit speichern (Klassenfarbe/-symbol nach /reload), nur echte Spieler
+                            g = type(e.guid) == "string" and e.guid:find("^Player%-") and e.guid or nil, n = e.npc or nil, au = e.auto or nil}
                         n = #entries
                         index[e] = n
                     end
@@ -537,7 +613,8 @@ function Chat:LoadHistory()
         local r = h.entries and h.entries[n]
         local e = false
         if type(r) == "table" and (r.t or 0) >= oldest then
-            e = {time = r.t, kind = r.k, event = r.ev, text = r.x or "", author = r.a or "", channel = r.c, inform = r.i, restored = true}
+            e = {time = r.t, kind = r.k, event = r.ev, text = r.x or "", author = r.a or "", channel = r.c, inform = r.i, restored = true,
+                guid = type(r.g) == "string" and r.g or nil, npc = r.n or nil, auto = r.au or nil}
         end
         made[n] = e
         return e
@@ -607,6 +684,7 @@ function Chat:SoundFor(entry, views)
         if not other then loud = not s.muted.all end
         if not loud then return nil end
     end
+    if entry.auto then return nil end
     if entry.kind == "whisper" then return s.whisperSound and "chatWhisper" or nil end
     local now = (type(GetTime) == "function" and GetTime()) or 0
     local want = (entry.kind == "guild" or entry.kind == "officer") and s.guildSound
@@ -655,12 +733,41 @@ function Chat:Target(view)
     return kind.send
 end
 
+-- Emote-Befehl (/winken, /wave …) -> Kennwort von WoW (WAVE). Forever sperrt DoEmote fuer Addons, der WoW-Chat
+-- wuerde es hier aus Addon-Code aufrufen -> "geblockt". Erlaubt ist C_ChatInfo.PerformEmote (22.11.2026).
+function Chat.EmoteToken(cmd)
+    cmd = tostring(cmd or ""):lower()
+    if cmd == "" then return nil end
+    if not Chat.emoteCmds then
+        local map = {}
+        for i = 1, tonumber(rawget(_G, "MAXEMOTEINDEX")) or 800 do
+            local token = rawget(_G, "EMOTE" .. i .. "_TOKEN")
+            if token then
+                for j = 1, 10 do
+                    local c = rawget(_G, "EMOTE" .. i .. "_CMD" .. j)
+                    if type(c) == "string" then map[c:lower()] = token end
+                end
+            end
+        end
+        Chat.emoteCmds = map
+    end
+    return Chat.emoteCmds[cmd]
+end
+
 -- Text aus dem Eingabefeld senden. Slash-Befehle gehen an den WoW-Chat.
 -- Rueckgabe: true oder nil + Hinweis
 function Chat:Send(view, text)
     text = tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", "")
     if text == "" then return nil end
     if text:sub(1, 1) == "/" then
+        local cmd, rest = text:match("^(%S+)%s*(.-)$")
+        local token = Chat.EmoteToken(cmd)
+        if token and C_ChatInfo and type(C_ChatInfo.PerformEmote) == "function" then
+            -- ohne Namen: wie im WoW-Chat an das aktuelle Ziel
+            local target = rest ~= "" and rest or nil
+            if not pcall(C_ChatInfo.PerformEmote, token, target) then return nil, T("Emote ging nicht.") end
+            return true
+        end
         local box = (type(ChatEdit_ChooseBoxForSend) == "function" and Call(ChatEdit_ChooseBoxForSend))
             or (_G.DEFAULT_CHAT_FRAME and _G.DEFAULT_CHAT_FRAME.editBox)
         if not (box and type(ChatEdit_SendText) == "function") then return nil, T("Befehle gehen hier nicht – bitte im WoW-Chat.") end
@@ -735,14 +842,14 @@ function Chat:Format(entry, showKind)
     if s.stamps and type(date) == "function" then parts[#parts + 1] = "|cff8a8a8a" .. date("%H:%M", entry.time) .. "|r " end
     local kind = self.kindByKey[entry.kind]
     if showKind and kind and entry.kind ~= "system" then parts[#parts + 1] = "[" .. T(kind.label) .. "] " end
-    if entry.kind == "system" then
+    if Chat.IsPlain(entry) then
         parts[#parts + 1] = entry.text
         return table.concat(parts)
     end
     local name = Short(entry.author)
     local code = self.ClassColorCode(entry.guid, self.parchment)
     local shown = code and (code .. name .. "|r") or name
-    local link = "|Hplayer:" .. (entry.author or name) .. ":" .. tostring(entry.lineID or 0) .. "|h" .. shown .. "|h"
+    local link = entry.npc and shown or ("|Hplayer:" .. (entry.author or name) .. ":" .. tostring(entry.lineID or 0) .. "|h" .. shown .. "|h")
     if entry.inform then
         parts[#parts + 1] = T("An %s", link) .. ": "
     elseif entry.event == "CHAT_MSG_TEXT_EMOTE" then

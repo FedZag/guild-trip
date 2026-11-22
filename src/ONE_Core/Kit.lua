@@ -256,7 +256,7 @@ function Kit:List(parent, opts)
             cell:SetPoint("LEFT", row, "LEFT", col.x + (col.indent or 0), 0)
             cell:SetWidth(col.width - (col.indent or 0))
             cell:SetJustifyH(col.align or "LEFT")
-            if cell.SetWordWrap then cell:SetWordWrap(false) end
+            if ONE.Fit then ONE.Fit:Line(cell, row) end
             row.cells[col.key] = cell
         end
         if row.RegisterForClicks then row:RegisterForClicks("LeftButtonUp", "RightButtonUp") end

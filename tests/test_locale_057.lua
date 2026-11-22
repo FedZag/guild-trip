@@ -33,7 +33,7 @@ assert(T(nil) == nil and T(42) == 42)
 -- 4) Vollstaendigkeit: jeder T("...")-Text in bereits uebersetzten Dateien hat Englisch,
 --    und Platzhalter stimmen ueberein.
 local done = {
-    "ONE_Core/UI.lua", "ONE_Core/Welcome.lua", "ONE_Core/WhatsNew.lua", "ONE_Core/MinimapButton.lua", "ONE_Core/Core.lua",
+    "ONE_Core/UI.lua", "ONE_Core/Welcome.lua", "ONE_Core/WhatsNew.lua", "ONE_Core/MinimapButton.lua", "ONE_Core/Core.lua", "ONE_Core/Graphics.lua",
     "ONE_Classes/Page.lua", "ONE_Classes/Bars.lua", "ONE_Classes/Ranks.lua", "ONE_Classes/Share.lua", "ONE_Classes/Buffs.lua", "ONE_Classes/Nearby.lua", "ONE_Classes/Thanks.lua", "ONE_Classes/Init.lua", "ONE_Classes/Talents.lua", "ONE_Classes/Trainer.lua", "ONE_Classes/Gear.lua", "ONE_Classes/Loot.lua",
     "ONE_Guild/UI.lua", "ONE_Guild/Calendar.lua", "ONE_Guild/Pins.lua", "ONE_Guild/Reminders.lua", "ONE_Guild/Help.lua", 
     "ONE_Guild/Roster.lua", "ONE_Guild/Presence.lua", "ONE_Guild/Guild.lua",

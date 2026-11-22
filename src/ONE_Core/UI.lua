@@ -105,7 +105,7 @@ function UI:SideButton(id,title)
     label:SetPoint("BOTTOM",b,"BOTTOM",0,4)
     label:SetWidth(W.sideWidth-8)
     label:SetJustifyH("CENTER")
-    if label.SetWordWrap then label:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(label,b) end
     -- Name immer im eigenen Schriftfeld (kein Vorlagen-Text)
     b.SetText=function(_,text) label:SetText(text) end
     b.GetText=function() return label:GetText() end
@@ -454,11 +454,32 @@ function UI:FitContext()
     local left=p:GetRight()
     if type(right)=="number" and type(left)=="number" then c:SetWidth(math.max(40,right-left-24)) end
 end
+-- Zu lang fuer eine Zeile? Dann an einem " · " umbrechen statt mitten in einer Angabe
+-- (22.11.2026: "~67 min" stand sonst mit "min" allein in der zweiten Zeile)
+function UI.BreakAtSeparator(fs,text)
+    local w=fs.GetWidth and fs:GetWidth() or 0
+    if type(text)~="string" or w<=0 or not fs.GetStringWidth or text:find("\n",1,true) then return text end
+    local function Width(t) fs:SetText(t) return fs:GetStringWidth() or 0 end
+    if Width(text)<=w then return text end
+    local cuts,from={},1
+    while true do
+        local a,b=text:find("%s+·%s+",from)
+        if not a then break end
+        cuts[#cuts+1]={a,b}
+        from=b+1
+    end
+    for i=#cuts,1,-1 do
+        local head=text:sub(1,cuts[i][1]-1)
+        if Width(head)<=w then return head.."\n"..text:sub(cuts[i][2]+1) end
+    end
+    return text
+end
 function UI:UpdateContext()
     if not self.contextLabel then return end
     local text=self.contexts and self.contexts[self.activeTab]
     self.contextLabel:SetText(text or "")
     self:FitContext()
+    self.contextLabel:SetText(UI.BreakAtSeparator(self.contextLabel,text or ""))
     if GlassActive() and ONE.Glass.colSub then ONE.Glass.colSub:SetText(text or "") end
 end
 function UI:Refresh()
@@ -656,6 +677,8 @@ local function OptionSlider(parent,x,y,width)
     end
     return slider
 end
+
+UI.OptionSlider,UI.OptionLabel=OptionSlider,Label
 
 -- Sprachwechsel greift erst nach dem Neuladen der Oberflaeche (alle Texte
 -- werden beim Aufbau gesetzt). Blizzard-Dialog mit Rueckfrage.
@@ -1231,7 +1254,7 @@ function UI:Initialize()
         -- Kopfzeile: Seitenname gross, daneben grau die Zusatzangabe
         self.pathLabel=Label(frame,T("Startseite"),"GameFontNormalLarge",WINDOW.insetX+4,-(WINDOW.insetTop-29),360)
         self.pathLabel:SetWidth(0)
-        if self.pathLabel.SetWordWrap then self.pathLabel:SetWordWrap(false) end
+        if ONE.Fit then ONE.Fit:Line(self.pathLabel,false) end
         self.contextLabel=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
         self.contextLabel:SetPoint("BOTTOMLEFT",self.pathLabel,"BOTTOMRIGHT",10,1)
         self.contextLabel:SetJustifyH("LEFT")
@@ -1268,6 +1291,7 @@ function UI:FinishInitialize(frame)
         self:AddAlias(old,"options",function() UI.optionsCategory=cat end)
     end
     if ONE.Glass then ONE.Glass:RegisterSettings(self) end
+    if ONE.Graphics then ONE.Graphics:RegisterSettings(self) end
     self:AddTab("options",T("Optionen"),BuildOptions)
     self:SelectTab("home")
     self:UpdateBackButton()
@@ -1281,7 +1305,7 @@ function UI:InitializeGlass(frame)
     self.closeButton=ONE.Widgets:CloseButton(frame,"TOPRIGHT",-12,-12,function() frame:Hide() end)
     self.pathLabel=Label(frame,T("Startseite"),"GameFontNormalLarge",WINDOW.contentX,-24,360)
     self.pathLabel:SetWidth(0)
-    if self.pathLabel.SetWordWrap then self.pathLabel:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(self.pathLabel,false) end
     self.contextLabel=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
     self.contextLabel:SetPoint("BOTTOMLEFT",self.pathLabel,"BOTTOMRIGHT",10,1)
     self.contextLabel:SetJustifyH("LEFT")

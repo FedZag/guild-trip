@@ -239,7 +239,8 @@ assert(fr.moving)
 fr.cx, fr.cy = 700, 250
 fr.scripts.OnDragStop(fr)
 assert(ONE.db.nav.arrow.x == 200 and ONE.db.nav.arrow.y == -150 and fr.point[4] == 200)
-fr.scripts.OnMouseUp(fr, "RightButton")
+-- Festsetzen steht seit 22.11.2026 im Rechtsklick-Menue (WindowLook:Attach); hier direkt
+arrow:SetLocked(true)
 assert(ONE.db.nav.arrow.locked == true)
 fr.moving = false
 fr.scripts.OnDragStart(fr)

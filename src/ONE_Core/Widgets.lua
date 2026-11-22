@@ -12,7 +12,7 @@ local function CreateLabel(button, text, alignment, leftInset, rightInset)
     label:SetPoint("RIGHT", button, "RIGHT", -rightInset, 0)
     label:SetJustifyH(alignment)
     label:SetJustifyV("MIDDLE")
-    label:SetWordWrap(false)
+    if ONE.Fit then ONE.Fit:Line(label, button) end
     button:SetFontString(label)
     button:SetText(ONE.T and ONE.T(text or "") or text or "")
     return label

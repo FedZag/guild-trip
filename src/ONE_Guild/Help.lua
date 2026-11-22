@@ -18,8 +18,9 @@ guild.Help = Help
 
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c = pcall(fn, ...)
-    if ok then return a, b, c end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 local function Clock() return type(GetTime) == "function" and GetTime() or 0 end
 local function Short(name) return type(name) == "string" and (name:match("^[^-]+") or name) or "?" end
@@ -199,7 +200,7 @@ end
 
 function Help:Whisper()
     local c = self.current
-    if c and type(ChatFrame_OpenChat) == "function" then Call(ChatFrame_OpenChat, "/w " .. (c.full or c.name) .. " ") end
+    if c then ONE:Whisper(c.full or c.name) end
     self:Hide()
 end
 

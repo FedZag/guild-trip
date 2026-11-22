@@ -105,7 +105,8 @@ assert(Chat:Settings().flat == nil and Chat:Settings().look == nil and Chat:Look
 UI.SetLook("glass")
 
 -- 3) Breit: alle Reiter mit Namen, kein Menue
-UI.frame.w, UI.tabBar.w = 700, 676
+-- 22.11.2026: ein Reiter mehr ("Beute & Fortschritt") -> etwas breiter
+UI.frame.w, UI.tabBar.w = 820, 796
 UI:Refresh()
 assert(UI.tabsNamed, "breit: Namen")
 for i = 1, 5 do assert(UI.tabButtons[i].shown and UI.tabButtons[i].text.shown, "Reiter " .. i) end

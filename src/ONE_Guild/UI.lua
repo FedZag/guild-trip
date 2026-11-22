@@ -392,7 +392,7 @@ function UI:BuildCalendar(panel)
             b.icon:SetPoint("LEFT", b, "LEFT", 0, 0)
             if b.icon.SetTexCoord then b.icon:SetTexCoord(.07, .93, .07, .93) end
             b.text = Label(b, "", "GameFontHighlightSmall", 20, -1, RW - 20)
-            if b.text.SetWordWrap then b.text:SetWordWrap(false) end
+            if ONE.Fit then ONE.Fit:Line(b.text, b) end
             -- Eintrag mit eigener Oeffnen-Funktion (Termin, Ausflug) direkt dorthin, sonst Seite
             b:SetScript("OnClick", function(self) if self.open then self.open() elseif self.link then ONE.UI:OpenLink(self.link) end end)
             b.navi = FeedNavi(b, 46, 16)
@@ -447,7 +447,7 @@ function UI:BuildCalendar(panel)
     Label(list, T("Demnächst"), "GameFontNormalSmall", RX, -196, RW)
     local upcoming = {}
     for i = 1, 4 do upcoming[i] = Label(list, "", "GameFontHighlightSmall", RX, (-196) - i * 16, RW) end
-    for _, line in ipairs(upcoming) do if line.SetWordWrap then line:SetWordWrap(false) end end
+    for _, line in ipairs(upcoming) do if ONE.Fit then ONE.Fit:Line(line) end end
 
     -- Eigene Aktionszeile unter der Karte: Status und Schaltflaeche
     -- duerfen nicht uebereinander liegen. Die rechte Kante folgt dem Raster.
@@ -770,7 +770,7 @@ function UI:BuildGuild(panel)
     local title=Label(panel,"","GameFontNormalLarge",0,-4,W)
     local facts=Label(panel,"","GameFontHighlight",0,-30,W)
     local motd=Label(panel,"","GameFontHighlightSmall",0,-50,W)
-    if motd.SetWordWrap then motd:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(motd) end
 
     local LW=446
     local RX,RW=LW+12,W-LW-12

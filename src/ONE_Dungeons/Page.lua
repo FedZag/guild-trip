@@ -168,7 +168,7 @@ function Page:Build(panel)
     edge:SetColorTexture(.79, .64, .29, .6)
     local inner = rightW - 32
     local title = Text(card, "GameFontNormalHuge", 16, -14, inner - 32, "accent")
-    if title.SetWordWrap then title:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(title) end
     -- Navi zum Dungeon-Eingang (Entrances.lua); Herkunft des Orts im Tooltip
     -- kleiner Navi-Pfeil (wie ueberall) oben rechts; Herkunft des Orts im Tooltip
     local entrance = ONE.Widgets:NaviArrow(card, 22, "TOPRIGHT", -16, -16, function()
@@ -180,9 +180,8 @@ function Page:Build(panel)
             or T("Noch unbekannt – betritt den Dungeon einmal, dann merkt Guild Trip sich den Eingang.")
     end)
     local sub = Text(card, "GameFontHighlight", 16, -42, inner, "text")
-    if sub.SetWordWrap then sub:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(sub) end
     local guildLine = Text(card, "GameFontHighlight", 16, -61, inner - 136, "text")
-    if guildLine.SetWordWrap then guildLine:SetWordWrap(false) end
     -- volle Namensliste beim Drueberfahren (die Zeile zeigt nur, was hineinpasst)
     local guildHover = CreateFrame("Frame", nil, card)
     guildHover:SetPoint("TOPLEFT", guildLine, "TOPLEFT", 0, 2)
@@ -196,8 +195,9 @@ function Page:Build(panel)
         GameTooltip:Show()
     end)
     guildHover:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    if ONE.Fit then ONE.Fit:Line(guildLine, guildHover) end
     local keyNote = Text(card, "GameFontHighlightSmall", 16, -78, inner - 136, "soft")
-    if keyNote.SetWordWrap then keyNote:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(keyNote) end
     local seek = ONE.Widgets:Button(card, T("Gruppe suchen"), 124, 22, "TOPRIGHT", -12, -56, function()
         if dungeons.Share and dungeons.Share.myAd then ONE.UI:OpenLink("groups")
         elseif state.selected then Page:OpenSeekDialog(state.selected) end

@@ -31,6 +31,7 @@ local ONE = {db = {}, modules = {}}
 function ONE:Print(t) printed[#printed + 1] = t end
 function ONE:Notify(t) notes[#notes + 1] = t end
 _G.ProjectONE = ONE
+assert(loadfile(root .. "/ONE_Core/PlayerMenu.lua"))("ONE_Core", ONE) -- ONE:Whisper
 local pointed
 local dist = 420
 ONE.modules.nav = {

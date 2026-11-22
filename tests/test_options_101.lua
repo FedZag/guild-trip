@@ -68,8 +68,12 @@ DEFAULT_CHAT_FRAME = {AddMessage=function() end}
 SOUNDKIT = {IG_MAINMENU_OPEN=850, IG_MAINMENU_OPTION_CHECKBOX_ON=856,
     IG_MAINMENU_OPTION_CHECKBOX_OFF=857, IG_CHARACTER_INFO_TAB=841, RAID_WARNING=8959}
 PlaySound = function(id, channel) sounds[#sounds+1] = {id=id,channel=channel}; return true end
+-- Grafik (0.7.8): zwei vorhandene CVars, Regler werden gebaut
+local gfx = {groundEffectDensity = "48", ResampleAlwaysSharpen = "0"}
+C_CVar = {GetCVar = function(n) return gfx[n] end, GetCVarDefault = function(n) return ({groundEffectDensity = "48", ResampleAlwaysSharpen = "0"})[n] end,
+    SetCVar = function(n, v) gfx[n] = tostring(v) return true end}
 local ONE = {}
-for _, file in ipairs({"Core.lua", "Themes.lua", "Kit.lua", "Geometry.lua", "WindowScale.lua", "Widgets.lua", "Notifications.lua", "UI.lua", "Welcome.lua", "Vendor.lua"}) do
+for _, file in ipairs({"Core.lua", "Themes.lua", "Kit.lua", "Geometry.lua", "WindowScale.lua", "Widgets.lua", "Notifications.lua", "UI.lua", "Welcome.lua", "Vendor.lua", "Graphics.lua"}) do
     assert(loadfile(path .. "/src/ONE_Core/" .. file))("ONE_Core", ONE)
 end
 ProjectONEDB = {soundEnabled=false, guild={noticeHistory={}},theme={selected="hybrid",uiSounds=true}}
@@ -105,7 +109,14 @@ ONE:RegisterModule("chat",{title="Chat"})
 ONE:RegisterModule("leveling",{title="Quest-Führung"})
 local ids={}
 for _,c in ipairs(UI:CategoryList()) do ids[#ids+1]=c.id end
-assert(table.concat(ids,",")=="general,look,reminders,sharing,leveling,nav,chat", table.concat(ids,","))
+assert(table.concat(ids,",")=="general,look,graphics,reminders,sharing,leveling,nav,chat", table.concat(ids,","))
+-- Grafik: Seite baut, Schalter nur fuer vorhandene CVars, Haken setzt die CVar
+UI:OpenOptions("graphics")
+assert(UI.contextLabel.text=="Grafik")
+assert(VisibleBox("Bild immer nachschärfen") and not VisibleBox("Zauberkreise auf dem Boden"))
+assert(VisibleBox("Beim Einloggen neu setzen"))
+do local b=VisibleBox("Bild immer nachschärfen") b.GetChecked=function() return true end b.scripts.OnClick(b) end
+assert(gfx.ResampleAlwaysSharpen=="1", gfx.ResampleAlwaysSharpen)
 assert(UI.categories.leveling.title=="Leveln" and UI.categories.nav.title=="Navi")
 -- Kern-Funktionen in ihren Bereichen (Haendler unter Allgemein, Menueklaenge unter Darstellung)
 UI:OpenOptions("general")

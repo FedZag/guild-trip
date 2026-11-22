@@ -3,7 +3,7 @@
 ## Notes: Gemeinsame Plattform für modular aufgebaute WoW-Werkzeuge
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later
-## Version: 0.7.7-alpha
+## Version: 0.7.8-alpha
 ## SavedVariables: ProjectONEDB
 ## IconTexture: Interface\AddOns\ONE_Core\Textures\Common\ONE_Minimap.tga
 ## AddonCompartmentFunc: ProjectONE_Toggle
@@ -12,6 +12,7 @@ Core.lua
 Locale.lua
 Locale_enUS.lua
 BugReport.lua
+Fit.lua
 Glass.lua
 Themes.lua
 Kit.lua
@@ -29,3 +30,4 @@ Sound.lua
 WindowLook.lua
 PlayerMenu.lua
 Vendor.lua
+Graphics.lua

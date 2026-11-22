@@ -4,6 +4,36 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.7.8-alpha (veröffentlicht 22.11.2026)
+
+```
+## 0.7.8-alpha
+
+**English**
+- New: Options › Graphics – WoW's hidden graphics settings in one place: grass density and distance, camera zoom, weather, sun shafts, light, reflections, water, sharpening, texture filtering, frame rate limits. Safe limits (no crash values), presets (Beautiful, Clear view, More FPS), "WoW default" and "As before" (your own values). Optionally re-applied at every login (off by default). Only settings your client knows are shown.
+- Chat: reply with a quote like in messenger apps – double-click a bubble or use the menu; the quote shows as a box in the class colour of the quoted person, click jumps to the original. Missing WoW chat messages now arrive in the Guild Trip chat (NPC talk, away replies, channel notices, achievements, loot & progress). Calmer conversation list. Links and names in bubbles react to clicks; profession links show the known recipes and "Whisper". Guild invite without "blocked" message, invite button in whisper conversations; online dot in whispers fixed.
+- Requests ("Ask" for recipes and gear, member list, guild help, dungeons) open the conversation in the Guild Trip chat with the text ready.
+- Gear page: clicking a row navigates to the right goal (quest chain from its first open part, dungeon entrance, trainer) and says how to get it. "Ask" button only when a guild crafter is online (offline is shown in grey). Rewards that only come from dungeons have no navigation. Quest box hint "Better for you" for good gear quests outside the route; gear quests without dungeon can be built into the fixed route (Options › Levelling, on by default).
+- Quest box: objectives directly under the current quest, hints afterwards.
+- Trainers: second selection for subcategories (profession, your class preselected, weapon type, riding / pet trainer / portals / smithing), zone names instead of "?", neutral trainers marked, "other" trainers translated, weapon masters show the weapons they teach; due trainings one per line.
+- No more cut-off sentences: texts wrap, single lines get a little tighter and show the full text in the tooltip.
+- Floating windows (buffs, nearby, navi arrow, loot, quest box): the gear only appears on mouse-over, right-click opens a menu with the settings.
+- Fixes: Lua error in "Nearby"; navigation to quest givers from the gear page; search field icon no longer at the edge.
+
+**Deutsch**
+- Neu: Optionen › Grafik – die versteckten Grafik-Einstellungen von WoW an einem Ort: Grasdichte und -weite, Kamera-Zoom, Wetter, Lichtstrahlen, Licht, Spiegelungen, Wasser, Nachschärfen, Texturfilter, Bildraten-Grenzen. Sichere Grenzen (keine Absturzwerte), Vorlagen (Schön, Klare Sicht, Mehr FPS), „WoW-Standard“ und „Wie vorher“ (deine eigenen Werte). Wahlweise bei jedem Einloggen neu gesetzt (Standard aus). Es erscheint nur, was dein Spiel kennt.
+- Chat: Antworten mit Zitat wie in Messenger-Apps – Doppelklick auf eine Blase oder übers Menü; das Zitat steht als Kasten in der Klassenfarbe der zitierten Person, Klick springt zum Original. Fehlende WoW-Chatmeldungen kommen jetzt im Guild-Trip-Chat an (NPC-Gespräche, Abwesend-Antworten, Kanal-Meldungen, Erfolge, Beute & Fortschritt). Ruhigere Gesprächsliste. Links und Namen in Blasen reagieren auf Klicks; Berufs-Links zeigen die bekannten Rezepte und „Anflüstern“. Gildeneinladung ohne „geblockt“-Meldung, Einlade-Knopf im Flüstergespräch; Online-Punkt im Flüstern repariert.
+- Anfragen („Anfragen“ bei Rezepten und Ausrüstung, Mitgliederliste, Gildenhilfe, Dungeons) öffnen das Gespräch im Guild-Trip-Chat mit fertigem Text.
+- Ausrüstung: Klick auf eine Zeile führt zum richtigen Ziel (Questreihe ab dem ersten offenen Teil, Dungeon-Eingang, Lehrer) und sagt, wie man es bekommt. Knopf „Anfragen“ nur, wenn ein Hersteller aus der Gilde online ist (offline grau). Belohnungen, die es nur in Dungeons gibt, ohne Navi. Quest-Kasten-Hinweis „Besser für dich“ für gute Ausrüstungs-Quests außerhalb der Route; Ausrüstungs-Quests ohne Dungeon lassen sich in die feste Route einbauen (Optionen › Leveln, Standard an).
+- Quest-Kasten: Teilziele direkt unter der aktuellen Quest, Hinweise danach.
+- Lehrer: zweite Auswahl für Unterkategorien (Beruf, eigene Klasse vorgewählt, Waffenart, Reiten / Tierausbilder / Portale / Schmiede), Ortsnamen statt „?“, neutrale Lehrer markiert, „Sonstige“ übersetzt, Waffenmeister zeigen ihre Waffen; fällige Ausbildungen je eine Zeile.
+- Keine abgeschnittenen Sätze mehr: Texte brechen um, Einzeiler werden etwas enger gesetzt und zeigen den vollen Text im Tooltip.
+- Schwebende Fenster (Buffs, In der Nähe, Navi-Pfeil, Beute, Quest-Kasten): Zahnrad nur beim Drüberfahren, Rechtsklick öffnet ein Menü mit den Einstellungen.
+- Fixes: Lua-Fehler bei „In der Nähe“; Navi zum Questgeber von der Ausrüstungsseite; Lupe im Suchfeld nicht mehr am Rand.
+```
+
+---
+
 ## 0.7.7-alpha (veröffentlicht 22.11.2026)
 
 ```

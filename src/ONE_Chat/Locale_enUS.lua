@@ -163,6 +163,28 @@ EN["Schließt diesen Chat und zeigt den WoW-Chat. Zurück: Sprechblase am WoW-Ch
 EN["Knopf „Zum WoW-Chat“"] = "“To WoW chat” button"
 EN["Kleiner Knopf oben im Chat: schließt diesen Chat und zeigt den WoW-Chat – auch wenn er ersetzt ist (nur vorübergehend). Zurück über die Sprechblase am WoW-Chat."] = "Small button at the top of the chat: closes this chat and shows the WoW chat – even if it is replaced (only temporarily). Back via the speech bubble at the WoW chat."
 EN["Im Kampf geht das nicht – der WoW-Chat kommt gleich nach dem Kampf."] = "Not possible in combat – the WoW chat appears right after combat."
+-- Sicherer Einlade-Knopf (22.11.2026)
+EN["In die Gilde einladen"] = EN["In die Gilde einladen"] or "Invite to guild"
+EN["Lädt %s in deine Gilde ein."] = "Invites %s to your guild."
+-- Alle WoW-Chatfunktionen im Messenger (22.11.2026)
+EN["Emote ging nicht."] = "Emote failed."
+EN["Abwesend"] = EN["Abwesend"] or "Away"
+EN["Nicht stören"] = EN["Nicht stören"] or "Do not disturb"
+EN["NPC-Gespräche"] = "NPC speech"
+EN["Beute & Fortschritt"] = "Loot & progress"
+-- Links oeffnen (22.11.2026)
+EN["Der Link ließ sich nicht öffnen (%s)."] = "The link could not be opened (%s)."
+EN["Berufs-Link"] = "Profession link"
+EN["Klick: bekannte Rezepte zeigen und anflüstern"] = "Click: show known recipes and whisper"
+EN["Noch keine Rezepte bekannt."] = "No recipes known yet."
+EN["Forever zeigt fremde Berufsfenster nicht – frag einfach nach."] = "Forever does not show other players' profession windows – just ask."
+EN["… und %d weitere"] = "… and %d more"
+EN["Anflüstern"] = EN["Anflüstern"] or "Whisper"
+EN["Hi, kannst du mir mit %s helfen?"] = "Hi, could you help me with %s?"
+EN["Öffnen: %s"] = "Open: %s"
+-- Antworten mit Zitat (22.11.2026)
+EN["Antwort an %s"] = "Reply to %s"
+EN["Antwort abbrechen"] = "Cancel reply"
 local function Add(de, en) EN[de] = EN[de] or en end
 for de, en in pairs({
     ["offline seit %d Jahren"] = "offline for %d years", ["offline seit 1 Monat"] = "offline for 1 month",

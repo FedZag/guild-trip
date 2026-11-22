@@ -324,8 +324,7 @@ function Share:RoleText(roles)
 end
 
 function Share:Whisper(name)
-    if type(ChatFrame_SendTell) == "function" then return pcall(ChatFrame_SendTell, name) end
-    return false
+    return ONE:Whisper(name)
 end
 
 function Share:Initialize()

@@ -15,8 +15,9 @@ local QUALITY = {[0] = "9d9d9d", [1] = "ffffff", [2] = "1eff00", [3] = "0070dd",
 local function G(name) return rawget(_G, name) end
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c, d, e = pcall(fn, ...)
-    if ok then return a, b, c, d, e end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 
 -- Bossliste eines Dungeons (Katalog-Schluessel) und ihre Quelle, oder nil.
@@ -200,7 +201,7 @@ function Bosses:Build(card, geom)
                 row.sub:SetPoint("TOPLEFT", row, "TOPLEFT", 36, -19)
                 row.sub:SetWidth(LW - 24 - 8 - 36)
                 row.sub:SetJustifyH("LEFT")
-                if row.sub.SetWordWrap then row.sub:SetWordWrap(false) end
+                if ONE.Fit then ONE.Fit:Line(row.sub, row) end
             end
             if info.icon then row.icon:SetTexture(info.icon) row.icon:Show() else row.icon:Hide() end
             if row.icon.__oneRing then row.icon.__oneRing:SetShown(info.icon and true or false) end

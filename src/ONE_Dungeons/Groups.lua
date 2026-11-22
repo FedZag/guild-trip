@@ -106,7 +106,7 @@ function Groups:Build(panel)
     local info = Text(card, "GameFontHighlight", 16, -34, TW, "text")
     local noteLine = Text(card, "GameFontHighlight", 16, -54, TW, "soft")
     local fitLine = Text(card, "GameFontHighlight", 16, -74, TW, "text")
-    for _, fs in ipairs({info, noteLine, fitLine}) do if fs.SetWordWrap then fs:SetWordWrap(false) end end
+    for _, fs in ipairs({info, noteLine, fitLine}) do if ONE.Fit then ONE.Fit:Line(fs) end end
     local appliedHead = Text(card, "GameFontNormalSmall", 16, -98, 300, "accent")
     local BW = 170
     local function BP(right) return "TOPRIGHT", right and -12 or -190, -10 end

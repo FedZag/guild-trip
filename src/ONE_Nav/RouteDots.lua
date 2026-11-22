@@ -230,7 +230,9 @@ function D:UpdateWaypoint()
         if ok and has then return end
     end
     local here = nav.Travel.PlayerMapPosition()
-    local mx, my = here and self.MapPos(route.continent, want.x, want.y, here)
+    -- nicht 'here and MapPos(...)': 'and' liefert nur den ersten Wert (my fehlte)
+    local mx, my
+    if here then mx, my = self.MapPos(route.continent, want.x, want.y, here) end
     if not mx then return end
     local ok, point = pcall(UiMapPoint.CreateFromCoordinates, here, mx, my)
     if not (ok and point) then return end

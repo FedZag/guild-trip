@@ -14,7 +14,7 @@ local unpack = unpack or table.unpack
 local function Try(fn, ...)
     if type(fn) ~= "function" then return nil end
     local r = {pcall(fn, ...)}
-    if r[1] then return unpack(r, 2, table.maxn(r)) end
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 local function Data() local g = rawget(_G, "GuildTripGear") return type(g) == "table" and type(g.items) == "table" and g or nil end
 W.Data = Data
@@ -428,7 +428,8 @@ function W.SourceText(s, short)
         if s.status == "soon" then return T("%s %d – bald selbst (du hast %d)", s.prof, s.skill, s.mine and s.mine.skill or 0) end
         if s.status == "guild" then
             local g = s.guild[1]
-            return T("%s – %s kann es herstellen", s.prof, g.name:match("^[^%-]+") or g.name) .. (g.online and (" |cff40ff40" .. T("(online)") .. "|r") or "")
+            return T("%s – %s kann es herstellen", s.prof, g.name:match("^[^%-]+") or g.name)
+                .. (g.online and (" |cff40ff40" .. T("(online)") .. "|r") or (" |cff9d9d9d" .. T("(offline)") .. "|r"))
         end
         return T("%s %d – niemand in deiner Gilde", s.prof, s.skill)
     end
@@ -445,6 +446,93 @@ function W.LearnText(l)
     if l.kind == "q" then return T("Rezept aus Quest „%s“", lev.Guide and lev.Guide.Title(l.quest) or l.quest) end
     if l.kind == "r" then return T("seltener Weltdrop (bei %d Gegnerarten)", l.mobs or 0) end
     return ""
+end
+
+-- ===== Questreihe: wo anfangen? (Nutzer 22.11.2026: "ich moechte die Ausruestung, weiss aber nicht wie") =====
+-- Reihe rueckwaerts ueber die Vorquests (e[9] alle noetig, e[5] eine von); Liste vom Anfang bis zur Quest.
+-- Ergebnis: erste noch nicht erledigte Quest, ihr Teil und die Laenge der Reihe.
+W.CHAIN_MAX = 15
+function W.ChainStart(id, done)
+    local Q = QuestDB()
+    local list, seen = {id}, {[id] = true}
+    local cur = id
+    while #list < W.CHAIN_MAX do
+        local e = Q and Q.q and Q.q[cur]
+        if not e then break end
+        local pre = (type(e[9]) == "table" and e[9][1]) or (type(e[5]) == "table" and e[5][1]) or nil
+        -- eine von mehreren: eine schon erledigte zaehlt als Weg
+        if type(e[5]) == "table" and done then
+            for _, p in ipairs(e[5]) do if done(p) then pre = p break end end
+        end
+        if not pre or seen[pre] then break end
+        seen[pre] = true
+        table.insert(list, 1, pre)
+        cur = pre
+    end
+    for k, q in ipairs(list) do
+        if not (done and done(q)) then return q, k, #list end
+    end
+    return id, #list, #list
+end
+
+local function ItemName(id)
+    local name = (C_Item and C_Item.GetItemNameByID and Try(C_Item.GetItemNameByID, id)) or Try(GetItemInfo, id)
+    if not name and C_Item and C_Item.RequestLoadItemDataByID then Try(C_Item.RequestLoadItemDataByID, id) end
+    return name or T("Gegenstand")
+end
+
+-- Klick auf einen Gegenstand (Seite Ausruestung, Hinweis im Kasten): Navi zum richtigen Ziel und eine
+-- deutliche Meldung, was zu tun ist. Liefert den Text (fuer Tests).
+function W:Get(s, itemID)
+    if not s then return nil end
+    local item = ItemName(itemID)
+    local text
+    if s.kind == "q" then
+        local ctx = self:Context()
+        local start, part, total = W.ChainStart(s.quest, ctx.done)
+        local title = lev.Guide and lev.Guide.Title and lev.Guide.Title(s.quest) or ("#" .. s.quest)
+        if total > 1 then
+            local st = lev.Guide and lev.Guide.Title and lev.Guide.Title(start) or ("#" .. start)
+            text = T("%s: Belohnung der Questreihe „%s“ (%d Teile). Du startest mit Teil %d: „%s“ – das Navi führt dich zum Questgeber.",
+                item, title, total, part, st)
+        else
+            text = T("%s: Belohnung der Quest „%s“ – das Navi führt dich zum Questgeber.", item, title)
+        end
+        -- Belohnung nur ueber einen Dungeon (Nutzer 22.11.2026): kein Navi, nur sagen, wo die Reihe beginnt
+        local P = Planner()
+        if P and P.IsDungeonChain and Try(P.IsDungeonChain, s.quest) then
+            local Q = QuestDB()
+            local e = Q and Q.q and Q.q[start]
+            local giver = e and type(e[6]) == "table" and e[6][1]
+            local st = lev.Guide and lev.Guide.Title and lev.Guide.Title(start) or ("#" .. start)
+            text = T("%s: Belohnung aus dem Dungeon („%s“) – nur mit Gruppe, darum kein Navi.", item, title)
+            if total > 1 then text = text .. " " .. T("Die Reihe hat %d Teile, dein nächster ist Teil %d: „%s“ bei %s.", total, part, st, NpcName(giver) or "?") end
+        else
+            self:Navi({kind = "q", quest = start}, itemID)
+        end
+    elseif s.kind == "d" then
+        local c = Catalog(s.dungeon)
+        -- nur im Dungeon (Nutzer 22.11.2026): kein Navi
+        text = T("%s: Beute von %s im Dungeon %s – nur mit Gruppe, darum kein Navi.",
+            item, NpcName(s.npc) or "?", c and T(c.name) or tostring(s.dungeon))
+    elseif s.kind == "w" then
+        text = T("%s: Beute von %s – das Navi führt dich hin.", item, NpcName(s.npc) or "?")
+        self:Navi(s, itemID)
+    elseif s.kind == "c" then
+        if s.status == "self" then
+            text = T("%s: Du kannst es selbst herstellen – öffne dein Berufsfenster (%s).", item, s.prof)
+        elseif s.status == "learn" or s.status == "soon" then
+            text = T("%s: Rezept für %s lernen – das Navi führt dich zum Lehrer oder Händler.", item, s.prof)
+            self:Navi(s, itemID)
+        elseif s.status == "guild" then
+            if W.AskTarget(s) then text = T("%s: Anfrage an die Gilde ist im Chat vorbereitet – drück Enter zum Senden.", item) end
+            self:Ask(s, itemID)
+        else
+            text = T("%s: Niemand in deiner Gilde kann es herstellen (%s %d).", item, s.prof, s.skill or 0)
+        end
+    end
+    if text then ONE:Notify(text, {silent = true}) end
+    return text
 end
 
 -- ===== Navi =====
@@ -468,7 +556,9 @@ function W:Navi(s, itemID)
         local Q, P = QuestDB(), Planner()
         local e = Q and Q.q and Q.q[s.quest]
         for _, nr in ipairs(e and e[6] or {}) do
-            local m, x, y = P and P.NodePoint and P.NodePoint(Q, nr)
+            -- nicht 'P and P.NodePoint(...)': 'and' liefert nur den ersten Wert (Karte ohne x/y, Pfeil blieb stehen)
+            local m, x, y
+            if P and P.NodePoint then m, x, y = P.NodePoint(Q, nr) end
             if m then return navi:PointTo(lev.Guide.Title(s.quest), m, x, y, {arrive = "accept"}) end
         end
         ONE:Print(T("Für diese Quest kennt Guild Trip keinen Questgeber-Ort."))
@@ -485,18 +575,44 @@ function W:Navi(s, itemID)
                 if l.kind == "t" or l.kind == "v" then return ToNpc(l.npc, NpcName(l.npc) or "?") end
             end
         end
-        if s.status == "guild" and s.guild[1] and type(ChatFrame_OpenChat) == "function" then
-            ChatFrame_OpenChat("/w " .. s.guild[1].name .. " " .. (itemID and W.AskText(itemID) or ""))
-            return true
-        end
+        if s.status == "guild" then return W:Ask(s, itemID) end
     end
     return false
 end
+-- Wen fragen? Erster Hersteller, der gerade online ist (offline kommt ein Gefluester nicht an)
+function W.AskTarget(s)
+    if not (s and s.kind == "c" and s.status == "guild") then return nil end
+    for _, g in ipairs(s.guild or {}) do if g.online then return g end end
+    return nil
+end
 -- Bitte an ein Gildenmitglied (Herstellung): Fluesterzeile mit Gegenstand vorbereiten
-function W.AskText(itemID)
-    local link = Try(C_Item and C_Item.GetItemInfo, itemID) and select(2, Try(C_Item.GetItemInfo, itemID))
-    link = link or select(2, Try(GetItemInfo, itemID)) or ("item:" .. itemID)
+function W.AskText(itemID, name)
+    local link
+    if C_Item and type(C_Item.GetItemInfo) == "function" then
+        local ok, _, l = pcall(C_Item.GetItemInfo, itemID)
+        if ok then link = l end
+    end
+    if not link and type(GetItemInfo) == "function" then
+        local ok, _, l = pcall(GetItemInfo, itemID)
+        if ok then link = l end
+    end
+    link = link or ("item:" .. itemID)
+    if name then
+        return T("Hallo %s, könntest du mir %s herstellen? Die Materialien bringe ich gern mit.", name:match("^[^%-]+") or name, link)
+    end
     return T("Hi! Kannst du mir %s herstellen? Material bringe ich mit.", link)
+end
+-- Fluesterfenster mit fertigem Text an den ersten Hersteller, der online ist (Spieler drueckt Enter;
+-- Forever sperrt Chat ohne Tastendruck). Niemand online: nur Hinweis.
+function W:Ask(s, itemID)
+    local g = W.AskTarget(s)
+    if not g then
+        local first = s and s.guild and s.guild[1]
+        ONE:Print(T("%s ist gerade offline – die Anfrage käme nicht an. Versuch es, wenn jemand online ist.",
+            first and (first.name:match("^[^%-]+") or first.name) or "?"))
+        return false
+    end
+    return ONE:Whisper(g.name, W.AskText(itemID, g.name))
 end
 
 return W

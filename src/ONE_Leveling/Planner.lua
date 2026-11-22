@@ -70,6 +70,11 @@ P.ROUTE_GRIND_MIN = 3    -- feste Route: Monster hauen erst ab so vielen Minuten
 -- 22.11.2026: kurz nach Crossroads zum Einkaufen geflogen – Guide schwenkte auf die Crossroads-Quests um, gemeint war
 -- nur Einkaufen und zurueck nach Ratchet)
 P.ROUTE_PULL = 3
+-- feste Route: Ausruestungs-Quests (ctx.gear, Nutzer 22.11.2026 "ja, gib ihr den auftrag so"): eine ganze Reihe kommt
+-- nur hinein, wenn jeder Halt in einem Gebiet liegt, durch das die Route ohnehin kommt (oder in dem man steht), direkt
+-- neben einem Routen-Halt desselben Gebiets eingereiht wird und die Reihe hoechstens so viele Minuten mehr kostet,
+-- als ihre EP wert sind (kein Zickzack fuer ein Teil)
+P.GEAR_EXTRA = 6
 P.ROUTE_AHEAD = 120       -- feste Route: so viele Plaetze voraus noch im aktuellen Gebiet erledigen, bevor es weggeht
 P.PREACCEPT_LOOPS = 3     -- am Stuetzpunkt gleich die Annahmen fuer so viele weitere Runden von dort
 P.FLOW_ACTIVE = 1        -- feste Gebietsfolge: hoechstens so viele Gebiete gleichzeitig
@@ -1205,6 +1210,27 @@ function P:Plan(ctx)
     -- feste Route (Nutzer 22.11.2026): Quests im Log, die nicht zur Route gehoeren (gedroppte Quest-Gegenstaende,
     -- selbst angenommene), kommen genauso hinein, wenn sie gut in den Plan passen – sonst "Nicht im Plan"
     local flNew
+    -- Rang zwischen den Nachbarn fuer neu eingereihte Halte (mehrere Neue in derselben Luecke gleichmaessig verteilt)
+    local function Rank(s2, f2, fl, flNew)
+        local i = 1
+        while i <= #s2 do
+            if s2[i].k then i = i + 1
+            else
+                local a = i
+                while s2[i] and not s2[i].k do i = i + 1 end
+                local lo = s2[a - 1] and s2[a - 1].k or (s2[i] and s2[i].k or 1) - 1
+                local hi = s2[i] and s2[i].k or lo + 1
+                local nb = s2[i] or s2[a - 1]
+                for m = a, i - 1 do
+                    s2[m].k = lo + (hi - lo) * (m - a + 1) / (i - a + 1)
+                    local key = P.StopKey(s2[m].s)
+                    f2[key] = s2[m].k
+                    flNew[key] = nb and fl[P.StopKey(nb.s)] or nil
+                end
+            end
+        end
+    end
+    local gearIn = {}
     if follow then
         local seq = {}
         for _, s in ipairs(stops) do
@@ -1227,25 +1253,46 @@ function P:Plan(ctx)
                 if open then
                     local s2, dt, gx = TryJob(j, pos, seq)
                     if s2 and gx / dt >= Need(j) then
-                        -- Rang zwischen den Nachbarn (mehrere Neue in derselben Luecke gleichmaessig verteilt)
-                        local i = 1
-                        while i <= #s2 do
-                            if s2[i].k then i = i + 1
-                            else
-                                local a = i
-                                while s2[i] and not s2[i].k do i = i + 1 end
-                                local lo = s2[a - 1] and s2[a - 1].k or (s2[i] and s2[i].k or 1) - 1
-                                local hi = s2[i] and s2[i].k or lo + 1
-                                local nb = s2[i] or s2[a - 1]
-                                for m = a, i - 1 do
-                                    s2[m].k = lo + (hi - lo) * (m - a + 1) / (i - a + 1)
-                                    local key = P.StopKey(s2[m].s)
-                                    f2[key] = s2[m].k
-                                    flNew[key] = nb and fl[P.StopKey(nb.s)] or nil
-                                end
+                        Rank(s2, f2, fl, flNew)
+                        seq = s2
+                    end
+                end
+            end
+            -- Ausruestungs-Quests (P.GEAR_EXTRA): ctx.gear = {{Quest-IDs einer Reihe ab dem ersten offenen Teil}, …}
+            if ctx.gear and ctx.route then
+                local zones = {}
+                if pos and pos[4] then zones[pos[4]] = true end
+                for _, nd in ipairs(seq) do if nd.w[4] then zones[nd.w[4]] = true end end
+                for _, chain in ipairs(ctx.gear) do
+                    local try, extra, gain, ok = seq, 0, 0, #chain > 0
+                    for _, id in ipairs(chain) do
+                        local j = info[id] and info[id].job
+                        if not ok or not j or j.byway or inLog(id) then ok = false break end
+                        for _, s in ipairs({j.a or false, j.t or false, j.e or false}) do
+                            if s and not s.used and (f2[P.StopKey(s)] or not (s.w and zones[s.w[4]])) then ok = false end
+                        end
+                        if not ok then break end
+                        local s2, dt, gx = TryJob(j, pos, try)
+                        if not s2 then ok = false break end
+                        try, extra, gain = s2, extra + dt, gain + gx
+                    end
+                    -- jeder neue Halt direkt neben einem Routen-Halt (oder dem Standort) im selben Gebiet
+                    if ok then
+                        for m, nd in ipairs(try) do
+                            if not nd.k then
+                                local a, b = m - 1, m + 1
+                                while try[a] and not try[a].k do a = a - 1 end
+                                while try[b] and not try[b].k do b = b + 1 end
+                                local wa = a >= 1 and try[a].w or (a == 0 and pos) or nil
+                                local wb = try[b] and try[b].w
+                                if not ((wa and wa[4] == nd.w[4]) or (wb and wb[4] == nd.w[4])) then ok = false break end
                             end
                         end
-                        seq = s2
+                    end
+                    if ok and extra - gain / math.max(1, thr) <= P.GEAR_EXTRA then
+                        Rank(try, f2, fl, flNew)
+                        seq = try
+                        for _, id in ipairs(chain) do gearIn[id] = true end
                     end
                 end
             end
@@ -2145,7 +2192,7 @@ function P:Plan(ctx)
     for _, s in ipairs(order) do orderKeys[#orderKeys + 1] = P.StopKey(s) orderLoops[#orderLoops + 1] = s.loop or 0 end
     local logSeen = {}
     for id, o in pairs(info) do if o.log then logSeen[id] = true end end
-    return {onWay = onWay, logSeen = logSeen, workZone = startWork, orderKeys = orderKeys, orderLoops = orderLoops, loops = loops, steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left, abandon = abandon,
+    return {onWay = onWay, gearIn = gearIn, logSeen = logSeen, workZone = startWork, orderKeys = orderKeys, orderLoops = orderLoops, loops = loops, steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left, abandon = abandon,
         grind = grind, factor = factor, level = L}
 end
 

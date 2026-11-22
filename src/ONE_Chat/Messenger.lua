@@ -26,8 +26,9 @@ local TAIL_RING_TEX = "Interface\\AddOns\\ONE_Chat\\Textures\\BubbleTailRing"
 
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c, d = pcall(fn, ...)
-    if ok then return a, b, c, d end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 local function Text(parent, font)
     local fs = parent:CreateFontString(nil, "OVERLAY", font or "GameFontHighlight")
@@ -72,6 +73,8 @@ M.KIND_ICONS = {
     lfg = {"INV_Misc_Spyglass_02"},
     channel = {"INV_Misc_Note_01"},
     system = {"INV_Misc_Gear_01", "Trade_Engineering"},
+    npc = {"INV_Misc_Head_Human_01", "Spell_Holy_PrayerOfSpirit", "INV_Misc_Note_01"},
+    progress = {"INV_Misc_Bag_10", "INV_Misc_Coin_01"},
     -- Battle.net-Freund (Fluestern aus dem Launcher)
     bnet = {"INV_Misc_Note_02", "INV_Letter_15", "INV_Misc_Note_01"},
 }
@@ -99,10 +102,24 @@ function M.ClassCoords(classFile)
     local c = classFile and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[classFile]
     if c then return c[1], c[2], c[3], c[4] end
 end
-function M.ClassOfGuid(guid)
-    if not guid or guid == "" or type(GetPlayerInfoByGUID) ~= "function" then return nil end
-    local _, classFile = Call(GetPlayerInfoByGUID, guid)
-    return classFile
+function M.ClassOfGuid(guid, name)
+    if guid and guid ~= "" and type(GetPlayerInfoByGUID) == "function" then
+        local _, classFile = Call(GetPlayerInfoByGUID, guid)
+        if classFile then return classFile end
+    end
+    -- ohne GUID (aelterer Verlauf) oder WoW kennt sie gerade nicht: Gildenliste nach Namen
+    if name and name ~= "" and M.RosterInfo then
+        -- kurz merken: die Gildenliste nicht fuer jede Blase neu durchsuchen
+        local now = (type(GetTime) == "function" and GetTime()) or 0
+        M.classCache = M.classCache or {}
+        local c = M.classCache[name]
+        if c and now - c.t < 30 then return c.cls or nil end
+        local info = M.RosterInfo(name)
+        local cls = info and info.classFile or false
+        M.classCache[name] = {t = now, cls = cls}
+        return cls or nil
+    end
+    return nil
 end
 -- legt um eine runde Textur (av) Bild, Ring und Glanz an
 function M.GlassAvatar(parent, av, inset)
@@ -234,6 +251,8 @@ end
 function M.IsMuted(view) return Chat:Settings().muted[view] == true end
 function M.SetMuted(view, on) Chat:Settings().muted[view] = on and true or nil end
 
+-- unten im Bereich "System": ruhige Gespraeche ohne eigene Unterhaltung
+M.SYSTEM_VIEWS = {system = true, progress = true}
 function M.Conversations()
     local out = {}
     for _, t in ipairs(Chat:Tabs()) do
@@ -251,12 +270,18 @@ function M.Conversations()
         c.muted = M.IsMuted(c.view)
         c.pinned = M.IsPinned(c.view)
     end
-    -- angeheftete in ihrer Reihenfolge, dann nach letzter Nachricht (neueste oben)
+    -- angeheftete in ihrer Reihenfolge, dann nach letzter Nachricht (neueste oben).
+    -- Nutzer 22.11.2026 ("permanenter Wechsel zwischen Beute und Alle"): "Alle" steht fest oben,
+    -- stumme Gespraeche rutschen nicht hoch (feste Reihenfolge unter den anderen).
     table.sort(out, function(a, b)
         if a.pinned or b.pinned then
             if a.pinned and b.pinned then return a.pinned < b.pinned end
             return a.pinned ~= nil
         end
+        local aAll, bAll = a.view == "all", b.view == "all"
+        if aAll ~= bAll then return aAll end
+        if (a.muted and true or false) ~= (b.muted and true or false) then return not a.muted end
+        if a.muted then return a.order < b.order end
         if a.last ~= b.last then return a.last > b.last end
         return a.order < b.order
     end)
@@ -293,7 +318,7 @@ function M.AvatarIcon(c)
         local classFile = info and info.classFile
         if not classFile then
             local last = M.LastEntry(c.view)
-            classFile = last and M.ClassOfGuid(last.guid)
+            classFile = last and M.ClassOfGuid(last.guid, last.author)
         end
         local l, r, t, b = M.ClassCoords(classFile)
         if l then return CLASS_ATLAS, {l, r, t, b} end
@@ -314,8 +339,40 @@ function M.BNLine(info)
     if info.zone and info.zone ~= "" then parts[#parts + 1] = info.zone end
     return table.concat(parts, " · ")
 end
+-- Hat diese Person gerade (in den letzten 3 Minuten) geschrieben? Dann ist sie online, auch wenn die
+-- Gildenliste von WoW noch alt ist (Spieltest 22.11.2026: "gerade offline" direkt nach ihrer Nachricht)
+M.HEARD_SECONDS = 180
+function M.RecentlyHeard(name)
+    local buf = Chat.buffers and Chat.buffers[Chat.WhisperView(name)]
+    if type(buf) ~= "table" then return false end
+    local now = (type(time) == "function" and time()) or 0
+    for i = #buf, math.max(1, #buf - 10), -1 do
+        local e = buf[i]
+        if e and not e.inform and not e.failed and e.kind == "whisper" and Short(e.author or "") == Short(name) then
+            return (now - (e.time or 0)) <= M.HEARD_SECONDS
+        end
+    end
+    return false
+end
+-- Gildenliste bei WoW neu anfordern (WoW liefert sonst einen alten Stand; hoechstens alle 15 s)
+function M.RequestRoster()
+    local now = (type(GetTime) == "function" and GetTime()) or 0
+    if M.rosterAsked and now - M.rosterAsked < 15 then return false end
+    M.rosterAsked = now
+    if type(IsInGuild) == "function" and not Call(IsInGuild) then return false end
+    if type(C_GuildInfo) == "table" and type(C_GuildInfo.GuildRoster) == "function" then pcall(C_GuildInfo.GuildRoster)
+    elseif type(GuildRoster) == "function" then pcall(GuildRoster) end
+    return true
+end
 -- Gilde/Freunde: Klasse, Stufe, Ort, online, zuletzt online
 function M.PersonInfo(name)
+    local info = M.RosterInfo(name)
+    if info and not info.bn and not info.online and M.RecentlyHeard(name) then
+        info.online, info.lastOnline = true, nil
+    end
+    return info
+end
+function M.RosterInfo(name)
     local short = Short(name)
     if Chat.IsBN(short) then
         local b = Chat.BNInfo(Chat.BNFind(short))
@@ -324,9 +381,10 @@ function M.PersonInfo(name)
     end
     if type(GetNumGuildMembers) == "function" and type(GetGuildRosterInfo) == "function" then
         for i = 1, (Call(GetNumGuildMembers) or 0) do
-            local full, _, _, level, class, zone, _, _, online, _, classFile = Call(GetGuildRosterInfo, i)
-            if full and Short(full) == short then
-                local info = {level = level, class = class, zone = zone, online = online and true or false, classFile = classFile}
+            -- direkt pcall: Call liefert nur 4 Werte, online ist der 9. (Punkt fehlte, Spieltest 22.11.2026)
+            local ok, full, _, _, level, class, zone, _, _, online, _, classFile = pcall(GetGuildRosterInfo, i)
+            if ok and full and Short(full) == short then
+                local info = {level = level, class = class, zone = zone, online = online and true or false, classFile = classFile, inGuild = true}
                 if not info.online and type(GetGuildRosterLastOnline) == "function" then
                     local y, mo, d, h = Call(GetGuildRosterLastOnline, i)
                     info.lastOnline = {y or 0, mo or 0, d or 0, h or 0}
@@ -409,7 +467,7 @@ function M.Items(view, newFrom)
             items[#items + 1] = {type = "new", count = #buf - i + 1}
             prev = nil
         end
-        if e.kind == "system" or e.event == "CHAT_MSG_TEXT_EMOTE" then
+        if Chat.IsPlain(e) then
             items[#items + 1] = {type = "sys", entry = e}
             prev = nil
         elseif e.kind == "emote" then
@@ -651,14 +709,14 @@ local function NewConvRow(list)
     b.name = Text(b, "GameFontHighlight")
     b.name:SetPoint("TOPLEFT", b.av, "TOPRIGHT", 8, 1)
     b.name:SetPoint("RIGHT", b, "RIGHT", -44, 0)
-    if b.name.SetWordWrap then b.name:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(b.name, b) end
     b.time = Text(b, "GameFontDisableSmall")
     b.time:SetPoint("TOPRIGHT", b, "TOPRIGHT", -8, -6)
     b.time:SetJustifyH("RIGHT")
     b.preview = Text(b, "GameFontDisableSmall")
     b.preview:SetPoint("BOTTOMLEFT", b.av, "BOTTOMRIGHT", 8, 0)
     b.preview:SetPoint("RIGHT", b, "RIGHT", -30, 0)
-    if b.preview.SetWordWrap then b.preview:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(b.preview, b) end
     b.badge = b:CreateTexture(nil, "OVERLAY")
     b.badge:SetSize(18, 16)
     b.badge:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -7, 5)
@@ -705,7 +763,7 @@ function M:ListRows()
     -- Bereiche (Spieltest 21.11.2026): Angeheftet, Gespraeche, Fluestern eigens, System & Addons ganz unten
     local groups = {{label = T("ANGEHEFTET")}, {label = T("GESPRÄCHE")}, {label = T("FLÜSTERN")}, {label = T("SYSTEM")}}
     for _, c in ipairs(M.Conversations()) do
-        local g = c.pinned and 1 or (c.whisper and 3) or (c.view == "system" and 4) or 2
+        local g = c.pinned and 1 or (c.whisper and 3) or (M.SYSTEM_VIEWS[c.view] and 4) or 2
         groups[g][#groups[g] + 1] = c
     end
     for _, g in ipairs(groups) do
@@ -868,7 +926,7 @@ function M:BuildMain(f)
     local name = Text(head, "GameFontNormal")
     name:SetPoint("TOPLEFT", av, "TOPRIGHT", 8, 1)
     name:SetPoint("RIGHT", head, "RIGHT", -60, 0)
-    if name.SetWordWrap then name:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(name) end
     self.headName = name
     -- Fluestern: Name oben anklickbar (Spieltest 22.11.2026: Umschalt+Klick fuer Gildeneinladung ging nicht,
     -- weil im Fluestergespraech kein Name in den Blasen steht). Umschalt+Klick = wie ein Name im WoW-Chat
@@ -883,13 +941,24 @@ function M:BuildMain(f)
     local sub = Text(head, "GameFontDisableSmall")
     sub:SetPoint("BOTTOMLEFT", av, "BOTTOMRIGHT", 8, -1)
     sub:SetPoint("RIGHT", head, "RIGHT", -60, 0)
-    if sub.SetWordWrap then sub:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(sub) end
     self.headSub = sub
     -- Fluestern: Namens-Menue und Schliessen
-    self.headMenu = ONE.Widgets:Button(head, "···", 28, 20, "RIGHT", -30, 0, function(btn)
+    self.headMenu = ONE.Widgets:Button(head, "", 28, 20, "RIGHT", -30, 0, function(btn)
         local view = UI.current or ""
         if view:sub(1, 2) == "w:" and ONE.PlayerMenu then ONE.PlayerMenu:Open(btn, view:sub(3)) end
     end)
+    -- drei Punkte als Bild: Text "···" zeigte im Spiel nur einen Punkt (Spielbild 22.11.2026)
+    local G = ONE.Glass
+    self.headMenu.dots = {}
+    for i = -1, 1 do
+        local d = self.headMenu:CreateTexture(nil, "OVERLAY")
+        d:SetSize(4, 4)
+        d:SetTexture(G and G.tex and G.tex.circle or "Interface\\Buttons\\WHITE8X8")
+        d:SetVertexColor(.9, .9, .9, .9)
+        d:SetPoint("CENTER", self.headMenu, "CENTER", i * 6, 0)
+        self.headMenu.dots[#self.headMenu.dots + 1] = d
+    end
     Tip(self.headMenu, function() return {{T("Namens-Menü")}, {T("Einladen, Navi, Ignorieren …")}} end)
     if ONE.Widgets.IconButton then
         self.headClose = ONE.Widgets:IconButton(head, "Interface\\AddOns\\ONE_Core\\Textures\\Common\\CloseGlyph.tga", 20, "RIGHT", -4, 0,
@@ -978,7 +1047,7 @@ function M:BuildMain(f)
     local ph = Text(foot, "GameFontDisableSmall")
     ph:SetPoint("LEFT", box, "LEFT", 11, 0)
     ph:SetPoint("RIGHT", box, "RIGHT", -8, 0)
-    if ph.SetWordWrap then ph:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(ph, false) end
     self.placeholder = ph
     local function Placeholder()
         ph:SetShown((box:GetText() or "") == "" and not (box.HasFocus and box:HasFocus()))
@@ -996,12 +1065,129 @@ function M:BuildMain(f)
     UI.UpdatePlaceholder = Placeholder
 end
 
+-- ===== Antworten mit Zitat (wie WhatsApp, Nutzer 22.11.2026) =====
+-- Der WoW-Chat uebertraegt nur Text: das Zitat steht gekuerzt vorne in der Nachricht
+--   @Name „Anfang der Nachricht…“ Antwort
+-- Spieler mit Guild Trip sehen daraus einen Zitat-Kasten in der Blase, alle anderen den Text.
+M.QUOTE_CHARS = 30
+-- reiner Text ohne Links/Farben/Bilder, gekuerzt (UTF-8-sicher)
+function M.QuoteText(text, max)
+    max = max or M.QUOTE_CHARS
+    local plain = tostring(text or ""):gsub("|H.-|h(.-)|h", "%1"):gsub("|T.-|t", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    -- ein schon vorhandenes Zitat nicht mitzitieren
+    plain = plain:gsub("^@.- „.-“%s*", ""):gsub("[„“]", "\""):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+    local out, n = {}, 0
+    for ch in plain:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+        n = n + 1
+        if n > max then return table.concat(out) .. "…" end
+        out[#out + 1] = ch
+    end
+    return table.concat(out)
+end
+-- Antwort-Text bauen und wieder zerlegen
+function M.WithQuote(name, quote, text) return "@" .. name .. " „" .. quote .. "“ " .. text end
+function M.SplitQuote(text)
+    -- Namen in Forever haben Leerzeichen ("Mechthild Verfallstag", Spieltest 22.11.2026)
+    local name, quote, rest = tostring(text or ""):match("^@(.-) „(.-)“%s*(.*)$")
+    if name and quote ~= "" then return name, quote, rest end
+    return nil
+end
+-- Farbe fuer Strich und Name im Zitat: Klassenfarbe (Gildenliste, eigene Klasse), sonst Blau
+function M.QuoteColor(name)
+    local classFile
+    if name and name == Me() and type(UnitClass) == "function" then classFile = select(2, Call(UnitClass, "player")) end
+    classFile = classFile or (name and M.ClassOfGuid(nil, name))
+    local c = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
+    if c then return {c.r, c.g, c.b} end
+    return {.45, .78, 1}
+end
+-- Original einer zitierten Nachricht im Gespraech suchen (neueste zuerst, vor der Antwort)
+function M.FindQuoted(view, entry)
+    local name, quote = M.SplitQuote(entry and entry.text)
+    if not name then return nil end
+    local start = quote:gsub("…$", "")
+    local buf = Chat:Buffer(view)
+    local before = false
+    for i = #buf, 1, -1 do
+        local b = buf[i]
+        if b == entry then before = true
+        elseif before and Short(b.author or "") == name and M.QuoteText(b.text, 200):sub(1, #start) == start then return b end
+    end
+    return nil
+end
+function M:StartReply(entry)
+    if not (entry and self.input) then return end
+    local name = Short(entry.author or "")
+    if name == "" then return end
+    self.replyTo = {name = name, quote = M.QuoteText(entry.text), entry = entry}
+    self:ShowReplyBar()
+    self.input:SetFocus()
+end
+function M:CancelReply()
+    local was = self.replyBar and self.replyBar:IsShown()
+    self.replyTo = nil
+    if self.replyBar then self.replyBar:Hide() end
+    if was then self:LayoutLog() end
+end
+function M:ShowReplyBar()
+    local rt = self.replyTo
+    if not rt then return end
+    local bar = self.replyBar
+    if not bar then
+        bar = CreateFrame("Frame", nil, self.main)
+        bar:SetHeight(26)
+        bar:SetPoint("BOTTOMLEFT", self.foot, "TOPLEFT", 0, 2)
+        bar:SetPoint("BOTTOMRIGHT", self.foot, "TOPRIGHT", 0, 2)
+        if bar.SetFrameLevel and self.main.GetFrameLevel then bar:SetFrameLevel((self.main:GetFrameLevel() or 1) + 15) end
+        bar:EnableMouse(true)
+        if ONE.Glass and ONE.Glass.Surface then ONE.Glass:Surface(bar, "card") else
+            local bg = bar:CreateTexture(nil, "BACKGROUND")
+            bg:SetAllPoints(bar)
+            bg:SetColorTexture(.08, .09, .12, .95)
+        end
+        bar.line = bar:CreateTexture(nil, "ARTWORK")
+        bar.line:SetPoint("TOPLEFT", bar, "TOPLEFT", 4, -4)
+        bar.line:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 4, 4)
+        bar.line:SetWidth(3)
+        bar.text = Text(bar, "GameFontHighlightSmall")
+        bar.text:SetPoint("LEFT", bar, "LEFT", 12, 0)
+        bar.text:SetPoint("RIGHT", bar, "RIGHT", -28, 0)
+        if ONE.Fit then ONE.Fit:Line(bar.text, false) end
+        if ONE.Widgets.IconButton then
+            bar.close = ONE.Widgets:IconButton(bar, "Interface\\AddOns\\ONE_Core\\Textures\\Common\\CloseGlyph.tga", 18, "RIGHT", -4, 0,
+                function() M:CancelReply() end, "secondary", 8)
+            Tip(bar.close, function() return {{T("Antwort abbrechen")}} end)
+        end
+        self.replyBar = bar
+    end
+    local g = self:Palette().glow
+    if bar.line.SetColorTexture then bar.line:SetColorTexture(g[1], g[2], g[3], .9) end
+    -- Nutzer 22.11.2026: nur das Zitat; im Fluestern ohne Namen (ist klar, wem man antwortet)
+    local whisper = (UI.current or ""):sub(1, 2) == "w:"
+    bar.text:SetText((whisper and "" or (Hex(g) .. rt.name .. ":|r  ")) .. "|cffc8c8c8" .. rt.quote .. "|r")
+    bar:Show()
+    -- Leiste verdeckt sonst die unterste Blase
+    self:LayoutLog()
+end
+
 function M:SendInput()
     local box = self.input
     if not box then return end
     local text = box:GetText() or ""
+    local rt = self.replyTo
+    if rt and text:match("%S") and text:sub(1, 1) ~= "/" then
+        -- WoW-Grenze 255 Zeichen: Zitat notfalls weiter kuerzen
+        local quote = rt.quote
+        local full = M.WithQuote(rt.name, quote, text)
+        if #full > 255 and #text < 230 then
+            quote = M.QuoteText(rt.entry and rt.entry.text or quote, 12)
+            full = M.WithQuote(rt.name, quote, text)
+        end
+        if #full <= 255 then text = full end
+    end
     local sent, err = Chat:Send(UI.current, text)
     if sent then
+        self:CancelReply()
         if box.AddHistoryLine then box:AddHistoryLine(text) end
         box:SetText("")
         if Chat.drafts then Chat.drafts[UI.current] = nil end
@@ -1054,7 +1240,7 @@ function M:BuildPicker()
     pk.hint = Text(pk, "GameFontDisableSmall")
     pk.hint:SetPoint("BOTTOMLEFT", pk, "BOTTOMLEFT", 8, 6)
     pk.hint:SetPoint("BOTTOMRIGHT", pk, "BOTTOMRIGHT", -8, 6)
-    if pk.hint.SetWordWrap then pk.hint:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(pk.hint) end
     pk.cells = {}
     pk:Hide()
     self.picker = pk
@@ -1170,7 +1356,14 @@ local function NewBubble(log)
     if G and G.tex then r.clsAv:SetTexture(G.tex.circle) end
     r.cls = M.GlassAvatar(r, r.clsAv, 1)
     M.HideAvatar(r.cls)
-    if r.who.SetWordWrap then r.who:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(r.who, false) end
+    -- Zitat-Kasten wie WhatsApp: dunklere Flaeche, farbiger Strich links, Name + Zitat
+    r.qbox = r:CreateTexture(nil, "BORDER")
+    r.qbar = r:CreateTexture(nil, "ARTWORK")
+    r.qbar:SetWidth(3)
+    r.qname = Text(r, "GameFontNormalSmall")
+    r.qtext = Text(r, "GameFontHighlightSmall")
+    if ONE.Fit then ONE.Fit:Line(r.qname, false) ONE.Fit:Line(r.qtext, false) end
     r.text = Text(r, "ChatFontNormal")
     if r.text.SetWordWrap then r.text:SetWordWrap(true) end
     if r.text.SetNonSpaceWrap then r.text:SetNonSpaceWrap(true) end
@@ -1187,6 +1380,7 @@ local function NewBubble(log)
     -- Links: Gegenstand zeigen (Vorschau), anklicken wie im WoW-Chat, Namen -> Namens-Menue
     if r.SetHyperlinksEnabled then pcall(r.SetHyperlinksEnabled, r, true) end
     pcall(r.SetScript, r, "OnHyperlinkClick", function(self, link, text, button)
+        self.linkHandled = (type(GetTime) == "function" and GetTime()) or 0
         if UI.ShiftLink and UI.ShiftLink(link, text, button, self) then return end
         local kind, rest = tostring(link):match("^(%a+):(.*)$")
         if kind == "player" and ONE.PlayerMenu then
@@ -1194,23 +1388,115 @@ local function NewBubble(log)
             ONE.PlayerMenu:Open(self, name, {lineID = tonumber(lineID)})
             return
         end
-        if type(SetItemRef) == "function" then pcall(SetItemRef, link, text, button, self) end
+        UI.OpenLink(link, text, button, self, self.item and self.item.entry and self.item.entry.author)
     end)
     pcall(r.SetScript, r, "OnHyperlinkEnter", function(self, link)
         local kind = tostring(link):match("^(%a+):")
-        if not (GameTooltip and kind) or kind == "player" or kind == "trade" then return end
+        if not (GameTooltip and kind) or kind == "player" then return end
         GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+        if kind == "trade" then
+            -- Berufs-Link: WoW hat dafuer keinen Tooltip -> Hinweis, dass man klicken kann
+            GameTooltip:SetText(T("Berufs-Link"))
+            GameTooltip:AddLine(T("Klick: bekannte Rezepte zeigen und anflüstern"), .8, .8, .8)
+            GameTooltip:Show()
+            return
+        end
         if pcall(GameTooltip.SetHyperlink, GameTooltip, link) then GameTooltip:Show() else GameTooltip:Hide() end
     end)
     pcall(r.SetScript, r, "OnHyperlinkLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     r:SetScript("OnMouseUp", function(self, button)
-        if button == "RightButton" and self.item then M:BubbleMenu(self, self.item) end
+        if button == "RightButton" and self.item then M:BubbleMenu(self, self.item) return end
+        -- Spieltest 22.11.2026: in Forever kommen Link-Klicks in den Blasen nicht an (kein OnHyperlinkClick).
+        -- Darum selbst: Klick auf den Namen = Namens-Menue, sonst Link der Nachricht oeffnen (mehrere: Auswahl).
+        -- Kommt der Link-Klick doch an, hat er Vorrang (linkHandled).
+        -- SOFORT, nicht verzoegert: das Berufsfenster oeffnet WoW nur waehrend eines echten Mausklicks
+        -- (Spieltest 22.11.2026: mit C_Timer kam der Klick an, aber nichts ging auf)
+        if button ~= "LeftButton" or not self.item then return end
+        local now = (type(GetTime) == "function" and GetTime()) or 0
+        -- Doppelklick = Antworten mit Zitat (Nutzer 22.11.2026); das Menue des ersten Klicks wieder schliessen
+        local e = self.item.entry
+        if e and self.item.type == "bubble" and M.lastClick and M.lastClick.entry == e and now - M.lastClick.t < .4 then
+            M.lastClick = nil
+            M.CloseMenus()
+            M:StartReply(e)
+            return
+        end
+        M.lastClick = {entry = e, t = now}
+        if self.linkHandled and now - self.linkHandled < .5 then return end
+        M:BubbleClick(self, self.item)
     end)
     return r
 end
 
 -- Groesse der Emojis, wenn eine Nachricht nur aus Emojis besteht
 function M.BigEmojiSize(fsize) return math.floor((fsize or 14) * 2.2) end
+
+-- ===== In die Gilde einladen (sicherer Knopf) =====
+-- Forever sperrt das Einladen fuer Addons ("ONE_Chat wurde geblockt", Spieltest 22.11.2026) – auch, wenn ein Addon
+-- den Namen nur ins Einladungsfenster schreibt. Erlaubt ist ein Makro-Knopf, den DU anklickst
+-- (SecureActionButtonTemplate, /ginvite Name). Er haengt an UIParent, damit das Chatfenster nicht "geschuetzt"
+-- wird; er wird nur ausserhalb des Kampfs gezeigt/geaendert und beim Kampfbeginn versteckt.
+function M.CanInvite()
+    if type(IsInGuild) == "function" and not Call(IsInGuild) then return false end
+    if type(CanGuildInvite) == "function" then return Call(CanGuildInvite) and true or false end
+    if C_GuildInfo and type(C_GuildInfo.CanGuildInvite) == "function" then return Call(C_GuildInfo.CanGuildInvite) and true or false end
+    return false
+end
+-- Wen einladen? Fluestergespraech mit jemandem, der nicht in deiner Gilde ist (Battle.net: sein Charakter)
+function M.InviteTarget(view)
+    local name = M.HeadPlayer(view)
+    if not name or name == "" or Short(name) == Me() then return nil end
+    local info = M.RosterInfo(name)
+    if info and info.inGuild then return nil end
+    return name
+end
+function M:BuildInviteButton()
+    if self.inviteButton or not self.head then return self.inviteButton end
+    local ok, b = pcall(CreateFrame, "Button", "GuildTripChatInvite", UIParent, "SecureActionButtonTemplate")
+    if not ok or not b then return nil end
+    b:SetSize(20, 20)
+    b:SetFrameStrata("HIGH")
+    if b.RegisterForClicks then b:RegisterForClicks("AnyUp", "AnyDown") end
+    local t = b:CreateTexture(nil, "ARTWORK")
+    t:SetAllPoints(b)
+    t:SetTexture("Interface\\GossipFrame\\TabardGossipIcon")
+    local hl = b:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints(b)
+    hl:SetTexture("Interface\\Buttons\\UI-Common-MouseHilight")
+    hl:SetBlendMode("ADD")
+    b:SetAttribute("type", "macro")
+    b:SetScript("OnEnter", function(btn)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(btn, "ANCHOR_LEFT")
+        GameTooltip:SetText(T("In die Gilde einladen"))
+        GameTooltip:AddLine(T("Lädt %s in deine Gilde ein.", btn.target or "?"), .8, .8, .8, true)
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    b:Hide()
+    -- Kampfbeginn: PLAYER_REGEN_DISABLED kommt kurz BEVOR WoW sperrt -> jetzt noch verstecken
+    local ev = CreateFrame("Frame")
+    ev:RegisterEvent("PLAYER_REGEN_DISABLED")
+    ev:RegisterEvent("PLAYER_REGEN_ENABLED")
+    ev:SetScript("OnEvent", function(_, event)
+        if event == "PLAYER_REGEN_DISABLED" then b:Hide() else M:UpdateInviteButton() end
+    end)
+    self.inviteButton = b
+    return b
+end
+function M:UpdateInviteButton()
+    if InCombatLockdown and InCombatLockdown() then return end
+    local b = self:BuildInviteButton()
+    if not b then return end
+    local shown = self.frame and self.frame:IsShown() and self.head and self.head:IsVisible() and self.headMenu and self.headMenu:IsVisible()
+    local target = shown and M.CanInvite() and M.InviteTarget(UI.current)
+    if not target then b:Hide() b.target = nil return end
+    b.target = target
+    b:SetAttribute("macrotext", "/ginvite " .. target)
+    b:ClearAllPoints()
+    b:SetPoint("RIGHT", self.headMenu, "LEFT", -4, 0)
+    b:Show()
+end
 
 -- Name oben im Fluestergespraech: Spielername dazu (Battle.net-Freund: sein Charakter, wenn er WoW spielt)
 function M.HeadPlayer(view)
@@ -1231,16 +1517,71 @@ function M:HeadNameClick(owner, button)
 end
 
 -- Rechtsklick auf eine Blase: Antworten, Text kopieren, Namens-Menue
+-- offene Klickmenues schliessen (WoW-Menue, Namens-Menue)
+function M.CloseMenus()
+    if Menu and type(Menu.GetManager) == "function" then
+        pcall(function() local m = Menu.GetManager() if m and m.CloseMenus then m:CloseMenus() end end)
+    end
+    if type(CloseDropDownMenus) == "function" then pcall(CloseDropDownMenus) end
+    if ONE.PlayerMenu and type(ONE.PlayerMenu.Close) == "function" then pcall(ONE.PlayerMenu.Close, ONE.PlayerMenu) end
+end
+-- Links in einem Text: {{link = "item:…", text = "[Name]", full = "|H…|h[Name]|h"}}
+function M.LinksIn(text)
+    local out = {}
+    for payload, shown in tostring(text or ""):gmatch("|H(.-)|h(.-)|h") do
+        out[#out + 1] = {link = payload, text = shown, full = "|H" .. payload .. "|h" .. shown .. "|h"}
+    end
+    return out
+end
+-- Liegt der Mauszeiger auf der Namenszeile der Blase?
+function M.CursorOnName(r)
+    if not (r.who and r.who:IsShown() and type(GetCursorPosition) == "function" and r.GetTop) then return false end
+    local _, y = GetCursorPosition()
+    local scale = (r.GetEffectiveScale and r:GetEffectiveScale()) or 1
+    local top = r:GetTop()
+    if not (y and top) then return false end
+    return y / scale >= top - 18
+end
+function M:BubbleClick(owner, item)
+    local e = item.entry
+    if not e then return end
+    -- Umschalt: Link/Name wie gewohnt ins Feld
+    local shift = type(IsShiftKeyDown) == "function" and IsShiftKeyDown()
+    if M.CursorOnName(owner) and not e.npc and (e.author or "") ~= "" then
+        local name = e.author
+        if shift and UI.ShiftLink and UI.ShiftLink("player:" .. name, "[" .. Short(name) .. "]", "LeftButton", owner) then return end
+        if ONE.PlayerMenu then ONE.PlayerMenu:Open(owner, Short(name), {lineID = e.lineID}) end
+        return
+    end
+    local links = M.LinksIn(e.text)
+    if #links == 0 then
+        -- Antwort mit Zitat: zur Original-Nachricht springen
+        local found = M.FindQuoted(UI.current, e)
+        if found then M.jump = found UI:Show(UI.current) end
+        return
+    end
+    local function Open(l)
+        if shift and UI.ShiftLink and UI.ShiftLink(l.link, l.full, "LeftButton", owner) then return end
+        UI.OpenLink(l.link, l.full, "LeftButton", owner, e.author)
+    end
+    if #links == 1 or not (MenuUtil and MenuUtil.CreateContextMenu) then Open(links[1]) return end
+    MenuUtil.CreateContextMenu(owner, function(_, root)
+        for _, l in ipairs(links) do root:CreateButton(l.text, function() Open(l) end) end
+    end)
+end
 function M:BubbleMenu(owner, item)
     local e = item.entry
     if not (e and MenuUtil and MenuUtil.CreateContextMenu) then return end
     local name = Short(e.author or "")
     MenuUtil.CreateContextMenu(owner, function(_, root)
+        if name ~= "" and item.type == "bubble" then
+            root:CreateButton(T("Antworten"), function() M:StartReply(e) end)
+        end
         if not item.out and name ~= "" and item.type == "bubble" then
-            root:CreateButton(T("Antworten"), function()
-                if (UI.current or ""):sub(1, 2) ~= "w:" then M:InsertCode("@" .. name) else if M.input then M.input:SetFocus() end end
-            end)
             if ONE.PlayerMenu then root:CreateButton(T("Namens-Menü …"), function() ONE.PlayerMenu:Open(owner, name) end) end
+        end
+        for _, l in ipairs(M.LinksIn(e.text)) do
+            root:CreateButton(T("Öffnen: %s", l.text), function() UI.OpenLink(l.link, l.full, "LeftButton", owner, e.author) end)
         end
         root:CreateButton(T("Text kopieren"), function()
             if not M.input then return end
@@ -1269,7 +1610,7 @@ end
 function M:FillBubble(r, it, W, p)
     local s = Chat:Settings()
     r.item = it
-    for _, part in ipairs({r.who, r.text, r.time, r.tick, r.note, r.line1, r.line2, r.flat, r.tail, r.tailEdge, r.sheen}) do part:Hide() end
+    for _, part in ipairs({r.who, r.text, r.time, r.tick, r.note, r.line1, r.line2, r.flat, r.tail, r.tailEdge, r.sheen, r.qbox, r.qbar, r.qname, r.qtext}) do part:Hide() end
     M.HideAvatar(r.cls)
     SetBg(r, false)
     local file = ChatFontNormal and ChatFontNormal.GetFont and ChatFontNormal:GetFont()
@@ -1329,20 +1670,37 @@ function M:FillBubble(r, it, W, p)
     local maxW = math.floor(W * .78)
     local pad = 10
     local inner = maxW - 2 * pad
-    local txt = M.Show(e.text, big and M.BigEmojiSize(fsize) or 0)
+    local qName, qText, qRest = M.SplitQuote(e.text)
+    local txt
+    local quoteW, quoteH = 0, 0
+    if qName and not big then
+        -- Zitat-Kasten (Name in Leuchtfarbe, Zitat grau), darunter nur die Antwort
+        txt = M.Show(qRest, 0)
+        r.quoted = {name = qName, quote = qText}
+        r.qname:SetText(qName == Me() and T("Du") or qName)
+        r.qtext:SetText(M.Show(qText, 0))
+        r.qname:SetWidth(0) r.qtext:SetWidth(0)
+        quoteW = math.min(inner, math.max(r.qname:GetStringWidth() or 40, r.qtext:GetStringWidth() or 40) + 16)
+        quoteH = 34
+    else
+        txt = M.Show(e.text, big and M.BigEmojiSize(fsize) or 0)
+        r.quoted = nil
+    end
     r.text:SetWidth(inner)
     r.text:SetText(txt)
     local tw = r.text:GetStringWidth() or 60
     -- Name (Gruppen, Gilde …), im Reiter "Alle" mit Art
     local whoW, whoH, clsW = 0, 0, 0
     if it.name then
+        local classFile0 = not e.npc and M.ClassOfGuid(e.guid, e.author) or nil
         local code = Chat.ClassColorCode(e.guid, false)
+        if not code and classFile0 and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile0] then code = Hex({ClassRGB(classFile0)}) end
         local kind = it.kind and Chat.kindByKey[it.kind]
         local shown = (code or "|cffd0d0d0") .. Short(e.author) .. "|r"
-        local link = "|Hplayer:" .. (e.author or "") .. ":" .. tostring(e.lineID or 0) .. "|h" .. shown .. "|h"
+        local link = e.npc and shown or ("|Hplayer:" .. (e.author or "") .. ":" .. tostring(e.lineID or 0) .. "|h" .. shown .. "|h")
         if kind then link = link .. "  " .. Hex(kind.color) .. T(kind.label) .. "|r" end
         r.who:SetText(link)
-        local classFile = s.classIcons ~= false and M.ClassOfGuid(e.guid)
+        local classFile = s.classIcons ~= false and classFile0
         local l, rr, tt, bb = M.ClassCoords(classFile)
         if l and r.cls then
             clsW = 17
@@ -1352,6 +1710,9 @@ function M:FillBubble(r, it, W, p)
         whoW, whoH = (r.who:GetStringWidth() or 40) + 2 + clsW, 13
         r.who:Show()
     end
+    local nameH = whoH
+    -- +6: Abstand zwischen Zitat-Kasten und Antwort (Nutzer 22.11.2026)
+    if quoteH > 0 then whoW, whoH = math.max(whoW, quoteW), whoH + (whoH > 0 and 3 or 2) + quoteH + 6 end
     -- Uhrzeit (+ Haken) unten rechts in der Blase
     local stamp = (type(date) == "function" and date("%H:%M", e.time or 0)) or ""
     r.time:SetText(stamp)
@@ -1443,6 +1804,33 @@ function M:FillBubble(r, it, W, p)
             r.clsAv:SetPoint("RIGHT", r.who, "LEFT", -3, 0)
         end
     end
+    if quoteH > 0 then
+        -- Farbe wie bei WhatsApp je Person: Klassenfarbe der zitierten Person (Spielbild 22.11.2026:
+        -- Gold auf goldener Blase zu wenig Kontrast), sonst ein ruhiges Blau
+        local g0 = M.QuoteColor(qName)
+        local top = -(4 + nameH + (nameH > 0 and 3 or 2))
+        r.qbox:ClearAllPoints()
+        r.qbox:SetPoint("TOPLEFT", r, "TOPLEFT", pad - 4, top)
+        r.qbox:SetPoint("TOPRIGHT", r, "TOPRIGHT", -(pad - 4), top)
+        r.qbox:SetHeight(quoteH)
+        -- eigene (goldene) Blase: Kasten dunkler, fremde Blase: Kasten leicht heller
+        if r.qbox.SetColorTexture then
+            if it.out then r.qbox:SetColorTexture(0, 0, 0, .30) else r.qbox:SetColorTexture(1, 1, 1, .07) end
+        end
+        r.qbar:ClearAllPoints()
+        r.qbar:SetPoint("TOPLEFT", r.qbox, "TOPLEFT", 0, 0)
+        r.qbar:SetPoint("BOTTOMLEFT", r.qbox, "BOTTOMLEFT", 0, 0)
+        if r.qbar.SetColorTexture then r.qbar:SetColorTexture(g0[1], g0[2], g0[3], .95) end
+        r.qname:ClearAllPoints()
+        r.qname:SetPoint("TOPLEFT", r.qbox, "TOPLEFT", 9, -4)
+        r.qname:SetPoint("RIGHT", r.qbox, "RIGHT", -6, 0)
+        r.qname:SetTextColor(g0[1], g0[2], g0[3])
+        r.qtext:ClearAllPoints()
+        r.qtext:SetPoint("TOPLEFT", r.qname, "BOTTOMLEFT", 0, -3)
+        r.qtext:SetPoint("RIGHT", r.qbox, "RIGHT", -6, 0)
+        r.qtext:SetTextColor(.86, .86, .86)
+        for _, q in ipairs({r.qbox, r.qbar, r.qname, r.qtext}) do q:Show() end
+    end
     r.text:ClearAllPoints()
     r.text:SetPoint("TOPLEFT", r, "TOPLEFT", pad, -(4 + whoH + (it.name and 1 or 0)))
     r.text:Show()
@@ -1481,7 +1869,8 @@ function M:LayoutLog()
     local p = self:Palette()
     self.maxScroll = math.max(0, #items - 1)
     self.scroll = math.min(self.scroll or 0, self.maxScroll)
-    local y, n = 6, 0
+    -- Platz fuer die Antwort-Leiste lassen
+    local y, n = 6 + ((self.replyBar and self.replyBar:IsShown()) and 30 or 0), 0
     for i = #items - self.scroll, 1, -1 do
         if y > H then break end
         n = n + 1
@@ -1549,6 +1938,7 @@ function M:RefreshHead()
     local sub = ""
     local chatType = Chat:Target(view)
     if whisper then
+        M.RequestRoster()
         local info = M.PersonInfo(c.whisper)
         if info then
             sub = info.bn and M.BNLine(info)
@@ -1574,6 +1964,7 @@ function M:RefreshHead()
     self.headMenu:SetShown(whisper and ONE.PlayerMenu ~= nil)
     if self.headHit then self.headHit:SetShown(whisper and true or false) end
     if self.headClose then self.headClose:SetShown(whisper) end
+    self:UpdateInviteButton()
     local to = whisper and c.whisper or (chatType and M.SendLabel(view)) or nil
     if self.placeholder then
         self.placeholder:SetText(to and T("Nachricht an %s …", to) or T("Hier kann man nur lesen."))
@@ -1622,6 +2013,7 @@ function M:Layout()
     self:LayoutList()
     self:LayoutLog()
     if self.picker and self.picker:IsShown() then self:FillPicker() end
+    self:UpdateInviteButton()
 end
 
 -- ===== Fenster =====
@@ -1656,6 +2048,7 @@ function M:ShowView(view)
     self:Build()
     local old = UI.current
     if view and view ~= old then
+        self:CancelReply()
         Chat.drafts = Chat.drafts or {}
         if self.input and old then
             local t = self.input:GetText() or ""
@@ -1686,6 +2079,7 @@ end
 function M:Hide()
     if self.frame then self.frame:Hide() end
     Chat.visible = false
+    self:UpdateInviteButton()
     if chat.Launcher and chat.Launcher.Update then chat.Launcher:Update() end
 end
 

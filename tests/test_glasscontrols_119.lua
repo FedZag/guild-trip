@@ -71,6 +71,13 @@ function bar:SetThumbTexture(t) self.thumb = t end
 scroll.ScrollBar = bar
 local edit = CreateFrame("EditBox", nil, panel)
 edit.Left, edit.Middle, edit.Right = Region("Texture"), Region("Texture"), Region("Texture")
+-- Suchfeld: Lupe und Platzhalter wie in SearchBoxTemplate
+edit.searchIcon, edit.Instructions = Region("Texture"), Region("FontString")
+edit.insets = {16, 20, 0, 0}
+function edit:GetTextInsets() return unpack(self.insets) end
+function edit:SetTextInsets(...) self.insets = {...} end
+function edit.searchIcon:SetPoint(_, _, _, x) self.x = x end
+function edit.Instructions:SetPoint(p, _, _, x) if p == "TOPLEFT" then self.x = x end end
 
 -- im Glas-Aussehen: StyleTree kleidet alles ein
 ONE.Themes:StyleTree(win)
@@ -79,6 +86,7 @@ assert(slider.__oneGlassCtl == "slider" and slider.thumb ~= thumbOld, "Regler mi
 assert(scroll.__oneGlassCtl == "scroll" and not bar.ScrollUpButton.shown and not bar.ScrollDownButton.shown and bar.thumb, "Scrollleiste ohne Pfeile")
 assert(bar.__oneGlassCtl == nil, "Schieber der Scrollleiste ist kein eigener Regler")
 assert(edit.__oneGlassCtl == "edit" and edit.Left.alpha == 0 and edit.Middle.alpha == 0, "Eingabefeld ohne Blizzard-Rahmen")
+assert(edit.searchIcon.x == 6 and edit.insets[1] == 22 and edit.Instructions.x == 22, "Lupe nicht am Rand, Text rueckt mit")
 -- Haekchen: an = Punkt sichtbar, aus = weg
 check:SetChecked(true)
 local dot

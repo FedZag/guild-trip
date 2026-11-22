@@ -47,8 +47,9 @@ end
 
 local function Try(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c, d, e, f, g = pcall(fn, ...)
-    if ok then return a, b, c, d, e, f, g end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 local function Clean(text, max)
     text = tostring(text or ""):gsub("[|;,\r\n]", " ")

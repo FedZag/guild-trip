@@ -6,6 +6,12 @@ local _, chat = ...
 local ONE = _G.ProjectONE
 local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select("#", ...) > 0 then return text:format(...) end return text end
 local Chat, UI = chat.Chat, chat.UI
+local function Call(fn, ...)
+    if type(fn) ~= "function" then return nil end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
+end
 local Hider = {saved = {}}
 chat.Hider = Hider
 
@@ -133,6 +139,63 @@ function Hider:Bind(on)
     end
 end
 
+-- ===== WoW will sein (verstecktes) Eingabefeld oeffnen (22.11.2026) =====
+-- Antworten-Taste (R), "Fluestern" im WoW-Rechtsklick-Menue, Freundesliste, andere Addons (ChatFrame_OpenChat):
+-- Ist der WoW-Chat ersetzt, landet die Eingabe sonst im unsichtbaren WoW-Feld. Stiller Nach-Hook: stattdessen
+-- das passende Gespraech hier oeffnen und den Text in unser Eingabefeld.
+function Hider.WhisperFromText(text)
+    text = tostring(text or "")
+    local cmd, name, rest = text:match("^(/%S+)%s+([^%s]+)%s*(.-)$")
+    if not cmd then return nil end
+    local low = cmd:lower()
+    for _, key in ipairs({"SLASH_WHISPER", "SLASH_SMART_WHISPER"}) do
+        for i = 1, 10 do
+            local c = rawget(_G, key .. i)
+            if type(c) == "string" and c:lower() == low then return name, rest end
+        end
+    end
+    if low == "/w" or low == "/whisper" or low == "/t" or low == "/tell" or low == "/fl" or low == "/flüstern" then return name, rest end
+    return nil
+end
+function Hider:TakeInput(text, whisperTo)
+    if not self:Enabled() then return false end
+    local function Go()
+        local name, rest = whisperTo, nil
+        if not name then name, rest = Hider.WhisperFromText(text) end
+        if name and name ~= "" then
+            UI:Show(Chat:OpenWhisper(name))
+            text = rest or ""
+        else
+            UI:Show()
+        end
+        if UI.input then
+            UI.input:SetFocus()
+            if text and text ~= "" then UI.input:SetText(text) end
+        end
+    end
+    if C_Timer and C_Timer.After then C_Timer.After(0, Go) else Go() end
+    return true
+end
+function Hider:HookOpeners()
+    if self.openersHooked or type(hooksecurefunc) ~= "function" then return end
+    self.openersHooked = true
+    if type(ChatFrame_OpenChat) == "function" then
+        hooksecurefunc("ChatFrame_OpenChat", function(text) Hider:TakeInput(text) end)
+    end
+    if type(ChatFrame_SendTell) == "function" then
+        hooksecurefunc("ChatFrame_SendTell", function(name) if type(name) == "string" then Hider:TakeInput("", name) end end)
+    end
+    for _, fn in ipairs({"ChatFrame_ReplyTell", "ChatFrame_ReplyTell2"}) do
+        if type(rawget(_G, fn)) == "function" then
+            hooksecurefunc(fn, function()
+                local last = Chat.lastWhisperFrom
+                if not last and type(ChatEdit_GetLastTellTarget) == "function" then last = Call(ChatEdit_GetLastTellTarget) end
+                Hider:TakeInput("", last)
+            end)
+        end
+    end
+end
+
 function Hider:Initialize()
     local f = CreateFrame("Frame")
     f:RegisterEvent("PLAYER_REGEN_ENABLED")
@@ -144,6 +207,7 @@ function Hider:Initialize()
         end
     end)
     if C_Timer and C_Timer.After then C_Timer.After(1, function() if Hider:Enabled() then Hider:Apply() end end) end
+    self:HookOpeners()
     if ONE.RegisterSlash then
         -- Notausgang: bringt den WoW-Chat zurueck (auch wenn das Chatfenster mal weg sein sollte)
         ONE:RegisterSlash("wowchat", function()

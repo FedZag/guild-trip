@@ -16,7 +16,7 @@ local function Text(parent, font, x, y, width, role, text)
     fs:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     fs:SetWidth(width)
     fs:SetJustifyH("LEFT")
-    if fs.SetWordWrap then fs:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(fs) end
     fs:SetText(T(text or ""))
     if ONE.Themes then ONE.Themes:RegisterText(fs, role or "text") end
     return fs
@@ -55,11 +55,7 @@ end
 -- Fluesterfenster mit fertigem Text oeffnen (Spieler sendet selbst).
 function Page:Ask(entry, crafter)
     local text = self:RequestText(entry, crafter)
-    if type(ChatFrame_OpenChat) == "function" then
-        return pcall(ChatFrame_OpenChat, "/w " .. crafter.name .. " " .. text)
-    end
-    if type(ChatFrame_SendTell) == "function" then return pcall(ChatFrame_SendTell, crafter.name) end
-    return false
+    return ONE:Whisper(crafter.name, text)
 end
 
 function Page:Build(panel)
@@ -273,13 +269,38 @@ local KIND_NAMES = {profession = "Berufe", class = "Klassen", weapon = "Waffen",
 function Page:BuildTrainers(tv, W, H)
     local Tr, store = crafting.Trainers, crafting.Recipes:Store()
     local state = {}
-    local due = Text(tv, "GameFontHighlight", 0, -32, W - 180, "text")
+    -- Jede faellige Ausbildung in eigener Zeile (22.11.2026: zweite wurde abgeschnitten)
+    local due = Text(tv, "GameFontHighlight", 0, -32, W, "text")
+    if due.SetWordWrap then due:SetWordWrap(true) end
+    due:SetHeight(40)
+    if due.SetJustifyV then due:SetJustifyV("TOP") end
     local kindButton = ONE.Kit:Dropdown(tv, {point = "TOPRIGHT", x = 0, y = -2, width = 170,
         options = function()
             return {{value = nil, text = T("Alle Lehrer")}, {value = "profession", text = T("Berufe")},
                 {value = "class", text = T("Klassen")}, {value = "weapon", text = T("Waffen")}, {value = "other", text = T("Sonstige")}}
         end,
         get = function() return store.trainerKind end, set = function(v) store.trainerKind = v end,
+        onChange = function() Page:RefreshTrainers() end})
+    -- Unterkategorie (22.11.2026): Berufe -> Angeln, Kochkunst ...; Klassen -> eigene Klasse vorgewaehlt;
+    -- Waffen -> Waffenart; Sonstige -> Reiten, Tierausbilder, Portale ... Auswahl bleibt je Art gespeichert.
+    local function SubOptions() return Tr:SubOptions(store.trainerKind, Tr:All()) end
+    local function CurrentSub()
+        local kind = store.trainerKind
+        if not kind then return nil end
+        store.trainerSub = type(store.trainerSub) == "table" and store.trainerSub or {}
+        local v = store.trainerSub[kind]
+        if v == nil and kind == "class" then v = Tr.MyClassName() end
+        for _, o in ipairs(Tr:SubOptions(kind, Tr:All())) do if o.value == v then return v end end
+        return "*"
+    end
+    Page.TrainerSub = CurrentSub
+    local subButton = ONE.Kit:Dropdown(tv, {point = "TOPRIGHT", x = -178, y = -2, width = 170,
+        options = SubOptions,
+        get = CurrentSub,
+        set = function(v)
+            store.trainerSub = type(store.trainerSub) == "table" and store.trainerSub or {}
+            if store.trainerKind then store.trainerSub[store.trainerKind] = v end
+        end,
         onChange = function() Page:RefreshTrainers() end})
     local leftW, cardX, NPCW, WHATW = 430, 442, 140, 116
     local list = ONE.Kit:List(tv, {x = 0, y = -80, width = leftW, height = H - 80, rowHeight = 22,
@@ -291,10 +312,11 @@ function Page:BuildTrainers(tv, W, H)
         render = function(row, e, cells)
             cells.npc:SetText(e.npc)
             cells.npc:SetTextColor(e.confirmed and 1 or .85, e.confirmed and .82 or .75, e.confirmed and 0 or .5)
-            cells.what:SetText(T(e.what or "?"))
+            cells.what:SetText(T(Tr.WhatName(e)))
             cells.what:SetTextColor(.9, .9, .9)
-            cells.area:SetText(T(e.area or "?"))
-            cells.area:SetTextColor(.75, .75, .75)
+            -- neutral: ganze Zelle blau (bleibt erkennbar, auch wenn ein langer Ortsname abgeschnitten wird)
+            cells.area:SetText(T(e.area or crafting.Trainers.MapName(e.map) or "?") .. (e.neutral and (" · " .. T("neutral")) or ""))
+            if e.neutral then cells.area:SetTextColor(.56, .70, 1) else cells.area:SetTextColor(.75, .75, .75) end
             if not row.selection then
                 row.selection = row:CreateTexture(nil, "BACKGROUND", nil, 1)
                 row.selection:SetAllPoints(row)
@@ -323,16 +345,20 @@ function Page:BuildTrainers(tv, W, H)
     end)
     self.refreshTrainers = function()
         kindButton:Refresh()
+        if store.trainerKind then subButton.frame:Show() subButton:Refresh() else subButton.frame:Hide() end
+        local sub = CurrentSub()
         local level = tonumber((UnitLevel and UnitLevel("player"))) or 0
         local lines = {}
         for i, d in ipairs(Tr:Due(Tr:MyProfessions(), level)) do
             if i > 2 then break end
             lines[#lines + 1] = (d.ready and "|cff80e680" or "|cffaaaaaa") .. d.text .. "|r"
         end
-        due:SetText(#lines > 0 and T("Für dich: %s", table.concat(lines, "   ·   ")) or T("Für dich: gerade keine Berufsausbildung fällig."))
+        due:SetText(#lines > 0 and T("Für dich: %s", table.concat(lines, "\n")) or T("Für dich: gerade keine Berufsausbildung fällig."))
         local items = {}
         for _, e in ipairs(Tr:All()) do
-            if not store.trainerKind or e.kind == store.trainerKind then items[#items + 1] = e end
+            if not store.trainerKind or (e.kind == store.trainerKind and Tr.MatchesSub(e, store.trainerKind, sub)) then
+                items[#items + 1] = e
+            end
         end
         list:SetItems(items)
         local still
@@ -341,12 +367,22 @@ function Page:BuildTrainers(tv, W, H)
         local e = state.entry
         if not e then name:SetText("") what:SetText("") where:SetText("") status:SetText("") hint:SetText("") guide:Hide() return end
         name:SetText(e.npc)
-        what:SetText(T(KIND_NAMES[e.kind] or "") .. ": " .. T(e.what or "?"))
-        where:SetText(T(e.area or "?"))
+        local teach = ""
+        local ws = e.kind == "weapon" and Tr.WeaponsOf(e)
+        if ws and ONE.Weapons then
+            local names = {}
+            for _, w in ipairs(ONE.Weapons.types) do if ws[w.key] then names[#names + 1] = T(w.name) end end
+            if #names > 0 then teach = " – " .. table.concat(names, ", ") end
+        end
+        what:SetText(T(KIND_NAMES[e.kind] or "") .. ": " .. T(Tr.WhatName(e)) .. teach)
+        local fac = crafting.Trainers.FactionText(e, (UnitFactionGroup and UnitFactionGroup("player")))
+        where:SetText(T(e.area or crafting.Trainers.MapName(e.map) or "?")
+            .. (fac and ("  ·  " .. (e.neutral and "|cff8fb3ff" or "") .. T("Fraktion: %s", fac) .. (e.neutral and "|r" or "")) or ""))
         if e.confirmed then
             status:SetText("|cff80e680" .. T("Bestätigt") .. "|r" .. (e.by and (" " .. T("von %s", (e.by:match("^[^-]+")) or e.by)) or "")
                 .. (e.seen and (" " .. T("am %s", Page:Date(e.seen))) or ""))
-            hint:SetText(T("Diese Position stammt aus dem Spiel: Ein Gildenmitglied hat den Lehrer angesprochen."))
+            hint:SetText(e.db and T("Diese Position stammt aus der Quest-Datenbank (genaue Spieldaten von WoW Forever).")
+                or T("Diese Position stammt aus dem Spiel: Ein Gildenmitglied hat den Lehrer angesprochen."))
         else
             status:SetText("|cffffaa33" .. T("Noch nicht bestätigt") .. "|r – " .. T("Position ungefähr (Classic-Stand)"))
             hint:SetText(T("Sobald jemand aus der Gilde mit Guild Trip diesen Lehrer anspricht, wird der Eintrag "

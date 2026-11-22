@@ -11,8 +11,9 @@ local P = lev.Planner
 
 local function Try(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c, d = pcall(fn, ...)
-    if ok then return a, b, c, d end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 
 G.CLASS = {WARRIOR = 1, PALADIN = 2, HUNTER = 4, ROGUE = 8, PRIEST = 16, SHAMAN = 64, MAGE = 128, WARLOCK = 256, DRUID = 1024}
@@ -459,6 +460,90 @@ function G.RouteFollow(route, level, inLog)
     end
     return f
 end
+-- Bessere Ausruestung aus Quests, die nicht in der Route sind (Nutzer 22.11.2026: "wird das bessere Gear mit
+-- eingerechnet?" – die Route bleibt fest, nur ein Hinweis im Kasten). Quelle: Seite Ausruestung (Way:Plan).
+-- rows = Way:Plan(...), follow = Fahrplan der Route; Ergebnis nach Verbesserung sortiert.
+G.GEAR_MIN_PLUS = 10   -- erst ab 10 % besser (oder leerer Platz) lohnt der Umweg
+function G.GearHints(rows, follow, planned)
+    local out = {}
+    follow = follow or {}
+    -- vom Planer schon eingebaut (G.GearChains): kein Hinweis mehr
+    planned = planned or {}
+    for _, row in ipairs(rows or {}) do
+        local now = row.upgrade and row.now
+        local src = now and now.sources and now.sources[1]
+        local plus = row.plus or 0
+        if src and src.kind == "q" and src.quest and plus >= G.GEAR_MIN_PLUS then
+            local id = src.quest
+            local dungeon = P and P.IsDungeonChain and P.IsDungeonChain(id)
+            if not dungeon and not (follow["accept:" .. id] or follow["obj:" .. id] or follow["turnin:" .. id]) and not planned[id] then
+                out[#out + 1] = {item = now.item, src = src, plus = plus, slot = row.slot}
+            end
+        end
+    end
+    table.sort(out, function(a, b) return a.plus > b.plus end)
+    return out
+end
+-- Ausruestungs-Quests fest einbauen (Optionen › Leveln, Standard an; Nutzer 22.11.2026): je lohnendem Platz die
+-- Questreihe ab dem ersten offenen Teil bis zur Belohnung. Nur Reihen ohne Dungeon (keine Stelle der ganzen Reihe,
+-- auch nicht danach), jeder Teil hoechstens G.GEAR_ABOVE Stufen ueber dir, nicht schon in der Route. Ob sie ohne
+-- Zickzack hineinpasst (Gebiete am Weg, Umweg), entscheidet der Planer (P.GEAR_EXTRA).
+G.GEAR_ABOVE = 3
+G.GEAR_CHAIN_MAX = 15
+function G.GearChains(rows, follow, level, done)
+    local Q = rawget(_G, "GuildTripQuestDB")
+    if not (Q and Q.q) then return {} end
+    follow, done = follow or {}, done or function() return false end
+    local out, seen = {}, {}
+    local function InRoute(id) return follow["accept:" .. id] or follow["obj:" .. id] or follow["turnin:" .. id] end
+    for _, row in ipairs(rows or {}) do
+        local now = row.upgrade and row.now
+        local src = now and now.sources and now.sources[1]
+        local id = src and src.kind == "q" and src.quest
+        if id and (row.plus or 0) >= G.GEAR_MIN_PLUS and not seen[id] and not InRoute(id) then
+            seen[id] = true
+            -- Reihe rueckwaerts bis zum ersten erledigten Teil
+            local list, back, cur = {id}, {[id] = true}, id
+            while #list < G.GEAR_CHAIN_MAX do
+                local e = Q.q[cur]
+                local pre = e and ((type(e[9]) == "table" and e[9][1]) or (type(e[5]) == "table" and e[5][1])) or nil
+                if e and type(e[5]) == "table" then for _, p in ipairs(e[5]) do if done(p) then pre = p break end end end
+                if not pre or back[pre] or done(pre) then break end
+                back[pre] = true
+                table.insert(list, 1, pre)
+                cur = pre
+            end
+            local ok = true
+            for _, q in ipairs(list) do
+                local e = Q.q[q]
+                if not e or (e[1] or 0) > (level or 1) + G.GEAR_ABOVE or P.IsDungeonChain(q) or InRoute(q) then ok = false break end
+            end
+            -- und nach der Belohnung: fuehrt die Reihe weiter in einen Dungeon, nicht anfangen
+            local nx, n = (Q.q[id] or {})[12], 0
+            while ok and nx and nx > 0 and n < G.GEAR_CHAIN_MAX do
+                if P.IsDungeonChain(nx) then ok = false end
+                nx, n = (Q.q[nx] or {})[12], n + 1
+            end
+            if ok then out[#out + 1] = list end
+        end
+    end
+    return out
+end
+G.GEAR_EVERY = 60      -- Sekunden: Ausruestungs-Plan ist teuer, nicht bei jedem Neuplanen rechnen
+function G:GearRows(level)
+    local W = lev.Way
+    if not (W and W.Plan) then return nil end
+    local now = Try(GetTime) or 0
+    local c = self.gearCache
+    if c and c.level == level and now - c.at < G.GEAR_EVERY then return c.rows end
+    local ok, rows = pcall(W.Plan, W)
+    self.gearCache = {level = level, at = now, rows = ok and rows or nil}
+    return self.gearCache.rows
+end
+
+-- Schalter "Ausruestungs-Quests einbauen" (Optionen › Leveln), Standard an
+function G:GearOn() return self:DB().gearQuests ~= false end
+
 -- Quests im Log, die nicht zur Route gehoeren (Nutzer: "eigener Hinweis – abbrechen oder nebenbei")
 function G.OffRoute(follow, logIDs, plan)
     local out = {}
@@ -502,6 +587,10 @@ function G:Replan(follow)
             ctx.route, ctx.flow = true, true
             ctx.follow = G.RouteFollow(route, ctx.me.level or 1, ctx.inLog)
             ctx.followLoops = nil
+            if self:GearOn() then
+                local gc = G.GearChains(self:GearRows(ctx.me.level or 1), ctx.follow, ctx.me.level, ctx.done)
+                if #gc > 0 then ctx.gear = gc end
+            end
         elseif follow and not self.fresh then
             local saved = not self.plan and self:SavedFollow() or nil
             -- Fahrplan vom alten Planer (vor den Schleifen, 21.11.2026, ohne Runden): nicht weiterfahren – frisch planen
@@ -530,6 +619,9 @@ function G:Replan(follow)
                 end
                 self.plan.vendorHint = best
             end
+            -- bessere Ausruestung aus Quests ausserhalb der Route: nur Hinweis
+            local gh = G.GearHints(self:GearRows(ctx.me.level or 1), ctx.follow, self.plan.gearIn)
+            if #gh > 0 then self.plan.gearHint = gh end
         end
         -- Arbeitsgebiet je Figur merken (uebersteht Abstecher und /reload)
         if self.plan then

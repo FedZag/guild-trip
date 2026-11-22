@@ -105,8 +105,9 @@ Tr.BLIZZARD = {"ObjectiveTrackerFrame", "QuestWatchFrame", "WatchFrame"}
 
 local function Try(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c = pcall(fn, ...)
-    if ok then return a, b, c end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 
 function Tr:Create()
@@ -194,15 +195,25 @@ function Tr:Create()
         function() return T("Navi zum nächsten Schritt"), Tr.step and G:StepText(Tr.step, true) or "" end)
     f.dist = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     f.dist:SetPoint("RIGHT", f.arrow, "LEFT", -4, 0)
-    f:SetScript("OnMouseUp", function(_, button)
-        if button == "RightButton" and ONE.UI then ONE.UI:Show() ONE.UI:OpenLink("leveling") end
-    end)
+    -- Zahnrad nur beim Drueberfahren; Rechtsklick -> Menue (Quest-Seite, Einstellungen, Aussehen) – 22.11.2026
+    if ONE.WindowLook and ONE.WindowLook.Attach then
+        ONE.WindowLook:Attach(f, gear, {def = Tr.LOOK, frameClick = true, title = "Quest-Führung", menu = function()
+            return {
+                {text = "Quest-Seite öffnen", func = function() if ONE.UI then ONE.UI:Show() ONE.UI:OpenLink("leveling") end end},
+                {text = "Einstellungen der Quest-Führung", func = function() lev.Settings:Toggle() end},
+            }
+        end})
+    else
+        f:SetScript("OnMouseUp", function(_, button)
+            if button == "RightButton" and ONE.UI then ONE.UI:Show() ONE.UI:OpenLink("leveling") end
+        end)
+    end
     f:SetScript("OnEnter", function(self)
         Tr:Frame(true)
         if GameTooltip then
             GameTooltip:SetOwner(self, "ANCHOR_LEFT")
             GameTooltip:AddLine(T("Guild Trip: Quest-Führung"), 1, .82, 0)
-            GameTooltip:AddLine(T("Ziehen = verschieben, Rechtsklick = Quest-Seite, Pfeil = Navi, Zahnrad = Aussehen und Einstellungen."), 1, 1, 1, true)
+            GameTooltip:AddLine(T("Ziehen = verschieben, Rechtsklick = Menü (Quest-Seite, Einstellungen, Aussehen), Pfeil = Navi."), 1, 1, 1, true)
             GameTooltip:Show()
         end
     end)
@@ -267,7 +278,8 @@ function Tr:Line(i)
     if not fs then
         fs = self.frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         fs:SetJustifyH("LEFT")
-        if fs.SetWordWrap then fs:SetWordWrap(false) end
+        -- einzeilig, notfalls etwas enger; voller Text im Tooltip der Zeile (Tr:Hit)
+        if ONE.Fit then ONE.Fit:Line(fs, false) end
         if fs.SetShadowOffset then fs:SetShadowOffset(1, -1) fs:SetShadowColor(0, 0, 0, 1) end
         self.lines[i] = fs
     end
@@ -301,7 +313,6 @@ function Tr:Stroke(fs, on)
             local c = self.frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
             if c.SetDrawLayer then c:SetDrawLayer("ARTWORK", 7) end
             if c.SetShadowOffset then c:SetShadowOffset(0, 0) end
-            if c.SetWordWrap then c:SetWordWrap(false) end
             if c.SetMaxLines then c:SetMaxLines(1) end
             s[k] = c
         end
@@ -404,6 +415,13 @@ function Tr.Objectives(id)
     return out
 end
 
+-- Gegenstandsname (kommt evtl. erst vom Server nach)
+function Tr.ItemName(id)
+    local name = (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)) or (GetItemInfo and GetItemInfo(id))
+    if not name and C_Item and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, id) end
+    return name or ("#" .. id)
+end
+
 -- Inhalt als Zeilen {text, kind, right, nav, tip} – nach Quests aufgeteilt (Nutzer 17.11.2026):
 --   JETZT          der eine Schritt, gross: Name, was/bei wem, Gebiet/Ort, Entfernung/Zeit
 --   ALS NAECHSTES  die naechsten (hoechstens 3) Schritte, NPC rechts
@@ -460,6 +478,14 @@ function Tr:Rows(plan, budget)
         local where = Tr.NowWhere(s1)
         if where then rows[#rows + 1] = {text = where, kind = "where", block = "now"} end
         rows[#rows + 1] = {text = Tr:NowEta(s1) or "", kind = "eta", block = "now"}
+        -- Fortschritt der Quest direkt unter der Quest (Nutzer 22.11.2026), Hinweise erst danach
+        if s1.kind == "obj" and not multi then
+            for _, a in ipairs(s1.actions) do
+                for _, o in ipairs(Tr.Objectives(a.id)) do
+                    rows[#rows + 1] = {text = (o.done and "|cff808080" or "") .. o.text .. (o.done and "|r" or ""), kind = "obj"}
+                end
+            end
+        end
         local warn = Tr.Warning(s1)
         if warn then rows[#rows + 1] = {text = warn, kind = "who", block = "now"} end
         -- Abkuerzungen: Ruhestein benutzen/setzen, Geistheiler (Hearth.lua)
@@ -501,6 +527,20 @@ function Tr:Rows(plan, budget)
                     if nav and nav.PointTo then nav:PointTo(vh.name or T("Händler"), vh.mapID, vh.x, vh.y) end
                 end}
         end
+        -- bessere Ausruestung aus einer Quest ausserhalb der Route (Nutzer 22.11.2026), Klick = Navi zum Questgeber
+        local gh = plan.gearHint
+        if gh and gh[1] then
+            local h = gh[1]
+            local more = #gh > 1 and (" " .. T("(+%d)", #gh - 1)) or ""
+            local tip = {T("Nicht in der Route – lohnt sich, wenn du in der Nähe bist. Klicken: Navi zum Questgeber.")}
+            for _, x in ipairs(gh) do
+                tip[#tip + 1] = "• " .. T("%s: %s – %s", T(x.slot and x.slot.name or "?"), Tr.ItemName(x.item.id),
+                    lev.Way and lev.Way.SourceText(x.src, true) or "") .. " (" .. (x.plus >= 100 and T("neu") or ("+" .. x.plus .. " %")) .. ")"
+            end
+            rows[#rows + 1] = {text = Tr.Code("hint") .. T("Besser für dich: %s", Tr.ItemName(h.item.id)) .. more .. "|r", kind = "who", block = "now",
+                tip = table.concat(tip, "\n"),
+                click = function() if lev.Way then lev.Way:Get(h.src, h.item.id) end end}
+        end
         -- feste Route: Quests im Log, die nicht dazugehoeren (Nutzer 21.11.2026: "eigener Hinweis")
         local off = plan.offRoute or {}
         if #off > 0 then
@@ -512,13 +552,6 @@ function Tr:Rows(plan, budget)
             rows[#rows + 1] = {text = Tr.Code("hint") .. T("Nicht im Plan: %s", table.concat(names, ", ")) .. more .. "|r", kind = "who", block = "now",
                 tip = T("Gehört nicht zur Route. Nebenbei machen oder abbrechen – klicken: abbrechen mit Rückfrage, Guild Trip bricht nie von selbst ab."),
                 click = function() G:AskAbandon(ids) end}
-        end
-        if s1.kind == "obj" and not multi then
-            for _, a in ipairs(s1.actions) do
-                for _, o in ipairs(Tr.Objectives(a.id)) do
-                    rows[#rows + 1] = {text = (o.done and "|cff808080" or "") .. o.text .. (o.done and "|r" or ""), kind = "obj"}
-                end
-            end
         end
     end
     -- ALS NAECHSTES (Nutzer 18.11.2026, statt "Noch annehmen"): die naechsten hoechstens MAX_NEXT
@@ -871,7 +904,11 @@ end
 function Tr:Hit(i, r, st, y, W)
     self.hits = self.hits or {}
     local b = self.hits[i]
-    if not (r.nav or r.tip or r.click) then if b then b:Hide() end return end
+    -- gekuerzte Zeile: Flaeche fuer den Tooltip mit dem ganzen Text (22.11.2026: nichts abgeschnitten lassen)
+    local fs, right = self.lines[i], self.rights and self.rights[i]
+    local Cut = ONE.Fit and ONE.Fit.Truncated
+    local cut = Cut and ((fs and fs:IsShown() and Cut(fs)) or (right and right:IsShown() and Cut(right)))
+    if not (r.nav or r.tip or r.click or cut) then if b then b:Hide() end return end
     if not b then
         b = CreateFrame("Button", nil, self.frame)
         b:RegisterForDrag("LeftButton")
@@ -891,7 +928,7 @@ function Tr:Hit(i, r, st, y, W)
             Tr:Frame(true)
             if not GameTooltip then return end
             GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-            GameTooltip:AddLine(self.title or "", 1, .82, 0)
+            if (self.title or "") ~= "" then GameTooltip:AddLine(self.title, 1, .82, 0) end
             if self.tip then GameTooltip:AddLine(self.tip, 1, 1, 1, true) end
             if self.nav then GameTooltip:AddLine(T("Klick: Navi dorthin"), .6, .6, .6) end
             if #Tr.QuestIDs(self.nav) > 0 then GameTooltip:AddLine(T("Rechtsklick: Quest abwählen"), .6, .6, .6) end
@@ -901,6 +938,10 @@ function Tr:Hit(i, r, st, y, W)
         self.hits[i] = b
     end
     b.nav, b.tip, b.click = r.nav, r.tip, r.click
+    if ONE.Fit then
+        b.__fitTexts = {fs, right}
+        if not b.__fitHooked then ONE.Fit:Line(fs, b) end
+    end
     b.title = r.nav and r.nav.qid and G.Title(r.nav.qid) or (r.nav and r.nav.step and G:StepText(r.nav.step, true, true)) or ""
     b:ClearAllPoints()
     b:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 4, y + 1)
@@ -923,7 +964,7 @@ function Tr:Update(plan, resizing)
     if type(H) ~= "number" or H <= 0 then H = G:DB().trackerHeight or Tr.HEIGHT end
     -- Kopfzeile: Titel kuerzen, damit er im schmalen Kasten nicht unter Entfernung/Pfeil/Zahnrad laeuft
     if f.head.SetWidth then f.head:SetWidth(math.max(40, W - 110)) end
-    if f.head.SetWordWrap then f.head:SetWordWrap(false) end
+    if ONE.Fit and not f.head.__fitLine then ONE.Fit:Line(f.head, false) end
     local rows = self:Rows(plan, H - 24 - 10)
     -- schmaler Kasten: Ort und Entfernung in eine Zeile
     if W < Tr.NARROW then
@@ -953,7 +994,7 @@ function Tr:Update(plan, resizing)
         -- rechte Spalte: einzeilig, notfalls mit "…" gekuerzt; im schmalen Kasten faellt die NPC-Spalte
         -- bei "Noch annehmen" weg (steht dann im Tooltip) – nie umbrechen/ueberlappen (Nutzer 18.11.2026)
         local rw = 0
-        if right.SetWordWrap then right:SetWordWrap(false) end
+        if ONE.Fit and not right.__fitLine then ONE.Fit:Line(right, false) end
         if right.SetMaxLines then right:SetMaxLines(1) end
         local showRight = r.right and r.right ~= "" and not (r.kind == "next" and W < Tr.NARROW)
         if showRight then

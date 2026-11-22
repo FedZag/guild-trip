@@ -347,7 +347,7 @@ function UI:BuildFrame(look)
             ONE.PlayerMenu:Open(self, name, {lineID = tonumber(lineID)})
             return
         end
-        if type(SetItemRef) == "function" then pcall(SetItemRef, link, text, button, self) end
+        UI.OpenLink(link, text, button, self)
     end)
     self.log = log
 
@@ -710,7 +710,7 @@ local function NewTab(bar)
     b.sq:SetPoint("LEFT", b, "LEFT", 7, 0)
     b.text = Text(b, "GameFontHighlightSmall", "text", true)
     b.text:SetPoint("LEFT", b.sq, "RIGHT", 6, 0)
-    if b.text.SetWordWrap then b.text:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(b.text, b) end
     b.pill:SetPoint("TOPRIGHT", b, "TOPRIGHT", 2, 3)
     return b
 end
@@ -1069,8 +1069,9 @@ function UI.ShiftLink(link, text, button, owner)
                 -- alter Client: Name des Fensters; neuer: Name und Fenster (StaticPopup_Visible liefert beides)
                 local a, b = StaticPopup_Visible(which)
                 local popup = (type(b) == "table" and b) or (type(a) == "table" and a) or (type(a) == "string" and _G[a])
-                local edit = type(popup) == "table" and (popup.editBox or popup.EditBox
-                    or (type(popup.GetEditBox) == "function" and select(2, pcall(popup.GetEditBox, popup))))
+                -- nur Felder LESEN, keine Blizzard-Funktion am Fenster aufrufen: sonst gilt es als vom Addon
+                -- beruehrt und WoW sperrt danach das Einladen ("ONE_Chat wurde geblockt", Spieltest 22.11.2026)
+                local edit = type(popup) == "table" and (rawget(popup, "editBox") or rawget(popup, "EditBox"))
                 if not (type(edit) == "table") and type(a) == "string" then edit = _G[a .. "EditBox"] end
                 if type(edit) == "table" and edit.SetText then edit:SetText(name) if edit.SetFocus then edit:SetFocus() end return true end
             end
@@ -1083,6 +1084,104 @@ function UI.ShiftLink(link, text, button, owner)
     -- sonst wie im WoW-Chat (Blizzard kuemmert sich: Eingabezeile, Dialoge, Anprobe …)
     if type(SetItemRef) == "function" then pcall(SetItemRef, link, text, button, owner) return true end
     return false
+end
+-- Link oeffnen wie im WoW-Chat (Gegenstand, Beruf, Quest …). Merkt die letzten Klicks fuer die Fehlersuche
+-- (Spieltest 22.11.2026: Berufs-Link [Verzauberkunst] liess sich nicht anklicken) und meldet Fehler sichtbar
+-- statt sie still zu verschlucken.
+-- Berufs-Link (Spieltest 22.11.2026): Forever oeffnet fremde Berufsfenster gar nicht (auch nicht im Gildenfenster
+-- von WoW). Darum zeigt ein Klick, was Guild Trip ueber diesen Beruf der Person weiss.
+-- Liefert {owner, prof, skill, max, recipes = {Namen}}
+function UI.TradeInfo(link, text, author)
+    local guid = tostring(link or ""):match("(Player%-%d+%-%x+)")
+    local prof = tostring(text or ""):match("%[([^%]]+)%]") or "?"
+    local owner
+    if guid and type(GetPlayerInfoByGUID) == "function" then
+        local ok, _, _, _, _, _, n, r = pcall(GetPlayerInfoByGUID, guid)
+        if ok and type(n) == "string" and n ~= "" then owner = (r and r ~= "") and (n .. "-" .. r) or n end
+    end
+    owner = owner or author
+    local info = {owner = owner, prof = prof, recipes = {}}
+    local crafting = ONE.ns and ONE.ns.crafting
+    local R = crafting and crafting.Recipes
+    if not (R and owner) then return info end
+    local store = R:Store()
+    local short = Chat.Short(owner)
+    local seen = {}
+    local function Add(id)
+        if seen[id] then return end
+        seen[id] = true
+        info.recipes[#info.recipes + 1] = R:Name(id)
+    end
+    -- von Guild Trip in der Gilde geteilt (genaueste Quelle: Stufe und alle Rezepte)
+    for name, profs in pairs(store.guild or {}) do
+        if Chat.Short(name) == short and type(profs) == "table" and type(profs[prof]) == "table" then
+            local g = profs[prof]
+            info.skill, info.max = g.skill, g.max
+            for id in pairs(type(g.recipes) == "table" and g.recipes or {}) do Add(id) end
+        end
+    end
+    -- aus Rezept-Links im Chat gemerkt
+    local links = crafting.ChatLinks
+    for name, p in pairs(links and links:Data() or {}) do
+        if Chat.Short(name) == short and type(p) == "table" then
+            for id, e in pairs(type(p.recipes) == "table" and p.recipes or {}) do
+                if type(e) == "table" and e.prof == prof then Add(id) end
+            end
+        end
+    end
+    table.sort(info.recipes)
+    return info
+end
+UI.TRADE_MAX_LINES = 15
+function UI.ShowTradeInfo(owner, link, text, author)
+    local info = UI.TradeInfo(link, text, author)
+    local who = Chat.Short(info.owner or "?")
+    local head = who .. " – " .. info.prof .. (info.skill and (" " .. tostring(info.skill) .. (info.max and ("/" .. tostring(info.max)) or "")) or "")
+    local lines = {}
+    if #info.recipes == 0 then
+        lines[1] = T("Noch keine Rezepte bekannt.")
+        lines[2] = T("Forever zeigt fremde Berufsfenster nicht – frag einfach nach.")
+    else
+        for i, r in ipairs(info.recipes) do
+            if i > UI.TRADE_MAX_LINES then lines[#lines + 1] = T("… und %d weitere", #info.recipes - UI.TRADE_MAX_LINES) break end
+            lines[#lines + 1] = r
+        end
+    end
+    UI.lastTradeInfo = {head = head, lines = lines, owner = info.owner}
+    if MenuUtil and type(MenuUtil.CreateContextMenu) == "function" then
+        MenuUtil.CreateContextMenu(owner, function(_, root)
+            if root.CreateTitle then root:CreateTitle(head) else root:CreateButton(head, function() end) end
+            for _, l in ipairs(lines) do
+                local b = root:CreateButton(l, function() end)
+                if b and b.SetEnabled then pcall(b.SetEnabled, b, false) end
+            end
+            if info.owner and info.owner ~= "" then
+                if root.CreateDivider then root:CreateDivider() end
+                root:CreateButton(T("Anflüstern"), function()
+                    if ONE.Whisper then ONE:Whisper(info.owner, T("Hi, kannst du mir mit %s helfen?", info.prof)) end
+                end)
+            end
+        end)
+    else
+        ONE:Print(head)
+        for _, l in ipairs(lines) do ONE:Print("  " .. l) end
+    end
+    return true
+end
+function UI.OpenLink(link, text, button, owner, author)
+    local kind = tostring(link or ""):match("^(%a+):") or "?"
+    if kind == "trade" then return UI.ShowTradeInfo(owner, link, text, author) end
+    local ok, err = false, "SetItemRef fehlt"
+    if type(SetItemRef) == "function" then ok, err = pcall(SetItemRef, link, text, button or "LeftButton", owner) end
+    if ONE.db then
+        local d = type(ONE.db.chatLinkDiag) == "table" and ONE.db.chatLinkDiag or {}
+        ONE.db.chatLinkDiag = d
+        table.insert(d, 1, {time = type(time) == "function" and time() or 0, kind = kind, link = tostring(link):sub(1, 120),
+            ok = ok and true or false, err = not ok and tostring(err):sub(1, 200) or nil})
+        while #d > 10 do table.remove(d) end
+    end
+    if not ok and ONE.Print then ONE:Print(T("Der Link ließ sich nicht öffnen (%s).", kind)) end
+    return ok
 end
 -- Umschalt+Klick in Taschen, Questlog usw.: Link auch in unser Eingabefeld, wenn es aktiv ist
 function UI:HookInsertLink()
@@ -1137,15 +1236,15 @@ function UI.FormatModern(entry, showKind)
         text = text:gsub(me:gsub("%p", "%%%0"), "|cffffd100" .. me .. "|r")
     end
     if s.stamps and type(date) == "function" then parts[#parts + 1] = "|cff7a7a7a" .. date("%H:%M", entry.time) .. "|r  " end
-    if entry.kind == "system" then
-        parts[#parts + 1] = "|cff99bb99" .. text .. "|r"
+    if Chat.IsPlain(entry) and entry.event ~= "CHAT_MSG_TEXT_EMOTE" then
+        parts[#parts + 1] = (entry.kind == "system" and "|cff99bb99" or Hex(color)) .. text .. "|r"
         return table.concat(parts)
     end
     if showKind and kind then parts[#parts + 1] = Hex(color) .. T(kind.label) .. "|r  " end
     local name = Chat.Short(entry.author)
     local code = Chat.ClassColorCode(entry.guid, false)
     local shown = code and (code .. name .. "|r") or (Hex(color) .. name .. "|r")
-    local link = "|Hplayer:" .. (entry.author or name) .. ":" .. tostring(entry.lineID or 0) .. "|h" .. shown .. "|h"
+    local link = entry.npc and shown or ("|Hplayer:" .. (entry.author or name) .. ":" .. tostring(entry.lineID or 0) .. "|h" .. shown .. "|h")
     if entry.inform then
         parts[#parts + 1] = "|cff9a9a9a" .. T("Du an %s", "|r" .. link .. "|cff9a9a9a") .. ":|r  "
     elseif entry.event == "CHAT_MSG_TEXT_EMOTE" or entry.kind == "emote" then

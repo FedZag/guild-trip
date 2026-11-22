@@ -362,7 +362,7 @@ function UI:SettingsRow(i)
     r.text:SetPoint("LEFT", cb, "RIGHT", 4, 0)
     r.text:SetPoint("RIGHT", r, "RIGHT", 0, 0)
     r.text:SetJustifyH("LEFT")
-    if r.text.SetWordWrap then r.text:SetWordWrap(false) end
+    if ONE.Fit then ONE.Fit:Line(r.text, r) end
     r.label = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     r.label:SetPoint("LEFT", r, "LEFT", 4, 0)
     r.label:SetJustifyH("LEFT")

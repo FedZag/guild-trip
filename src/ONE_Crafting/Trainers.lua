@@ -84,8 +84,9 @@ end
 
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c, d = pcall(fn, ...)
-    if ok then return a, b, c, d end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 
 function Trainers:Store()
@@ -277,6 +278,126 @@ function Trainers:BestFor(prof, rankName)
     return best
 end
 
+-- ===== Unterkategorien der Lehrer-Seite (22.11.2026) =====
+-- "Sonstige": Daten sind englisch (QuestieDB) -> deutscher Name und Gruppe
+Trainers.OTHER = {
+    ["Pet Trainer"] = {"Tierausbilder", "pet"},
+    ["Horse Riding Instructor"] = {"Reitlehrer (Pferd)", "riding"},
+    ["Kodo Riding Instructor"] = {"Reitlehrer (Kodo)", "riding"},
+    ["Mechanostrider Pilot"] = {"Reitlehrer (Roboschreiter)", "riding"},
+    ["Nightsaber Riding Instructor"] = {"Reitlehrer (Nachtsäbler)", "riding"},
+    ["Ram Riding Instructor"] = {"Reitlehrer (Widder)", "riding"},
+    ["Raptor Riding Trainer"] = {"Reitlehrer (Raptor)", "riding"},
+    ["Undead Horse Riding Instructor"] = {"Reitlehrer (Untotes Pferd)", "riding"},
+    ["Wolf Riding Instructor"] = {"Reitlehrer (Wolf)", "riding"},
+    ["Stablemaster and Riding Trainer"] = {"Stallmeister und Reitlehrer", "riding"},
+    ["Portale"] = {"Portale", "portal"},
+    ["Armor Crafter"] = {"Rüstungshandwerker", "smith"},
+    ["Armorsmith"] = {"Rüstungsschmied", "smith"},
+    ["Weapon Crafter"] = {"Waffenhandwerker", "smith"},
+    ["Special Weapon Crafter"] = {"Spezialwaffenhandwerker", "smith"},
+    ["Weaponsmith"] = {"Waffenschmied", "smith"},
+    ["Medic"] = {"Sanitäter", "misc"},
+    ["Fisher"] = {"Fischer", "misc"},
+    ["Superior Butcher"] = {"Meisterschlachter", "misc"},
+    ["Emerald Circle"] = {"Zirkel des Smaragds", "misc"},
+}
+Trainers.OTHER_GROUPS = {
+    {key = "riding", name = "Reiten"}, {key = "pet", name = "Tierausbilder"}, {key = "portal", name = "Portale"},
+    {key = "smith", name = "Schmiede-Spezialisierung"}, {key = "misc", name = "Weitere"},
+}
+-- Anzeigename von "Fuer" (deutsch; die Seite uebersetzt mit T)
+function Trainers.WhatName(e)
+    local what = e and e.what
+    if e and e.kind == "other" then
+        if what == nil or what == "" then return "Sonstiger Lehrer" end
+        local o = Trainers.OTHER[what]
+        if o then return o[1] end
+    end
+    return what or "?"
+end
+-- Gruppe eines "Sonstige"-Lehrers
+function Trainers.OtherGroup(e)
+    local o = Trainers.OTHER[e.what or ""]
+    if o then return o[2] end
+    local w = (e.what or ""):lower()
+    if w:find("riding") or w:find("reit") then return "riding" end
+    return "misc"
+end
+-- Waffenarten eines Waffenmeisters: im Spiel gesehen, sonst Classic-Stand (ONE_Classes/Weapons.lua)
+function Trainers.WeaponsOf(e)
+    if type(e.weapons) == "table" then return e.weapons end
+    local W = ONE.Weapons
+    local seed = W and W.seedTeaches and W.seedTeaches[e.npc]
+    if not seed then return nil end
+    local out = {}
+    for _, k in ipairs(seed) do out[k] = true end
+    return out
+end
+-- Auswahl der Unterkategorie je Art: {value, text}; value "*" = alle
+function Trainers:SubOptions(kind, list)
+    local out = {{value = "*", text = "Alle"}}
+    if kind == "weapon" then
+        local W = ONE.Weapons
+        for _, w in ipairs(W and W.types or {}) do
+            if not w.free then
+                for _, e in ipairs(list) do
+                    local ws = e.kind == "weapon" and Trainers.WeaponsOf(e)
+                    if ws and ws[w.key] then out[#out + 1] = {value = w.key, text = w.name} break end
+                end
+            end
+        end
+    elseif kind == "other" then
+        for _, g in ipairs(Trainers.OTHER_GROUPS) do
+            for _, e in ipairs(list) do
+                if e.kind == "other" and Trainers.OtherGroup(e) == g.key then out[#out + 1] = {value = g.key, text = g.name} break end
+            end
+        end
+    elseif kind then
+        local seen, names = {}, {}
+        for _, e in ipairs(list) do
+            if e.kind == kind and e.what and e.what ~= "" and not seen[e.what] then seen[e.what] = true names[#names + 1] = e.what end
+        end
+        table.sort(names)
+        for _, n in ipairs(names) do out[#out + 1] = {value = n, text = n} end
+    end
+    return out
+end
+-- Klassenlehrer-Daten tragen deutsche Klassennamen (auch im englischen Spiel)
+Trainers.CLASS_DE = {WARRIOR = "Krieger", PALADIN = "Paladin", HUNTER = "Jäger", ROGUE = "Schurke", PRIEST = "Priester",
+    SHAMAN = "Schamane", MAGE = "Magier", WARLOCK = "Hexenmeister", DRUID = "Druide"}
+function Trainers.MyClassName()
+    local ok, _, token = pcall(function() return UnitClass("player") end)
+    return ok and Trainers.CLASS_DE[token] or nil
+end
+
+-- Passt der Lehrer zur Unterkategorie?
+function Trainers.MatchesSub(e, kind, sub)
+    if not sub or sub == "*" then return true end
+    if kind == "weapon" then local ws = Trainers.WeaponsOf(e) return ws and ws[sub] or false end
+    if kind == "other" then return Trainers.OtherGroup(e) == sub end
+    return e.what == sub
+end
+
+-- Gebietsname zur Karten-Nummer (vom Spiel, schon in der Spielsprache); nil, wenn unbekannt
+-- (22.11.2026: Lehrer aus der Questdatenbank hatten keinen Ort, die Seite zeigte "?")
+function Trainers.MapName(mapID)
+    if not mapID or not C_Map or type(C_Map.GetMapInfo) ~= "function" then return nil end
+    local ok, info = pcall(C_Map.GetMapInfo, mapID)
+    local n = ok and type(info) == "table" and info.name
+    return type(n) == "string" and n ~= "" and n or nil
+end
+
+-- Fraktion des Lehrers als Text: "neutral – für beide Seiten", sonst die eigene Fraktion
+-- (die Liste zeigt nur erreichbare Lehrer: eigene Fraktion und neutrale)
+function Trainers.FactionText(e, playerFaction)
+    if e.neutral then return T("neutral – für beide Seiten") end
+    if e.db or e.faction then
+        local f = e.faction or playerFaction
+        return f == "Alliance" and T("Allianz") or f == "Horde" and T("Horde") or nil
+    end
+end
+
 -- Lehrer aus ONE_QuestDB (einmal je Fraktion umgewandelt): {npc, kind, what, map, x, y, faction, confirmed, db}
 Trainers.dbCache = {}
 function Trainers.FromQuestDB(faction)
@@ -293,7 +414,7 @@ function Trainers.FromQuestDB(faction)
                 or faction ~= "Alliance" and (t[3] == 1453 or t[3] == 1455 or t[3] == 1457)
             if name and (fac == 3 or fac == want) and not enemy then
                 list[#list + 1] = {npc = name, kind = t[1], what = t[2], map = t[3], x = t[4] / 1000, y = t[5] / 1000,
-                    faction = faction, confirmed = true, db = true, npcID = id}
+                    area = Trainers.MapName(t[3]), faction = faction, neutral = fac == 3 or nil, confirmed = true, db = true, npcID = id}
             end
         end
     end
@@ -326,7 +447,8 @@ function Trainers:All()
     -- mit genauer Position. Ersetzt die ungefähre Grundliste, eigene Funde und Startpaket haben Vorrang.
     local dbList = Trainers.FromQuestDB(faction)
     for _, e in ipairs(dbList) do
-        if not byName[e.npc] then byName[e.npc] = e end
+        if not byName[e.npc] then byName[e.npc] = e
+        elseif e.neutral then byName[e.npc].neutral = true end -- eigener Fund: Fraktion aus dem Verzeichnis
     end
     for _, s in ipairs(#dbList == 0 and self.seed or {}) do
         if (s.faction or "Horde") == faction and not byName[s.npc] then

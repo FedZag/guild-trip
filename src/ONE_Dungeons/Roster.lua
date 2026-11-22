@@ -15,8 +15,9 @@ dungeons.Roster = Roster
 
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c = pcall(fn, ...)
-    if ok then return a, b, c end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 local function G(name) return rawget(_G, name) end
 -- wie Call, aber mit allen Rueckgabewerten (GetLootSlotInfo: Qualitaet ist der 5. Wert)

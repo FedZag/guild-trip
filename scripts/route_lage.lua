@@ -50,9 +50,19 @@ local ctx = {me = {level = level, xp = 0, xpMax = P.XP_NEED[level] or 13000, cla
     done = function(id) return done[id] == true end, inLog = inLog, complete = function(id) return log[id] == "done" end,
     world = World, tempo = "need", speed = 7, departures = departures, route = true, flow = true,
     follow = G.RouteFollow(route, level, inLog)}
+-- Ausruestungs-Reihen wie im Spiel (G.GearChains): Umgebung GEAR="Belohnungsquest,Belohnungsquest" (Plus 50 %)
+if os.getenv("GEAR") then
+    local rows = {}
+    for q in os.getenv("GEAR"):gmatch("%d+") do
+        rows[#rows + 1] = {slot = {}, upgrade = true, plus = 50, now = {item = {id = 0}, sources = {{kind = "q", quest = tonumber(q)}}}}
+    end
+    ctx.gear = G.GearChains(rows, ctx.follow, level, ctx.done)
+    for _, c in ipairs(ctx.gear) do print("Ausruestungs-Reihe: " .. table.concat(c, ",")) end
+end
 local c0 = os.clock()
 local plan = assert(P:Plan(ctx))
 print(("Planen: %.0f ms, %d Schritte"):format((os.clock() - c0) * 1000, #plan.steps))
+for id in pairs(plan.gearIn or {}) do print("eingebaut: " .. id) end
 local titles = GuildTripQuestDB.titles or {}
 local function ZN(m) local z = Z[m] return z and (z.name or tostring(m)) or tostring(m) end
 for i = 1, math.min(nSteps, #plan.steps) do

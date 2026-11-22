@@ -17,8 +17,20 @@ ONE:RegisterModule("chat", {
         local frame = CreateFrame("Frame")
         for event in pairs(Chat.kindByEvent) do pcall(frame.RegisterEvent, frame, event) end
         pcall(frame.RegisterEvent, frame, "PLAYER_LOGOUT")
+        -- Online-Anzeige frisch halten (Gildenliste, Freunde, Battle.net)
+        local presence = {GUILD_ROSTER_UPDATE = true, FRIENDLIST_UPDATE = true, BN_FRIEND_INFO_CHANGED = true}
+        for event in pairs(presence) do pcall(frame.RegisterEvent, frame, event) end
+        Chat.presenceEvents = presence
         frame:SetScript("OnEvent", function(_, event, ...)
             if event == "PLAYER_LOGOUT" then pcall(Chat.SaveHistory, Chat) return end
+            if Chat.presenceEvents[event] then
+                -- gebuendelt: WoW schickt diese Meldungen oft mehrmals hintereinander
+                if Chat.visible and not Chat.presencePending and C_Timer and C_Timer.After then
+                    Chat.presencePending = true
+                    C_Timer.After(.5, function() Chat.presencePending = nil if Chat.visible and UI.Refresh then UI:Refresh() end end)
+                end
+                return
+            end
             Chat:OnEvent(event, ...)
         end)
         chat.eventFrame = frame
@@ -79,5 +91,20 @@ ONE:RegisterModule("chat", {
     end,
     -- Fuer andere Module: Gespraech mit einer Person oeffnen
     OpenWhisper = function(_, name) UI:Show(Chat:OpenWhisper(name)) end,
+    -- Fluestern mit fertigem Text (Anfragen bei Herstellern, 22.11.2026): im Guild-Trip-Chat, wenn
+    -- "Fluestern hier" an ist oder der WoW-Chat ersetzt ist (sonst oeffnete sich die versteckte WoW-Zeile)
+    Compose = function(_, name, text)
+        if not (name and ONE:IsEnabled("chat")) then return false end
+        local hidden = chat.Hider and chat.Hider.Enabled and chat.Hider:Enabled()
+        if Chat:Settings().whisperHere == false and not hidden then return false end
+        UI:Show(Chat:OpenWhisper(name))
+        local box = UI.input
+        if box then
+            if box.SetText then box:SetText(text or "") end
+            if box.SetFocus then box:SetFocus() end
+            if box.SetCursorPosition and text then box:SetCursorPosition(#text) end
+        end
+        return true
+    end,
     Toggle = function() UI:Toggle() end,
 })

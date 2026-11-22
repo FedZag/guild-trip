@@ -14,8 +14,9 @@ classes.Trainer = Trainer
 
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
-    local ok, a, b, c, d = pcall(fn, ...)
-    if ok then return a, b, c, d end
+    -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
+    local r = {pcall(fn, ...)}
+    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
 end
 
 local function Store()
@@ -249,7 +250,7 @@ function Trainer:Frame()
         fs:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -30 - (i - 1) * 16)
         fs:SetWidth(272)
         fs:SetJustifyH("LEFT")
-        if fs.SetWordWrap then fs:SetWordWrap(false) end
+        if ONE.Fit then ONE.Fit:Line(fs) end
         f.rows[i] = fs
     end
     f.summary = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
