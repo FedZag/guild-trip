@@ -8,7 +8,7 @@ local want, maxSteps, verbose = arg[2] or "alle", tonumber(arg[3] or "") or 40, 
 for i = 1, #arg do if arg[i] == "-v" then verbose = true end end
 local root = "src"
 GetLocale = function() return "deDE" end
-for _, f in ipairs({"ONE_QuestDB/Data", "ONE_QuestDB/Names_deDE", "ONE_QuestDB/Objectives", "ONE_QuestDB/Services", "ONE_Leveling/Rewards", "ONE_Leveling/ClassSpells"}) do
+for _, f in ipairs({"ONE_QuestDB/Data", "ONE_QuestDB/Timed", "ONE_QuestDB/Names_deDE", "ONE_QuestDB/Objectives", "ONE_QuestDB/Services", "ONE_Leveling/Rewards", "ONE_Leveling/ClassSpells"}) do
     assert(loadfile(root .. "/" .. f .. ".lua"))()
 end
 local lev = {}
@@ -626,15 +626,15 @@ local function Run(sc)
         local opt = dofile(root:gsub("src$", "scripts") .. "/route_opt.lua")
         local c0 = os.clock()
         local out, info = opt.Run(stats.route or {}, {Q = Q, P = P, XP_NEED = XP_NEED, startXP = startXP, fps = fps,
-            known0 = known0, home0 = {World(sc.home[1], sc.home[2], sc.home[3])}, verbose = verbose, passes = tonumber(os.getenv("SIM_OPT_PASSES") or "6")})
+            known0 = known0, home0 = {World(sc.home[1], sc.home[2], sc.home[3])}, world = World, verbose = verbose, passes = tonumber(os.getenv("SIM_OPT_PASSES") or "6")})
         stats.route = out
         stats.optSaved, stats.optMoves = info.saved, info.moves
         -- weniger EP (Quests spaeter mit hoeherer Stufe abgegeben): fehlende EP am Ende mit Monster hauen
         local extra = info.xpDiff < 0 and -info.xpDiff / (P.GrindEPM(59) * (P.GRIND_REAL or .7)) or 0
         stats.optExtra = extra
         if stats.t60 then stats.t60 = stats.t60 - info.saved + extra end
-        io.stderr:write(("  GESAMT: %d Verschiebungen, %d Besuche gespart, %d Schritte weniger, %.0f min Weg gespart, EP %+d (%.0f min Hauen), %.0f s%s")
-            :format(info.moves, info.tokMoves or 0, info.removed or 0, info.saved, info.xpDiff or 0, extra, os.clock() - c0, info.skipped and " (Ausgangsroute ungueltig, unveraendert)" or "") .. "\n")
+        io.stderr:write(("  GESAMT: %d Verschiebungen, %d Ziele verlegt, Zeitquests %d umgestellt/%d raus, %d Besuche gespart, %d Schritte weniger, %.0f min Weg gespart, EP %+d (%.0f min Hauen), %.0f s%s")
+            :format(info.moves, info.objMoves or 0, info.timedFixed or 0, #(info.timedRemoved or {}), info.tokMoves or 0, info.removed or 0, info.saved, info.xpDiff or 0, extra, os.clock() - c0, info.skipped and " (Ausgangsroute ungueltig, unveraendert)" or "") .. "\n")
     end
     -- Ziele in mehreren Gebieten (Spieltest 22.11.2026, "Chens leeres Faesschen": Loewen und Ebenenschreiter im
     -- Norden, Donnerechsen im Sueden – wie ein Leitfaden je Gebiet einen eigenen Schritt): jede Zielgruppe der Quest
@@ -672,11 +672,28 @@ local function Run(sc)
         end
         local function Has(r, k, id) return r.q and (" " .. r.q .. " "):find(" " .. k .. id .. " ", 1, true) end
         -- beste Stelle k (Einfuegen vor route[k]) in ia+1 .. it fuer eine Gruppe, ohne den Halt bei skip
-        local function Best(g, ia, it, skip)
+        -- Einfuegestellen k innerhalb des Fensters einer anderen Zeitquest (Annehmen < k <= Abgeben) sind tabu – der
+        -- Optimierer hat dieses Fenster knapp geplant (harte Pruefung ZEIT)
+        local function TimedInside(id)
+            local bad, open = {}, {}
+            for j, x in ipairs(route) do
+                for k, t in (x.q or ""):gmatch("(%a)(%d+)") do
+                    t = tonumber(t)
+                    if t ~= id and Q.timed and Q.timed[t] then
+                        if k == "a" and not open[t] then open[t] = j end
+                        if k == "t" and open[t] then for q = open[t] + 1, j do bad[q] = true end open[t] = nil end
+                    end
+                end
+            end
+            return bad
+        end
+        local function Best(g, ia, it, skip, bad)
             local bd, bk, bp
             for k = ia + 1, it do
                 local a
-                for q = k - 1, 1, -1 do if q ~= skip and route[q].w then a = route[q].w break end end
+                if not bad[k] then
+                    for q = k - 1, 1, -1 do if q ~= skip and route[q].w then a = route[q].w break end end
+                end
                 local nb = k
                 if nb == skip then nb = nb + 1 end
                 local b = route[nb] and route[nb].w
@@ -705,8 +722,9 @@ local function Run(sc)
                     for k = i, #route do if Has(route[k], "t", id) then it = k break end end
                     -- je Gruppe die beste Stelle; der eigene Ziel-Halt (i) zaehlt nicht als Nachbar
                     local slots, order = {}, {}
+                    local bad = TimedInside(id)
                     for _, g in ipairs(groups) do
-                        local k, p = Best(g, math.max(ia, 0), it, i)
+                        local k, p = Best(g, math.max(ia, 0), it, i, bad)
                         if not k then slots = nil break end
                         -- an der Stelle des alten Ziel-Halts (direkt davor/danach) = dort bleiben
                         if k == i or k == i + 1 then k = i end

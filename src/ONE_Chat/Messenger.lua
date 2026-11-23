@@ -628,7 +628,7 @@ function M:BuildList(f)
         if type(t) == "table" and t.Hide then t:Hide() end
     end
     search:SetPoint("TOPLEFT", list, "TOPLEFT", 8, -6)
-    search:SetPoint("TOPRIGHT", list, "TOPRIGHT", -34, -6)
+    search:SetPoint("TOPRIGHT", list, "TOPRIGHT", -56, -6)
     search:SetHeight(20)
     search:SetAutoFocus(false)
     if search.SetTextInsets then search:SetTextInsets(8, 8, 0, 0) end
@@ -663,6 +663,28 @@ function M:BuildList(f)
     add:SetScript("OnClick", function(btn) M:NewMenu(btn) end)
     Tip(add, function() return {{T("Neues Gespräch")}, {T("Flüstern an jemanden oder eigenen Reiter anlegen")}} end)
     self.addButton = add
+    -- Freunde neben dem + (Nutzer 23.11.2026: "Knopf wie im WoW-Chat, der die Battle.net-Freunde zeigt"):
+    -- eigenes Menue, Klick oeffnet das Gespraech hier; Zahl = Freunde online
+    local friends = CreateFrame("Button", nil, list)
+    friends:SetSize(18, 18)
+    friends:SetPoint("LEFT", add, "RIGHT", 3, 0)
+    local ft = friends:CreateTexture(nil, "ARTWORK")
+    ft:SetAllPoints(friends)
+    ft:SetTexture("Interface\\FriendsFrame\\UI-Toast-FriendOnlineIcon")
+    friends.count = Text(friends, "GameFontHighlightSmall")
+    friends.count:SetPoint("BOTTOMRIGHT", friends, "BOTTOMRIGHT", 4, -3)
+    if ONE.Fit then ONE.Fit:Line(friends.count, false) end
+    -- offene Freundschaftsanfragen: rote Zahl oben rechts
+    friends.req = Text(friends, "GameFontHighlightSmall")
+    friends.req:SetPoint("TOPRIGHT", friends, "TOPRIGHT", 5, 4)
+    if ONE.Fit then ONE.Fit:Line(friends.req, false) end
+    friends.icon = ft
+    friends:SetScript("OnClick", function() M:ToggleFriends() end)
+    Tip(friends, function()
+        local on = M.FriendsOnline()
+        return {{T("Freunde")}, {T("%d online – Klick: Freunde statt Gespräche zeigen, Klick auf einen Namen öffnet das Gespräch hier.", on)}}
+    end)
+    self.friendsButton = friends
 end
 
 function M:NewMenu(owner)
@@ -733,6 +755,7 @@ end
 function M:ListRows()
     local rows = {}
     local q = (self.search or ""):lower()
+    if self.friendsMode then return self:FriendRows(q) end
     if q ~= "" then
         local hits, seen = {}, {}
         -- "Alle" zuletzt: ein Treffer gehoert zum eigentlichen Gespraech (Fluestern, Gilde …)
@@ -804,17 +827,22 @@ function M:LayoutList()
             b:SetHeight(LABEL_H)
             for _, part in ipairs({b.av, b.letter, b.online, b.onlineRim, b.name, b.time, b.preview, b.badge, b.count, b.sel}) do part:Hide() end
             M.HideAvatar(b.glass)
-            b.label:SetText(r.label)
+            b.label:SetText(r.click and (Hex(g) .. r.label .. "|r") or r.label)
             b.label:Show()
-            b:SetScript("OnClick", nil)
+            b:SetAlpha(1)
+            -- anklickbare Zeile (Freunde: "Zurueck zu den Gespraechen", WoW-Freundesliste)
+            b:SetScript("OnClick", r.click and function() r.click() end or nil)
             b:SetScript("OnEnter", nil)
-            b:EnableMouse(false)
+            b:EnableMouse(r.click and true or false)
+            if r.click then b:SetHeight(LABEL_H + 6) y = y + 6 end
             y = y + LABEL_H
         else
             b:EnableMouse(true)
             b:SetHeight(ROW_H)
             b.label:Hide()
-            self:FillConvRow(b, r, p)
+            if r.friend then self:FillFriendRow(b, r.friend, p)
+            elseif r.request then self:FillRequestRow(b, r.request, p)
+            else b:SetAlpha(1) self:FillConvRow(b, r, p) end
             y = y + ROW_H
         end
         b:Show()
@@ -1040,10 +1068,32 @@ function M:BuildMain(f)
     if ONE.Glass and ONE.Glass.Surface then ONE.Glass:Surface(box, "card") end
     box:SetScript("OnEnterPressed", function() M:SendInput() end)
     box:SetScript("OnEscapePressed", function(b)
+        if chat.SlashList and chat.SlashList:IsShown() then chat.SlashList:Hide() return end
         if M.picker and M.picker:IsShown() then M.picker:Hide() return end
         b:ClearFocus()
     end)
-    box:SetScript("OnTabPressed", function() UI:CycleWhisper(IsShiftKeyDown and IsShiftKeyDown()) end)
+    box:SetScript("OnTabPressed", function()
+        -- offene Befehlsliste: Tab setzt den Befehl ein
+        if chat.SlashList and chat.SlashList:Complete() then return end
+        UI:CycleWhisper(IsShiftKeyDown and IsShiftKeyDown())
+    end)
+    -- Pfeil hoch/runter: Befehlsliste offen = dort auswaehlen, sonst letzte Eingaben (mit oder ohne Alt).
+    -- Spieltest 23.11.2026: Alt+Pfeil kam im Feld nicht an (OnArrowPressed nur ohne Alt) -> zusaetzlich
+    -- OnKeyDown; einfacher Pfeil blaettert ebenfalls (einzeiliges Feld, sonst ohne Wirkung).
+    local function Arrow(key)
+        if key ~= "UP" and key ~= "DOWN" then return end
+        local now = (type(GetTime) == "function" and GetTime()) or 0
+        if M.arrowAt == now and M.arrowKey == key then return end -- dieselbe Taste ueber beide Wege
+        M.arrowAt, M.arrowKey = now, key
+        local alt = IsAltKeyDown and IsAltKeyDown()
+        if not alt and chat.SlashList and chat.SlashList:Move(key == "UP" and -1 or 1) then return end
+        M:HistoryStep(key == "UP" and 1 or -1)
+    end
+    box:SetScript("OnArrowPressed", function(_, key) Arrow(key) end)
+    box:SetScript("OnKeyDown", function(_, key)
+        if IsAltKeyDown and IsAltKeyDown() then Arrow(key) end
+    end)
+    box:SetScript("OnMouseUp", function(b, button) if button == "RightButton" then M:HistoryMenu(b) end end)
     local ph = Text(foot, "GameFontDisableSmall")
     ph:SetPoint("LEFT", box, "LEFT", 11, 0)
     ph:SetPoint("RIGHT", box, "RIGHT", -8, 0)
@@ -1053,13 +1103,19 @@ function M:BuildMain(f)
         ph:SetShown((box:GetText() or "") == "" and not (box.HasFocus and box:HasFocus()))
     end
     self.UpdatePlaceholder = Placeholder
-    box:SetScript("OnTextChanged", Placeholder)
+    box:SetScript("OnTextChanged", function()
+        Placeholder()
+        if chat.SlashList then chat.SlashList:Update() end
+    end)
     -- schmal auf der Liste (z. B. Enter bei ersetztem WoW-Chat): zum Gespraech wechseln
     box:SetScript("OnEditFocusGained", function()
         Placeholder()
         if M:IsNarrow() and M.page ~= "chat" then M.page = "chat" M:Layout() end
     end)
-    box:SetScript("OnEditFocusLost", Placeholder)
+    box:SetScript("OnEditFocusLost", function()
+        Placeholder()
+        if chat.SlashList then chat.SlashList:FocusLost() end
+    end)
     self.input = box
     UI.input = box
     UI.UpdatePlaceholder = Placeholder
@@ -1174,6 +1230,7 @@ function M:SendInput()
     local box = self.input
     if not box then return end
     local text = box:GetText() or ""
+    local raw = text
     local rt = self.replyTo
     if rt and text:match("%S") and text:sub(1, 1) ~= "/" then
         -- WoW-Grenze 255 Zeichen: Zitat notfalls weiter kuerzen
@@ -1188,14 +1245,69 @@ function M:SendInput()
     local sent, err = Chat:Send(UI.current, text)
     if sent then
         self:CancelReply()
-        if box.AddHistoryLine then box:AddHistoryLine(text) end
+        M.AddHistory(raw)
         box:SetText("")
+        if chat.SlashList then chat.SlashList:Hide() end
+        -- wie im WoW-Chat: nach dem Senden zurueck ins Spiel, ohne erst ESC (Nutzer 23.11.2026)
+        if box.ClearFocus then box:ClearFocus() end
         if Chat.drafts then Chat.drafts[UI.current] = nil end
         M.scroll, M.newBelow = 0, 0
         if self.picker then self.picker:Hide() end
     elseif err then
         ONE:Print(err)
     end
+end
+
+-- ===== Letzte Eingaben (Nutzer 23.11.2026: wie Alt+Pfeil im WoW-Chat, dazu Liste per Rechtsklick) =====
+-- Gespeichert wird die eigene Eingabe ohne Zitat, neueste zuerst, ohne Doppelte, hoechstens 10.
+-- Eine gewaehlte Eingabe kommt nur ins Feld, gesendet wird erst mit Enter/Senden.
+M.HISTORY_MAX = 10
+function M.History()
+    local s = Chat:Settings()
+    if type(s.inputHistory) ~= "table" then s.inputHistory = {} end
+    return s.inputHistory
+end
+function M.AddHistory(text)
+    text = tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    M.histPos, M.histDraft = nil, nil
+    if text == "" then return end
+    local h = M.History()
+    for i = #h, 1, -1 do if h[i] == text then table.remove(h, i) end end
+    table.insert(h, 1, text)
+    while #h > M.HISTORY_MAX do table.remove(h) end
+end
+function M.UseHistory(text)
+    local box = M.input
+    if not box then return end
+    box:SetText(text or "")
+    if box.SetCursorPosition then box:SetCursorPosition(#(text or "")) end
+    box:SetFocus()
+end
+-- dir 1 = aeltere Eingabe (Alt+Hoch), -1 = neuere (Alt+Runter); ganz unten steht wieder der Entwurf
+function M:HistoryStep(dir)
+    local h, box = M.History(), self.input
+    if not box or #h == 0 then return end
+    local pos = M.histPos or 0
+    if pos == 0 then M.histDraft = box:GetText() or "" end
+    pos = math.max(0, math.min(#h, pos + dir))
+    M.histPos = pos
+    M.UseHistory(pos == 0 and M.histDraft or h[pos])
+end
+function M:HistoryMenu(owner)
+    if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
+    local h = M.History()
+    MenuUtil.CreateContextMenu(owner, function(_, root)
+        if root.CreateTitle then root:CreateTitle(T("Letzte Eingaben")) end
+        if #h == 0 then
+            root:CreateButton(T("Noch nichts geschrieben"), function() end)
+            return
+        end
+        for i, text in ipairs(h) do
+            local shown = M.QuoteText(text, 40)
+            if shown == "" then shown = text:sub(1, 40) end
+            root:CreateButton(shown, function() M.histPos = i M.UseHistory(text) end)
+        end
+    end)
 end
 
 -- ===== Emoji-Auswahl =====
@@ -2063,6 +2175,325 @@ function M:Refresh()
     if not (self.frame and self.frame:IsShown()) then return end
     self:LayoutList()
     self:RefreshHead()
+    self:UpdateFriendsButton()
+end
+
+-- ===== Freunde (Battle.net + WoW), Nutzer 23.11.2026 =====
+-- Der Freunde-Knopf zeigt die Freunde in der Liste links (Messenger-Stil), Klick oeffnet das Gespraech.
+-- {name = Gespraechsname, label, bn = Konto-Nummer, online, afk, char, zone, game, classFile, level, wow}
+function M.ClassFileFromName(name)
+    if type(name) ~= "string" or name == "" then return nil end
+    for _, t in ipairs({rawget(_G, "LOCALIZED_CLASS_NAMES_MALE"), rawget(_G, "LOCALIZED_CLASS_NAMES_FEMALE")}) do
+        if type(t) == "table" then for file, n in pairs(t) do if n == name then return file end end end
+    end
+    if RAID_CLASS_COLORS and RAID_CLASS_COLORS[name:upper()] then return name:upper() end
+end
+function M.Friends()
+    local out = {}
+    local n = type(BNGetNumFriends) == "function" and tonumber((Call(BNGetNumFriends))) or 0
+    for i = 1, n or 0 do
+        local a = C_BattleNet and type(C_BattleNet.GetFriendAccountInfo) == "function" and Call(C_BattleNet.GetFriendAccountInfo, i)
+        if type(a) == "table" and type(a.battleTag) == "string" then
+            local g = type(a.gameAccountInfo) == "table" and a.gameAccountInfo or {}
+            local char = type(g.characterName) == "string" and g.characterName ~= "" and g.characterName or nil
+            out[#out + 1] = {name = a.battleTag, label = a.battleTag:match("^[^#]+") or a.battleTag, bn = a.bnetAccountID,
+                online = (g.isOnline or a.isOnline) and true or false, afk = (a.isAFK or a.isDND or g.isGameAFK) and true or false,
+                char = char, zone = g.areaName, game = not char and (g.richPresence or g.clientProgram) or nil,
+                classFile = M.ClassFileFromName(g.className), level = g.characterLevel,
+                note = type(a.note) == "string" and a.note ~= "" and a.note or nil,
+                gameAccount = g.gameAccountID, realm = g.realmName, wowGame = char and (g.clientProgram == nil or g.clientProgram == "WoW")}
+        end
+    end
+    local FL = C_FriendList
+    local m = FL and type(FL.GetNumFriends) == "function" and tonumber((Call(FL.GetNumFriends))) or 0
+    for i = 1, m or 0 do
+        local w = type(FL.GetFriendInfoByIndex) == "function" and Call(FL.GetFriendInfoByIndex, i)
+        if type(w) == "table" and type(w.name) == "string" and w.name ~= "" then
+            out[#out + 1] = {name = w.name, label = Short(w.name), online = w.connected and true or false,
+                afk = (w.afk or w.dnd) and true or false, zone = w.area, level = w.level,
+                classFile = M.ClassFileFromName(w.className), wow = true,
+                note = type(w.notes) == "string" and w.notes ~= "" and w.notes or nil}
+        end
+    end
+    table.sort(out, function(x, y)
+        if x.online ~= y.online then return x.online end
+        if (x.wow or false) ~= (y.wow or false) then return not x.wow end
+        return x.label:lower() < y.label:lower()
+    end)
+    return out
+end
+function M.FriendsOnline()
+    local n = 0
+    for _, fr in ipairs(M.Friends()) do if fr.online then n = n + 1 end end
+    return n
+end
+-- Zweite Zeile: "Testheld (17) · Brachland", "Im Menü", "abwesend · …", "offline"
+function M.FriendLine(fr)
+    if not fr.online then return T("offline") end
+    local parts = {}
+    if fr.char then parts[#parts + 1] = fr.char .. ((tonumber(fr.level) or 0) > 0 and (" (" .. fr.level .. ")") or "")
+    elseif fr.wow and (tonumber(fr.level) or 0) > 0 then parts[#parts + 1] = T("Stufe %d", fr.level) end
+    if type(fr.zone) == "string" and fr.zone ~= "" then parts[#parts + 1] = fr.zone end
+    if #parts == 0 and type(fr.game) == "string" and fr.game ~= "" then parts[#parts + 1] = fr.game end
+    local line = (table.concat(parts, " · "):gsub("|", ""))
+    if fr.afk then line = "|cffffd100" .. T("abwesend") .. "|r" .. (line ~= "" and (" · " .. line) or "") end
+    return line
+end
+function M:UpdateFriendsButton()
+    local b = self.friendsButton
+    if not b then return end
+    local n = M.FriendsOnline()
+    b.count:SetText(n > 0 and tostring(n) or "")
+    local req = #M.FriendRequests()
+    if b.req then b.req:SetText(req > 0 and ("|cffff4040" .. req .. "|r") or "") end
+    if b.icon then
+        local g = self:Palette().glow
+        if self.friendsMode then b.icon:SetVertexColor(g[1], g[2], g[3]) else b.icon:SetVertexColor(1, 1, 1) end
+    end
+end
+function M:ToggleFriends(on)
+    if on == nil then on = not self.friendsMode end
+    self.friendsMode = on and true or false
+    self.listScroll = 0
+    if self.friendsMode then M.page = "list" if self.Layout then self:Layout() end end
+    self:LayoutList()
+    self:UpdateFriendsButton()
+end
+function M:FriendRows(q)
+    local rows = {{label = T("Zurück zu den Gesprächen"), click = function() M:ToggleFriends(false) end}}
+    local req = M.FriendRequests()
+    if #req > 0 then
+        rows[#rows + 1] = {label = T("ANFRAGEN (%d)", #req), gap = true}
+        for _, r in ipairs(req) do rows[#rows + 1] = {request = r} end
+    end
+    local on, off = {}, {}
+    for _, fr in ipairs(M.Friends()) do
+        local hay = (fr.label .. " " .. (fr.char or "") .. " " .. (type(fr.zone) == "string" and fr.zone or "")):lower()
+        if q == "" or hay:find(q, 1, true) then
+            if fr.online then on[#on + 1] = fr else off[#off + 1] = fr end
+        end
+    end
+    rows[#rows + 1] = {label = T("ONLINE (%d)", #on), gap = true}
+    for _, fr in ipairs(on) do rows[#rows + 1] = {friend = fr} end
+    if #on == 0 then rows[#rows + 1] = {label = T("Gerade ist niemand online")} end
+    if #off > 0 then
+        rows[#rows + 1] = {label = T("OFFLINE (%d)", #off), gap = true}
+        for _, fr in ipairs(off) do rows[#rows + 1] = {friend = fr} end
+    end
+    rows[#rows + 1] = {label = T("Freund hinzufügen …"), gap = true, click = function() M:AskAddFriend() end}
+    rows[#rows + 1] = {label = T("Freundesliste von WoW öffnen …"), click = function()
+        if InCombatLockdown and InCombatLockdown() then ONE:Print(T("Im Kampf nicht möglich.")) return end
+        if type(ToggleFriendsFrame) == "function" then pcall(ToggleFriendsFrame) end
+    end}
+    return rows
+end
+function M:FillFriendRow(b, fr, p)
+    local cr, cg, cb
+    if fr.classFile then cr, cg, cb = ClassRGB(fr.classFile)
+    elseif not fr.wow then cr, cg, cb = .30, .70, 1
+    else cr, cg, cb = .75, .55, .85 end
+    local l, r, t, bt = M.ClassCoords(fr.classFile)
+    local icon, coords
+    if l then icon, coords = CLASS_ATLAS, {l, r, t, bt} elseif not fr.wow then icon = M.KindIcon("bnet") end
+    M.PaintAvatar(b.glass, p, cr, cg, cb, icon, coords, b.letter, UI.First and UI.First(fr.label) or fr.label:sub(1, 1))
+    b.online:SetShown(fr.online)
+    b.onlineRim:SetShown(fr.online)
+    if fr.afk then b.online:SetVertexColor(1, .82, .2) else b.online:SetVertexColor(.30, .90, .35) end
+    local nameColor = fr.wow and Hex({cr, cg, cb}) or "|cff4cb3ff"
+    b.name:SetText(nameColor .. fr.label .. "|r")
+    b.name:Show()
+    local line = M.FriendLine(fr)
+    if fr.note then line = line .. "  |cff9d8fc0" .. (fr.note:gsub("|", "")) .. "|r" end
+    b.preview:SetText(line)
+    b.preview:Show()
+    b.time:SetText(fr.wow and "WoW" or "Battle.net")
+    b.time:Show()
+    b.sel:Hide()
+    b.badge:Hide()
+    b.count:Hide()
+    b:SetAlpha(fr.online and 1 or .55)
+    b:SetScript("OnClick", function(btn, button)
+        if button == "RightButton" then M:FriendMenu(btn, fr) return end
+        M.OpenFriend(fr)
+    end)
+    Tip(b, function()
+        local out = {{fr.name, cr, cg, cb}, {M.FriendLine(fr)}}
+        if fr.note then out[#out + 1] = {T("Notiz: %s", (fr.note:gsub("|", ""))), .75, .7, .95} end
+        out[#out + 1] = {T("Klick: Gespräch hier öffnen"), .6, .6, .6}
+        out[#out + 1] = {T("Rechtsklick: Einladen, Notiz, Entfernen …"), .6, .6, .6}
+        return out
+    end)
+end
+-- Freundschaftsanfragen (Battle.net): {id, name}
+function M.FriendRequests()
+    local out = {}
+    local n = type(BNGetNumFriendInvites) == "function" and tonumber((Call(BNGetNumFriendInvites))) or 0
+    for i = 1, n or 0 do
+        local id, name = Call(BNGetFriendInviteInfo, i)
+        if id then out[#out + 1] = {id = id, name = type(name) == "string" and name ~= "" and name or "?"} end
+    end
+    return out
+end
+function M.AnswerRequest(r, accept)
+    local fn = accept and rawget(_G, "BNAcceptFriendInvite") or rawget(_G, "BNDeclineFriendInvite")
+    if type(fn) ~= "function" then return false end
+    local ok = pcall(fn, r.id)
+    if ok then ONE:Print(accept and T("Freundschaftsanfrage angenommen.") or T("Freundschaftsanfrage abgelehnt.")) end
+    if M.LayoutList then M:LayoutList() M:UpdateFriendsButton() end
+    return ok
+end
+function M:FillRequestRow(b, r, p)
+    M.PaintAvatar(b.glass, p, 1, .82, .2, M.KindIcon("bnet"), nil, b.letter, "?")
+    b.online:Hide()
+    b.onlineRim:Hide()
+    b.name:SetText("|cffffd100" .. r.name .. "|r")
+    b.name:Show()
+    b.preview:SetText(T("möchte dein Freund sein – klicken"))
+    b.preview:Show()
+    b.time:SetText("")
+    b.sel:Hide()
+    b.badge:Hide()
+    b.count:Hide()
+    b:SetAlpha(1)
+    b:SetScript("OnClick", function(btn)
+        if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
+        MenuUtil.CreateContextMenu(btn, function(_, root)
+            if root.CreateTitle then root:CreateTitle(r.name) end
+            root:CreateButton(T("Annehmen"), function() M.AnswerRequest(r, true) end)
+            root:CreateButton(T("Ablehnen"), function() M.AnswerRequest(r, false) end)
+        end)
+    end)
+    Tip(b, function() return {{r.name, 1, .82, .2}, {T("Freundschaftsanfrage über Battle.net")}, {T("Klick: Annehmen oder Ablehnen"), .6, .6, .6}} end)
+end
+
+-- Kleines Eingabefeld ueber der Suche (wie "Fluestern an …"): Hinweis, Starttext, Enter -> fn(text)
+function M:AskText(hint, initial, fn)
+    self:Build()
+    if not self.promptBox then
+        local ok, b = pcall(CreateFrame, "EditBox", nil, self.list, "InputBoxTemplate")
+        if not ok or not b then b = CreateFrame("EditBox", nil, self.list) end
+        b:SetPoint("TOPLEFT", self.searchBox, "TOPLEFT", 0, 0)
+        b:SetPoint("BOTTOMRIGHT", self.searchBox, "BOTTOMRIGHT", 0, 0)
+        if b.SetFrameLevel and self.list.GetFrameLevel then b:SetFrameLevel((self.list:GetFrameLevel() or 1) + 30) end
+        b:SetAutoFocus(true)
+        b:SetMaxLetters(120)
+        b.hint = Text(b, "GameFontDisableSmall")
+        b.hint:SetPoint("TOPLEFT", b, "BOTTOMLEFT", 2, -2)
+        b:SetScript("OnEnterPressed", function(box)
+            local text = (box:GetText() or ""):match("^%s*(.-)%s*$")
+            local done = box.fn
+            box.fn = nil
+            box:SetText("") box:Hide()
+            if done then done(text) end
+        end)
+        b:SetScript("OnEscapePressed", function(box) box.fn = nil box:SetText("") box:Hide() end)
+        b:SetScript("OnEditFocusLost", function(box) box.fn = nil box:Hide() end)
+        self.promptBox = b
+    end
+    local b = self.promptBox
+    b.hint:SetText(hint)
+    b.fn = fn
+    b:Show()
+    b:SetText(initial or "")
+    b:SetFocus()
+end
+-- Freund hinzufuegen: BattleTag (Name#1234) -> Battle.net-Anfrage, sonst WoW-Freund (Charaktername)
+function M.AddFriend(text)
+    text = tostring(text or ""):match("^%s*(.-)%s*$")
+    if text == "" then return false end
+    if text:find("#", 1, true) then
+        local fn = rawget(_G, "BNSendFriendInvite")
+        if type(fn) ~= "function" then ONE:Print(T("Battle.net-Anfragen gehen in diesem Client nicht.")) return false end
+        local ok = pcall(fn, text)
+        if ok then ONE:Print(T("Freundschaftsanfrage an %s geschickt.", text)) end
+        return ok
+    end
+    if not (C_FriendList and type(C_FriendList.AddFriend) == "function") then return false end
+    local ok = pcall(C_FriendList.AddFriend, text)
+    if ok then ONE:Print(T("%s wird als Freund hinzugefügt.", text)) end
+    return ok
+end
+function M:AskAddFriend()
+    self:AskText(T("Name oder BattleTag (Name#1234), Enter"), "", function(text) M.AddFriend(text) end)
+end
+-- Notiz setzen (leer = loeschen)
+function M.SetFriendNote(fr, note)
+    note = tostring(note or "")
+    if fr.wow then
+        local FL = C_FriendList
+        if not (FL and type(FL.SetFriendNotes) == "function") then return false end
+        return pcall(FL.SetFriendNotes, fr.name, note) == true
+    end
+    local fn = rawget(_G, "BNSetFriendNote")
+    if type(fn) ~= "function" or not fr.bn then return false end
+    return pcall(fn, fr.bn, note) == true
+end
+function M.RemoveFriend(fr)
+    local ok
+    if fr.wow then
+        ok = C_FriendList and type(C_FriendList.RemoveFriend) == "function" and pcall(C_FriendList.RemoveFriend, fr.name)
+    else
+        local fn = rawget(_G, "BNRemoveFriend")
+        ok = type(fn) == "function" and fr.bn and pcall(fn, fr.bn)
+    end
+    if ok then ONE:Print(T("%s ist nicht mehr in deiner Freundesliste.", fr.label)) end
+    return ok and true or false
+end
+-- In die Gruppe: WoW-Freund per Name, Battle.net-Freund ueber sein Spielkonto (nur wenn er WoW spielt)
+function M.CanInviteFriend(fr)
+    if not fr.online then return false end
+    if fr.wow then return true end
+    return fr.wowGame and (fr.gameAccount ~= nil or fr.char ~= nil) or false
+end
+function M.InviteFriend(fr)
+    if not fr.wow and fr.gameAccount and type(rawget(_G, "BNInviteFriend")) == "function" then
+        return pcall(BNInviteFriend, fr.gameAccount) == true
+    end
+    local name = fr.wow and fr.name or (fr.char and (fr.realm and fr.realm ~= "" and (fr.char .. "-" .. fr.realm:gsub("%s", "")) or fr.char))
+    if not name then return false end
+    if ONE.PlayerMenu and ONE.PlayerMenu.actions then
+        for _, a in ipairs(ONE.PlayerMenu.actions) do
+            if a.id == "invite" and a.run then return pcall(a.run, name) == true end
+        end
+    end
+    return false
+end
+-- Rechtsklick auf einen Freund
+function M:FriendMenu(owner, fr)
+    if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
+    MenuUtil.CreateContextMenu(owner, function(_, root)
+        if root.CreateTitle then root:CreateTitle(fr.label) end
+        root:CreateButton(T("Anschreiben"), function() M.OpenFriend(fr) end)
+        if M.CanInviteFriend(fr) then root:CreateButton(T("In Gruppe einladen"), function() M.InviteFriend(fr) end) end
+        root:CreateButton(fr.note and T("Notiz ändern …") or T("Notiz schreiben …"), function()
+            M:AskText(T("Notiz zu %s, Enter (leer = löschen)", fr.label), fr.note or "", function(text)
+                M.SetFriendNote(fr, text)
+                M:LayoutList()
+            end)
+        end)
+        if fr.wow and ONE.PlayerMenu then
+            root:CreateButton(T("Namens-Menü …"), function() ONE.PlayerMenu:Open(owner, fr.name) end)
+        end
+        if root.CreateDivider then root:CreateDivider() end
+        -- Sicherheitsfrage als zweites Menue
+        root:CreateButton(T("Freund entfernen …"), function()
+            MenuUtil.CreateContextMenu(owner, function(_, ask)
+                if ask.CreateTitle then ask:CreateTitle(T("%s wirklich entfernen?", fr.label)) end
+                ask:CreateButton(T("Ja, entfernen"), function() M.RemoveFriend(fr) M:LayoutList() end)
+                ask:CreateButton(T("Abbrechen"), function() end)
+            end)
+        end)
+    end)
+end
+-- Gespraech mit einem Freund hier oeffnen (Freunde-Ansicht schliesst sich)
+function M.OpenFriend(fr)
+    if not fr then return end
+    if fr.bn then Chat.bnIds[fr.name] = fr.bn end
+    M.friendsMode = false
+    M.page = "chat"
+    UI:Show(Chat:OpenWhisper(fr.name))
+    M:UpdateFriendsButton()
+    if M.input then M.input:SetFocus() end
 end
 
 -- Gespraech zeigen (und Fenster oeffnen). Entwurf des alten Gespraechs merken, "neue Nachrichten" setzen.
@@ -2072,6 +2503,8 @@ function M:ShowView(view)
     local old = UI.current
     if view and view ~= old then
         self:CancelReply()
+        M.histPos, M.histDraft = nil, nil
+        if chat.SlashList then chat.SlashList:Hide() end
         Chat.drafts = Chat.drafts or {}
         if self.input and old then
             local t = self.input:GetText() or ""
@@ -2101,6 +2534,7 @@ function M:ShowView(view)
 end
 function M:Hide()
     if self.frame then self.frame:Hide() end
+    if chat.SlashList then chat.SlashList:Hide() end
     Chat.visible = false
     self:UpdateInviteButton()
     if chat.Launcher and chat.Launcher.Update then chat.Launcher:Update() end

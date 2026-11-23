@@ -1,0 +1,35 @@
+-- Guild Trip Questdatenbank – automatisch erzeugt von scripts/import_timed.py, NICHT von Hand aendern.
+-- Quelle: cmangos classic-db (quest_template.LimitTime). timed[quest] = Zeitlimit in Sekunden
+local D = GuildTripQuestDB
+if not D then return end
+D.timed = {
+[28]=1800,
+[29]=1800,
+[212]=1800,
+[257]=900,
+[258]=720,
+[647]=900,
+[654]=7200,
+[812]=2700,
+[853]=2700,
+[938]=540,
+[1119]=7200,
+[1120]=7200,
+[1121]=7200,
+[1560]=1800,
+[1699]=3600,
+[1719]=600,
+[1824]=1800,
+[1955]=180,
+[1957]=600,
+[2845]=900,
+[2863]=3600,
+[2969]=360,
+[3364]=300,
+[3522]=300,
+[3843]=3600,
+[4491]=1500,
+[4961]=180,
+[5321]=1500,
+[8193]=7200,
+}

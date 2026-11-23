@@ -91,6 +91,7 @@ P.VENDOR_NEAR = 1
 P.VENDOR_MIN = .5
 P.BAG_LOW = 4
 P.DUNGEON_NEAR = 1       -- Hinweis Dungeon-(Vor-)Quest nur bei hoechstens so viel Umweg (Minuten)
+P.MISSED_NEAR = 1        -- Hinweis verpasste fruehere Annahme (Guide.RouteFollow) nur bei hoechstens so viel Umweg (Minuten)
 P.BAG_SOON = 1
 P.LOOT_PER_SLOT = 8
 -- Quest-Ziele draussen erst angehen, wenn die Queststufe hoechstens so viel ueber deiner (Plan-)Stufe liegt
@@ -474,13 +475,20 @@ function P.Travel(a, b, net)
 end
 
 -- ===== Hilfen =====
+-- Volk passt? Neue Forever-Voelker (Himmelsgeborene, me.sky) stehen in keiner alten Volks-Maske: fuer sie gelten nur
+-- Quests der ganzen Fraktion, Quests nur fuer einzelne Voelker (z. B. nur Tauren) nicht.
+function P.RaceOK(race, me)
+    if not race or race <= 0 or race >= 255 then return true end
+    if me.race then return Band(race, me.race) ~= 0 end
+    local fm = P.FACTION_MASK[me.faction]
+    if not fm then return true end
+    if me.sky then return Band(race, fm) == fm end
+    return Band(race, fm) ~= 0
+end
 local function Fits(id, e, me, done, inLog)
     if done(id) then return false end
     local race, class = e[3], e[4]
-    if race > 0 and race < 255 then
-        local mine = me.race or P.FACTION_MASK[me.faction]
-        if mine and Band(race, mine) == 0 then return false end
-    end
+    if not P.RaceOK(race, me) then return false end
     if class > 0 and me.class and Band(class, me.class) == 0 then return false end
     local sortClass = P.CLASS_SORT[e[14] or 0]
     if sortClass and me.class and sortClass ~= me.class then return false end
@@ -2211,8 +2219,9 @@ function P:Plan(ctx)
                 end
                 if #area == 0 then area = nil end
             end
+            -- pos = Weltposition des Halts (Kontinent, x, y) – fuer die Gegend-Buendel im Kasten (23.11.2026)
             steps[#steps + 1] = {kind = s.kind, nr = s.nr, key = s.key, ids = s.ids, mapID = w and w[4], x = w and w[5], y = w and w[6],
-                area = area, walk = s.walk, actions = s.kind == "dungeon" and {} or {{kind = s.kind, id = s.id}}, stopKey = P.StopKey(s), cost = 0, gain = 0}
+                pos = w and w[1] and {w[1], w[2], w[3]} or nil, area = area, walk = s.walk, actions = s.kind == "dungeon" and {} or {{kind = s.kind, id = s.id}}, stopKey = P.StopKey(s), cost = 0, gain = 0}
         end
         if not silent and steps[#steps] then
             steps[#steps].loop = steps[#steps].loop or s.loop
@@ -2251,7 +2260,7 @@ function P:Plan(ctx)
     -- feste Route: Taschen (fast) voll -> Haendler mit dem kleinsten Umweg auf dem Weg zum naechsten Schritt
     -- (Nutzer 23.11.2026: "volle Taschen beruecksichtigen"). Nur Hinweis, kein Routen-Schritt. Bis P.BAG_LOW freie
     -- Plaetze immer; davor (ctx.vendors gibt es ab G.VENDOR_BAGS) nur, wenn er praktisch am Weg liegt (P.VENDOR_NEAR)
-    local vendorHint, dungeonHint
+    local vendorHint, dungeonHint, missedHint
     -- Umweg ueber Punkt w auf dem Weg zum naechsten Schritt (ohne naechsten Schritt: hin und zurueck)
     local nextW
     if ctx.route and here then
@@ -2305,7 +2314,26 @@ function P:Plan(ctx)
             end
         end
     end
-    return {vendorHint = vendorHint, dungeonHint = dungeonHint, onWay = onWay, gearIn = gearIn, logSeen = logSeen, workZone = startWork, orderKeys = orderKeys, orderLoops = orderLoops, loops = loops, steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left, abandon = abandon,
+    -- feste Route: frueher ausgelassene Annahme, deren Geber am Weg steht (Nutzer 23.11.2026 "Ja, bauen") – nicht
+    -- zurueckschicken, nur Hinweis. ctx.missed kommt aus Guide.RouteFollow (Rest der Quest liegt noch vor einem)
+    if ctx.route and here and ctx.missed then
+        for _, m in ipairs(ctx.missed) do
+            local id = m.id
+            local e = Q.q[id]
+            local ok = e and not inLog(id) and not done(id) and (e[2] or 0) <= L and (e[1] or 0) >= P.GreyBelow(L)
+                and Fits(id, e, me, done, inLog)
+            local w = ok and World(m.n)
+            if w then
+                local d = Detour(w)
+                if d <= P.MISSED_NEAR then
+                    if not missedHint or d < missedHint.detour - .1 then
+                        missedHint = {id = id, mapID = w[4], x = w[5], y = w[6], detour = math.max(0, d), more = missedHint and (missedHint.more + 1) or 0}
+                    else missedHint.more = missedHint.more + 1 end
+                end
+            end
+        end
+    end
+    return {vendorHint = vendorHint, dungeonHint = dungeonHint, missedHint = missedHint, onWay = onWay, gearIn = gearIn, logSeen = logSeen, workZone = startWork, orderKeys = orderKeys, orderLoops = orderLoops, loops = loops, steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left, abandon = abandon,
         grind = grind, factor = factor, level = L}
 end
 
@@ -2328,10 +2356,7 @@ function P:Zones(ctx, plan)
         -- nur, was fuer Volk/Klasse ueberhaupt in Frage kommt
         local race, class = e[3], e[4]
         local ok = true
-        if race > 0 and race < 255 then
-            local mine = me.race or P.FACTION_MASK[me.faction]
-            if mine and Band(race, mine) == 0 then ok = false end
-        end
+        if not P.RaceOK(race, me) then ok = false end
         if class > 0 and me.class and Band(class, me.class) == 0 then ok = false end
         local sortClass = P.CLASS_SORT[e[14] or 0]
         if sortClass and me.class and sortClass ~= me.class then ok = false end

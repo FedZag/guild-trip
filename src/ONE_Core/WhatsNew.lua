@@ -10,6 +10,13 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.8.3-alpha"] = {
+        "Quest-Führung: Routen für alle 46 Volk-Klasse-Paare von Forever, auch Himmelsgeborene; Questziele dort, wo die Gegner stehen",
+        "Quests mit Zeitlimit: Restzeit im Kasten, Annehmen erst kurz vor dem Losgehen",
+        "Kasten: Quests in derselben Gegend gemeinsam unter JETZT; Hinweis auf früher ausgelassene Quests am Weg und auf fehlende Questdaten",
+        "Navi: rechnet alle 3 s neu und nimmt den kürzeren Weg; Fußspuren ohne gelbe Kreise",
+        "Chat: Freundesliste mit Rechtsklick-Menü, Befehlsliste beim Tippen von /, letzte Eingaben mit Pfeiltasten, Quests per Umschalt+Klick in den Chat",
+    },
     ["0.8.2-alpha"] = {
         "Quest-Führung: alle Routen neu geordnet – rund 15 % schneller bis 60, kaum noch Hin und Zurück",
         "Navi: steigt mitten auf Wegen ein und aus statt nur an festen Punkten",

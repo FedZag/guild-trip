@@ -1184,10 +1184,43 @@ function UI.OpenLink(link, text, button, owner, author)
     return ok
 end
 -- Umschalt+Klick in Taschen, Questlog usw.: Link auch in unser Eingabefeld, wenn es aktiv ist
+-- Neuer Client: Questlog/Kasten rufen ChatFrameUtil.InsertLink direkt (ChatEdit_InsertLink ist nur
+-- noch eine Kopie davon) -> beide haken, doppelte Aufrufe im selben Moment nur einmal (23.11.2026).
 function UI:HookInsertLink()
-    if self.insertHooked or type(hooksecurefunc) ~= "function" or type(ChatEdit_InsertLink) ~= "function" then return end
-    self.insertHooked = true
-    hooksecurefunc("ChatEdit_InsertLink", function(text) UI:InsertIntoInput(text) end)
+    if self.insertHooked or type(hooksecurefunc) ~= "function" then return end
+    local util = rawget(_G, "ChatFrameUtil")
+    local any = false
+    if type(util) == "table" and type(util.InsertLink) == "function" then
+        hooksecurefunc(util, "InsertLink", function(text) UI:TakeLink(text) end)
+        any = true
+    end
+    if type(rawget(_G, "ChatEdit_InsertLink")) == "function" then
+        hooksecurefunc("ChatEdit_InsertLink", function(text) UI:TakeLink(text) end)
+        any = true
+    end
+    self.insertHooked = any
+end
+-- Ist gerade ein WoW-Eingabefeld offen? Dann bekommt das den Link, nicht wir.
+function UI.WoWEditActive()
+    local util = rawget(_G, "ChatFrameUtil")
+    local get = (type(util) == "table" and util.GetActiveWindow) or rawget(_G, "ChatEdit_GetActiveWindow")
+    if type(get) ~= "function" then return false end
+    local ok, box = pcall(get)
+    return ok and box ~= nil and (not box.IsShown or box:IsShown()) and true or false
+end
+-- Link ins Feld: aktiv = immer. Offener Chat ohne aktives WoW-Feld: Quest-Links (Questlog, Kasten)
+-- und eigene Aufrufe (any); Gegenstaende nicht, sonst kaeme bei Umschalt+Klick (Stapel teilen) der Link mit.
+function UI:TakeLink(text, any)
+    if type(text) ~= "string" or text == "" then return false end
+    local now = (type(GetTime) == "function" and GetTime()) or 0
+    if self.lastLink == text and self.lastLinkAt == now then return true end
+    local done = self:InsertIntoInput(text)
+    if not done and Chat.visible and self.input and (any or text:find("|Hquest:", 1, true)) and not UI.WoWEditActive() then
+        if self.input.SetFocus then self.input:SetFocus() end
+        done = self:InsertIntoInput(text)
+    end
+    if done then self.lastLink, self.lastLinkAt = text, now end
+    return done
 end
 
 -- ===== Verlauf =====

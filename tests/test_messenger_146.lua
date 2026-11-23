@@ -89,7 +89,7 @@ ONE.PlayerMenu = {Open = function() return true end}
 -- echtes Glas (Sprechblasen-Flaechen, Zipfel)
 assert(loadfile(root .. "/ONE_Core/Glass.lua"))("ONE_Core", ONE)
 local c = {}
-for _, f in ipairs({"Chat", "Emoji", "ChatUI", "Messenger", "TabEditor", "Settings"}) do
+for _, f in ipairs({"Chat", "Emoji", "ChatUI", "Messenger", "SlashList", "TabEditor", "Settings"}) do
     assert(loadfile(root .. "/ONE_Chat/" .. f .. ".lua"))("ONE_Chat", c)
 end
 local Chat, UI, M, Emoji = c.Chat, c.UI, c.Messenger, c.Emoji
@@ -723,5 +723,317 @@ do
     -- Text so schmal wie moeglich bei gleicher Zeilenzahl: Blase = Text + Rand
     assert(r.text.w <= 180 and r.w == r.text.w + 20, "schmal und gleichmaessig: " .. r.text.w .. " / " .. r.w)
     r.text.GetNumLines = nil
+end
+-- 27) Letzte Eingaben: Alt+Pfeil und Liste per Rechtsklick (Nutzer 23.11.2026)
+do
+    local oldSend = Chat.Send
+    Chat.Send = function() return true end
+    Chat:Settings().inputHistory = nil
+    M.histPos, M.histDraft = nil, nil
+    -- mit Zitat gesendet: im Verlauf steht nur die eigene Eingabe
+    local orig = {kind = "guild", author = "Bonsai-Forever", text = "wer kann Kupfer?", time = os.time()}
+    M:StartReply(orig)
+    M.input:SetText("ich")
+    M:SendInput()
+    for _, t in ipairs({"/inv Bonsai", "  ", "hallo", "ich"}) do M.input:SetText(t) M:SendInput() end
+    local h = M.History()
+    assert(#h == 3 and h[1] == "ich" and h[2] == "hallo" and h[3] == "/inv Bonsai", "neueste zuerst, ohne Doppelte/Leere: " .. table.concat(h, ","))
+    for i = 1, 15 do M.AddHistory("nr " .. i) end
+    assert(#M.History() == 10 and M.History()[1] == "nr 15", "hoechstens 10")
+    -- Alt+Hoch/Runter wie im WoW-Chat, ganz unten kommt der Entwurf zurueck
+    local arrow = M.input.scripts.OnArrowPressed
+    M.input:SetText("Entwurf")
+    local alt = false
+    IsAltKeyDown = function() return alt end
+    local t0 = GetTime
+    local tick = 0
+    GetTime = function() tick = tick + 1 return tick end
+    -- einfacher Pfeil blaettert auch (Spieltest 23.11.2026)
+    arrow(M.input, "UP")
+    assert(M.input.text == "nr 15", "ohne Alt: " .. M.input.text)
+    arrow(M.input, "DOWN")
+    assert(M.input.text == "Entwurf", "zurueck")
+    alt = true
+    -- Alt+Pfeil kommt in Forever ueber OnKeyDown an; beide Wege im selben Moment nur einmal
+    GetTime = function() return 5 end
+    M.input.scripts.OnKeyDown(M.input, "UP")
+    arrow(M.input, "UP")
+    assert(M.input.text == "nr 15", "nur einmal: " .. M.input.text)
+    GetTime = function() tick = tick + 1 return tick end
+    M.input.scripts.OnKeyDown(M.input, "UP")
+    assert(M.input.text == "nr 14", tostring(M.input.text))
+    for _ = 1, 20 do arrow(M.input, "UP") end
+    assert(M.input.text == "nr 6", "bleibt bei der aeltesten")
+    for _ = 1, 20 do arrow(M.input, "DOWN") end
+    assert(M.input.text == "Entwurf", "zurueck zum Entwurf")
+    IsAltKeyDown = nil
+    GetTime = t0
+    -- Rechtsklick: Liste, Auswahl setzt nur ein (nicht senden)
+    local sentAny = false
+    Chat.Send = function() sentAny = true return true end
+    local oldMenu = MenuUtil
+    MenuUtil = {CreateContextMenu = function(owner, fn)
+        local root = {CreateTitle = function() end, CreateButton = function(_, label, cb) menu[#menu + 1] = {label = label, cb = cb} end}
+        menu = {}
+        fn(owner, root)
+    end}
+    M.input.scripts.OnMouseUp(M.input, "RightButton")
+    assert(#menu == 10 and menu[1].label == "nr 15", "Liste der letzten 10")
+    menu[3].cb()
+    assert(M.input.text == "nr 13" and not sentAny, "nur eingesetzt")
+    M.AddHistory(string.rep("y", 60))
+    M.input.scripts.OnMouseUp(M.input, "RightButton")
+    assert(#menu[1].label < 50, "lange Eingaben gekuerzt")
+    Chat:Settings().inputHistory = {}
+    M.input.scripts.OnMouseUp(M.input, "RightButton")
+    assert(#menu == 1, "leer: Hinweis")
+    M.input:SetText("")
+    Chat.Send = oldSend
+    MenuUtil = oldMenu
+end
+-- 28) Befehlsliste beim Tippen von "/" (Nutzer 23.11.2026)
+do
+    local SL = c.SlashList
+    local env = {SLASH_INVITE1 = "/inv", SLASH_INVITE2 = "/INVITE", SLASH_GUILDINVITE1 = "/ginvite", SLASH_TRIP1 = "/trip",
+        SLASH_SAY1 = "/s", SLASH_SAY2 = "/say", EMOTE1_CMD1 = "/wink", EMOTE2_CMD1 = "/inv", SLASH_BROKEN1 = "kein befehl", OTHER = "/x"}
+    local list = SL.Collect(env)
+    local cmds = {}
+    for i, e in ipairs(list) do cmds[i] = e.cmd end
+    assert(table.concat(cmds, " ") == "/ginvite /inv /invite /s /say /trip /wink", table.concat(cmds, " "))
+    assert(list[#list].emote and not list[2].emote, "Emotes zuletzt, Befehl schlaegt Emote")
+    assert(#SL.Filter(list, "/") == 7, "alles bei /")
+    assert(#SL.Filter(list, "/in") == 2 and #SL.Filter(list, "/INV") == 2, "kuerzer je Buchstabe")
+    assert(SL.Filter(list, "/inv Bonsai") == nil and SL.Filter(list, "hallo") == nil and SL.Filter(list, "/zz") == nil, "sonst keine Liste")
+    -- im Eingabefeld
+    SL.list, SL.builtAt = list, GetTime()
+    local box = M.input
+    local function Type(t) box:SetText(t) box.scripts.OnTextChanged(box) end
+    Type("/")
+    assert(SL:IsShown() and #SL.matches == 7 and SL.frame.rows[1].cmd.text == "/ginvite", "Liste bei /")
+    assert(SL.frame.rows[2].desc.text == "In die Gruppe einladen" and SL.frame.rows[7].desc.text == "Emote", "Erklaerungen")
+    assert(not SL.frame.rows[8].shown, "leere Zeilen aus")
+    Type("/s")
+    assert(#SL.matches == 2, "gefiltert")
+    -- Pfeil runter (ohne Alt) waehlt, Tab setzt ein mit Leerzeichen, Liste geht zu
+    IsAltKeyDown = function() return false end
+    box.scripts.OnArrowPressed(box, "DOWN")
+    assert(SL.sel == 2)
+    local cycled = false
+    local oldCycle = UI.CycleWhisper
+    UI.CycleWhisper = function() cycled = true end
+    box.scripts.OnTabPressed(box)
+    box.scripts.OnTextChanged(box)
+    assert(box.text == "/say " and not SL:IsShown() and not cycled, "Tab setzt ein: " .. box.text)
+    -- ohne Liste wechselt Tab wie bisher die Fluester-Partner
+    box.scripts.OnTabPressed(box)
+    assert(cycled, "Tab sonst wie bisher")
+    UI.CycleWhisper = oldCycle
+    -- Klick auf eine Zeile, Escape schliesst nur die Liste
+    Type("/tr")
+    SL.frame.rows[1].scripts.OnClick(SL.frame.rows[1])
+    assert(box.text == "/trip ", "Klick setzt ein")
+    Type("/")
+    box.focus = true
+    box.scripts.OnEscapePressed(box)
+    assert(not SL:IsShown() and box.focus, "Escape schliesst erst die Liste")
+    -- Mausrad blaettert, Auswahl bleibt sichtbar
+    SL.ROWS = 3
+    Type("/")
+    for _ = 1, 5 do SL:Move(1) end
+    assert(SL.sel == 6 and SL.offset == 3 and SL.frame.rows[3].cmd.text == "/trip", "mitgeblaettert")
+    SL.ROWS = 8
+    IsAltKeyDown = nil
+    Type("")
+    assert(not SL:IsShown())
+    SL.list = nil
+end
+-- 29) Quest-Links per Umschalt+Klick (Questlog/Kasten ruft ChatFrameUtil.InsertLink, Nutzer 23.11.2026)
+do
+    local hooks = {}
+    hooksecurefunc = function(a, b, c)
+        if type(a) == "table" then hooks[b] = c else hooks[a] = b end
+    end
+    local quest, item = "|cffffff00|Hquest:7:5|h[Kobolde]|h|r", "|cffffffff|Hitem:25|h[Schwert]|h|r"
+    ChatFrameUtil = {InsertLink = function() return false end, GetActiveWindow = function() return nil end}
+    ChatEdit_InsertLink = ChatFrameUtil.InsertLink
+    UI.insertHooked = nil
+    UI:HookInsertLink()
+    assert(hooks.InsertLink and hooks.ChatEdit_InsertLink, "beide Wege gehakt")
+    local tick = 100
+    GetTime = function() return tick end
+    local box = M.input
+    box.text, box.focus = "", false
+    Chat.visible = true
+    -- Chat offen, Feld nicht aktiv: Quest-Link kommt rein (und nur einmal ueber beide Wege)
+    hooks.InsertLink(quest) hooks.ChatEdit_InsertLink(quest)
+    assert(box.text == quest and box.focus, "Quest-Link ins offene Chatfeld: " .. box.text)
+    -- Gegenstaende nur bei aktivem Feld (Umschalt+Klick teilt sonst Stapel)
+    box.text, box.focus = "", false
+    tick = 101
+    hooks.InsertLink(item)
+    assert(box.text == "", "Gegenstand nicht ohne aktives Feld")
+    box.focus = true
+    hooks.InsertLink(item)
+    assert(box.text == item, "aktives Feld: alles")
+    -- offenes WoW-Eingabefeld hat Vorrang
+    box.text, box.focus = "", false
+    tick = 102
+    ChatFrameUtil.GetActiveWindow = function() return {IsShown = function() return true end} end
+    hooks.InsertLink(quest)
+    assert(box.text == "", "WoW-Feld offen: dort")
+    ChatFrameUtil.GetActiveWindow = function() return nil end
+    -- Chat zu: nichts
+    Chat.visible = false
+    tick = 103
+    hooks.InsertLink(quest)
+    assert(box.text == "", "Chat zu: nichts")
+    -- eigener Aufruf (Planer): offener Chat bekommt alles
+    Chat.visible = true
+    tick = 104
+    assert(UI:TakeLink(quest, true) and box.text == quest)
+    box.text, box.focus = "", false
+    Chat.visible, ChatFrameUtil, ChatEdit_InsertLink, hooksecurefunc = false, nil, nil, nil
+    GetTime = function() return clock end
+end
+-- 30) Nach dem Senden zurueck ins Spiel (Nutzer 23.11.2026: "erst wieder mit ESC raus")
+do
+    local oldSend = Chat.Send
+    Chat.Send = function() return true end
+    M.input.text, M.input.focus = "hallo", true
+    M:SendInput()
+    assert(M.input.focus == false and M.input.text == "", "Fokus weg nach dem Senden")
+    -- nicht gesendet (Fehler): Text und Fokus bleiben
+    Chat.Send = function() return false, "Fehler" end
+    M.input.text, M.input.focus = "hallo", true
+    M:SendInput()
+    assert(M.input.focus == true and M.input.text == "hallo", "bei Fehler bleibt alles")
+    M.input.text, M.input.focus = "", false
+    Chat.Send = oldSend
+end
+-- 31) Freunde-Knopf: Freunde in der Liste links (Messenger-Stil), Klick oeffnet das Gespraech hier (Nutzer 23.11.2026)
+do
+    BNGetNumFriends = function() return 3 end
+    local accs = {
+        {battleTag = "Zora#1234", bnetAccountID = 11, gameAccountInfo = {isOnline = true, characterName = "Testheld", characterLevel = 17,
+            areaName = "Brachland", className = "Magier"}},
+        {battleTag = "Anton#99", bnetAccountID = 12, gameAccountInfo = {isOnline = false}},
+        {battleTag = "Bert#5", bnetAccountID = 13, isAFK = true, gameAccountInfo = {isOnline = true, richPresence = "Im Menü"}},
+    }
+    C_BattleNet = {GetFriendAccountInfo = function(i) return accs[i] end}
+    LOCALIZED_CLASS_NAMES_MALE = {MAGE = "Magier", WARRIOR = "Krieger"}
+    C_FriendList = {GetNumFriends = function() return 1 end,
+        GetFriendInfoByIndex = function() return {name = "Testfreund", connected = true, level = 20, className = "Krieger", area = "Durotar"} end}
+    local list = M.Friends()
+    local names = {}
+    for i, fr in ipairs(list) do names[i] = fr.name end
+    assert(table.concat(names, ",") == "Bert#5,Zora#1234,Testfreund,Anton#99", "online zuerst, Battle.net vor WoW: " .. table.concat(names, ","))
+    assert(list[2].classFile == "MAGE" and list[3].classFile == "WARRIOR", "Klasse aus dem Namen")
+    assert(M.FriendLine(list[2]) == "Testheld (17) · Brachland", M.FriendLine(list[2]))
+    assert(M.FriendLine(list[1]):find("abwesend", 1, true) and M.FriendLine(list[1]):find("Im Menü", 1, true))
+    assert(M.FriendLine(list[3]) == "Stufe 20 · Durotar" and M.FriendLine(list[4]) == "offline")
+    assert(M.friendsButton and M.friendsButton.parent == M.list, "Knopf an der Suche")
+    M:UpdateFriendsButton()
+    assert(M.friendsButton.count.text == "3", "Zahl online")
+    -- Klick: Liste zeigt Freunde statt Gespraeche
+    M.frame.shown = true
+    M.friendsButton.scripts.OnClick(M.friendsButton)
+    assert(M.friendsMode, "Freunde-Ansicht an")
+    local rows = M:ListRows()
+    assert(rows[1].click and rows[2].label:find("ONLINE (3)", 1, true), "Zurueck + Online-Ueberschrift")
+    assert(rows[3].friend.name == "Bert#5" and rows[6].label:find("OFFLINE (1)", 1, true) and rows[7].friend.name == "Anton#99")
+    assert(rows[#rows].click and rows[#rows].label:find("Freundesliste", 1, true), "WoW-Liste unten")
+    -- Zeilen gefuellt: Name, zweite Zeile, offline blass
+    M:LayoutList()
+    local zora
+    for _, b in ipairs(M.convRows) do if b.shown and b.name.text:find("Zora", 1, true) then zora = b end end
+    assert(zora and zora.preview.text == "Testheld (17) · Brachland" and zora.online.shown, "Freundeszeile")
+    -- Suche filtert Freunde
+    M.search = "durotar"
+    rows = M:ListRows()
+    assert(rows[3].friend.name == "Testfreund" and #rows == 5, "Suche")
+    M.search = ""
+    -- Klick auf Freund: Gespraech hier, Ansicht zurueck auf Gespraeche, Konto-Nummer gemerkt
+    zora.scripts.OnClick(zora, "LeftButton")
+    assert(UI.current == "w:Zora#1234" and Chat.bnIds["Zora#1234"] == 11 and not M.friendsMode, tostring(UI.current))
+    -- "Zurueck zu den Gespraechen"
+    M:ToggleFriends(true)
+    M:ListRows()[1].click()
+    assert(not M.friendsMode)
+    -- Notiz in der Zeile, Rechtsklick-Menue, Notiz aendern, Entfernen mit Sicherheitsfrage, Einladen
+    accs[1].note = "Raidleiter"
+    local notes, removed, invited = {}, nil, nil
+    BNSetFriendNote = function(id, n) notes[id] = n end
+    BNRemoveFriend = function(id) removed = id end
+    BNInviteFriend = function(id) invited = id end
+    accs[1].gameAccountInfo.gameAccountID = 77
+    M:ToggleFriends(true)
+    M:LayoutList()
+    for _, b in ipairs(M.convRows) do if b.shown and b.name.text:find("Zora", 1, true) then zora = b end end
+    assert(zora.preview.text:find("Raidleiter", 1, true), "Notiz in der Zeile")
+    local menus = {}
+    local oldMenu = MenuUtil
+    MenuUtil = {CreateContextMenu = function(_, fn)
+        local m = {buttons = {}}
+        function m:CreateTitle(t) self.title = t end
+        function m:CreateDivider() end
+        function m:CreateButton(label, cb) self.buttons[#self.buttons + 1] = {label = label, cb = cb} end
+        menus[#menus + 1] = m
+        fn(nil, m)
+    end}
+    local function Btn(m, text) for _, x in ipairs(m.buttons) do if x.label:find(text, 1, true) then return x end end end
+    zora.scripts.OnClick(zora, "RightButton")
+    local m = menus[#menus]
+    assert(m.title == "Zora" and Btn(m, "Anschreiben") and Btn(m, "In Gruppe einladen") and Btn(m, "Notiz ändern"), "Menue")
+    Btn(m, "In Gruppe einladen").cb()
+    assert(invited == 77, "Einladen ueber das Spielkonto")
+    Btn(m, "Notiz ändern").cb()
+    assert(M.promptBox.shown and M.promptBox.text == "Raidleiter", "Notiz zum Bearbeiten")
+    M.promptBox.text = "Heiler"
+    M.promptBox.scripts.OnEnterPressed(M.promptBox)
+    assert(notes[11] == "Heiler" and not M.promptBox.shown, "Notiz gesetzt")
+    Btn(m, "Freund entfernen").cb()
+    local ask = menus[#menus]
+    assert(ask.title:find("Zora", 1, true) and removed == nil, "erst fragen")
+    Btn(ask, "Abbrechen").cb()
+    assert(removed == nil)
+    Btn(ask, "Ja, entfernen").cb()
+    assert(removed == 11, "entfernt")
+    -- offline: kein Einladen
+    local anton
+    for _, fr in ipairs(M.Friends()) do if fr.name == "Anton#99" then anton = fr end end
+    assert(not M.CanInviteFriend(anton))
+    -- Freund hinzufuegen: BattleTag -> Battle.net-Anfrage, sonst WoW-Freund
+    local sentInv, added
+    BNSendFriendInvite = function(t) sentInv = t end
+    C_FriendList.AddFriend = function(n) added = n end
+    M:ListRows()[#M:ListRows() - 1].click()
+    M.promptBox.text = " Neu#4711 "
+    M.promptBox.scripts.OnEnterPressed(M.promptBox)
+    assert(sentInv == "Neu#4711", "Battle.net-Anfrage")
+    M.AddFriend("Grimbart")
+    assert(added == "Grimbart", "WoW-Freund")
+    -- Freundschaftsanfragen: oben in der Liste, rote Zahl am Knopf, Annehmen/Ablehnen
+    BNGetNumFriendInvites = function() return 1 end
+    BNGetFriendInviteInfo = function() return 501, "Neuling#1" end
+    local acc, dec
+    BNAcceptFriendInvite = function(id) acc = id end
+    BNDeclineFriendInvite = function(id) dec = id end
+    M:UpdateFriendsButton()
+    assert(M.friendsButton.req.text:find("1", 1, true), "Zahl der Anfragen")
+    rows = M:ListRows()
+    assert(rows[2].label:find("ANFRAGEN (1)", 1, true) and rows[3].request.id == 501, "Anfragen oben")
+    M:LayoutList()
+    local reqRow
+    for _, b in ipairs(M.convRows) do if b.shown and b.name.text:find("Neuling", 1, true) then reqRow = b end end
+    reqRow.scripts.OnClick(reqRow)
+    Btn(menus[#menus], "Annehmen").cb()
+    assert(acc == 501 and dec == nil, "angenommen")
+    Btn(menus[#menus], "Ablehnen").cb()
+    assert(dec == 501, "abgelehnt")
+    MenuUtil = oldMenu
+    M:ToggleFriends(false)
+    BNGetNumFriends, C_BattleNet, C_FriendList, LOCALIZED_CLASS_NAMES_MALE = nil, nil, nil, nil
+    BNSetFriendNote, BNRemoveFriend, BNInviteFriend, BNSendFriendInvite = nil, nil, nil, nil
+    BNGetNumFriendInvites, BNGetFriendInviteInfo, BNAcceptFriendInvite, BNDeclineFriendInvite = nil, nil, nil, nil
 end
 print("OK test_messenger_146")

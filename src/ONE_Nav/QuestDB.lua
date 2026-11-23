@@ -45,6 +45,7 @@ function QDB.Player()
     return {
         level = Try(UnitLevel, "player") or 1,
         race = race and QDB.RACE[race] or nil,       -- neue Voelker (Forever) -> nur Fraktion pruefen
+        sky = race ~= nil and QDB.RACE[race] == nil,  -- Himmelsgeborene: nur Quests der ganzen Fraktion
         class = class and QDB.CLASS[class] or nil,
         faction = Try(UnitFactionGroup, "player") or "?",
     }
@@ -63,8 +64,10 @@ function QDB.Fits(id, e, me)
     if min > 0 and min > me.level then return false end
     if lvl > 0 and (lvl > me.level + 2 or lvl < me.level - 8) then return false end
     if race > 0 and race < 255 then
-        local mine = me.race or QDB.FACTION_MASK[me.faction]
+        local fm = QDB.FACTION_MASK[me.faction]
+        local mine = me.race or fm
         if mine and Band(race, mine) == 0 then return false end
+        if not me.race and me.sky and fm and Band(race, fm) ~= fm then return false end
     end
     if class > 0 and me.class and Band(class, me.class) == 0 then return false end
     if type(pre) == "table" and #pre > 0 then

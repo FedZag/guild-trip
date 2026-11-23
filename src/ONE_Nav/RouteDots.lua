@@ -80,18 +80,20 @@ local function NewDot(parent, size)
     dot.icon:SetAllPoints()
     return dot
 end
+-- Kurven ohne eigenes Zeichen: Fussspur bzw. normaler Punkt, keine gelben Kreise (Nutzer 23.11.2026)
 local function Style(dot, p, size, foot)
-    if foot and not p.turn then
+    if foot then
         dot.icon:SetTexture(TEX .. (foot.left and "RouteFootL.tga" or "RouteFootR.tga"))
         dot:SetSize(size, size)
         if dot.icon.SetRotation then dot.icon:SetRotation(foot.angle or 0) end
         dot:SetAlpha(foot.alpha or 1)
         return
     end
-    dot.icon:SetTexture(TEX .. (p.turn and "RouteTurn.tga" or "RouteDot.tga"))
+    -- Kurven nicht extra hervorheben (Nutzer 23.11.2026: "die Kurven muessen doch nicht angezeigt werden")
+    dot.icon:SetTexture(TEX .. "RouteDot.tga")
     if dot.icon.SetRotation then dot.icon:SetRotation(0) end
     dot:SetAlpha(1)
-    dot:SetSize(p.turn and size * 1.6 or size, p.turn and size * 1.6 or size)
+    dot:SetSize(size, size)
 end
 
 -- ===== Minimap =====
@@ -114,7 +116,7 @@ function D:RefreshMinimap()
                 local sx, sy = P.MinimapOffset({pc, px, py}, {pc, p.x, p.y}, diameter, size, facing)
                 if sx then
                     local e = {p = p, sx = sx, sy = sy}
-                    if feet and not p.turn then
+                    if feet then
                         count = count + 1
                         local dx, dy = sx - lx, sy - ly
                         local len = math.sqrt(dx * dx + dy * dy)
@@ -195,7 +197,7 @@ function D:RefreshMap()
                     dot:SetPoint("CENTER", canvas, "TOPLEFT", mx * w, -my * h)
                     -- Weltkarte: Fussspuren ruhig (ohne Aufleuchten), zur Laufrichtung gedreht
                     local foot
-                    if feet and not p.turn then
+                    if feet then
                         count = count + 1
                         local dx, dy = lastX and (mx - lastX) * w or 0, lastY and -(my - lastY) * h or 1
                         foot = {left = count % 2 == 1, angle = self.Angle(dx, dy), alpha = .9}

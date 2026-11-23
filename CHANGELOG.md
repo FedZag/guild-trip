@@ -4,6 +4,28 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.8.3-alpha (veröffentlicht 23.11.2026)
+
+```
+## 0.8.3-alpha
+
+**English**
+- Quest guide: fixed routes for all 46 race/class pairs in Forever (e.g. Orc Mage, Human Hunter), Skyborn follow a route of their faction. Quest objectives are placed where the monsters actually are (e.g. raptor horns in the Northern Barrens).
+- Timed quests: time left shows in the quest box (red below 5 min); the route accepts them only right before you go.
+- Quest box: quests in the same area are grouped under NOW with one time; two visits to the same quest giver become one step; a hint shows skipped quests whose giver is on your way; a hint when a zone has no quest data yet (e.g. Zephras).
+- Navi: recalculates from your position every 3 s and takes the shorter way; footprints no longer have yellow circles at bends.
+- Chat: friends list (Battle.net and WoW) with right-click menu, notes, add/remove; command list when typing /; recent inputs with arrow keys; Shift+click quests from planner, box and quest log into chat; focus returns to the game after sending.
+
+**Deutsch**
+- Quest-Führung: feste Routen für alle 46 Volk-Klasse-Paare von Forever (z. B. Orc-Magier, Mensch-Jäger), Himmelsgeborene folgen einer Route ihrer Fraktion. Questziele liegen dort, wo die Gegner wirklich stehen (z. B. Raptorhörner im Nordbrachland).
+- Quests mit Zeitlimit: Restzeit im Quest-Kasten (unter 5 min rot); die Route nimmt sie erst kurz vor dem Losgehen an.
+- Quest-Kasten: Quests in derselben Gegend stehen gemeinsam unter JETZT mit einer Zeit; zwei Besuche beim selben Questgeber werden ein Schritt; Hinweis auf früher ausgelassene Quests, deren Geber am Weg steht; Hinweis, wenn für ein Gebiet noch Questdaten fehlen (z. B. Zephras).
+- Navi: rechnet alle 3 s von deiner Position neu und nimmt den kürzeren Weg; Fußspuren ohne gelbe Kreise an Kurven.
+- Chat: Freundesliste (Battle.net und WoW) mit Rechtsklick-Menü, Notizen, Hinzufügen/Entfernen; Befehlsliste beim Tippen von /; letzte Eingaben mit Pfeiltasten; Quests per Umschalt+Klick aus Planer, Kasten und Questlog in den Chat; nach dem Senden zurück ins Spiel.
+```
+
+---
+
 ## 0.8.2-alpha (veröffentlicht 23.11.2026)
 
 ```

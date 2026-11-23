@@ -18,7 +18,9 @@ ONE:RegisterModule("chat", {
         for event in pairs(Chat.kindByEvent) do pcall(frame.RegisterEvent, frame, event) end
         pcall(frame.RegisterEvent, frame, "PLAYER_LOGOUT")
         -- Online-Anzeige frisch halten (Gildenliste, Freunde, Battle.net)
-        local presence = {GUILD_ROSTER_UPDATE = true, FRIENDLIST_UPDATE = true, BN_FRIEND_INFO_CHANGED = true}
+        local presence = {GUILD_ROSTER_UPDATE = true, FRIENDLIST_UPDATE = true, BN_FRIEND_INFO_CHANGED = true,
+            BN_FRIEND_INVITE_ADDED = true, BN_FRIEND_INVITE_REMOVED = true, BN_FRIEND_INVITE_LIST_INITIALIZED = true,
+            BN_FRIEND_LIST_SIZE_CHANGED = true}
         for event in pairs(presence) do pcall(frame.RegisterEvent, frame, event) end
         Chat.presenceEvents = presence
         frame:SetScript("OnEvent", function(_, event, ...)
@@ -105,6 +107,14 @@ ONE:RegisterModule("chat", {
             if box.SetCursorPosition and text then box:SetCursorPosition(#text) end
         end
         return true
+    end,
+    -- Link ins Eingabefeld (Quests aus Planer/Kasten, 23.11.2026): aktiv, offen oder WoW-Chat ersetzt
+    InsertLink = function(_, text)
+        if not (text and ONE:IsEnabled("chat")) then return false end
+        if UI.WoWEditActive and UI.WoWEditActive() then return false end
+        local hidden = chat.Hider and chat.Hider.Enabled and chat.Hider:Enabled()
+        if not Chat.visible and hidden then UI:Show() end
+        return UI:TakeLink(text, true)
     end,
     Toggle = function() UI:Toggle() end,
 })

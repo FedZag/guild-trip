@@ -363,7 +363,7 @@ function Tr:Distance()
     f.dist:SetText("")
     local fs = self.etaLine and self.lines[self.etaLine]
     if fs and self.step then
-        local eta = self:NowEta(self.step) or ""
+        local eta = self:EtaText(self.stepPlan, self.step) or ""
         if self.etaNarrow then eta = self.etaNarrow .. (eta ~= "" and ("  ·  " .. eta) or "") end
         fs:SetText(eta)
     end
@@ -427,6 +427,34 @@ end
 --   JETZT          der eine Schritt, gross: Name, was/bei wem, Gebiet/Ort, Entfernung/Zeit
 --   ALS NAECHSTES  die naechsten (hoechstens 3) Schritte, NPC rechts
 --   (DEINE QUESTS entfallen 18.11.2026: alle Quests mit L im Spiel; Fortschritt der aktuellen unter JETZT)
+-- Neue Forever-Gebiete ohne Questdaten (Nutzer 23.11.2026: "du darfst in diesen faellen gerne auf fehlende daten
+-- hinweisen"). Karten-IDs: Zephras 2521, Flussauen 2548, Dunkelspeerinseln 2524, Shen'dralas 2652 – weder Questie
+-- noch andere Quellen haben dort bisher Quests oder Questgeber.
+Tr.NO_DATA = {[2521] = "zephras", [2548] = true, [2524] = true, [2652] = true}
+function Tr.NoDataMap(mapID)
+    local seen = 0
+    while type(mapID) == "number" and seen < 6 do
+        if Tr.NO_DATA[mapID] then return mapID end
+        local ok, info = pcall(function() return C_Map and C_Map.GetMapInfo and C_Map.GetMapInfo(mapID) end)
+        mapID = ok and type(info) == "table" and info.parentMapID or nil
+        seen = seen + 1
+    end
+end
+function Tr.NoDataHint(mapID, faction)
+    local m = Tr.NoDataMap(mapID)
+    if not m then return nil end
+    if Tr.NO_DATA[m] == "zephras" then
+        if faction == "Horde" then
+            return T("Für Zephras hat Guild Trip noch keine Questdaten. Danach geht es mit dem Zeppelin nach Donnerfels weiter.")
+        end
+        return T("Für Zephras hat Guild Trip noch keine Questdaten. Danach geht es mit dem Luftschiff aufs Festland weiter.")
+    end
+    return T("Für dieses Gebiet hat Guild Trip noch keine Questdaten.")
+end
+function Tr.PlayerMap()
+    local ok, m = pcall(function() return C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player") end)
+    return ok and m or nil
+end
 function Tr:Rows(plan, budget)
     local db = G:DB()
     local rows = {}
@@ -451,6 +479,14 @@ function Tr:Rows(plan, budget)
             click = function() G:SetRecChoice(rq.key, "later") end, tip = T("Die Reihe läuft ohne Vorrang mit. Ändern: Optionen › Leveln.")}
         rows[#rows + 1] = {kind = "nxGap"}
     end
+    local fok, fac = pcall(UnitFactionGroup, "player")
+    local nd = Tr.NoDataHint(Tr.PlayerMap(), fok and fac or nil)
+    if nd then
+        rows[#rows + 1] = {text = Tr.Code("hint") .. nd .. "|r", kind = "who", block = "now",
+            tip = T("Guild Trip zeigt hier Quests, sobald es Daten dafür gibt.")}
+        rows[#rows + 1] = {kind = "nxGap"}
+    end
+    local bundle, bundleIdx, bundleLast = Tr.Bundle(plan)
     if s1 then
         -- grosser Block (Nutzer 18.11.2026): Name gross, darunter was/bei wem, wo, wie weit/wie lange
         if not preset.noLabels then rows[#rows + 1] = {text = T("JETZT"), kind = "label", block = "now"} end
@@ -476,12 +512,27 @@ function Tr:Rows(plan, budget)
         end
         local where = Tr.NowWhere(s1)
         if where then rows[#rows + 1] = {text = where, kind = "where", block = "now"} end
-        rows[#rows + 1] = {text = Tr:NowEta(s1) or "", kind = "eta", block = "now"}
+        rows[#rows + 1] = {text = Tr:EtaText(plan, s1) or "", kind = "eta", block = "now"}
         -- Fortschritt der Quest direkt unter der Quest (Nutzer 22.11.2026), Hinweise erst danach
         if s1.kind == "obj" and not multi then
             for _, a in ipairs(s1.actions) do
                 for _, o in ipairs(Tr.Objectives(a.id)) do
                     rows[#rows + 1] = {text = (o.done and "|cff808080" or "") .. o.text .. (o.done and "|r" or ""), kind = "obj"}
+                end
+            end
+        end
+        -- Quests in derselben Gegend, die direkt danach kommen (Nutzer 23.11.2026: "gemeinsam im Kasten", wie die
+        -- erste Quest, nur ohne Weg und Zeit – die Zeit steht fuer alle zusammen oben)
+        for _, st in ipairs(bundle) do
+            local tip
+            for i, x in ipairs(plan.steps) do if x == st then tip = Tr.StepTip(plan, i) break end end
+            rows[#rows + 1] = {kind = "nxGap", block = "now"}
+            rows[#rows + 1] = {text = Tr.NowTitle(st), kind = "now", nav = {step = st}, block = "now", tip = tip}
+            local who = Tr.NowWho(st)
+            if who then rows[#rows + 1] = {text = who, kind = "who", block = "now"} end
+            for _, a in ipairs(st.actions or {}) do
+                for _, o in ipairs(Tr.Objectives(a.id)) do
+                    rows[#rows + 1] = {text = (o.done and "|cff808080" or "") .. o.text .. (o.done and "|r" or ""), kind = "obj", block = "now"}
                 end
             end
         end
@@ -545,6 +596,18 @@ function Tr:Rows(plan, budget)
                     if nav and nav.PointTo then nav:PointTo(G.Title(dh.id), dh.mapID, dh.x, dh.y) end
                 end}
         end
+        -- frueher ausgelassene Annahme am Weg (Nutzer 23.11.2026): nicht zurueckgeschickt, nur Hinweis, Klick = Navi
+        local mh = plan.missedHint
+        if mh then
+            local text = T("Am Weg, früher ausgelassen: %s", G.Title(mh.id))
+            if (mh.more or 0) > 0 then text = text .. " " .. T("(+%d)", mh.more) end
+            rows[#rows + 1] = {text = Tr.Code("hint") .. text .. "|r", kind = "who", block = "now",
+                tip = T("Gehört zu einem früheren Teil der Route. Du wirst nicht mehr dorthin zurückgeschickt – der Questgeber steht aber gerade am Weg. Klicken: Navi zum Questgeber."),
+                click = function()
+                    local nav = ONE.modules and ONE.modules.nav
+                    if nav and nav.PointTo then nav:PointTo(G.Title(mh.id), mh.mapID, mh.x, mh.y) end
+                end}
+        end
         -- bessere Ausruestung aus einer Quest ausserhalb der Route (Nutzer 22.11.2026), Klick = Navi zum Questgeber
         local gh = plan.gearHint
         if gh and gh[1] then
@@ -563,7 +626,25 @@ function Tr:Rows(plan, budget)
     -- ALS NAECHSTES (Nutzer 18.11.2026, statt "Noch annehmen"): die naechsten hoechstens MAX_NEXT
     -- Schritte der Fuehrung, wie sie kommen – aktualisiert sich mit dem Plan.
     local nexts = {}
-    for i = 2, math.min(#plan.steps, 1 + (preset.maxNext or Tr.MAX_NEXT)) do nexts[#nexts + 1] = plan.steps[i] end
+    local nextIdx = {}
+    for i = 2, #plan.steps do
+        if #nexts >= (preset.maxNext or Tr.MAX_NEXT) then break end
+        if not bundleIdx[i] then
+            local st, prev = plan.steps[i], nexts[#nexts]
+            if prev and Tr.SameNpc(prev, st) and nextIdx[#nexts] and i - nextIdx[#nexts] > 1 then
+                -- zwei Besuche beim selben Questgeber direkt hintereinander (was dazwischen lag, steht im
+                -- JETZT-Buendel): eine Zeile mit allen Quests (Nutzer 23.11.2026)
+                local merged = setmetatable({actions = {}}, {__index = prev})
+                for _, a in ipairs(prev.actions or {}) do merged.actions[#merged.actions + 1] = a end
+                for _, a in ipairs(st.actions or {}) do merged.actions[#merged.actions + 1] = a end
+                nexts[#nexts] = merged
+                nextIdx[#nexts] = i
+            else
+                nexts[#nexts + 1] = st
+                nextIdx[#nexts] = i
+            end
+        end
+    end
     -- ALS NAECHSTES: so viele, wie in die Hoehe passen (mindestens einer); je Schritt ein kleiner Block
     -- wie JETZT (Name, was/bei wem, Ort · Zeit), blau statt gold (Nutzer 18.11.2026)
     -- NICHT IM PLAN (Nutzer 23.11.2026: "ganz runter als separate Spalte"): eigener Abschnitt unten, je
@@ -603,7 +684,7 @@ function Tr:Rows(plan, budget)
             local st = nexts[k]
             local id = "next" .. k
             if k > 1 then ins[#ins + 1] = {kind = "nxGap"} end
-            ins[#ins + 1] = {text = Tr.NowTitle(st), kind = "nxTitle", nav = {step = st}, block = id, blockColor = "next", tip = Tr.StepTip(plan, k + 1)}
+            ins[#ins + 1] = {text = Tr.NowTitle(st), kind = "nxTitle", nav = {step = st}, block = id, blockColor = "next", tip = Tr.StepTip(plan, nextIdx[k])}
             local who = Tr.NowWho(st)
             if who and (not nl or nl.nxWho) then ins[#ins + 1] = {text = who, kind = "nxWho", block = id, blockColor = "next"} end
             local where = Tr.NextWhere(st)
@@ -827,6 +908,137 @@ function Tr.NextWhere(step)
 end
 
 -- Zeile 4: Entfernung · ca. Zeit (zu Fuss / reitend / mit Flug oder Schiff laut Plan)
+-- Buendel (Nutzer 23.11.2026): Ziel-Schritte (toeten/sammeln) der naechsten Schritte in derselben Gegend (hoechstens
+-- BUNDLE_YD vom ersten Ziel). Abgaben/Annahmen dazwischen in der Gegend bleiben unter ALS NAECHSTES und beenden das
+-- Buendel nicht (Spieltest: "Vrangs Spiel" abgeben lag zwischen zwei Zielen). Reise, Monster hauen u. a. beenden es.
+-- Rueckgabe: Liste der Schritte, Menge der Indizes, letzter Index
+Tr.BUNDLE_YD, Tr.BUNDLE_MAX, Tr.BUNDLE_LOOK = 350, 4, 8
+function Tr.Bundle(plan)
+    local out, idx, last = {}, {}, 1
+    local steps = plan and plan.steps or {}
+    local s1 = steps[1]
+    local p1 = s1 and s1.pos
+    -- auch wenn gerade eine Abgabe/Annahme dran ist (Spieltest 23.11.2026: "dann sollte ich die direkt abgeben,
+    -- seitdem ist nichts mehr gebuendelt")
+    if not (s1 and p1 and (s1.kind == "obj" or s1.kind == "turnin" or s1.kind == "accept")) then return out, idx, last end
+    local function Near(c, x, y) return c == p1[1] and (x - p1[2]) ^ 2 + (y - p1[3]) ^ 2 <= Tr.BUNDLE_YD * Tr.BUNDLE_YD end
+    local seen = {}
+    for _, a in ipairs(s1.actions or {}) do if a.id then seen[a.id] = true end end
+    local accepted = {}
+    for i = 2, math.min(#steps, 1 + Tr.BUNDLE_LOOK) do
+        local st = steps[i]
+        local p = st.pos
+        for _, a in ipairs(st.actions or {}) do if a.kind == "accept" and a.id then accepted[a.id] = true end end
+        if #out >= Tr.BUNDLE_MAX or st.via or not p or p[1] ~= p1[1]
+            or not (st.kind == "obj" or st.kind == "turnin" or st.kind == "accept")
+            or (p[2] - p1[2]) ^ 2 + (p[3] - p1[3]) ^ 2 > Tr.BUNDLE_YD * Tr.BUNDLE_YD then break end
+        if st.kind == "obj" then
+            -- nur Quests, die schon im Log sind: wird sie vorher im Plan erst angenommen, gehoert sie nicht in JETZT
+            -- (Spieltest 23.11.2026: "Aerger im Tal" stand in JETZT, obwohl Walton sie erst noch vergibt)
+            local again = false
+            for _, a in ipairs(st.actions or {}) do if a.id and (seen[a.id] or accepted[a.id]) then again = true end end
+            if not again then
+                for _, a in ipairs(st.actions or {}) do if a.id then seen[a.id] = true end end
+                out[#out + 1], idx[i], last = st, true, i
+            end
+        end
+    end
+    -- Quests im Log, die der Plan erst spaeter vorsieht, deren Gegner aber hier stehen (Spieltest 23.11.2026:
+    -- "Raptorhoerner" – Raptoren genau hier, Plan erst kurz vor Ratschet): mit in JETZT; erledigt faellt der
+    -- spaetere Schritt dann von selbst weg
+    local acceptedBefore = {}
+    for i = 2, #steps do
+        if #out >= Tr.BUNDLE_MAX then break end
+        local st = steps[i]
+        if st.kind == "obj" and not idx[i] then
+            local fresh = true
+            for _, a in ipairs(st.actions or {}) do
+                if not a.id or seen[a.id] or acceptedBefore[a.id] or not Tr.LevelOK(a.id) then fresh = false end
+            end
+            local near = fresh and st.pos and Near(st.pos[1], st.pos[2], st.pos[3])
+            if fresh and not near then
+                for _, q in ipairs(st.area or {}) do if Near(q[1], q[2], q[3]) then near = true break end end
+            end
+            if near then
+                for _, a in ipairs(st.actions or {}) do seen[a.id] = true end
+                out[#out + 1], idx[i] = st, true
+            end
+        end
+        for _, a in ipairs(st.actions or {}) do if a.kind == "accept" and a.id then acceptedBefore[a.id] = true end end
+    end
+    return out, idx, last
+end
+-- Gegner nicht zu stark (wie der Planer: Queststufe hoechstens OBJ_AHEAD ueber der eigenen)
+function Tr.LevelOK(id)
+    local q = GuildTripQuestDB and GuildTripQuestDB.q and GuildTripQuestDB.q[id]
+    local me = type(UnitLevel) == "function" and UnitLevel("player") or nil
+    if not (q and type(q[1]) == "number" and type(me) == "number") then return true end
+    local P = lev.Planner
+    return q[1] <= me + (P and P.OBJ_AHEAD or 2)
+end
+-- gleicher Questgeber, beides nur Abgeben/Annehmen (kein Ziel, keine Reise dazwischen)
+function Tr.SameNpc(a, b)
+    if not (a and b and a.nr and a.nr == b.nr) or b.via then return false end
+    local ok = {turnin = true, accept = true}
+    return ok[a.kind] and ok[b.kind] and true or false
+end
+-- Zeile Entfernung/Zeit unter JETZT: mit Buendel eine Zeit fuer alle, sonst wie bisher (auch beim 2-s-Auffrischen)
+function Tr:EtaText(plan, s1)
+    local text
+    if plan and plan.steps and plan.steps[1] == s1 then
+        local bundle, idx, last = Tr.Bundle(plan)
+        if #bundle > 0 then text = self:BundleEta(plan, s1, idx, last) end
+    end
+    text = text or self:NowEta(s1)
+    local timer = Tr.TimerText(s1)
+    if timer then text = timer .. (text and text ~= "" and ("  ·  " .. text) or "") end
+    return text
+end
+-- Zeitquest (23.11.2026): Restzeit vorn in der Zeile, unter 5 min rot – frisch aus dem Spiel bei jedem Auffrischen
+function Tr.TimerText(step, timers)
+    if not step then return nil end
+    timers = timers or (G.QuestTimers and G.QuestTimers()) or {}
+    local left
+    for _, a in ipairs(step.actions or {}) do
+        local t = a.id and timers[a.id]
+        if t and (not left or t < left) then left = t end
+    end
+    if not left then return nil end
+    local m = math.floor(left / 60)
+    local text = m >= 1 and T("Zeitlimit: noch %d min", m) or T("Zeitlimit: noch %d s", math.floor(left))
+    return (left < 300 and "|cffff3030" or "|cffffd100") .. text .. "|r"
+end
+-- Zeit fuer alle Quests im Buendel: Weg zum ersten Ziel + Wege dazwischen + Toeten/Sammeln (aus dem Plan)
+function Tr:BundleEta(plan, s1, bundleIdx, last)
+    local d = G:Distance(s1)
+    local mounted = IsMounted and IsMounted()
+    local min = d and d / (mounted and 11 or 7) / 60 or 0
+    local P, info = lev.Planner, plan.info or {}
+    local kill = P and P.KILL_SEC or 22
+    local n = 0
+    for k = 1, last or 1 do
+        local st = plan.steps[k]
+        if k > 1 then min = min + (st.walk or 0) end
+        for _, a in ipairs(st.actions or {}) do
+            local o = info[a.id]
+            if a.kind == "obj" and (k == 1 or bundleIdx[k]) then n = n + 1 if o and o.work then min = min + o.work * kill / 60 end end
+            if a.kind ~= "obj" then min = min + (P and P.TALK_MIN or 0) end
+        end
+    end
+    -- spaeter geplante, hier mitgenommene Quests: nur ihre Zeit fuer Toeten/Sammeln
+    for k in pairs(bundleIdx) do
+        if k > (last or 1) then
+            for _, a in ipairs(plan.steps[k].actions or {}) do
+                local o = info[a.id]
+                if a.kind == "obj" then n = n + 1 if o and o.work then min = min + o.work * kill / 60 end end
+            end
+        end
+    end
+    local parts = {}
+    if d then parts[1] = math.floor(d + .5) .. " " .. T("m") end
+    parts[#parts + 1] = T("ca. %d min für alle %d Quests", math.max(1, math.floor(min + .5)), n)
+    return table.concat(parts, "  ·  ")
+end
 function Tr:NowEta(step)
     local d = G:Distance(step)
     local parts = {}
@@ -1035,6 +1247,8 @@ function Tr:Hit(i, r, st, y, W)
                 if #ids > 0 then G:AskSkip(ids) elseif ONE.UI then ONE.UI:Show() ONE.UI:OpenLink("leveling") end
                 return
             end
+            -- Umschalt+Klick: Quest(s) der Zeile in den Chat (Nutzer 23.11.2026)
+            if ONE.ChatLinkClick and ONE:ChatLinkClick() and G.LinkQuests and G.LinkQuests(Tr.QuestIDs(self.nav)) then return end
             if self.click then self.click() else Tr.NaviTo(self.nav) end
         end)
         b:SetScript("OnEnter", function(self)
@@ -1044,6 +1258,7 @@ function Tr:Hit(i, r, st, y, W)
             if (self.title or "") ~= "" then GameTooltip:AddLine(self.title, 1, .82, 0) end
             if self.tip then GameTooltip:AddLine(self.tip, 1, 1, 1, true) end
             if self.nav then GameTooltip:AddLine(T("Klick: Navi dorthin"), .6, .6, .6) end
+            if #Tr.QuestIDs(self.nav) > 0 then GameTooltip:AddLine(T("Umschalt+Klick: Quest in den Chat"), .6, .6, .6) end
             if #Tr.QuestIDs(self.nav) > 0 then GameTooltip:AddLine(T("Rechtsklick: Quest abwählen"), .6, .6, .6) end
             GameTooltip:Show()
         end)
@@ -1070,7 +1285,7 @@ function Tr:Update(plan, resizing)
         f:Hide()
         return
     end
-    self.step = plan.steps[1]
+    self.step, self.stepPlan = plan.steps[1], plan
     if not resizing then pcall(self.CheckDetour, self, plan) end
     local W = (f.GetWidth and f:GetWidth()) or G:DB().trackerWidth or Tr.WIDTH
     local H = (f.GetHeight and f:GetHeight()) or G:DB().trackerHeight or Tr.HEIGHT

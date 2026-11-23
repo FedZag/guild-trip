@@ -3,7 +3,8 @@
 # Startgebiet bis 60, mit fester Gebietsfolge (SIM_FLOW), aufgezeichnet mit SIM_RECORD -> src/ONE_Leveling/Routes.lua
 # Aufruf: bash scripts/build_routes.sh <shortest-path-forever-Ordner> [Schritte=3000]
 # Umgebung: JOBS=<n> (gleichzeitige Nachstellungen, Standard 8 – Laptop-Hitze; je Route ~6 min mit Ueberarbeiten), OUT=<ordner> (Protokolle behalten),
-#           NOWRITE=1 (nur rechnen + pruefen, Routes.lua nicht schreiben, z. B. fuer den Vorher-Vergleich)
+#           NOWRITE=1 (nur rechnen + pruefen, Routes.lua nicht schreiben, z. B. fuer den Vorher-Vergleich),
+#           ONLY="16:1 1:8" (nur diese Routen neu rechnen, die uebrigen aus OUT behalten)
 # Eine Route, die schnellste (Nutzer 22.11.2026 "ich moechte weiterhin speed-leveln"): Schwelle "all" – im Vergleich
 # need/balanced/all (22.11.) war sie am schnellsten und hatte die wenigsten Rueckwege
 spf="${1:?Aufruf: bash scripts/build_routes.sh <spf> [schritte]}"
@@ -13,15 +14,18 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 out="${OUT:-${TMPDIR:-/tmp}/routes_${tempo}_$$}"
 jobs_max="${JOBS:-8}"
 mkdir -p "$out"
-# Volk (Maske) Fraktion Start (Karte x y) Heimat (Karte x y) Klassen
+for key in ${ONLY:-}; do sed -i "/^$key /d" "$out/summary.txt" 2>/dev/null; done
+# Volk (Maske) Fraktion Start (Karte x y) Heimat (Karte x y) Klassen – alle Paare, die Forever erlaubt
+# (wago.tools CharBaseInfo, Build 1.60.1.70959: dazu Mensch-Jaeger, Orc-Magier, Zwerg-Schamane, Untoter-Paladin,
+# Gnom-Priester, Troll-Hexenmeister; die Forever-Voelker "Skyborne" 95/96 haben noch keine Route)
 starts=(
-  "Undead 16 Horde 1420 .303 .713 1420 .612 .526 WARRIOR ROGUE PRIEST MAGE WARLOCK"
-  "Orc 2 Horde 1411 .436 .689 1411 .519 .416 WARRIOR HUNTER ROGUE SHAMAN WARLOCK"
-  "Troll 128 Horde 1411 .436 .689 1411 .519 .416 WARRIOR HUNTER ROGUE PRIEST SHAMAN MAGE"
+  "Undead 16 Horde 1420 .303 .713 1420 .612 .526 WARRIOR ROGUE PRIEST MAGE WARLOCK PALADIN"
+  "Orc 2 Horde 1411 .436 .689 1411 .519 .416 WARRIOR HUNTER ROGUE SHAMAN WARLOCK MAGE"
+  "Troll 128 Horde 1411 .436 .689 1411 .519 .416 WARRIOR HUNTER ROGUE PRIEST SHAMAN MAGE WARLOCK"
   "Tauren 32 Horde 1412 .449 .772 1412 .469 .602 WARRIOR HUNTER SHAMAN DRUID"
-  "Human 1 Alliance 1429 .484 .418 1429 .437 .658 WARRIOR PALADIN ROGUE PRIEST MAGE WARLOCK"
-  "Dwarf 4 Alliance 1426 .297 .717 1426 .474 .524 WARRIOR PALADIN HUNTER ROGUE PRIEST"
-  "Gnome 64 Alliance 1426 .297 .717 1426 .474 .524 WARRIOR ROGUE MAGE WARLOCK"
+  "Human 1 Alliance 1429 .484 .418 1429 .437 .658 WARRIOR PALADIN ROGUE PRIEST MAGE WARLOCK HUNTER"
+  "Dwarf 4 Alliance 1426 .297 .717 1426 .474 .524 WARRIOR PALADIN HUNTER ROGUE PRIEST SHAMAN"
+  "Gnome 64 Alliance 1426 .297 .717 1426 .474 .524 WARRIOR ROGUE MAGE WARLOCK PRIEST"
   "NightElf 8 Alliance 1438 .587 .424 1438 .556 .598 WARRIOR HUNTER ROGUE PRIEST DRUID"
 )
 declare -A CMASK=([WARRIOR]=1 [PALADIN]=2 [HUNTER]=4 [ROGUE]=8 [PRIEST]=16 [SHAMAN]=64 [MAGE]=128 [WARLOCK]=256 [DRUID]=1024)
@@ -30,6 +34,7 @@ for line in "${starts[@]}"; do
   race=$1 rmask=$2 fac=$3 m=$4 x=$5 y=$6 hm=$7 hx=$8 hy=$9; shift 9
   for cls in "$@"; do
     key="$rmask:${CMASK[$cls]}"
+    [[ -n "${ONLY:-}" && " $ONLY " != *" $key "* ]] && continue
     while (( $(jobs -rp | wc -l) >= jobs_max )); do wait -n; done
     ( SIM_SCEN="$fac,$race,$cls,$m,$x,$y,$hm,$hx,$hy" SIM_TEMPO="$tempo" SIM_FLOW=1 SIM_NOKIPP=1 SIM_RECORD="$out/$key.lua" \
         nice -n 19 lua5.1 scripts/sim_leveling.lua "$spf" custom "$steps" > "$out/$key.log" 2>&1

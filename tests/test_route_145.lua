@@ -49,6 +49,30 @@ GuildTripQuestRoutes = {["16:128"] = route}
 
 -- 1) Route finden (auch fuer eine andere Klasse desselben Volks)
 assert(G.Route(16, 128) == route and G.Route(16, 1) == route and G.Route(2, 1) == nil, "Route je Volk:Klasse")
+do -- Forever-Paare ohne eigene Route (Spieltest 23.11.2026: Orc-Magier) – fester Ersatz, kein Zufall
+    local old = GuildTripQuestRoutes
+    local trollMage, orcWar, orcSham, udMage = {}, {}, {}, {}
+    GuildTripQuestRoutes = {["128:128"] = trollMage, ["2:1"] = orcWar, ["2:64"] = orcSham, ["16:128"] = udMage}
+    assert(G.Route(2, 128) == trollMage, "Orc-Magier -> Troll-Magier (gleiches Startgebiet)")
+    assert(G.Route(2, 1024) == orcWar, "Orc-Druide -> Orc-Route mit kleinster Klassen-Maske")
+    assert(G.Route(32, 128) == trollMage, "Tauren-Magier ohne Tauren-Route -> Magier derselben Fraktion (fest sortiert)")
+    -- Himmelsgeborene (Volk unbekannt): Horde -> Tauren-Route (Zeppelin nach Donnerfels), sonst Orc/Troll gleiche Klasse
+    local taurDru, orcRogue, elfDru, gnomeMage = {}, {}, {}, {}
+    GuildTripQuestRoutes = {["32:1024"] = taurDru, ["2:8"] = orcRogue, ["8:1024"] = elfDru, ["64:128"] = gnomeMage}
+    assert(G.Route(nil, 1024, "Horde") == taurDru, "Windformer-Druide -> Tauren-Druide")
+    assert(G.Route(nil, 8, "Horde") == orcRogue, "Windformer-Schurke -> Orc-Schurke (Tauren haben keine)")
+    assert(G.Route(nil, 1024, "Alliance") == elfDru, "Hohe-Ordnung-Druide -> Nachtelf-Druide")
+    assert(G.Route(nil, 128, "Alliance") == gnomeMage, "Hohe-Ordnung-Magier -> Gnom-Magier")
+    assert(G.Route(nil, 1024) == nil, "unbekanntes Volk ohne Fraktion: keine Route")
+    GuildTripQuestRoutes = old
+end
+do -- Himmelsgeborene: nur Quests der ganzen Fraktion, keine Volks-Quests (z. B. nur Tauren)
+    local sky = {sky = true, faction = "Horde"}
+    assert(P.RaceOK(178, sky) and P.RaceOK(0, sky) and P.RaceOK(255, sky), "Fraktions-Quest passt")
+    assert(not P.RaceOK(32, sky) and not P.RaceOK(130, sky), "Volks-Quest passt nicht")
+    assert(P.RaceOK(32, {faction = "Horde"}), "ohne sky wie bisher: Fraktion reicht")
+    assert(P.RaceOK(32, {race = 32, faction = "Horde"}) and not P.RaceOK(2, {race = 32, faction = "Horde"}), "bekanntes Volk")
+end
 
 -- 2) Fahrplan: Raenge in Routen-Reihenfolge; Annehmen weit unter der eigenen Stufe (voraus) faellt weg
 local log = {}
@@ -264,6 +288,39 @@ do
     for _, r in ipairs(Tr:Rows({steps = plan.steps, dungeonHint = dh})) do if r.text and r.text:find("Dungeon-Quest am Weg", 1, true) then hit = r end end
     assert(hit and hit.click and hit.text:find("(+1)", 1, true), "Zeile mit Navi")
 end
+-- Verpasste fruehere Annahmen (Nutzer 23.11.2026 "Ja, bauen"): wer weiter ist, wird nicht zurueckgeschickt
+do
+    local r2 = {
+        {"a50", n = 11, l = 10}, {"a51", n = 12, l = 10}, {"t51", n = 12, l = 10},
+        {"a60", n = 13, l = 10}, {"a61", n = 14, l = 10}, {"a62", n = 22, l = 10}, {"a63", n = 22, l = 10}, {"a64", n = 23, l = 10},
+        {"o50", n = 21, l = 10}, {"t50", n = 11, l = 10},
+    }
+    local dn, lg = {}, {}
+    local function InLog(id) return lg[id] ~= nil end
+    local function Done(id) return dn[id] == true end
+    local f2, _, missed = G.RouteFollow(r2, 10, InLog, nil, Done)
+    assert(f2["accept:50"] and f2["accept:51"] and #missed == 0, "am Anfang: nichts verpasst")
+    dn[60], dn[62], dn[63] = true, true, true
+    f2, _, missed = G.RouteFollow(r2, 10, InLog, nil, Done)
+    assert(f2["accept:50"] and #missed == 0, "zwei Geber voraus (Doppelbesuch bei 22 zaehlt einmal): noch nicht verpasst")
+    dn[61] = true
+    f2, _, missed = G.RouteFollow(r2, 10, InLog, nil, Done)
+    assert(not f2["accept:50"] and not f2["accept:51"], "weiter in der Route: fruehere Annahmen fallen weg")
+    assert(#missed == 1 and missed[1].id == 50 and missed[1].n == 11, "nur 50 (Rest liegt noch vor einem) als verpasst")
+    assert(f2["turnin:50"], "Abgabe bleibt im Fahrplan")
+    lg[50] = "open"
+    f2, _, missed = G.RouteFollow(r2, 10, InLog, nil, Done)
+    assert(f2["accept:50"] and #missed == 0, "schon angenommen: bleibt drin")
+    assert(G.RouteFollow(r2, 10, InLog, nil, nil)["accept:51"], "ohne done wie bisher")
+    -- Planer: Hinweis nur, wenn der Geber am Weg steht (Quest 1, Geber 11 bei .1/.1)
+    local function MCtx(x, y) local c = Ctx(10) c.me.x, c.me.y = x, y c.missed = {{id = 1, n = 11}} return c end
+    local mh = P:Plan(MCtx(.1, .1)).missedHint
+    assert(mh and mh.id == 1 and mh.detour < 1, "Geber am Weg: Hinweis")
+    assert(not P:Plan(MCtx(.9, .9)).missedHint, "Geber weit weg: kein Hinweis")
+    local hit
+    for _, r in ipairs(Tr:Rows({steps = plan.steps, missedHint = mh})) do if r.text and r.text:find("früher ausgelassen", 1, true) then hit = r end end
+    assert(hit and hit.click, "Zeile mit Navi")
+end
 print("OK test_route_145")
 
 -- 6) die erzeugte Routen-Datei (falls vorhanden): laedt, jede Route hat Schritte bis in hohe Stufen, Stufen steigen
@@ -311,9 +368,103 @@ do
                 end
             end
         end
-        assert(n >= 40, "alle Volk-Klasse-Kombinationen: " .. n)
+        assert(n >= 46, "alle Volk-Klasse-Kombinationen: " .. n)
         print(("  %s: %d geteilte Ziel-Schritte"):format(spec[1], nParts))
     end
   end
 end
 print("OK test_route_145 (Routen-Datei)")
+-- Buendel (Nutzer 23.11.2026): Quests in derselben Gegend direkt danach stehen mit in JETZT (Name, Ziel,
+-- Fortschritt), ohne eigenen Weg/Zeit; eine Zeitangabe fuer alle; ALS NAECHSTES beginnt danach
+do
+    local oldObj = Tr.Objectives
+    Tr.Objectives = function(id) return {{text = "Ziel von " .. id .. ": 0/5"}} end
+    local function St(id, x, kind) return {kind = kind or "obj", nr = 1, mapID = 1, x = .5, y = .5, pos = {1, x, 0},
+        actions = {{kind = kind or "obj", id = id}}} end
+    local steps = {St(1, 0), St(2, 100), St(3, 300), St(1, 320), St(4, 2000)}
+    local b = Tr.Bundle({steps = steps})
+    assert(#b == 2 and b[1] == steps[2] and b[2] == steps[3], "nahe Quests gebuendelt, dieselbe Quest nicht doppelt: " .. #b)
+    do -- weit weg: nicht gebuendelt; eine spaetere nahe Quest im Log schon (seit 23.11.2026)
+        local sx = {St(1, 0), St(2, 900), St(3, 10)}
+        local bx, ix = Tr.Bundle({steps = sx})
+        assert(#bx == 1 and bx[1] == sx[3] and not ix[2], "fern nein, nah ja: " .. #bx)
+    end
+    assert(#Tr.Bundle({steps = {St(1, 0), St(2, 10, "turnin")}}) == 0, "nur Ziele toeten/sammeln")
+    -- Spieltest 23.11.2026: Abgabe in der Gegend zwischen zwei Zielen beendet das Buendel nicht
+    local withTurnin = {St(1, 0), St(1, 50, "turnin"), St(2, 100)}
+    local b2, i2 = Tr.Bundle({steps = withTurnin})
+    assert(#b2 == 1 and b2[1] == withTurnin[3] and i2[3] and not i2[2], "Ziel hinter der Abgabe gebuendelt")
+    -- zwei Besuche beim selben Questgeber, dazwischen ein gebuendeltes Ziel: unter ALS NAECHSTES eine Zeile
+    do
+        local function At(kind, id, nr, x) local t = St(id, x, kind) t.nr = nr return t end
+        local plan7 = {steps = {St(1, 0), At("turnin", 6, 77, 60), St(2, 100), At("turnin", 7, 77, 60), At("turnin", 8, 88, 3000)}, info = {}}
+        local titles = {}
+        for _, r in ipairs(Tr:Rows(plan7)) do if r.kind == "nxTitle" then titles[#titles + 1] = r.nav.step end end
+        assert(#titles == 2 and #titles[1].actions == 2 and titles[1].nr == 77 and titles[2].nr == 88,
+            "Walton zweimal -> eine Zeile: " .. #titles)
+        assert(#plan7.steps[2].actions == 1, "Plan selbst bleibt unveraendert")
+    end
+    -- spaeter geplante Quest im Log, deren Gegner hier stehen: mit in JETZT (Spieltest 23.11.2026 "Raptorhoerner");
+    -- auch wenn gerade eine Abgabe dran ist. Erst spaeter angenommen: nicht.
+    do
+        local far = St(9, 5000) far.area = {{1, 5000, 0}, {1, 120, 30}}
+        local later = St(8, 5000) later.area = {{1, 100, 0}}
+        local pl = {steps = {St(1, 0, "turnin"), St(5, 4000, "turnin"), far, St(8, 4500, "accept"), later}}
+        local bb, ii = Tr.Bundle(pl)
+        assert(#bb == 1 and bb[1] == far and ii[3], "Raptoren hier: mit in JETZT, auch bei Abgabe zuerst: " .. #bb)
+    end
+    -- Quest, die erst noch angenommen wird, nicht in JETZT
+    local acc = {St(1, 0), St(2, 50, "accept"), St(2, 100)}
+    assert(#Tr.Bundle({steps = acc}) == 0, "noch nicht angenommen: nicht gebuendelt")
+    local plan6 = {steps = {St(1, 0), St(1, 50, "turnin"), St(2, 100), St(5, 3000)}, info = {}}
+    local firstNext
+    for _, r in ipairs(Tr:Rows(plan6)) do if r.kind == "nxTitle" and not firstNext then firstNext = r.nav.step end end
+    assert(firstNext == withTurnin[2] or firstNext == plan6.steps[2], "Abgabe bleibt unter ALS NAECHSTES")
+    local plan5 = {steps = {St(1, 0), St(2, 100), St(3, 300), St(5, 2000)},
+        info = {[1] = {work = 6}, [2] = {work = 6}, [3] = {work = 6}}}
+    local r5 = Tr:Rows(plan5)
+    local nowTitles, objs, eta, nextHas2 = 0, 0, nil, false
+    for _, r in ipairs(r5) do
+        if r.kind == "now" then nowTitles = nowTitles + 1 end
+        if r.kind == "obj" then objs = objs + 1 end
+        if r.kind == "eta" then eta = r.text end
+        if r.kind == "nxTitle" and r.nav and r.nav.step == plan5.steps[2] then nextHas2 = true end
+    end
+    assert(nowTitles == 3 and objs == 3, "drei Quests gross in JETZT, je mit Fortschritt: " .. nowTitles .. "/" .. objs)
+    assert(eta and eta:find("für alle 3 Quests", 1, true), "eine Zeit fuer alle: " .. tostring(eta))
+    assert(not nextHas2, "gebuendelte Quest nicht nochmal unter ALS NAECHSTES")
+    Tr.Objectives = oldObj
+end
+-- echte Plan-Schritte tragen ihre Weltposition (sonst greift das Buendel im Spiel nie – Spieltest 23.11.2026)
+do
+    local nObj, nPos = 0, 0
+    for _, st in ipairs(plan.steps) do
+        if st.kind == "obj" then nObj = nObj + 1 if st.pos and st.pos[2] then nPos = nPos + 1 end end
+    end
+    assert(nObj > 0 and nPos == nObj, "Ziel-Schritte mit pos: " .. nPos .. "/" .. nObj)
+end
+-- Zeitquests (Nutzer 23.11.2026): Schritt der Quest mit der wenigsten Restzeit kommt nach vorn, Restzeit im Kasten
+do
+    local function S(kind, id) return {kind = kind, actions = {{kind = kind, id = id}}} end
+    local pl = {steps = {S("obj", 1), S("turnin", 2), S("obj", 7), S("turnin", 7)}}
+    assert(G.TimedFirst(pl, {[7] = 600, [2] = 900}) and pl.steps[1].actions[1].id == 7 and pl.steps[1].kind == "obj"
+        and pl.timed.id == 7 and #pl.steps == 4, "Zeitquest zuerst (Ziel vor Abgabe)")
+    local pl2 = {steps = {S("obj", 1)}}
+    assert(not G.TimedFirst(pl2, {}) and pl2.steps[1].actions[1].id == 1, "ohne Zeitquest bleibt alles")
+    local t = Tr.TimerText(S("obj", 7), {[7] = 725})
+    assert(t and t:find("noch 12 min", 1, true) and t:find("ffd100", 1, true), "Restzeit gold: " .. tostring(t))
+    t = Tr.TimerText(S("obj", 7), {[7] = 45})
+    assert(t and t:find("noch 45 s", 1, true) and t:find("ff3030", 1, true), "unter 5 min rot: " .. tostring(t))
+    assert(Tr.TimerText(S("obj", 1), {[7] = 45}) == nil, "andere Quest: nichts")
+    assert(GuildTripQuestDB.timed == nil or type(GuildTripQuestDB.timed) == "table")
+end
+do -- Hinweis auf fehlende Questdaten (Zephras und andere neue Forever-Gebiete), auch in Unterkarten
+    local oldMap = C_Map
+    C_Map = {GetMapInfo = function(m) return ({[9001] = {parentMapID = 2521}, [2521] = {parentMapID = 947}})[m] end}
+    assert(Tr.NoDataHint(9001, "Horde"):find("Donnerfels"), "Unterkarte von Zephras, Horde: Zeppelin")
+    assert(Tr.NoDataHint(2521, "Alliance"):find("Luftschiff"), "Zephras, Allianz: Luftschiff")
+    assert(Tr.NoDataHint(2548, "Horde"):find("dieses Gebiet"), "anderes Gebiet ohne Daten")
+    assert(Tr.NoDataHint(1411, "Horde") == nil and Tr.NoDataHint(nil, "Horde") == nil, "Durotar: kein Hinweis")
+    C_Map = oldMap
+end
+print("ok keine Daten")

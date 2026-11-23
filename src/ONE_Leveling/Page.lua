@@ -49,6 +49,9 @@ function Page:Build(parent, W, H, getMode)
             if Selected(item) or (item.current and not state.sel) then row.selection:Show() else row.selection:Hide() end
         end,
         onClick = function(_, item)
+            -- Umschalt+Klick: Quest(s) der Zeile in den Chat (wie im WoW-Questlog)
+            if not item.header and ONE.ChatLinkClick and ONE:ChatLinkClick()
+                and G.LinkQuests(G.StepQuestIDs(item.step, not item.step and item.qid or nil)) then return end
             -- Gebietsuebersicht: Ueberschrift klappt auf/zu
             if item.header and item.zone then
                 state.zoneOpen = state.zoneOpen or {}

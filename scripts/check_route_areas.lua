@@ -27,15 +27,18 @@ local LONG_YD, STUB_STEPS, AWAY_YD, REVISIT_YD, REVISIT_LVL, ZONE_BACK_LVL, HUB_
 -- Rueckschritte, knapp ueber dem schlechtesten erreichten Wert. Ganz 0 geht nicht: manche Quests gibt es erst
 -- ab einer Stufe, dann ist ein zweiter Besuch billiger als vorher lange Monster zu hauen (z. B. Nordbrachland).
 -- Vorher (22.11.) lagen die Routen bei ABST ~29, ohne Grund ~29, LANG ~210 je Route.
-local LIMITS = {abst = 10, doppOhne = 20, lang = 125, regel = 0}
+local LIMITS = {abst = 10, doppOhne = 20, lang = 125, regel = 0, zeit = 0}
+-- Quests mit Zeitlimit: hoechstens TIMED_SHARE des Limits zwischen Annehmen und Abgeben (ZEIT muss 0 sein)
+local TIMED_SHARE = .7
 GetLocale = function() return "deDE" end
-for _, f in ipairs({"ONE_QuestDB/Data", "ONE_Leveling/Rewards"}) do assert(loadfile("src/" .. f .. ".lua"))() end
+for _, f in ipairs({"ONE_QuestDB/Data", "ONE_QuestDB/Timed", "ONE_Leveling/Rewards"}) do assert(loadfile("src/" .. f .. ".lua"))() end
 local lev = {}
 for _, f in ipairs({"Planner", "FlightMasters", "Inns"}) do assert(loadfile("src/ONE_Leveling/" .. f .. ".lua"))("ONE_Leveling", lev) end
 GuildTripQuestRoutes = nil
 assert(loadfile(file))()
 local ROUTES = assert(GuildTripQuestRoutes, "keine Routen in " .. file)
 local P, Q = lev.Planner, GuildTripQuestDB
+local TIMED = Q.timed or {}
 local spfns = {}
 assert(loadfile(spf .. "/Data/Zones.lua"))("ShortestPathForever", spfns)
 local Z = spfns.Zones
@@ -77,7 +80,7 @@ local function Check(key, route)
     for _, f in ipairs(lev.FLIGHTMASTERS) do
         if Mine(f[5]) then
             local z = Z[f[7] or 0]
-            fps[#fps + 1] = {f[2], f[3], f[4], id = f[1]}
+            fps[#fps + 1] = {f[2], f[3], f[4], id = f[1], map = f[7]}
             hubs[#hubs + 1] = {f[2], f[3], f[4]}
             if z and ((z.low or 99) < 2 or f[7] == st[2] or z.city) then known[f[1]] = true end
         end
@@ -91,7 +94,9 @@ local function Check(key, route)
     local home = World(st[5], st[6], st[7])
     local pos = World(st[2], st[3], st[4])
     local t, hearthAt = 0, -1e9
-    local out = {lang = 0, abst = 0, dopp = 0, doppOhne = 0, zurueck = 0, walkYd = 0, langYd = 0, steps = #route, lines = {}}
+    -- Zeitquests (Nutzer 23.11.2026): Minuten zwischen Annehmen und Abgeben wie scripts/route_opt.lua gerechnet
+    local tw, tAcc, tGrind = 0, {}, {}
+    local out = {lang = 0, abst = 0, dopp = 0, doppOhne = 0, zurueck = 0, walkYd = 0, langYd = 0, steps = #route, lines = {}, zeit = 0, zeitLines = {}}
     local function Note(s) if verboseKey == key then out.lines[#out.lines + 1] = s end end
     -- Zustand fuer "ging das schon?"
     local accAt, objAt, turnAt = {}, {}, {}
@@ -108,6 +113,13 @@ local function Check(key, route)
     for i, r in ipairs(route) do
         local w
         if r.k == "fp" and r.m then w = World(r.m, r.x / 1000, r.y / 1000)
+        elseif r.k == "fp" and r.z then
+            -- Routen-Schritt "Flugpunkt lernen" ohne Lage: der eigene Flugpunkt der Zone, der am naechsten liegt
+            local bd
+            for _, f in ipairs(fps) do
+                if f.map == r.z and pos and f[1] == pos[1] then local d = Dist(f, pos) if not bd or d < bd then w, bd = f, d end end
+            end
+            if not w then for _, f in ipairs(fps) do if f.map == r.z then w = f break end end end
         elseif r.k == "bind" then w = inns[r.inn or 0]
         elseif r.k == "grind" then w = nil
         elseif r.p and r.p[1] then w = NodeNear(r.p[1], pos, r.z)
@@ -130,6 +142,7 @@ local function Check(key, route)
                     if hm <= wm - P.HS_SAVE and hm < best then best, parts = hm, {Dist(home, w)} hearthAt = t end
                 end
                 t = t + best
+                tw = tw + best
                 for _, x in ipairs(parts) do
                     out.walkYd = out.walkYd + x
                     if x > legWalk then legWalk = x end
@@ -146,6 +159,21 @@ local function Check(key, route)
         if r.k == "bind" and w then home = w end
         -- Zeit je Schritt (grob): Ziele 2 min, sonst Sprechen
         for k in (r[1] or ""):gmatch("(%a)%d+") do t = t + (k == "o" and 2 or .2) end
+        if r.k == "grind" then for id in pairs(tAcc) do tGrind[id] = true end end
+        for k, id in (r[1] or ""):gmatch("(%a)(%d+)") do
+            id = tonumber(id)
+            local lim = TIMED[id]
+            if lim and k == "a" and not tAcc[id] then tAcc[id], tGrind[id] = tw, nil end
+            if lim and k == "t" and tAcc[id] then
+                local m = tw - tAcc[id]
+                if m > lim / 60 * TIMED_SHARE or tGrind[id] then
+                    out.zeit = (out.zeit or 0) + 1
+                    out.zeitLines[#out.zeitLines + 1] = ("  ZEIT Schritt %d q%d: %.0f min offen (Limit %d min)%s"):format(i, id, m, lim / 60, tGrind[id] and ", Hauen dazwischen" or "")
+                end
+                tAcc[id] = nil
+            end
+            tw = tw + (k == "o" and 3 or .5)
+        end
         pts[i] = w and {w = w, l = r.l or 0, hub = IsHub(w)} or false
         for k, id in (r[1] or ""):gmatch("(%a)(%d+)") do
             id = tonumber(id)
@@ -276,21 +304,22 @@ end
 local keys = {}
 for k in pairs(ROUTES) do keys[#keys + 1] = k end
 table.sort(keys)
-local sum = {lang = 0, abst = 0, dopp = 0, doppOhne = 0, zurueck = 0, walkYd = 0, steps = 0, regel = 0}
+local sum = {lang = 0, abst = 0, dopp = 0, doppOhne = 0, zurueck = 0, walkYd = 0, steps = 0, regel = 0, zeit = 0}
 local bad = {}
 for _, k in ipairs(keys) do
     local o = Check(k, ROUTES[k])
     local rl
     o.regel, rl = Rules(k, ROUTES[k])
-    print(("%-8s %4d Schr.  Fussweg %5.0f km  LANG %3d  ABST %2d  DOPP %3d (ohne Grund %2d)  ZURUECK %2d  REGEL %d"):format(k, o.steps,
-        o.walkYd / 1094, o.lang, o.abst, o.dopp, o.doppOhne, o.zurueck, o.regel))
+    print(("%-8s %4d Schr.  Fussweg %5.0f km  LANG %3d  ABST %2d  DOPP %3d (ohne Grund %2d)  ZURUECK %2d  REGEL %d  ZEIT %d"):format(k, o.steps,
+        o.walkYd / 1094, o.lang, o.abst, o.dopp, o.doppOhne, o.zurueck, o.regel, o.zeit))
     for _, l in ipairs(o.lines) do print(l) end
+    for _, l in ipairs(o.zeitLines) do print(l) end
     if o.regel > 0 then for _, l in ipairs(rl) do print(l) end end
     for f in pairs(sum) do sum[f] = sum[f] + (o[f] or 0) end
     for f, lim in pairs(LIMITS) do if (o[f] or 0) > lim then bad[#bad + 1] = ("%s %s=%d (Grenze %d)"):format(k, f, o[f], lim) end end
 end
-print(("SUMME %d Routen, %d Schritte, Fussweg %.0f km, LANG %d, ABST %d, DOPP %d (ohne Grund %d), ZURUECK %d, REGEL %d"):format(#keys, sum.steps,
-    sum.walkYd / 1094, sum.lang, sum.abst, sum.dopp, sum.doppOhne, sum.zurueck, sum.regel))
+print(("SUMME %d Routen, %d Schritte, Fussweg %.0f km, LANG %d, ABST %d, DOPP %d (ohne Grund %d), ZURUECK %d, REGEL %d, ZEIT %d"):format(#keys, sum.steps,
+    sum.walkYd / 1094, sum.lang, sum.abst, sum.dopp, sum.doppOhne, sum.zurueck, sum.regel, sum.zeit))
 if hard and #bad > 0 then
     print("PRUEFUNG NICHT BESTANDEN:\n  " .. table.concat(bad, "\n  "))
     os.exit(1)

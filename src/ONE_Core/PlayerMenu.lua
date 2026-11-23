@@ -97,6 +97,59 @@ function ONE:Whisper(name, text)
     return false
 end
 
+-- ===== Links in den Chat (Umschalt+Klick auf Quests im Planer/Kasten, Nutzer 23.11.2026) =====
+-- Reihenfolge: Guild-Trip-Chat (aktiv/offen/ersetzt) -> offenes WoW-Eingabefeld -> WoW-Chat oeffnen.
+function ONE:LinkToChat(text)
+    if type(text) ~= "string" or text == "" then return false end
+    local c = self.modules and self.modules.chat
+    if c and c.InsertLink then
+        local ok, done = pcall(c.InsertLink, c, text)
+        if ok and done then return true end
+    end
+    local util = rawget(_G, "ChatFrameUtil")
+    local insert = (type(util) == "table" and util.InsertLink) or rawget(_G, "ChatEdit_InsertLink")
+    if type(insert) == "function" then
+        local ok, done = pcall(insert, text)
+        if ok and done then return true end
+    end
+    local open = (type(util) == "table" and util.OpenChat) or rawget(_G, "ChatFrame_OpenChat")
+    if type(open) == "function" then return pcall(open, text) == true end
+    return false
+end
+-- Quest-Link: vom Spiel, sonst selbst gebaut |cffffff00|Hquest:ID:STUFE|h[Titel]|h|r (wie WoW-Questlinks)
+function ONE:QuestLink(id, title, level)
+    id = tonumber(id)
+    if not id then return nil end
+    local get = rawget(_G, "GetQuestLink")
+    if type(get) == "function" then
+        local ok, link = pcall(get, id)
+        if ok and type(link) == "string" and link:find("|Hquest:", 1, true) then return link end
+    end
+    title = tostring(title or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("[|%[%]]", "")
+    if title == "" or title:match("^#%d+$") then return nil end
+    return ("|cffffff00|Hquest:%d:%d|h[%s]|h|r"):format(id, tonumber(level) or -1, title)
+end
+-- Umschalt gedrueckt (wie WoW: "Link in den Chat")
+function ONE:ChatLinkClick()
+    local mod = rawget(_G, "IsModifiedClick")
+    if type(mod) == "function" then
+        local ok, on = pcall(mod, "CHATLINK")
+        if ok and on then return true end
+    end
+    local shift = rawget(_G, "IsShiftKeyDown")
+    return type(shift) == "function" and shift() and true or false
+end
+-- Quests einer Zeile in den Chat (mehrere hintereinander)
+function ONE:LinkQuests(ids, titleOf, levelOf)
+    local parts = {}
+    for _, id in ipairs(ids or {}) do
+        local link = self:QuestLink(id, titleOf and titleOf(id), levelOf and levelOf(id))
+        if link then parts[#parts + 1] = link end
+    end
+    if #parts == 0 then return false end
+    return self:LinkToChat(table.concat(parts, " "))
+end
+
 -- ===== Grundeintraege =====
 -- ctx.online == false (Mitgliederliste, offline): nur, was auch offline geht
 local function Online(_, ctx) return not (type(ctx) == "table" and ctx.online == false) end

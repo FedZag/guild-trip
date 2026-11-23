@@ -110,7 +110,7 @@ function M.Run(route, env)
     -- Weg der ganzen Route in Minuten. Ruhestein wie in der Nachstellung: wenn bereit (Abklingzeit P.HS_CD) und er
     -- mindestens P.HS_SAVE Minuten spart, zum zuletzt gesetzten Gasthaus; Zeit je Schritt ausser Weg ~ ENTRY_MIN.
     local ENTRY_MIN = 3
-    local function Cost(o)
+    local function WayCost(o)
         local c, ep, prev = 0, 0, nil
         local homeW, clock, ready = env.home0, 0, 0
         for _, x in ipairs(o) do
@@ -231,6 +231,43 @@ function M.Run(route, env)
     end
 
     -- Token einer Quest in einen anderen Eintrag beim selben NPC (oder < 80 yd am selben Ort) verschieben
+    -- Quests mit Zeitlimit (Nutzer 23.11.2026, GuildTripQuestDB.timed = Sekunden): zwischen Annehmen und Abgeben
+    -- hoechstens TIMED_SHARE des Limits (Weg + OBJ_MIN je Ziel + TALK_MIN je Annehmen/Abgeben, ohne Ruhestein) und
+    -- kein Monster hauen dazwischen. Ueberschreitung kostet TIMED_PEN je Minute, damit der Optimierer sie aufloest.
+    -- Geplant wird mit 60 % statt der geprueften 70 %: die harte Pruefung (check_route_areas.lua) waehlt Knoten und
+    -- Wege etwas anders und sieht die spaeter eingefuegten Ziel-Teile – im 1. Lauf lagen 11 Zeitquests knapp darueber.
+    local TIMED = Q.timed or {}
+    local TIMED_SHARE, OBJ_MIN, TALK_MIN, TIMED_PEN = .6, 3, .5, 50
+    local function Windows(o)
+        local ep, prev, clock = 0, nil, 0
+        local acc, res, at = {}, {}, {}
+        for i, x in ipairs(o) do
+            if x.anchor == "fp" and x.r.fpID then ep = ep + 1 end
+            if x.w then
+                if prev then clock = clock + C(prev, x.w, ep) end
+                prev = x.w
+            end
+            for _, t in ipairs(x.toks) do
+                local id = t[2]
+                if TIMED[id] then
+                    if t[1] == "a" and not acc[id] then acc[id] = clock at[id] = {i} end
+                    if t[1] == "t" and acc[id] then res[id] = clock - acc[id] at[id][2] = i end
+                end
+                clock = clock + (t[1] == "o" and OBJ_MIN or TALK_MIN)
+            end
+        end
+        return res, at
+    end
+    local function TimedOver(o)
+        local res = Windows(o)
+        local over = 0
+        for id, m in pairs(res) do
+            local lim = TIMED[id] / 60 * TIMED_SHARE
+            if m > lim then over = over + (m - lim) end
+        end
+        return over
+    end
+    local function Cost(o) return WayCost(o) + TIMED_PEN * TimedOver(o) end
     local function Same(x, y)
         if not (x.w and y.w) or y.anchor or x.w[1] ~= y.w[1] then return false end
         if x.n and y.n and x.n == y.n then return true end
@@ -391,8 +428,9 @@ function M.Run(route, env)
         -- Ausgangsroute verletzt selbst eine Regel (Nachstellung prueft anders): nichts aendern
         return route, {saved = 0, moves = 0, removed = 0, xpDiff = 0, skipped = true, why = why0, id = id0, p = p0}
     end
-    local before = Cost(order)
-    local cur = before
+    -- Weg + Monster hauen (vorher/nachher gleich gerechnet); cur zaehlt zusaetzlich die Strafe fuer Zeitquests
+    local before = WayCost(order) + (tonumber(why0) or 0)
+    local cur = Cost(order) + (tonumber(why0) or 0)
     local moves, tokMoves = 0, 0
     local CELL = 600
 
@@ -651,12 +689,217 @@ function M.Run(route, env)
         return improved
     end
 
+    -- Ziele an einen anderen Ort derselben Gegner (Spieltest 23.11.2026, Orc: "Raptorhoerner" o865 stand kurz vor
+    -- Ratschet beim Einzel-Raptor 3257, dieselben Raptoren 3256 stehen aber im Nordbrachland, wo die Route vorher
+    -- ist – Nutzer: "Quests, deren Gegner in derselben Gegend stehen, gleich dort mit erledigen"). Reine Ziel-Schritte
+    -- einer Quest duerfen an jeden Punkt ihrer Ziel-Knoten (Q.q[id][8]) wandern, an die Stelle mit kleinstem Umweg.
+    local altMemo = {}
+    local function Alts(id)
+        local a = altMemo[id]
+        if a then return a end
+        a = {}
+        local e = Q.q[id]
+        if env.world and e and type(e[8]) == "table" then
+            for _, nr in ipairs(e[8]) do
+                local n = Q.n and Q.n[nr]
+                for i = 2, n and #n or 0, 3 do
+                    local c, wx, wy = env.world(n[i], n[i + 1] / 1000, n[i + 2] / 1000)
+                    if c and #a < 60 then a[#a + 1] = {c, wx, wy, nr = nr, map = n[i]} end
+                end
+            end
+        end
+        altMemo[id] = a
+        return a
+    end
+    local function ObjId(x)
+        if not Quest(x) then return nil end
+        local id
+        for _, t in ipairs(x.toks) do
+            if t[1] ~= "o" or (id and id ~= t[2]) then return nil end
+            id = t[2]
+        end
+        return id
+    end
+    local objMoves = 0
+    local function ObjPass()
+        local improved = false
+        local a = 1
+        while a <= #order do
+            local x = order[a]
+            local id = ObjId(x)
+            local alts = id and Alts(id) or {}
+            local done = false
+            if #alts > 1 then
+                local ep = Epochs(order)
+                local pw, nw = PrevW(order, a - 1), NextW(order, a + 1)
+                local rem = C(pw, x.w, ep[a]) + C(x.w, nw, ep[math.min(a + 1, #order)]) - C(pw, nw, ep[math.min(a + 1, #order)])
+                if rem > .3 then
+                    -- Reihenfolge ohne den Schritt; Luecke g = vor o2[g]
+                    local o2, orig = {}, {}
+                    for i, y in ipairs(order) do if i ~= a then o2[#o2 + 1] = y orig[#o2] = i end end
+                    local cands = {}
+                    for g = 1, #o2 + 1 do
+                        local p, n = PrevW(o2, g - 1), NextW(o2, g)
+                        local e2 = ep[math.min(orig[g] or #order, #order)]
+                        local base = (p and n) and C(p, n, e2) or 0
+                        local best, bp
+                        for _, pt in ipairs(alts) do
+                            if (not p or p[1] == pt[1]) and (not n or n[1] == pt[1]) and (not p or Dist(p, pt) < 3000 or (n and Dist(n, pt) < 3000)) then
+                                local add = C(p, pt, e2) + C(pt, n, e2) - base
+                                if not best or add < best then best, bp = add, pt end
+                            end
+                        end
+                        if best and best < rem - .3 then cands[#cands + 1] = {g, rem - best, bp} end
+                    end
+                    table.sort(cands, function(u, v) return u[2] > v[2] end)
+                    for c = 1, math.min(8, #cands) do
+                        local g, pt = cands[c][1], cands[c][3]
+                        local y = Clone(x)
+                        y.w, y.map, y.n = {pt[1], pt[2], pt[3]}, pt.map, pt.nr
+                        local r = {}
+                        for k, v in pairs(x.r) do r[k] = v end
+                        r.w, r.map, r.n = y.w, y.map, y.n
+                        y.r = r
+                        local n = {}
+                        for i = 1, #o2 do
+                            if i == g then n[#n + 1] = y end
+                            n[#n + 1] = o2[i]
+                        end
+                        if g == #o2 + 1 then n[#n + 1] = y end
+                        local why
+                        n, why = Repair(n)
+                        if n then
+                            local cst = Cost(n) + why
+                            if cst < cur - .2 then
+                                if env.verbose and os.getenv("OPT_DEBUG") then print(("    ZIEL o%d -> vor %d (%.1f min)"):format(id, g, cur - cst)) end
+                                order, cur = n, cst
+                                objMoves = objMoves + 1
+                                improved, done = true, true
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+            if not done then a = a + 1 end
+        end
+        return improved
+    end
+
     TokenPass()
     for pass = 1, env.passes or 6 do
         local imp = BlockPass()
+        if ObjPass() then imp = true end
         TokenPass()
         if env.verbose then print(("  GESAMT Durchgang %d: Weg %.0f min (vorher %.0f), %d Verschiebungen, %d Besuche nur zum Annehmen/Abgeben gespart"):format(pass, cur, before, moves, tokMoves)) end
         if not imp then break end
+    end
+
+    -- Zeitquests, die noch zu lange offen sind: Annehmen, Ziele und Abgabe als Kette an eine Stelle (bei der Annahme,
+    -- beim ersten Ziel oder vor der Abgabe – die billigste gueltige); geht keine, Quest samt Folgequests aus der Route
+    local timedFixed, timedRemoved = 0, {}
+    local function TimedOK(o, id)
+        local res, at = Windows(o)
+        if not res[id] then return not (at[id]) end
+        if res[id] > TIMED[id] / 60 * TIMED_SHARE then return false end
+        local ok, _, gl = Validate(o, true)
+        if not ok then return false end
+        for _, g in ipairs(gl or {}) do if g[1] > at[id][1] and g[1] <= at[id][2] then return false end end
+        return true
+    end
+    local function Chain(o, id, after)
+        local n, chain = {}, {}
+        for _, x in ipairs(o) do
+            local keep, mine = {}, {}
+            for _, t in ipairs(x.toks) do if t[2] == id then mine[#mine + 1] = t else keep[#keep + 1] = t end end
+            if #mine > 0 then
+                local c = Clone(x)
+                c.toks = mine
+                if #keep > 0 then c.base = 0 end
+                chain[#chain + 1] = c
+            end
+        end
+        if after == 0 then for _, c in ipairs(chain) do n[#n + 1] = c end end
+        for i, x in ipairs(o) do
+            local keep = {}
+            for _, t in ipairs(x.toks) do if t[2] ~= id then keep[#keep + 1] = t end end
+            if #keep == #x.toks then n[#n + 1] = x
+            elseif #keep > 0 then local y = Clone(x) y.toks = keep n[#n + 1] = y end
+            if i == after then for _, c in ipairs(chain) do n[#n + 1] = c end end
+        end
+        return n
+    end
+    local function Drop(o, ids)
+        local n = {}
+        for _, x in ipairs(o) do
+            local keep = {}
+            for _, t in ipairs(x.toks) do if not ids[t[2]] then keep[#keep + 1] = t end end
+            if #keep == #x.toks then n[#n + 1] = x
+            elseif #keep > 0 then local y = Clone(x) y.toks = keep n[#n + 1] = y end
+        end
+        return n
+    end
+    -- Umstellen/Herausnehmen einer Zeitquest verschiebt andere Fenster (Repair, Hauen) – bis nichts mehr bricht
+    for _ = 1, 5 do
+        local changed = false
+        local res = Windows(order)
+        local ids = {}
+        for id in pairs(res) do ids[#ids + 1] = id end
+        table.sort(ids)
+        for _, id in ipairs(ids) do
+            if not TimedOK(order, id) then
+                local ia, io, it
+                for i, x in ipairs(order) do
+                    for _, t in ipairs(x.toks) do
+                        if t[2] == id then
+                            if t[1] == "a" and not ia then ia = i end
+                            if t[1] == "o" and not io then io = i end
+                            if t[1] == "t" then it = i end
+                        end
+                    end
+                end
+                local best, bc
+                for _, after in ipairs({ia or 0, (io or it or 1) - 1, (it or 1) - 1}) do
+                    local n, why = Repair(Chain(order, id, math.max(0, after)))
+                    if n and TimedOK(n, id) then
+                        local c = Cost(n) + why
+                        if not bc or c < bc then best, bc = n, c end
+                    end
+                end
+                changed = true
+                if best then
+                    order, cur = best, bc
+                    timedFixed = timedFixed + 1
+                else
+                    -- Quest und alles, was auf ihr aufbaut, aus der Route
+                    local drop, grow = {[id] = true}, true
+                    while grow do
+                        grow = false
+                        for _, x in ipairs(order) do
+                            for _, t in ipairs(x.toks) do
+                                local e = Q.q[t[2]]
+                                if e and not drop[t[2]] then
+                                    for _, list in ipairs({type(e[5]) == "table" and e[5] or {}, type(e[9]) == "table" and e[9] or {}}) do
+                                        for _, p in ipairs(list) do if drop[p] then drop[t[2]] = true grow = true end end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    local n, why = Repair(Drop(order, drop))
+                    if n then
+                        order, cur = n, Cost(n) + why
+                        for d in pairs(drop) do timedRemoved[#timedRemoved + 1] = d end
+                    end
+                end
+            end
+        end
+        if not changed then break end
+    end
+    if os.getenv("TIMED_DEBUG") then
+        local res, at = Windows(order)
+        for id, m in pairs(res) do io.stderr:write(("TIMED q%d %.1f min (lim %.0f) at %d..%d\n"):format(id, m, TIMED[id] / 60, at[id][1], at[id][2])) end
+        for id, a in pairs(at) do if not res[id] then io.stderr:write(("TIMED q%d nur angenommen at %d\n"):format(id, a[1])) end end
     end
 
     -- zurueck in Routen-Schritte: Stufe und EP je Schritt neu, gleicher NPC direkt hintereinander = ein Schritt
@@ -695,8 +938,9 @@ function M.Run(route, env)
         cum = cum + g
     end
     local xpNew = cum - startXP - gXP
-    return out, {saved = before - cur, moves = moves, tokMoves = tokMoves, removed = #route - #out, xpDiff = xpNew - xpOld,
-        before = before, after = cur, grindMin = gminEnd, grinds = #(glist or {})}
+    local after = WayCost(order) + (gminEnd or 0)
+    return out, {saved = before - after, moves = moves, tokMoves = tokMoves, objMoves = objMoves, removed = #route - #out, xpDiff = xpNew - xpOld,
+        before = before, after = after, grindMin = gminEnd, grinds = #(glist or {}), timedFixed = timedFixed, timedRemoved = timedRemoved}
 end
 
 return M

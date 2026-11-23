@@ -12,6 +12,7 @@ local Routes = {
     direct = 120,      -- näher als das: direkt hin, kein Netz
     passRadius = 14,   -- Punkt gilt als erreicht
     offRoute = 70,     -- weiter weg von der Linie: neu planen
+    recheck = 3,       -- alle so viele Sekunden vom Spieler aus neu rechnen und kuerzeren Weg uebernehmen
     shortcut = 80,     -- Einstieg in den Weg: höchstens so weit Luftlinie abkürzen …
     joinWithin = 200,  -- … auf die ersten so vielen Yards des Wegs
     -- Lange Abkürzungen querfeldein AUS (22.11.2026, Nutzer: „nutzt kaum Straßen … zu oft über Berge“): gemessen
@@ -585,6 +586,20 @@ function Routes:Steer(holder, continent, px, py, tx, ty, now)
     local moved = r and (r.continent ~= continent or (r.tx - tx) ^ 2 + (r.ty - ty) ^ 2 > 30 * 30)
     if r and not moved then
         local p, rest, last = self:Next(r, px, py)
+        -- immer wieder vom Spielerpfeil aus neu rechnen (Nutzer 23.11.2026, als Geist querfeldein: "erst zum gelben
+        -- Punkt und dann weiter") – ist der neue Weg spuerbar kuerzer als der Rest des alten, gilt der neue
+        if p and rest and now and now - (holder.routeChecked or now) >= self.recheck then
+            holder.routeChecked = now
+            local fresh = self:Find(continent, px, py, tx, ty)
+            if fresh and fresh.length < rest - math.max(15, rest * .05) then
+                holder.route = fresh
+                local p2, rest2, last2 = self:Next(fresh, px, py)
+                if p2 then return p2, rest2, last2, fresh end
+                holder.route = r
+            end
+        elseif now and not holder.routeChecked then
+            holder.routeChecked = now
+        end
         if p then return p, rest, last, r end
     end
     -- neu planen (höchstens alle 3 s, damit Abweichen nicht dauernd rechnet)

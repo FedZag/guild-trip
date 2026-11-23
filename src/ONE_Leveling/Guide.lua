@@ -59,6 +59,21 @@ function G.Title(id)
     return d and d.titles and d.titles[id] or ("#" .. id)
 end
 
+-- Umschalt+Klick auf eine Quest (Planer, Kasten): Quest-Links in den Chat (Nutzer 23.11.2026)
+function G.LinkQuests(ids)
+    if not (ONE.LinkQuests and ids and #ids > 0) then return false end
+    local QL = Nav() and Nav().QuestLevels
+    return ONE:LinkQuests(ids, G.Title, function(id) return QL and QL.Level and QL.Level(id) end)
+end
+function G.StepQuestIDs(step, qid)
+    if qid then return {qid} end
+    local out, seen = {}, {}
+    for _, a in ipairs(step and step.actions or {}) do
+        if a.id and not seen[a.id] then seen[a.id] = true out[#out + 1] = a.id end
+    end
+    return out
+end
+
 -- Titel mit Stufe davor ("[12] Die Volksmiliz"), wenn eingeschaltet (Optionen › Navi)
 function G.LevelTitle(id, level)
     local QL = Nav() and Nav().QuestLevels
@@ -375,6 +390,7 @@ function G:Context()
     return {
         me = {level = level, xp = Try(UnitXP, "player") or 0, xpMax = Try(UnitXPMax, "player") or 0,
             class = class and G.CLASS[class], race = race and G.RACE[race],
+            sky = race ~= nil and G.RACE[race] == nil,   -- Himmelsgeborene (Forever): kein altes Volk
             faction = Try(UnitFactionGroup, "player") or "?", inGroup = (Try(IsInGroup) and true) or false,
             mapID = mapID, x = x, y = y, skills = G.Skills()},
         -- je Neuplanung gemerkt (Spieltest 22.11.2026: ~1 s Hänger nach Annehmen/Abgeben – der Planer fragt das
@@ -448,28 +464,98 @@ end
 G.ROUTE_BEHIND = 2   -- Annehmen-Schritte so viele Stufen unter der eigenen gelten als verpasst (uebersprungen)
 -- Eine feste Route je Volk:Klasse – die schnellste (Nutzer 22.11.2026: "ich moechte weiterhin speed-leveln"; gerechnet
 -- mit Tempo "all", das war schneller und mit weniger Rueckwegen als die strengeren Schwellen)
-function G.Route(race, class)
+-- Voelker mit demselben Startgebiet (Volk-Maske -> Gruppe): Orc/Troll Tal der Pruefungen, Zwerg/Gnom Coldridge
+G.START_GROUP = {[2] = "durotar", [128] = "durotar", [4] = "dunmorogh", [64] = "dunmorogh"}
+G.HORDE_RACES = {[2] = true, [16] = true, [32] = true, [128] = true}
+-- Himmelsgeborene (Forever-Voelker 95/96) starten auf Zephras – dafuer gibt es noch keine Questdaten. Danach geht es
+-- per Zeppelin nach Donnerfels (Horde) bzw. Luftschiff nach Kalimdor (Allianz). Sie folgen der Route eines Volks
+-- von dort, gleiche Klasse zuerst (Reihenfolge = Vorrang); Volks-Quests fallen ueber P.RaceOK weg.
+G.SKY_ROUTE = {Horde = {32, 2, 128, 16}, Alliance = {8, 1, 64, 4}}
+function G.Route(race, class, skyFaction)
     local all = rawget(_G, "GuildTripQuestRoutes")
-    if type(all) ~= "table" or not race then return nil end
-    local r = all[race .. ":" .. (class or 0)]
+    if type(all) ~= "table" then return nil end
+    class = class or 0
+    if not race then
+        local list = skyFaction and G.SKY_ROUTE[skyFaction]
+        if not list then return nil end
+        for _, r in ipairs(list) do
+            if all[r .. ":" .. class] then return all[r .. ":" .. class] end
+        end
+        return G.Route(list[1], class)
+    end
+    local r = all[race .. ":" .. class]
     if r then return r end
-    -- andere Klasse desselben Volks: Klassenquests fremder Klassen fallen von selbst weg (passen nicht)
-    for k, v in pairs(all) do if k:match("^" .. race .. ":%d+$") then return v end end
+    -- Forever erlaubt Paare, die es in Classic nicht gab (Spieltest 23.11.2026: Orc-Magier bekam eine zufaellige
+    -- Orc-Route einer anderen Klasse). Ersatz, fest in dieser Reihenfolge:
+    -- 1) dieselbe Klasse eines Volks mit demselben Startgebiet (Orc-Magier -> Troll-Magier)
+    local grp = G.START_GROUP[race]
+    if grp then
+        for other, g in pairs(G.START_GROUP) do
+            if other ~= race and g == grp and all[other .. ":" .. class] then return all[other .. ":" .. class] end
+        end
+    end
+    -- 2) eigenes Volk, andere Klasse (Startgebiet stimmt; Klassenquests fremder Klassen fallen von selbst weg) –
+    --    die kleinste Klassen-Maske, damit es nicht vom Zufall abhaengt
+    local best
+    for k in pairs(all) do
+        local rr, cc = k:match("^(%d+):(%d+)$")
+        if tonumber(rr) == race and (not best or tonumber(cc) < best) then best = tonumber(cc) end
+    end
+    if best then return all[race .. ":" .. best] end
+    -- 3) dieselbe Klasse derselben Fraktion
+    local horde = G.HORDE_RACES[race] or false
+    local keys = {}
+    for k in pairs(all) do keys[#keys + 1] = k end
+    table.sort(keys)
+    for _, k in ipairs(keys) do
+        local rr, cc = k:match("^(%d+):(%d+)$")
+        if tonumber(cc) == class and (G.HORDE_RACES[tonumber(rr)] or false) == horde then return all[k] end
+    end
 end
 -- Fahrplan aus der Route: Rang je Halt; zu niedrige Annehmen-Schritte (man ist voraus) fallen weg.
 -- Ziele in mehreren Gebieten (Routen-Bau 22.11.2026, "Chens leeres Faesschen": Loewen/Schreiter im Norden, Echsen im
 -- Sueden): die Route hat je Teil einen Schritt "o821.2" mit p = {Ziel-Knoten des Teils}. Es gilt der erste Teil, der
 -- noch offene Ziele hat – open(id) = Knoten der offenen Ziele (nil = unbekannt -> erster Teil).
--- Liefert den Fahrplan und je Quest die Ziel-Knoten des geltenden Teils.
-function G.RouteFollow(route, level, inLog, open)
+-- Verpasste Annahmen (Nutzer 23.11.2026 "Ja, bauen"): wer schon weiter in der Route ist, wird nicht mehr zu
+-- ausgelassenen frueheren Annahmen zurueckgeschickt. Eine Annahme gilt als verpasst, wenn man danach schon bei
+-- mindestens G.ROUTE_AHEAD verschiedenen Questgebern der Route angenommen hat (Quest im Log oder erledigt) – verschiedene
+-- Geber, damit ein zusammengefasster Doppelbesuch beim selben NPC ("ALS NAECHSTES") oder eine vorgezogene Quest nicht
+-- reicht. Liegt der Rest der Quest (Ziele/Abgabe) noch vor einem, kommt sie in missed – der Planer zeigt sie als
+-- Hinweis, wenn der Geber am Weg steht (P.MISSED_NEAR).
+G.ROUTE_AHEAD = 3
+-- Liefert den Fahrplan, je Quest die Ziel-Knoten des geltenden Teils und die verpassten Annahmen {id, n, z}.
+function G.RouteFollow(route, level, inLog, open, done)
     local f, n, parts = {}, 0, {}
     local kinds = {a = "accept", o = "obj", t = "turnin"}
-    for _, st in ipairs(route) do
+    local function Have(id) return (inLog and inLog(id)) or (done and done(id)) end
+    -- ahead[i] = verschiedene Geber mit eigener Annahme nach Schritt i; last[id] = letzter Ziel-/Abgabe-Schritt
+    local ahead, last = {}, {}
+    if done then
+        local givers, cnt = {}, 0
+        for i = #route, 1, -1 do
+            ahead[i] = cnt
+            local st = route[i]
+            if type(st[1]) == "string" then
+                for k, id in st[1]:gmatch("(%a)(%d+)") do
+                    id = tonumber(id)
+                    if k == "a" and Have(id) and not givers[st.n or -i] then givers[st.n or -i] = true cnt = cnt + 1 end
+                    if k ~= "a" and not last[id] then last[id] = i end
+                end
+            end
+        end
+    end
+    local function Behind(i) return (ahead[i] or 0) >= G.ROUTE_AHEAD end
+    local missed = {}
+    for i, st in ipairs(route) do
         if type(st[1]) == "string" then
             for k, id, part in st[1]:gmatch("(%a)(%d+)%.?(%d*)") do
                 id = tonumber(id)
                 local key = kinds[k] and (kinds[k] .. ":" .. id)
                 local behind = k == "a" and (st.l or 0) < level - G.ROUTE_BEHIND and not (inLog and inLog(id))
+                if k == "a" and not behind and Behind(i) and not Have(id) then
+                    behind = true
+                    if last[id] and not Behind(last[id]) and (st.n or 0) > 0 then missed[#missed + 1] = {id = id, n = st.n, z = st.z} end
+                end
                 if key and part ~= "" and type(st.p) == "table" then
                     n = n + 1
                     parts[id] = parts[id] or {}
@@ -493,7 +579,7 @@ function G.RouteFollow(route, level, inLog, open)
         f["obj:" .. id] = pick.rank
         nodes[id] = pick.nodes
     end
-    return f, nodes
+    return f, nodes, missed
 end
 -- Bessere Ausruestung aus Quests, die nicht in der Route sind (Nutzer 22.11.2026: "wird das bessere Gear mit
 -- eingerechnet?" – die Route bleibt fest, nur ein Hinweis im Kasten). Quelle: Seite Ausruestung (Way:Plan).
@@ -619,12 +705,12 @@ function G:Replan(follow)
         self.planAt = G.PlayerWorldPos()
         local ctx = self:Context()
         tm.context = Clock() - t0
-        local route = G.Route(ctx.me and ctx.me.race, ctx.me and ctx.me.class)
+        local route = G.Route(ctx.me and ctx.me.race, ctx.me and ctx.me.class, ctx.me and ctx.me.sky and ctx.me.faction)
         if route then
             ctx.route, ctx.flow = true, true
             -- selbst angenommene Quests: bereitwilliger einbauen (wer annimmt, will sie machen), nur ohne grossen Umweg
             ctx.tempo = P.ROUTE_TEMPO
-            ctx.follow, ctx.objNodes = G.RouteFollow(route, ctx.me.level or 1, ctx.inLog, ctx.targets)
+            ctx.follow, ctx.objNodes, ctx.missed = G.RouteFollow(route, ctx.me.level or 1, ctx.inLog, ctx.targets, ctx.done)
             ctx.followLoops = nil
             if self:GearOn() then
                 local gc = G.GearChains(self:GearRows(ctx.me.level or 1), ctx.follow, ctx.me.level, ctx.done)
@@ -642,6 +728,7 @@ function G:Replan(follow)
         local ok, plan = pcall(P.Plan, P, ctx)
         tm.plan = Clock() - t1
         self.plan = ok and plan or nil
+        if self.plan then G.TimedFirst(self.plan, G.QuestTimers()) end
         if self.plan and route then
             self.plan.offRoute = G.OffRoute(ctx.follow, G.LogIDs(), self.plan)
             self.plan.route = true
@@ -1207,6 +1294,51 @@ end
 -- Lohnt sich Neuplanen? (Spart Rechenzeit beim Questen: WoW meldet QUEST_LOG_UPDATE nach fast jedem Kill.)
 -- Fortschritt "3/8" zeigt der Kasten selbst an – neu geplant wird nur, wenn sich am Plan etwas aendern kann.
 -- Quest-IDs im Log (ohne Kopfzeilen)
+-- Quests mit Zeitlimit im Log (Nutzer 23.11.2026: "es gibt auch Quests, die zeitkritisch sind"):
+-- {[questID] = Restsekunden}. Erst C_QuestLog.GetTimeAllowed (neuer Client), sonst GetQuestTimers (Classic).
+-- Nur Lese-Abfragen; Forever-Pruefung im Spiel: /trip zeit
+function G.QuestTimers()
+    local out = {}
+    local QL = C_QuestLog
+    local Allowed = QL and QL.GetTimeAllowed
+    if type(Allowed) == "function" then
+        for _, id in ipairs(G.LogIDs()) do
+            local ok, total, elapsed = pcall(Allowed, id)
+            if ok and type(total) == "number" and total > 0 and type(elapsed) == "number" then out[id] = math.max(0, total - elapsed) end
+        end
+    end
+    if next(out) == nil and type(GetQuestTimers) == "function" and type(GetQuestIndexForTimer) == "function" then
+        local qt = {pcall(GetQuestTimers)}
+        if qt[1] then
+            for i = 2, table.maxn(qt) do
+                local left = tonumber(qt[i])
+                local okI, index = pcall(GetQuestIndexForTimer, i - 1)
+                local info = okI and index and QL and QL.GetInfo and Try(QL.GetInfo, index)
+                if left and type(info) == "table" and info.questID then out[info.questID] = left end
+            end
+        end
+    end
+    return out
+end
+-- Zeitquest zuerst: den ersten Schritt mit dieser Quest (Ziel oder Abgabe) an den Anfang des Plans, die mit der
+-- wenigsten Restzeit gewinnt. plan.timed = {id, left, at}
+function G.TimedFirst(plan, timers)
+    if not (plan and plan.steps) then return end
+    local bestID, bestLeft
+    for id, left in pairs(timers or {}) do
+        if not bestLeft or left < bestLeft then bestID, bestLeft = id, left end
+    end
+    if not bestID then return end
+    for i, st in ipairs(plan.steps) do
+        for _, a in ipairs(st.actions or {}) do
+            if a.id == bestID and (a.kind == "obj" or a.kind == "turnin") then
+                if i > 1 then table.remove(plan.steps, i) table.insert(plan.steps, 1, st) end
+                plan.timed = {id = bestID, left = bestLeft, at = Try(GetTime) or 0}
+                return true
+            end
+        end
+    end
+end
 function G.LogIDs()
     local QL = C_QuestLog
     local n = Try(QL and QL.GetNumQuestLogEntries) or 0
