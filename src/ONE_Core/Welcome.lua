@@ -85,7 +85,8 @@ function Welcome:Initialize()
     if ONE.Glass and ONE.Glass:Active() and ONE.UI.SetViews then
         local go = function(key) ONE.UI:Navigate(key) end
         ONE.UI:SetViews("home", { { key = "home", label = "Übersicht", onClick = go },
-            { key = "today", label = "Heute", onClick = go } }, "home")
+            { key = "today", label = "Heute", onClick = go },
+            { key = "alts", label = "Meine Figuren", onClick = go } }, "home")
     end
     -- Von Hand oeffnen (auch zum Pruefen, ob das Fenster beim Einloggen haette kommen sollen)
     if ONE.RegisterSlash then

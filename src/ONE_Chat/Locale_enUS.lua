@@ -96,7 +96,7 @@ EN["Noch keine Nachrichten."] = "No messages yet."
 EN["Noch keine Nachrichten – schreib unten los."] = "No messages yet – start typing below."
 -- WoW-Chat ersetzen (17.11.2026)
 EN["WoW-Chat durch diesen ersetzen"] = "Replace the WoW chat with this one"
-EN["Blendet das WoW-Chatfenster aus; Enter und / öffnen dann dieses Fenster. Nicht angezeigt werden dabei u. a. Beute, Erfahrung und das Kampflog. Jederzeit zurück: Haken raus oder /trip wowchat. Gesperrt bei ElvUI & Co."] = "Hides the WoW chat window; Enter and / then open this window. Not shown here: loot, experience and the combat log, among others. Back any time: uncheck or /trip wowchat. Locked with ElvUI & co."
+EN["Blendet das WoW-Chatfenster aus; Enter und / öffnen dann dieses Fenster. Beute und Erfahrung stehen im Gespräch „Beute & Fortschritt“; nur das Kampflog fehlt. Jederzeit zurück: Haken raus oder /trip wowchat. Gesperrt bei ElvUI & Co."] = "Hides the WoW chat window; Enter and / then open this window. Loot and experience appear in the \"Loot & progress\" conversation; only the combat log is missing. Back any time: uncheck or /trip wowchat. Locked with ElvUI & co."
 EN["WoW-Chat ist ausgeblendet. /trip wowchat bringt ihn zurück."] = "The WoW chat is hidden. /trip wowchat brings it back."
 EN["WoW-Chat ist wieder da."] = "The WoW chat is back."
 EN["WoW-Chat aus-/einblenden"] = "Hide/show the WoW chat"

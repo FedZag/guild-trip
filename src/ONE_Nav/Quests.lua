@@ -198,14 +198,22 @@ function Q:Build(panel, embedded)
     end
     local list = ONE.Kit:List(panel, {x = 0, y = -62, width = leftW, height = H - 62, rowHeight = 24,
         columns = {
-            {key = "title", title = "QUEST", width = leftW - 24 - 6 - 40 - 44 - 16 - 8, indent = 4},
+            {key = "title", title = "QUEST", width = leftW - 24 - 6 - 40 - 64 - 44 - 16 - 8, indent = 4},
             {key = "level", title = "STUFE", width = 40, align = "CENTER"},
+            {key = "xp", title = "EP", width = 64, align = "RIGHT"},
             {key = "guild", title = "GILDE", width = 44, align = "CENTER"},
         },
         render = function(row, q, cells)
             cells.title:SetText(q.title .. (q.elite and ("  |cffff8040" .. T("(Elite)") .. "|r") or ""))
             if q.complete then cells.title:SetTextColor(.4, 1, .4) else cells.title:SetTextColor(1, .82, 0) end
             cells.level:SetText(q.level > 0 and q.level or "")
+            -- EP fuer diese Quest auf deiner Stufe (~ = geschaetzt), grau wenn kaum noch etwas
+            local xpText, xp
+            if nav.QuestLevels then xpText, xp = nav.QuestLevels.XPText(q.id) end
+            cells.xp:SetText(xpText and (xpText:gsub(" [EX]P$", "")) or "")
+            local maxFn = rawget(_G, "UnitXPMax")
+            local maxXP = type(maxFn) == "function" and tonumber((maxFn("player"))) or 0
+            if xp and maxXP > 0 and xp < maxXP * .02 then cells.xp:SetTextColor(.6, .6, .6) else cells.xp:SetTextColor(.55, .9, .55) end
             local n = nav.QuestShare and #nav.QuestShare:Holders(q.id) or 0
             cells.guild:SetText(n > 0 and n or "")
             if not row.selection then
@@ -216,6 +224,19 @@ function Q:Build(panel, embedded)
             if state.q and state.q.id == q.id then row.selection:Show() else row.selection:Hide() end
         end,
         onClick = function(_, q) state.q = q ONE.UI:Refresh() end,
+        onEnter = function(row, q)
+            if not GameTooltip then return end
+            GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+            GameTooltip:SetText(q.title)
+            if q.level > 0 then GameTooltip:AddLine(T("Stufe %d", q.level), 1, 1, 1) end
+            local QL = nav.QuestLevels
+            local xpText = QL and QL.XPText(q.id, true)
+            if xpText then
+                GameTooltip:AddLine(T("Belohnung: %s", xpText), .55, .9, .55)
+                if xpText:sub(1, 1) == "~" then GameTooltip:AddLine(T("~ = geschätzt aus der Questdatenbank"), .7, .7, .7, true) end
+            end
+            GameTooltip:Show()
+        end,
     })
     local empty = Text(panel, "GameFontHighlight", 8, -100, leftW - 16, "soft", "Dein Questlog ist leer.")
 
@@ -262,7 +283,8 @@ function Q:Build(panel, embedded)
         card:Show()
         title:SetText(q.title .. (q.elite and ("  |cffff8040" .. T("(Elite)") .. "|r") or ""))
         local loc = locs[q.id] or (nav.QuestShare and nav.QuestShare:Location(q.id))
-        where:SetText(T("Stufe %d", q.level) .. (q.tag and ("  ·  " .. q.tag) or "") ..
+        local xpText = nav.QuestLevels and nav.QuestLevels.XPText(q.id, true)
+        where:SetText(T("Stufe %d", q.level) .. (xpText and ("  ·  " .. xpText) or "") .. (q.tag and ("  ·  " .. q.tag) or "") ..
             (loc and ("  ·  " .. self:ZoneName(loc.mapID) .. (loc.edge and T(" (Richtung)") or "")) or ""))
         local i = 0
         if q.complete then i = 1 lines[1]:SetText("|cff66ff66" .. T("Erledigt – zurück zum Questgeber.") .. "|r") end

@@ -199,6 +199,20 @@ reg["chat.look"].set("native")
 assert(not reg["chat.glassSkin"].visible(), "Glas-Farben nur bei Glas")
 reg["chat.look"].onChange()
 assert(ONE.printed:find("/reload"))
+-- 23.11.2026: alte Chat-Kopie mit fertigem Skin folgt wieder dem Hauptfenster, eigene Farben bleiben
+do
+    local s = Chat:Settings()
+    s.glassFollowV, s.glass = nil, {skin = "azeroth", alpha = .4}
+    Chat:Settings()
+    assert(s.glass == nil and Chat:GlassStore() == nil, "Skin-Kopie entfernt: Chat folgt dem Hauptfenster")
+    s.glassFollowV, s.glass = nil, {skin = "custom", tint = {.1, .2, .3}, glow = {1, 1, 1}}
+    Chat:Settings()
+    assert(s.glass and s.glass.skin == "custom", "eigene Farben bleiben")
+    s.glass = {skin = "frost"}
+    Chat:Settings()
+    assert(s.glass and s.glass.skin == "frost", "neue Wahl nach der Umstellung bleibt")
+    s.glass = nil
+end
 -- ESC schliesst den Chat nicht (Nutzer 19.11.2026): Fenster steht nicht in UISpecialFrames
 do
     local src = assert(io.open(root .. "/ONE_Chat/ChatUI.lua")):read("*a"):gsub("%-%-[^\n]*", "")

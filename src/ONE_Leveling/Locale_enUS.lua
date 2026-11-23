@@ -414,3 +414,7 @@ EN["Abstecher erledigt – weiter mit dem Plan."] = "Detour done – back to the
 EN["Nicht im Plan"] = EN["Nicht im Plan"] or "Not in the plan"
 EN["Navi hierhin: %s"] = "Navigate here: %s"
 EN["Abbrechen: %s …"] = "Abandon: %s …"
+
+EN["Der Kasten unter der Minimap mit dem nächsten Schritt der Quest-Führung. Aus: Führung läuft weiter, nur ohne Kasten."] = "The box below the minimap with the next step of the quest guide. Off: the guide keeps running, just without the box."
+EN["Erholt: %s EP (%d %%)"] = "Rested: %s XP (%d %%)"
+EN["Erholt: %s EP"] = "Rested: %s XP"

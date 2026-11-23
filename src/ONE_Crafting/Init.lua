@@ -23,6 +23,9 @@ ONE:RegisterModule("crafting", {
     -- Lehrer-Verzeichnis fuer die Navi-Seite
     AllTrainers = function() return crafting.Trainers:All() end,
     TeachText = function(e) return crafting.Trainers.TeachText(e) end,
+    WhatName = function(e) return crafting.Trainers.WhatName(e) end,
+    WeaponsOf = function(e) return crafting.Trainers.WeaponsOf(e) end,
+    FactionText = function(e, faction) return crafting.Trainers.FactionText(e, faction) end,
     Initialize = function()
         crafting.Page:Register()
         crafting.Share:Initialize()
@@ -124,7 +127,7 @@ ONE:RegisterModule("crafting", {
             for _, d in ipairs(due) do if d.ready then ready[#ready + 1] = d.text end end
             local mini = ONE.MinimapButton
             if mini and mini.SetAlert then
-                if #ready > 0 then mini:SetAlert("crafting", table.concat(ready, " · "), "crafting")
+                if #ready > 0 then mini:SetAlert("crafting", table.concat(ready, " · "), "nav-trainers")
                 else mini:ClearAlert("crafting") end
             end
         end

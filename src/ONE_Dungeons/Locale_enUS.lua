@@ -329,3 +329,9 @@ EN["bei dir %d von %d"] = "you: %d of %d"
 EN["Selbst gefunden: %d-mal bei %d Plünderungen"] = "Found yourself: %d times in %d lootings"
 EN["Nicht in den mitgelieferten Daten – neu in Forever?"] = "Not in the bundled data – new in Forever?"
 EN["Stufe %d · annehmbar ab %d"] = "Level %d · can be accepted from %d"
+
+EN["Mit dieser Rolle meldest du dich bei Gruppengesuchen und Gildenausflügen an."] = "The role you sign up with for group requests and guild trips."
+EN["Gerade sucht niemand aus der Gilde eine Gruppe.\n\nEin Gesuch gibst du im Reiter |cffffd100Dungeons|r auf: Dungeon wählen und „Gruppe suchen“ klicken – für Elite-Quests %s."] =
+    "Nobody in the guild is looking for a group right now.\n\nYou post a request in the |cffffd100Dungeons|r tab: pick a dungeon and click \"Find group\" – for elite quests %s."
+EN["auf der Seite |cffffd100Quests|r"] = "on the |cffffd100Quests|r page"
+EN["unter |cffffd100Leveln › Questlog|r"] = "under |cffffd100Levelling › Quest log|r"

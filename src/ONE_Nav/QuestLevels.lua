@@ -26,6 +26,46 @@ function QL.Level(id)
     if e and (e[1] or 0) > 0 then return e[1] end
 end
 
+-- ===== Quest-EP (Gesamtpruefung 23.11.2026, Idee wie "Quest XP Tracker") =====
+-- EP, die du JETZT fuer die Quest bekommst: zuerst der Wert vom Spiel (Quest im Log), sonst Grund-EP
+-- (gemessen bei einer frueheren Abgabe, ONE.db.questXP, sonst Questdatenbank) mit Abzug nach Stufenabstand –
+-- dieselbe Tabelle wie Planner.QuestXP der Quest-Fuehrung. Rueckgabe: ep, geschaetzt (true/false); nil auf Stufe 60.
+function QL.QuestXP(base, qlvl, plvl)
+    local d = plvl - (qlvl or plvl)
+    local f = d <= 5 and 1 or d == 6 and .8 or d == 7 and .6 or d == 8 and .4 or d == 9 and .2 or .1
+    return math.floor((base or 0) * f / 5 + .5) * 5
+end
+function QL.XP(id)
+    local level = rawget(_G, "UnitLevel")
+    local plvl = type(level) == "function" and tonumber((level("player"))) or nil
+    if not plvl or plvl >= 60 or not id then return nil end
+    local fromGame = rawget(_G, "GetQuestLogRewardXP")
+    if type(fromGame) == "function" then
+        local ok, xp = pcall(fromGame, id)
+        if ok and type(xp) == "number" and xp > 0 then return xp, false end
+    end
+    local measured = ONE.db and type(ONE.db.questXP) == "table" and ONE.db.questXP[id]
+    local d = rawget(_G, "GuildTripQuestDB")
+    local e = d and d.q and d.q[id]
+    local base = type(measured) == "table" and measured.b or (e and e[11])
+    if type(base) ~= "number" or base <= 0 then return nil end
+    local qlvl = QL.Level(id) or plvl
+    return QL.QuestXP(base, qlvl, plvl), true
+end
+-- "1.250 EP" / "~1.250 EP"; mit share=true dazu "(12 % der Stufe)"
+function QL.XPText(id, share)
+    local xp, guess = QL.XP(id)
+    if not xp then return nil end
+    local T = ONE.T or function(t, ...) return t:format(...) end
+    local n = tostring(xp):reverse():gsub("(%d%d%d)", "%1."):reverse():gsub("^%.", "")
+    if ONE.Language and ONE:Language() == "en" then n = n:gsub("%.", ",") end
+    local text = (guess and "~" or "") .. T("%s EP", n)
+    local maxXP = rawget(_G, "UnitXPMax")
+    local max = share and type(maxXP) == "function" and tonumber((maxXP("player"))) or nil
+    if max and max > 0 then text = text .. " " .. T("(%d %% der Stufe)", math.floor(xp * 100 / max + .5)) end
+    return text, xp
+end
+
 -- "[12] " oder "" (abgeschaltet / Stufe unbekannt)
 function QL.Prefix(id, level)
     if not QL.FeatureOn() then return "" end

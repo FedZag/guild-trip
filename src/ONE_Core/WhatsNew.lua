@@ -10,6 +10,13 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.8.0-alpha"] = {
+        "Optionen: Suchfeld über allen Einstellungen, Minimap-Knopf als Schalter, alle Klänge an einem Ort",
+        "Questlog: EP je Quest und Anteil an der Stufe; Erholt-EP in der Kopfzeile von Leveln",
+        "Verkaufspreis im Gegenstands-Tooltip; Meine Figuren (Startseite): Gold, Stufe, Erholt und wer was in Tasche und Bank hat",
+        "Navi: Lehrer mit Suchfeld, Koordinaten auf der Weltkarte, Restzeit im Flug",
+        "Optionen › Allgemein › Anfragen (aus): Duelle und Einladungen von Fremden ablehnen, Wiederbelebung und Beschwörung annehmen",
+    },
     ["0.7.9-alpha"] = {
         "Navi: Wege bevorzugen Straßen und gehen um Berge herum; richtiger Zeppelin oder richtiges Schiff zum anderen Kontinent",
         "Quest-Führung: eine feste, schnellste Route; Ziele nach dem, was noch offen ist",

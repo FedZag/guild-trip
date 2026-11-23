@@ -11,7 +11,7 @@ UI.settingChecks = {
     {"openOnLogin", "Beim Einloggen öffnen", nil, nil, 1},
     {"launcher", "Chat-Knopf am WoW-Chat", "Kleine Sprechblase oben am WoW-Chat mit Zähler für ungelesene Flüsternachrichten. Umschalt+Ziehen verschiebt sie.",
         function() if chat.Launcher then chat.Launcher:Update() end end, 1},
-    {"hideBlizzard", "WoW-Chat durch diesen ersetzen", "Blendet das WoW-Chatfenster aus; Enter und / öffnen dann dieses Fenster. Nicht angezeigt werden dabei u. a. Beute, Erfahrung und das Kampflog. Jederzeit zurück: Haken raus oder /trip wowchat. Gesperrt bei ElvUI & Co.",
+    {"hideBlizzard", "WoW-Chat durch diesen ersetzen", "Blendet das WoW-Chatfenster aus; Enter und / öffnen dann dieses Fenster. Beute und Erfahrung stehen im Gespräch „Beute & Fortschritt“; nur das Kampflog fehlt. Jederzeit zurück: Haken raus oder /trip wowchat. Gesperrt bei ElvUI & Co.",
         function() if chat.Hider then chat.Hider:Apply() end end, 1},
     {"keepHistory", "Verlauf nach Neustart behalten", "Die letzten 100 Nachrichten je Reiter und 50 je Flüstergespräch (höchstens 10 Gespräche, nicht älter als 7 Tage) bleiben nach /reload und Neueinloggen erhalten – je Charakter, nur auf diesem PC. Ausschalten löscht den gespeicherten Verlauf beim nächsten Ausloggen.", nil, 1},
     {"jumpButton", "Knopf „Zum WoW-Chat“", "Kleiner Knopf oben im Chat: schließt diesen Chat und zeigt den WoW-Chat – auch wenn er ersetzt ist (nur vorübergehend). Zurück über die Sprechblase am WoW-Chat.",

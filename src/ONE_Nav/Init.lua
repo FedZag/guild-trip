@@ -42,22 +42,23 @@ end
 
 -- Einzelfunktionen (Optionen › Navi)
 if ONE.RegisterFeature then
-    ONE:RegisterFeature("nav.quests", {module = "nav", section = "Quests", order = 30, label = "Quest-Seite (Reiter Quests)", reload = true,
+    ONE:RegisterFeature("nav.quests", {module = "nav", section = "Quest-Hilfen", order = 30, label = "Quest-Seite (Reiter Quests)", reload = true,
         tooltip = "Eigener Reiter mit deinen Quests, Fortschritt und Navi. Wirkt nach dem Neuladen."})
-    ONE:RegisterFeature("nav.questMap", {module = "nav", section = "Quests", order = 31, label = "Quest-Symbole auf der Weltkarte",
+    ONE:RegisterFeature("nav.questMap", {module = "nav", section = "Quest-Hilfen", order = 31, label = "Quest-Symbole auf der Weltkarte",
         tooltip = "Zeigt die Zielgebiete deiner Quests auf der Weltkarte (Ring mit Punkt) und wo du fertige Quests abgibst (Ring mit Haken). Klick startet das Navi.",
         get = function() return nav.QuestPins:Settings().map end,
         set = function(on) nav.QuestPins:Settings().map = on and true or false nav.QuestPins:Refresh() end})
-    ONE:RegisterFeature("nav.questMinimap", {module = "nav", section = "Quests", order = 32, label = "Quest-Symbole auf der Minimap",
+    ONE:RegisterFeature("nav.questMinimap", {module = "nav", section = "Quest-Hilfen", order = 32, label = "Quest-Symbole auf der Minimap",
+        tooltip = "Zeigt Questziele und Abgaben deiner offenen Quests auf der Minimap.",
         get = function() return nav.QuestPins:Settings().minimap end,
         set = function(on) nav.QuestPins:Settings().minimap = on and true or false nav.QuestPins:Refresh() end})
-    ONE:RegisterFeature("nav.mobInfo", {module = "nav", section = "Quests", order = 36, label = "Questgegner im Tooltip und an der Namensplakette",
+    ONE:RegisterFeature("nav.mobInfo", {module = "nav", section = "Quest-Hilfen", order = 36, label = "Questgegner im Tooltip und an der Namensplakette",
         tooltip = "Zeigt im Tooltip eines Gegners, für welche Quest du ihn brauchst und wie weit du bist – dazu Gruppe und Gilde („Bob 7/10“). Ein kleines Symbol an der Namensplakette markiert Questgegner (gelb: du, blau: nur andere)."})
-    ONE:RegisterFeature("nav.questLevels", {module = "nav", section = "Quests", order = 38, label = "Questlevel vor Questnamen",
+    ONE:RegisterFeature("nav.questLevels", {module = "nav", section = "Quest-Hilfen", order = 38, label = "Questlevel vor Questnamen",
         tooltip = "Zeigt die Stufe vor dem Questnamen – „[12] Die Volksmiliz“ – in der Quest-Führung, im Kasten unter der Minimap und in Quest-Links im Chat. Nur deine Anzeige: Was andere im Chat sehen, bleibt unverändert."})
-    ONE:RegisterFeature("nav.givers", {module = "nav", section = "Quests", order = 33, label = "Questgeber (!) sammeln und zeigen",
+    ONE:RegisterFeature("nav.givers", {module = "nav", section = "Quest-Hilfen", order = 33, label = "Questgeber (!) sammeln und zeigen",
         tooltip = "Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."})
-    ONE:RegisterFeature("nav.giversMinimapAll", {module = "nav", section = "Quests", order = 34,
+    ONE:RegisterFeature("nav.giversMinimapAll", {module = "nav", section = "Quest-Hilfen", order = 34,
         -- Standard aus (Funktionen sind sonst standardmaessig an)
         get = function() return ONE.db and type(ONE.db.features) == "table" and ONE.db.features["nav.giversMinimapAll"] == true end,
         set = function(on)
@@ -67,13 +68,13 @@ if ONE.RegisterFeature then
         end,
         label = "Alle Questgeber auf der Minimap",
         tooltip = "Aus: Auf der Minimap stehen nur die Questgeber, die die Quest-Führung als Nächstes vorschlägt (höchstens 3, die nächsten zuerst). Alle anderen „!“ zeigt die Weltkarte. An: alle passenden Questgeber auch auf der Minimap."})
-    ONE:RegisterFeature("nav.routes", {module = "nav", section = "Weg", order = 20, label = "Wegführung über das Guild-Trip-Wegenetz",
+    ONE:RegisterFeature("nav.routes", {module = "nav", section = "Wegführung", order = 20, label = "Wegführung über das Guild-Trip-Wegenetz",
         tooltip = "Der Pfeil folgt vorab berechneten Laufwegen (Straßen, Brücken, Pässe) zwischen Questgebern, Lehrern, Händlern und Flugmeistern – ohne Zusatz-Addon. Ist Shortest Path Forever installiert, führt weiter dieses."})
-    ONE:RegisterFeature("nav.routeDots", {module = "nav", section = "Weg", order = 21, label = "Weg als Punkte auf Minimap und Weltkarte",
+    ONE:RegisterFeature("nav.routeDots", {module = "nav", section = "Wegführung", order = 21, label = "Weg als Punkte auf Minimap und Weltkarte",
         tooltip = "Folgt der Pfeil dem Wegenetz, zeigen goldene Punkte den Weg auf Minimap und Weltkarte, ein Ring die nächste Abbiegung."})
-    ONE:RegisterFeature("nav.routeWaypoint", {module = "nav", section = "Weg", order = 23, label = "Nächste Abbiegung als WoW-Wegpunkt",
+    ONE:RegisterFeature("nav.routeWaypoint", {module = "nav", section = "Wegführung", order = 23, label = "Nächste Abbiegung als WoW-Wegpunkt",
         tooltip = "Setzt die nächste Abbiegung als WoW-Wegpunkt – so siehst du sie auch in der Spielwelt. Einen eigenen Wegpunkt von dir überschreibt Guild Trip nicht."})
-    ONE:RegisterFeature("nav.trackerNavi", {module = "nav", section = "Quests", order = 34, label = "Klick auf ? oder … in der Zielverfolgung startet das Navi",
+    ONE:RegisterFeature("nav.trackerNavi", {module = "nav", section = "Quest-Hilfen", order = 34, label = "Klick auf ? oder … in der Zielverfolgung startet das Navi",
         tooltip = "Klickst du in der Quest-Zielverfolgung auf das Fragezeichen oder die drei Punkte, zeigt der Pfeil zur Quest (Ziel bzw. Abgabe)."})
     ONE:RegisterFeature("nav.arriveSound", {module = "nav", section = "Pfeil", order = 13, label = "Klang bei Ankunft",
         tooltip = "Kommst du am Ziel an, spielt Guild Trip einen kurzen Klang – je nach Ziel verschieden: Questgeber, Abgabe, Zielgebiet oder Flugmeister/Lehrer/Händler. Probehören: /trip klang"})
@@ -98,7 +99,17 @@ ONE:RegisterModule("nav", {
         nav.Merchants:Initialize()
         nav.PlayerArrow:Initialize()
         nav.Waypoints:Initialize()
+        nav.Coords:Initialize()
+        nav.FlightTimer:Initialize()
         ONE:RegisterSlash("navi", Navi, T("Richtungspfeil zu einem Gildenmitglied"))
+    end,
+    -- Navi › Lehrer oeffnen (z. B. aus Berufe): filter wie Page:TrainerFilter ("profession", "p:Alchemie" …)
+    -- noOpen: nur einstellen (fuer UI:AddAlias, das selbst zur Seite wechselt)
+    ShowTrainers = function(_, filter, noOpen)
+        if filter then nav.Page:SetTrainerFilter(filter) end
+        nav.Page.view = "trainers"
+        if not noOpen and ONE.UI and ONE.UI.OpenLink then ONE.UI:OpenLink("nav") end
+        return true
     end,
     -- Entfernung in Yards vom Spieler (gleicher Kontinent), sonst nil
     DistanceTo = function(_, mapID, x, y)

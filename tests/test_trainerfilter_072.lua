@@ -35,4 +35,24 @@ assert(Names("r:Experte") == "C" and Names("r:Fachmann") == "" and Names("r:Gese
 local values = {}
 for _, o in ipairs(Page:TrainerFilterOptions()) do values[#values + 1] = o.value end
 assert(table.concat(values, " ") == "all class weapon profession p:Alchemie p:Bergbau r:Geselle r:Experte r:Fachmann other", table.concat(values, " "))
+-- Suche (23.11.2026): Name, Fach, Ort; mehrere Woerter muessen alle passen; Gross/klein und Umlaute egal
+trainers[4].area = "Orgrimmar"
+Page:SetTrainerFilter("all")
+Page.trainerSearch = "berg"
+assert(Names("all") == "D", Names("all"))
+Page.trainerSearch = "ORGRIMMAR bergbau"
+assert(Names("all") == "D")
+Page.trainerSearch = "tierausbilder"
+assert(Names("all") == "F")
+Page.trainerSearch = "  "
+assert(Names("all") == "ACDEF", "leere Suche zeigt alles")
+Page.trainerSearch = "ÄLCHEMIE"
+assert(not Page.SearchMatches("Ä", "x") and Page.SearchMatches("Ä", "ä") and Page.SearchMatches("ÖL", "öl"))
+Page.trainerSearch = ""
+-- Waffenlehrer: Waffenarten in der Beschreibung (durchsuchbar)
+ONE.modules.crafting.WeaponsOf = function(e) return e.kind == "weapon" and {dagger = true} or nil end
+ONE.Weapons = {types = {{key = "dagger", name = "Dolche"}}}
+Page.trainerSearch = "dolch"
+assert(Names("all") == "E")
+Page.trainerSearch = ""
 print("OK test_trainerfilter_072")

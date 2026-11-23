@@ -4,6 +4,32 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.8.0-alpha (veröffentlicht 23.11.2026)
+
+```
+## 0.8.0-alpha
+
+**English**
+- Options: a search field above all settings (results from every section), "Minimap button" as a switch under General, language at the top, all sounds together under Display › Sounds, missing explanations added. The header no longer shows the same name twice.
+- Quest log (Levelling › Quest log): XP column per quest; details and tooltip show the XP and the share of your level (exact from the game, otherwise estimated with ~). Rested XP in the Levelling header.
+- New: sell price in item tooltips – for stacks the whole stack, not twice at an open vendor (Options › General › Vendor).
+- New: My characters (home page or /trip figuren) – level, gold, rested XP (estimated while offline) and place of all your characters, total gold; item tooltips show how many your characters have in bags and bank. Stored only on your PC.
+- Navi: trainers only under Navi › Trainers, now with a search field (name, profession, weapon, place); Professions has a button that opens the right list. Coordinates at the bottom of the world map (you and the mouse), optionally on the minimap. Time left during flights – estimated at first, exact after the first landing on that route.
+- New, all off by default (Options › General › Requests): decline duels and group invites from strangers (guild, friends and Battle.net friends still can), accept resurrection (not while the helper is fighting) and summons (not in combat).
+- Fixes: English texts (route section, Chain Heal on the shaman bar, Shadow Protection/Shadow Ward/Divine Protection), arrow and Navi page no longer say "no route guidance", /trip help lists all commands and a mistyped command shows a hint instead of opening the window, Dungeons › first page is called "Overview".
+
+**Deutsch**
+- Optionen: Suchfeld über allen Einstellungen (Treffer aus allen Bereichen), „Knopf an der Minimap“ als Schalter unter Allgemein, Sprache ganz oben, alle Klänge unter Darstellung › Klänge, fehlende Erklärungen ergänzt. Die Kopfzeile zeigt keinen Namen mehr doppelt.
+- Questlog (Leveln › Questlog): Spalte EP je Quest; Details und Tooltip zeigen die EP und den Anteil an deiner Stufe (genau vom Spiel, sonst geschätzt mit ~). Erholt-EP in der Kopfzeile von Leveln.
+- Neu: Verkaufspreis im Gegenstands-Tooltip – bei Stapeln für den ganzen Stapel, am offenen Händler nicht doppelt (Optionen › Allgemein › Händler).
+- Neu: Meine Figuren (Startseite oder /trip figuren) – Stufe, Gold, Erholt-EP (offline geschätzt) und Ort aller deiner Figuren, Gold gesamt; im Gegenstands-Tooltip, wie viele deine Figuren in Tasche und Bank haben. Nur auf deinem PC gespeichert.
+- Navi: Lehrer nur noch unter Navi › Lehrer, jetzt mit Suchfeld (Name, Beruf, Waffe, Ort); unter Berufe ein Knopf, der die passende Liste öffnet. Koordinaten unten auf der Weltkarte (du und die Maus), wahlweise an der Minimap. Restzeit im Flug – zuerst geschätzt, nach der ersten Landung auf der Strecke genau.
+- Neu, alles standardmäßig aus (Optionen › Allgemein › Anfragen): Duelle und Gruppeneinladungen von Fremden ablehnen (Gilde, Freunde und Battle.net-Freunde weiter erlaubt), Wiederbelebung annehmen (nicht, wenn der Helfer kämpft) und Beschwörung (nicht im Kampf).
+- Fixes: englische Texte (Abschnitt Wegführung, Kettenheilung auf der Schamanen-Leiste, Schattenschutz/Zauberschutz/Gottesschutz), Pfeil und Navi-Seite sagen nicht mehr „keine Wegführung“, /trip hilfe nennt alle Befehle und ein vertippter Befehl zeigt einen Hinweis statt das Fenster zu öffnen, Dungeons › erste Seite heißt „Übersicht“.
+```
+
+---
+
 ## 0.7.9-alpha (veröffentlicht 22.11.2026)
 
 ```

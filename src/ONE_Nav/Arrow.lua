@@ -154,7 +154,10 @@ function Arrow:ShowTooltip(owner)
     if not GameTooltip then return end
     GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
     GameTooltip:SetText(T("Guild Trip Navi"))
-    GameTooltip:AddLine(T("Zeigt die Richtung (Luftlinie), keine Wegführung."), 1, 1, 1, true)
+    -- Wegfuehrung an: der Pfeil folgt dem Wegenetz (frueher stand hier "keine Wegfuehrung")
+    local routesOn = not ONE.FeatureOn or ONE:FeatureOn("nav.routes")
+    GameTooltip:AddLine(routesOn and T("Folgt dem Weg über Straßen, Brücken und Pässe; abseits davon zeigt er die Richtung.")
+        or T("Zeigt die Richtung (Luftlinie), keine Wegführung."), 1, 1, 1, true)
     if not self:Settings().locked then
         GameTooltip:AddLine(T("Linke Maustaste ziehen: verschieben"), .7, .7, .7)
     end

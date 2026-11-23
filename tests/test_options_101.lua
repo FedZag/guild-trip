@@ -173,4 +173,31 @@ local b=VisibleBox("Probehaken")
 b.GetChecked=function() return true end
 b.scripts.OnClick(b)
 assert(demo==true)
+-- Suche (23.11.2026): Treffer aus allen Bereichen, Bereichsklick/Zahnrad leert die Suche
+local hits=UI:SearchOptions("klänge")
+local found={}
+for _,h in ipairs(hits) do found[h.entry.id]=h.cat.id end
+assert(found["f:core.sounds"]=="look", "Menüklänge gefunden")
+assert(#UI:SearchOptions("   ")==0 and #UI:SearchOptions("gibtsganzbestimmtnicht")==0)
+assert(#UI:SearchOptions("PROBEHAKEN")==1, "gross/klein egal")
+assert(#UI:SearchOptions("probe xyz")==0 and #UI:SearchOptions("allgemein probe")>=1, "alle Woerter, auch Bereichsname")
+UI.optionsSearch="Probehaken"
+UI:Refresh()
+assert(VisibleBox("Probehaken") and not VisibleBox("Hoher Kontrast") and UI.contextLabel.text=="Suche: 1 Treffer", UI.contextLabel.text)
+UI:OpenOptions("look")
+assert(UI.optionsSearch=="" and VisibleBox("Hoher Kontrast") and not VisibleBox("Probehaken"), "Zahnrad leert die Suche")
+-- nie dasselbe zweimal oben (Spielbild 23.11.2026 "Darstellung  Darstellung")
+assert(UI.pathLabel, "Kopfzeile da")
+do
+    local before=UI.pathLabel:GetText()
+    UI.pathLabel:SetText("Darstellung")
+    UI:SetContext(UI.activeTab,"Darstellung")
+    assert((UI.contextLabel.text or "")=="", "Zusatz gleich Seitenname: weg")
+    UI:SetContext(UI.activeTab,"3 Treffer")
+    assert(UI.contextLabel.text=="3 Treffer")
+    UI.pathLabel:SetText(before)
+end
+-- Minimap-Knopf als Schalter unter Allgemein (vorher nur /trip minimap)
+UI:OpenOptions("general")
+assert(VisibleBox("Knopf an der Minimap"))
 print("OK test_options_101")

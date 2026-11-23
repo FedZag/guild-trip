@@ -281,7 +281,10 @@ function GameTooltip:AddLine(t) self.lines[#self.lines + 1] = t end
 function GameTooltip:Show() self.shown = true end
 function GameTooltip:Hide() self.shown = false end
 arrow.frame.scripts.OnEnter(arrow.frame)
-assert(GameTooltip.shown and table.concat(GameTooltip.lines, " "):find("keine Wegführung", 1, true))
+-- Wegfuehrung an (Standard): der Pfeil folgt dem Wegenetz; aus: nur Luftlinie
+local tipText = table.concat(GameTooltip.lines, " ")
+local routesOn = not ONE.FeatureOn or ONE:FeatureOn("nav.routes")
+assert(GameTooltip.shown and tipText:find(routesOn and "Straßen, Brücken" or "keine Wegführung", 1, true), tipText)
 arrow.frame.scripts.OnLeave(arrow.frame)
 assert(not GameTooltip.shown)
 

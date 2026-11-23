@@ -183,6 +183,13 @@ function Chat:Settings()
         for _, t in ipairs(s.tabs) do if t.id == "system" then has = true end end
         if not has then s.tabs[#s.tabs + 1] = {id = "system", label = "System & Addons", kinds = {system = true}, builtin = true} end
     end
+    -- 23.11.2026 (Nutzer): Chat soll dem Design des Hauptfensters folgen. Eine Kopie mit
+    -- fertigem Skin entstand oft aus Versehen (ein Klick auf den Durchschalt-Knopf im Zahnrad)
+    -- und koppelte den Chat ab. Nur eigene Farben ("custom") bleiben.
+    if s.glassFollowV ~= 1 then
+        s.glassFollowV = 1
+        if type(s.glass) == "table" and s.glass.skin ~= "custom" then s.glass = nil end
+    end
     -- 22.11.2026: NPC-Gespraeche (in "Alle" und "In der Naehe") und "Beute & Fortschritt" nachtragen
     if s.npcTabV ~= 1 then
         s.npcTabV = 1

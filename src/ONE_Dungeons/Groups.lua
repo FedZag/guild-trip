@@ -147,8 +147,11 @@ function Groups:Build(panel)
         for _, ad in ipairs(ads) do if ad == state.ad then stillThere = true end end
         if not stillThere then state.ad = S.myAd or ads[1] end
         if #ads == 0 then
+            -- Elite-Quests: eigener Reiter "Quests" nur ohne Quest-Fuehrung, sonst Leveln › Questlog
+            local questPage = ONE.UI and ONE.UI.tabs and ONE.UI.tabs.quests and T("auf der Seite |cffffd100Quests|r")
+                or T("unter |cffffd100Leveln › Questlog|r")
             empty:SetText(T("Gerade sucht niemand aus der Gilde eine Gruppe.\n\nEin Gesuch gibst du im Reiter "
-                .. "|cffffd100Dungeons|r auf: Dungeon wählen und „Gruppe suchen“ klicken – für Elite-Quests auf der Seite |cffffd100Quests|r."))
+                .. "|cffffd100Dungeons|r auf: Dungeon wählen und „Gruppe suchen“ klicken – für Elite-Quests %s.", questPage))
         else
             empty:SetText("")
         end

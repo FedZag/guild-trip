@@ -10,6 +10,7 @@ end
 if ONE.RegisterFeature then
     ONE:RegisterFeature("guild.reminders", {module = "guild", category = "reminders", section = "Gildentermine", order = 10,
         label = "Erinnerungen an Gildentermine",
+        tooltip = "Vor Terminen aus dem Kalender (Gilde und eigene) eine Chatzeile, auf Wunsch mit Hinweisfenster und Ton. Wann, stellst du darunter ein.",
         get = function() return ONE.db.remindersEnabled and true or false end, set = function(on) ONE.db.remindersEnabled = on end})
     ONE:RegisterFeature("guild.mapSearch", {module = "guild", label = "Gildensuche auf der Weltkarte",
         tooltip = "Kleines Feld auf der Weltkarte, um Gildenmitglieder zu finden und das Navi zu starten."})

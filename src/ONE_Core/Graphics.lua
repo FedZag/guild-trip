@@ -222,7 +222,7 @@ function G:RegisterSettings(ui)
                 get = function() return tonumber(G.Get(cvar) or 0) == 1 end,
                 set = function(on) G:Set(cvar, on and 1 or 0) end})
         else
-            Set(s[3], {id = "gfx_" .. cvar, kind = "custom", order = 100 + s.order, visible = visible, build = function(row, w)
+            Set(s[3], {id = "gfx_" .. cvar, kind = "custom", order = 100 + s.order, visible = visible, searchText = {s[2], s[7]}, build = function(row, w)
                 return G:BuildSlider(row, w, s)
             end})
         end

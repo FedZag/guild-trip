@@ -61,7 +61,7 @@ end
 Data.barFrames = {[2] = "MultiBarBottomLeft", [3] = "MultiBarBottomRight"}
 
 local PRIEST_HELP = {title = "Hilfe", bar = 3, slots = {
-    {1243, "Ausdauer"}, {588, "Rüstung"}, {976, "Schutz"}, {527, "Bannen"},
+    {1243, "Ausdauer"}, {588, "Rüstung"}, {976, "Schattenschutz"}, {527, "Bannen"},
     {528, "Krankheit"}, {9484, "Fesseln"}, {453, "Ruhig"}, {2006, "Beleben"},
 }}
 

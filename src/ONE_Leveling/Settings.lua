@@ -12,7 +12,8 @@ local G = lev.Guide
 -- Schalter (Schluessel in db.leveling), nach Abschnitten
 S.SECTIONS = {
     {title = "Kasten „Quest-Führung“", options = {
-        {key = "tracker", label = "Kasten anzeigen", default = true},
+        {key = "tracker", label = "Kasten anzeigen", default = true,
+            tip = "Der Kasten unter der Minimap mit dem nächsten Schritt der Quest-Führung. Aus: Führung läuft weiter, nur ohne Kasten."},
         {key = "trackerBare", label = "Ohne Rahmen (nur Text)",
             tip = "Zeigt nur den Text; der Rahmen erscheint kurz, wenn die Maus darüber ist (zum Verschieben)."},
         {key = "replaceBlizzard", label = "WoW-Questliste durch den Kasten ersetzen",
@@ -107,10 +108,12 @@ function S:Register()
             Add({id = "lev." .. o.key, section = sec.title, order = 20 + i * 10 + k, label = o.label, tooltip = o.tip,
                 indent = o.indent, get = function() return S.Value(o) end, set = function(on) S:Set(o.key, on) end})
         end
+        -- Kasten: erst anzeigen/Aussehen, dann Schrift, ganz unten Zuruecksetzen (Gesamtpruefung 23.11.2026)
+        local after = 20 + i * 10 + #sec.options
         if i == 1 then
-            Add({id = "levScale", section = sec.title, order = 26, kind = "custom", build = BuildScale})
-            Add({id = "levSizeHint", section = sec.title, order = 27, kind = "text", label = "Mehr Schritte: den Kasten unten rechts größer ziehen."})
-            Add({id = "levReset", section = sec.title, order = 28, kind = "button", label = "Kasten zurücksetzen", width = 180,
+            Add({id = "levScale", section = sec.title, order = after + 1, kind = "custom", searchText = {"Schriftgröße im Kasten"}, build = BuildScale})
+            Add({id = "levSizeHint", section = sec.title, order = after + 2, kind = "text", label = "Mehr Schritte: den Kasten unten rechts größer ziehen."})
+            Add({id = "levReset", section = sec.title, order = after + 3, kind = "button", label = "Kasten zurücksetzen", width = 180,
                 onClick = function() S:ResetTracker() end})
         end
     end

@@ -215,9 +215,12 @@ ONE.db.modules.nav = nil
 SlashCmdList.PROJECTONE("navdiag loeschen")
 assert(ONE.db.navDiag == nil)
 
--- 11) Unbekannte Befehle oeffnen weiterhin das Fenster; Hilfe listet Modulbefehle
+-- 11) Unbekannte Befehle: seit 23.11.2026 Hinweis statt Fenster (Nutzer, Gesamtpruefung); Hilfe listet Modulbefehle
 ONE_toggled = false
+printed = {}
 SlashCmdList.PROJECTONE("irgendwas")
+assert(not ONE_toggled and table.concat(printed, "\n"):find("/trip hilfe", 1, true))
+SlashCmdList.PROJECTONE("")
 assert(ONE_toggled)
 printed = {}
 SlashCmdList.PROJECTONE("hilfe")

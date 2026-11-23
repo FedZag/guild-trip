@@ -638,7 +638,7 @@ function Page:BuildCombined(panel)
     local L = false
     local span = L and L.width or 290
     local bw = math.floor((span - 8) / 3)
-    local bD = ONE.Widgets:Button(panel, "Dungeons", bw, 24, "TOPLEFT", 0, -2, function() Page:ShowView("dungeons") end)
+    local bD = ONE.Widgets:Button(panel, T("Übersicht"), bw, 24, "TOPLEFT", 0, -2, function() Page:ShowView("dungeons") end)
     local bG = ONE.Widgets:Button(panel, "Gruppen", bw, 24, "TOPLEFT", bw + 4, -2, function() Page:ShowView("groups") end)
     local bT = ONE.Widgets:Button(panel, "Ausflüge", span - 2 * (bw + 4), 24, "TOPLEFT", 2 * (bw + 4), -2, function() Page:ShowView("trips") end)
     self.combined = {dv = dv, gv = gv, tv = tv, refreshD = refreshD, refreshG = refreshG, refreshT = refreshT, bD = bD, bG = bG, bT = bT}
@@ -660,7 +660,8 @@ end
 
 function Page:HeaderViews(nG, nT)
     local function Go(key) Page:ShowView(key) end
-    return {{key = "dungeons", label = T("Dungeons"), onClick = Go},
+    -- erste Unterseite heisst nicht wie der Bereich (Nutzer 23.11.2026), wie Startseite/Gilde: "Uebersicht"
+    return {{key = "dungeons", label = T("Übersicht"), onClick = Go},
         {key = "groups", label = (nG or 0) > 0 and T("Gruppen (%d)", nG) or T("Gruppen"), onClick = Go},
         {key = "trips", label = (nT or 0) > 0 and T("Ausflüge (%d)", nT) or T("Ausflüge"), onClick = Go},
         self.combined and self.combined.pv and {key = "pass", label = T("Reisepass"), onClick = Go} or nil}
@@ -717,6 +718,7 @@ function Page:Register()
         local function Changed() if dungeons.Groups and dungeons.Groups.Refresh then dungeons.Groups:Refresh() end end
         ONE.UI:AddSetting({id = "groupRole", category = "dungeons", section = "Gruppen", order = 20, kind = "dropdown", width = 200,
             label = "Deine Rolle",
+            tooltip = "Mit dieser Rolle meldest du dich bei Gruppengesuchen und Gildenausflügen an.",
             options = function()
                 return {{value = "T", text = S:RoleName("T")}, {value = "H", text = S:RoleName("H")}, {value = "D", text = S:RoleName("D")}}
             end,

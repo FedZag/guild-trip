@@ -495,7 +495,8 @@ function Glass:ShowViews(ui, set, title, context)
     local col2 = self.col2
     if not col2 then return end
     self.colHead:SetText(title or "")
-    self.colSub:SetText(context or "")
+    -- Zusatz steht rechts oben neben dem Seitennamen (UI:UpdateContext), hier nicht doppelt
+    self.colSub:SetText("")
     local items = set and set.items or {}
     local y = -58
     local p = self:Palette()
@@ -615,8 +616,8 @@ end
 function Glass:RegisterSettings(ui)
     local function Set(o) o.category, o.section = "look", "Aussehen" ui:AddSetting(o) end
     Set({ id = "glassLook", kind = "dropdown", label = "Aussehen", order = 1, width = 220,
-        tooltip = "Glas: durchsichtig mit drei Spalten. Blizzard: Fenster wie im Spiel (wie 0.7.0). Wechsel lädt die Oberfläche neu.",
-        options = function() return { { value = "glass", text = T("Glas (neu)") }, { value = "native", text = T("Blizzard (wie 0.7.0)") } } end,
+        tooltip = "Glas: durchsichtig mit drei Spalten. Blizzard: Fenster wie im Spiel. Wechsel lädt die Oberfläche neu.",
+        options = function() return { { value = "glass", text = T("Glas") }, { value = "native", text = T("Blizzard") } } end,
         get = function() return Glass:Active() and "glass" or "native" end,
         set = function(v) ONE.db.theme.look = v end,
         onChange = function() ui:AskReload(true) end })
@@ -631,7 +632,7 @@ function Glass:RegisterSettings(ui)
         end,
         get = function() return Glass:SkinId() end,
         set = function(v) Glass:SetSkin(v) end })
-    Set({ id = "glassAlpha", kind = "custom", order = 3, visible = function() return Glass:Active() end,
+    Set({ id = "glassAlpha", kind = "custom", order = 3, visible = function() return Glass:Active() end, searchText = {"Deckkraft", "Glas"},
         build = function(row, w) return Glass:AlphaControl(row, w) end })
     Set({ id = "glassGlow", kind = "button", label = "Leuchtfarbe wählen …", order = 4,
         visible = function() return Glass:Active() end,

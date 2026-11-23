@@ -1231,7 +1231,7 @@ function UI:RegisterTabs()
     ONE.UI:AddTab("calendar", T("Kalender"), function(panel) return self:BuildCalendar(panel) end)
     ONE.UI:RegisterView("guild-members", function(panel) return self:BuildGuildMembers(panel) end)
     if ONE.UI.AddSetting then
-        ONE.UI:AddSetting({id = "reminderTimes", category = "reminders", section = "Gildentermine", kind = "custom", order = 11,
+        ONE.UI:AddSetting({id = "reminderTimes", category = "reminders", section = "Gildentermine", kind = "custom", order = 11, searchText = {"Erinnerungszeiten", "Minuten vorher"},
             module = "guild", visible = function() return ONE.db.remindersEnabled and true or false end,
             build = function(row, w) return self:BuildReminderSettings(row, w) end})
     end

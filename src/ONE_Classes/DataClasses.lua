@@ -322,7 +322,7 @@ mage[3].talents = { -- Frost (erst 7 Punkte Arkan fuer Geschosssalve)
 -- ===== Hexenmeister =====
 local WARLOCK_SHARED = {
     {title = "Notfall", bar = 2, slots = {
-        {1454, "Aderlass"}, {755, "Tier heilen"}, {6789, "Todesmantel"}, {5484, "Heulen"}, {6229, "Schutz"}}},
+        {1454, "Aderlass"}, {755, "Tier heilen"}, {6789, "Todesmantel"}, {5484, "Heulen"}, {6229, "Zauberschutz"}}},
     {title = "Hilfe", bar = 3, slots = {
         {688, "Wichtel"}, {697, "Leerwandler"}, {712, "Sukkubus"}, {691, "Teufelsjäger"}, {687, "Haut"},
         {706, "Rüstung"}, {6201, "Stein"}, {693, "Seelenstein"}, {5697, "Atem"}}},
@@ -395,7 +395,7 @@ warlock[3].talents = {
 -- ===== Paladin =====
 local PALADIN_SHARED = {
     {title = "Notfall & Heilung", bar = 2, slots = {
-        {19750, "Schnell"}, {635, "Viel"}, {498, "Schutz"}, {642, "Gottesschild"}, {633, "Handauflegen"},
+        {19750, "Schnell"}, {635, "Viel"}, {498, "Gottesschutz"}, {642, "Gottesschild"}, {633, "Handauflegen"},
         {1022, "Schützen"}, {1152, "Läutern"}, {4987, "Reinigen"}}},
     {title = "Hilfe", bar = 3, slots = {
         {19740, "Macht"}, {19742, "Weisheit"}, {20217, "Könige"}, {465, "Hingabe"}, {7294, "Vergeltung"},
@@ -443,7 +443,7 @@ Data.classes.PALADIN = {
 -- ===== Schamane =====
 local SHAMAN_SHARED = {
     {title = "Notfall & Heilung", bar = 2, slots = {
-        {8004, "Schnell"}, {331, "Viel"}, {1064, "Kette"}, {2645, "Geisterwolf"}, {2484, "Erdbindung"},
+        {8004, "Schnell"}, {331, "Viel"}, {1064, "Kettenheilung"}, {2645, "Geisterwolf"}, {2484, "Erdbindung"},
         {8143, "Erdstoß"}, {5394, "Heilung"}}},
     {title = "Hilfe", bar = 3, slots = {
         {324, "Schild"}, {8017, "Felsbeißer"}, {8024, "Flamme"}, {8232, "Windzorn"}, {8071, "Steinhaut"},

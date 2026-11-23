@@ -444,8 +444,24 @@ function Page:BuildTab(panel)
         if mode == "gear" and ((UnitLevel and UnitLevel("player")) or 1) >= 60 then name = "Raid-Vorbereitung" end
         -- Kopfzeile: Seitenname steht schon links (Glas), daneben Stufe/Tempo/naechste Stufe
         local glass = ONE.Glass and ONE.Glass:Active()
-        if ONE.UI.SetContext then ONE.UI:SetContext("leveling", (glass and "" or (T(name) .. "  ·  ")) .. (G.goalText or "")) end
+        local rested = Page.RestedText()
+        local goal = (G.goalText or "") .. ((rested ~= "" and (G.goalText or "") ~= "") and "  ·  " or "") .. rested
+        if ONE.UI.SetContext then ONE.UI:SetContext("leveling", (glass and "" or (T(name) .. "  ·  ")) .. goal) end
     end
+end
+
+-- Erholt-EP (Gesamtpruefung 23.11.2026): "Erholt: 4.500 EP (45 %)" oder "" (keine / Stufe 60)
+function Page.RestedText()
+    local ex, mx = rawget(_G, "GetXPExhaustion"), rawget(_G, "UnitXPMax")
+    local okR, rested = pcall(ex or function() end)
+    rested = okR and tonumber(rested) or 0
+    if rested <= 0 then return "" end
+    local okM, max = pcall(mx or function() end, "player")
+    max = okM and tonumber(max) or 0
+    local n = tostring(math.floor(rested)):reverse():gsub("(%d%d%d)", "%1."):reverse():gsub("^%.", "")
+    if ONE.Language and ONE:Language() == "en" then n = n:gsub("%.", ",") end
+    if max > 0 then return T("Erholt: %s EP (%d %%)", n, math.floor(rested * 100 / max + .5)) end
+    return T("Erholt: %s EP", n)
 end
 
 function Page:Register()

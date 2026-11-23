@@ -172,3 +172,8 @@ EN["Sanitäter"] = "Medic"
 EN["Fischer"] = "Fisher"
 EN["Meisterschlachter"] = "Superior Butcher"
 EN["Zirkel des Smaragds"] = "Emerald Circle"
+
+-- Berufe: Lehrer stehen in der Navi (23.11.2026)
+EN["Lehrer in der Navi"] = "Trainers in Navi"
+EN["Zeigt in Navi › Lehrer die Lehrer für den gewählten Beruf – mit Suche und Navi-Pfeil."] = "Shows the trainers for the chosen profession in Navi › Trainers – with search and navi arrow."
+EN["Die Lehrer stehen in der Navi – das Modul Navigation ist aus."] = "Trainers are listed in the Navi – the Navigation module is switched off."

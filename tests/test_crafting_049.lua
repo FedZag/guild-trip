@@ -157,12 +157,19 @@ ONE.MinimapButton = {SetAlert = function(_, r, t) alert = {r, t} end, ClearAlert
 UnitLevel = function() return 19 end
 c.CheckDue()
 assert(alert and alert[1] == "crafting" and alert[2]:find("Kräuterkunde", 1, true))
--- Ansicht Lehrer: Grundliste sichtbar, unbestaetigt
-R:Store().view = "trainers"
-tabs.crafting()
+-- Lehrer stehen seit 23.11.2026 nur in Navi › Lehrer: Grundliste da, unbestaetigt; Berufe hat einen Knopf dorthin
 local makaru
-for _, r in ipairs(made) do if r.kind == "Button" and r.cells and r.cells.npc and r.item and r.item.npc == "Makaru" then makaru = r end end
-assert(makaru and not makaru.item.confirmed and makaru.item.what == "Bergbau")
+for _, e in ipairs(T:All()) do if e.npc == "Makaru" then makaru = e end end
+assert(makaru and not makaru.confirmed and makaru.what == "Bergbau")
+local toNavi
+for _, r in ipairs(made) do if r.kind == "Button" and r.text == "Lehrer in der Navi" then toNavi = r end end
+assert(toNavi, "Knopf zu Navi › Lehrer")
+local shown
+ONE.modules.nav = {ShowTrainers = function(_, filter) shown = filter return true end}
+assert(c.Page:OpenTrainers("Bergbau") and shown == "p:Bergbau", tostring(shown))
+assert(c.Page:OpenTrainers("Gibtsnicht") and shown == "profession")
+assert(c.Page:OpenTrainers(nil) and shown == "profession")
+ONE.modules.nav = nil
 -- Allianz: eigene Grundliste, keine Horde-Lehrer
 UnitFactionGroup = function() return "Alliance" end
 local ally = T:All()

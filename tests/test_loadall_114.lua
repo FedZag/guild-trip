@@ -178,6 +178,18 @@ ONE.UI.OpenOptions = function() openedOptions = true end
 SlashCmdList.PROJECTONE("modules")
 assert(openedOptions, "/trip modules oeffnet die Optionen")
 ONE.UI.OpenOptions = openOriginal
+-- Vertippter Befehl: Hinweis statt still das Fenster oeffnen (23.11.2026); leeres /trip schaltet das Fenster
+do
+    local printed, toggled
+    local printOriginal, toggleOriginal = ONE.Print, ONE.UI.Toggle
+    ONE.Print = function(_, m) printed = m end
+    ONE.UI.Toggle = function() toggled = true end
+    SlashCmdList.PROJECTONE("optionn")
+    assert(not toggled and printed and printed:find("optionn", 1, true) and printed:find("/trip hilfe", 1, true), tostring(printed))
+    SlashCmdList.PROJECTONE("")
+    assert(toggled, "/trip ohne Befehl oeffnet das Fenster")
+    ONE.Print, ONE.UI.Toggle = printOriginal, toggleOriginal
+end
 -- Alle Funktionen haben ein Modul, das es gibt
 for id, def in pairs(ONE.features) do
     if def.module then assert(ONE.modules[def.module], "Funktion " .. id .. ": Modul " .. def.module .. " fehlt") end

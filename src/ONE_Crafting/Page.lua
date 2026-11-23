@@ -67,27 +67,28 @@ function Page:Build(panel)
     local state = {}
 
     local pageTitle = Text(panel, "GameFontNormalLarge", 0, -4, 80, "accent", T("Berufe"))
-    -- Zwei Ansichten: Rezepte (wer kann was herstellen) und Lehrer (wo lerne ich was)
+    -- Rezepte (wer kann was herstellen). Die Lehrer stehen seit 23.11.2026 nur noch in Navi › Lehrer
+    -- (Nutzer: "nur navi, aber mit suchfunktion"); hier fuehrt ein Knopf dorthin.
     local rv = CreateFrame("Frame", nil, panel)
     rv:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
     rv:SetSize(W, H)
-    local tv = CreateFrame("Frame", nil, panel)
-    tv:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
-    tv:SetSize(W, H)
-    local viewRecipes = ONE.Widgets:Button(panel, T("Rezepte"), 96, 24, "TOPLEFT", 84, -2, function()
-        store.view = "recipes" Page:Refresh()
-    end)
-    local viewTrainers = ONE.Widgets:Button(panel, T("Lehrer"), 96, 24, "TOPLEFT", 186, -2, function()
-        store.view = "trainers" Page:Refresh()
-    end)
-    -- 0.6.8: mit Symbolleiste stehen "Rezepte | Lehrer" oben in der Kopfzeile
-    local function SetView(key) store.view = key Page:Refresh() end
-    if ONE.UI.SetViews and ONE.UI:SetViews("crafting", {{key = "recipes", label = "Rezepte", onClick = SetView},
-        {key = "trainers", label = "Lehrer", onClick = SetView}}, store.view == "trainers" and "trainers" or "recipes") then
-        ONE.UI:RetireButtons(pageTitle, viewRecipes, viewTrainers)
+    -- nur noch eine Ansicht: keine Unterseiten-Liste (Nutzer 23.11.2026: einzelnes "Rezepte" wirkte leer)
+    if ONE.UI.SetViews and ONE.UI:SetViews("crafting", {}) then
+        ONE.UI:RetireButtons(pageTitle)
         self.headerViews = true
     end
-    self:BuildTrainers(tv, W, H)
+    local toTrainers = ONE.Widgets:Button(rv, T("Lehrer in der Navi"), 150, 22, "TOPRIGHT", -178, -2, function()
+        Page:OpenTrainers(store.filter)
+    end)
+    if toTrainers.HookScript then
+        toTrainers:HookScript("OnEnter", function(b)
+            if not GameTooltip then return end
+            GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+            GameTooltip:AddLine(T("Zeigt in Navi › Lehrer die Lehrer für den gewählten Beruf – mit Suche und Navi-Pfeil."), 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        toTrainers:HookScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    end
     -- An/Aus als Haekchen, Auswahl als Dropdown (Blizzard-Bausteine aus dem Kit)
     -- "Rezepte teilen" steht in Optionen › Teilen
     local filter = ONE.Kit:Dropdown(rv, {point = "TOPRIGHT", x = 0, y = -2, width = 170,
@@ -183,11 +184,7 @@ function Page:Build(panel)
     if search.HookScript then search:HookScript("OnTextChanged", Changed) end
 
     self.refresh = function()
-        local trainersView = store.view == "trainers"
-        if trainersView then rv:Hide() tv:Show() else tv:Hide() rv:Show() end
-        if viewRecipes.SetEnabled then viewRecipes:SetEnabled(trainersView) viewTrainers:SetEnabled(not trainersView) end
-        if self.headerViews then ONE.UI:SetActiveView("crafting", trainersView and "trainers" or "recipes") end
-        if trainersView then Page:RefreshTrainers() return end
+        rv:Show()
         filter:Refresh()
         local own = {}
         for prof, data in pairs(R:Mine()) do own[#own + 1] = prof .. " " .. (data.skill or 0) .. "/" .. (data.max or 0) end
@@ -264,135 +261,20 @@ function Page:Build(panel)
     return self.refresh
 end
 
--- ===== Ansicht "Lehrer" =====
-local KIND_NAMES = {profession = "Berufe", class = "Klassen", weapon = "Waffen", other = "Sonstige"}
-function Page:BuildTrainers(tv, W, H)
-    local Tr, store = crafting.Trainers, crafting.Recipes:Store()
-    local state = {}
-    -- Jede faellige Ausbildung in eigener Zeile (22.11.2026: zweite wurde abgeschnitten)
-    local due = Text(tv, "GameFontHighlight", 0, -32, W, "text")
-    if due.SetWordWrap then due:SetWordWrap(true) end
-    due:SetHeight(40)
-    if due.SetJustifyV then due:SetJustifyV("TOP") end
-    local kindButton = ONE.Kit:Dropdown(tv, {point = "TOPRIGHT", x = 0, y = -2, width = 170,
-        options = function()
-            return {{value = nil, text = T("Alle Lehrer")}, {value = "profession", text = T("Berufe")},
-                {value = "class", text = T("Klassen")}, {value = "weapon", text = T("Waffen")}, {value = "other", text = T("Sonstige")}}
-        end,
-        get = function() return store.trainerKind end, set = function(v) store.trainerKind = v end,
-        onChange = function() Page:RefreshTrainers() end})
-    -- Unterkategorie (22.11.2026): Berufe -> Angeln, Kochkunst ...; Klassen -> eigene Klasse vorgewaehlt;
-    -- Waffen -> Waffenart; Sonstige -> Reiten, Tierausbilder, Portale ... Auswahl bleibt je Art gespeichert.
-    local function SubOptions() return Tr:SubOptions(store.trainerKind, Tr:All()) end
-    local function CurrentSub()
-        local kind = store.trainerKind
-        if not kind then return nil end
-        store.trainerSub = type(store.trainerSub) == "table" and store.trainerSub or {}
-        local v = store.trainerSub[kind]
-        if v == nil and kind == "class" then v = Tr.MyClassName() end
-        for _, o in ipairs(Tr:SubOptions(kind, Tr:All())) do if o.value == v then return v end end
-        return "*"
+-- Navi › Lehrer oeffnen, passend zum gewaehlten Beruf (sonst alle Berufslehrer)
+function Page:OpenTrainers(prof)
+    local navi = ONE.modules and ONE.modules.nav
+    if not (navi and navi.ShowTrainers and (not ONE.IsEnabled or ONE:IsEnabled("nav"))) then
+        ONE:Print(T("Die Lehrer stehen in der Navi – das Modul Navigation ist aus.")) return false
     end
-    Page.TrainerSub = CurrentSub
-    local subButton = ONE.Kit:Dropdown(tv, {point = "TOPRIGHT", x = -178, y = -2, width = 170,
-        options = SubOptions,
-        get = CurrentSub,
-        set = function(v)
-            store.trainerSub = type(store.trainerSub) == "table" and store.trainerSub or {}
-            if store.trainerKind then store.trainerSub[store.trainerKind] = v end
-        end,
-        onChange = function() Page:RefreshTrainers() end})
-    local leftW, cardX, NPCW, WHATW = 430, 442, 140, 116
-    local list = ONE.Kit:List(tv, {x = 0, y = -80, width = leftW, height = H - 80, rowHeight = 22,
-        columns = {
-            {key = "npc", title = "LEHRER", width = NPCW},
-            {key = "what", title = "FÜR", width = WHATW},
-            {key = "area", title = "WO", width = leftW - 24 - 6 - NPCW - WHATW - 16},
-        },
-        render = function(row, e, cells)
-            cells.npc:SetText(e.npc)
-            cells.npc:SetTextColor(e.confirmed and 1 or .85, e.confirmed and .82 or .75, e.confirmed and 0 or .5)
-            cells.what:SetText(T(Tr.WhatName(e)))
-            cells.what:SetTextColor(.9, .9, .9)
-            -- neutral: ganze Zelle blau (bleibt erkennbar, auch wenn ein langer Ortsname abgeschnitten wird)
-            cells.area:SetText(T(e.area or crafting.Trainers.MapName(e.map) or "?") .. (e.neutral and (" · " .. T("neutral")) or ""))
-            if e.neutral then cells.area:SetTextColor(.56, .70, 1) else cells.area:SetTextColor(.75, .75, .75) end
-            if not row.selection then
-                row.selection = row:CreateTexture(nil, "BACKGROUND", nil, 1)
-                row.selection:SetAllPoints(row)
-                Paint(row.selection, 1, .82, 0, .14)
-            end
-            if state.entry and state.entry.npc == e.npc then row.selection:Show() else row.selection:Hide() end
-        end,
-        onClick = function(_, e) state.entry = e Page:RefreshTrainers() end,
-    })
-    local card = CreateFrame("Frame", nil, tv)
-    card:SetPoint("TOPLEFT", tv, "TOPLEFT", cardX, -80)
-    card:SetSize(W - cardX, H - 80)
-    if ONE.Themes then ONE.Themes:RegisterPanel(card) end
-    local inner = W - cardX - 28
-    local name = Text(card, "GameFontNormal", 14, -12, inner, "accent")
-    local what = Text(card, "GameFontHighlight", 14, -34, inner, "text")
-    local where = Text(card, "GameFontHighlight", 14, -54, inner, "text")
-    local status = Text(card, "GameFontHighlightSmall", 14, -78, inner, "soft")
-    local hint = Text(card, "GameFontDisableSmall", 14, -100, inner, "soft")
-    if hint.SetWordWrap then hint:SetWordWrap(true) end
-    hint:SetHeight(60)
-    local guide = ONE.Widgets:Button(card, T("Hinführen"), 130, 24, "BOTTOMRIGHT", -12, 12, function()
-        local e = state.entry
-        local navi = ONE.modules and ONE.modules.nav
-        if e and e.map and e.x and navi and type(navi.PointTo) == "function" then navi:PointTo(e.npc, e.map, e.x, e.y, {service = true}) end
-    end)
-    self.refreshTrainers = function()
-        kindButton:Refresh()
-        if store.trainerKind then subButton.frame:Show() subButton:Refresh() else subButton.frame:Hide() end
-        local sub = CurrentSub()
-        local level = tonumber((UnitLevel and UnitLevel("player"))) or 0
-        local lines = {}
-        for i, d in ipairs(Tr:Due(Tr:MyProfessions(), level)) do
-            if i > 2 then break end
-            lines[#lines + 1] = (d.ready and "|cff80e680" or "|cffaaaaaa") .. d.text .. "|r"
+    local filter = "profession"
+    if prof then
+        for _, e in ipairs(crafting.Trainers:All()) do
+            if e.kind == "profession" and e.what == prof then filter = "p:" .. prof break end
         end
-        due:SetText(#lines > 0 and T("Für dich: %s", table.concat(lines, "\n")) or T("Für dich: gerade keine Berufsausbildung fällig."))
-        local items = {}
-        for _, e in ipairs(Tr:All()) do
-            if not store.trainerKind or (e.kind == store.trainerKind and Tr.MatchesSub(e, store.trainerKind, sub)) then
-                items[#items + 1] = e
-            end
-        end
-        list:SetItems(items)
-        local still
-        for _, e in ipairs(items) do if state.entry and e.npc == state.entry.npc then still = e end end
-        state.entry = still or items[1]
-        local e = state.entry
-        if not e then name:SetText("") what:SetText("") where:SetText("") status:SetText("") hint:SetText("") guide:Hide() return end
-        name:SetText(e.npc)
-        local teach = ""
-        local ws = e.kind == "weapon" and Tr.WeaponsOf(e)
-        if ws and ONE.Weapons then
-            local names = {}
-            for _, w in ipairs(ONE.Weapons.types) do if ws[w.key] then names[#names + 1] = T(w.name) end end
-            if #names > 0 then teach = " – " .. table.concat(names, ", ") end
-        end
-        what:SetText(T(KIND_NAMES[e.kind] or "") .. ": " .. T(Tr.WhatName(e)) .. teach)
-        local fac = crafting.Trainers.FactionText(e, (UnitFactionGroup and UnitFactionGroup("player")))
-        where:SetText(T(e.area or crafting.Trainers.MapName(e.map) or "?")
-            .. (fac and ("  ·  " .. (e.neutral and "|cff8fb3ff" or "") .. T("Fraktion: %s", fac) .. (e.neutral and "|r" or "")) or ""))
-        if e.confirmed then
-            status:SetText("|cff80e680" .. T("Bestätigt") .. "|r" .. (e.by and (" " .. T("von %s", (e.by:match("^[^-]+")) or e.by)) or "")
-                .. (e.seen and (" " .. T("am %s", Page:Date(e.seen))) or ""))
-            hint:SetText(e.db and T("Diese Position stammt aus der Quest-Datenbank (genaue Spieldaten von WoW Forever).")
-                or T("Diese Position stammt aus dem Spiel: Ein Gildenmitglied hat den Lehrer angesprochen."))
-        else
-            status:SetText("|cffffaa33" .. T("Noch nicht bestätigt") .. "|r – " .. T("Position ungefähr (Classic-Stand)"))
-            hint:SetText(T("Sobald jemand aus der Gilde mit Guild Trip diesen Lehrer anspricht, wird der Eintrag "
-                .. "automatisch mit der echten Position bestätigt."))
-        end
-        local navi = ONE.modules and ONE.modules.nav
-        if e.map and e.x and navi then guide:Show() else guide:Hide() end
     end
+    return navi:ShowTrainers(filter)
 end
-function Page:RefreshTrainers() if self.refreshTrainers then self.refreshTrainers() end end
 
 function Page:Professions()
     local seen, out = {}, {}
@@ -414,7 +296,7 @@ function Page:Register()
             local level = type(UnitLevel) == "function" and UnitLevel("player") or 0
             for _, d in ipairs(crafting.Trainers:Due(crafting.Trainers:MyProfessions(), level)) do
                 if d.ready then
-                    local item = {icon = "Interface\\Icons\\Trade_BlackSmithing", link = "crafting", sort = 30, text = d.text}
+                    local item = {icon = "Interface\\Icons\\Trade_BlackSmithing", link = "nav-trainers", sort = 30, text = d.text}
                     -- Navi zum naechsten Lehrer, der diese Stufe lehrt
                     local e = crafting.Trainers:BestFor(d.prof, d.rank)
                     local navi = ONE.modules and ONE.modules.nav
@@ -432,6 +314,14 @@ function Page:Register()
         ONE.UI:AddShareOption({id = "recipes", module = "crafting", order = 30, label = "Rezepte teilen",
             tooltip = "Deine Rezepte für die Gilde sichtbar machen (nur mit Guild Trip, jederzeit abschaltbar).",
             get = function() return crafting.Share:IsSharing() end, set = function(on) crafting.Share:SetSharing(on) end})
+    end
+    -- "!" an der Minimap und "Was steht an" (faellige Ausbildung) fuehren zu Navi › Lehrer (Berufe)
+    if ONE.UI.AddAlias then
+        ONE.UI:AddAlias("nav-trainers", "nav", function()
+            local navi = ONE.modules and ONE.modules.nav
+            if navi and navi.ShowTrainers then navi:ShowTrainers("profession", true) end
+            if ONE.MinimapButton and ONE.MinimapButton.ClearAlert then ONE.MinimapButton:ClearAlert("crafting") end
+        end)
     end
     return ONE.UI:AddTab("crafting", T("Berufe"), function(panel) return self:Build(panel) end)
 end

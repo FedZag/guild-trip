@@ -3,7 +3,7 @@
 ## Notes: Navi-Pfeil mit Wegführung über das Guild-Trip-Wegenetz, Reisehinweise, Questgeber
 ## Author: Guild Trip
 ## X-License: GPL-3.0-or-later
-## Version: 0.7.9-alpha
+## Version: 0.8.0-alpha
 ## Dependencies: ONE_Core
 ## OptionalDeps: ONE_Guild, ONE_QuestDB, ONE_Routes
 
@@ -25,4 +25,6 @@ RouteDots.lua
 Merchants.lua
 QuestDB.lua
 Waypoints.lua
+Coords.lua
+FlightTimer.lua
 Init.lua

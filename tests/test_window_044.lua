@@ -126,7 +126,8 @@ assert(ONE.db.toastEnabled==false)
 toastBox.GetChecked=function() return true end
 toastBox.scripts.OnClick(toastBox)
 assert(ONE.db.toastEnabled==true)
-for _,label in ipairs({"Ton bei Benachrichtigungen","Tagesüberblick beim Einloggen","Hinweisfenster anzeigen"}) do assert(Visible(CheckByLabel(label)),label) end
+for _,label in ipairs({"Knopf an der Minimap","Tagesüberblick beim Einloggen","Hinweisfenster anzeigen"}) do assert(Visible(CheckByLabel(label)),label) end
+assert(not Visible(CheckByLabel("Ton bei Benachrichtigungen")),"Ton steht seit 23.11.2026 unter Darstellung › Klänge")
 assert(not Visible(clicks),"anderer Bereich: Menüklänge ausgeblendet")
 -- jeden Schalter nur einmal (frueher doppelt: Menueklaenge, Tagesueberblick, Kalender-Erinnerungen)
 for _,label in ipairs({"Menüklänge","Tagesüberblick beim Einloggen"}) do

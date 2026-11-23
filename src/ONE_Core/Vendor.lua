@@ -29,6 +29,61 @@ if ONE.RegisterFeature then
         tooltip = "Verkauft alle grauen Gegenstände beim Händler. Shift beim Öffnen = diesmal nicht.",
         get = function() return ONE.db and ONE.db.sellJunk == true end,
         set = function(on) if ONE.db then ONE.db.sellJunk = on and true or false end end})
+    -- Nur eine Anzeige, keine Automatik: Standard an (Gesamtpruefung 23.11.2026, Idee wie "Vendor Price")
+    ONE:RegisterFeature("core.sellPrice", {label = "Verkaufspreis im Gegenstands-Tooltip",
+        tooltip = "Zeigt beim Drüberfahren, was ein Händler für den Gegenstand zahlt – bei Stapeln auch für den ganzen Stapel. Am offenen Händler zeigt WoW den Preis selbst.",
+        get = function() return not (ONE.db and ONE.db.sellPrice == false) end,
+        set = function(on) if ONE.db then ONE.db.sellPrice = on and true or false end end})
+end
+
+-- ===== Verkaufspreis im Tooltip =====
+-- Stapelgroesse eines Taschen-/Bank-Gegenstands (moderner Client: Tooltip-Daten mit guid), sonst 1
+function V.StackCount(data)
+    local guid = type(data) == "table" and data.guid
+    local CI = rawget(_G, "C_Item")
+    if guid and CI and type(CI.GetItemLocation) == "function" and type(CI.GetStackCount) == "function" then
+        local loc = Try(CI.GetItemLocation, guid)
+        local n = loc and Try(CI.GetStackCount, loc)
+        if type(n) == "number" and n > 1 then return n end
+    end
+    return 1
+end
+function V.SellPrice(link)
+    local CI = rawget(_G, "C_Item")
+    local fn = (CI and CI.GetItemInfo) or rawget(_G, "GetItemInfo")
+    if not fn then return nil end
+    local price = select(11, Try(fn, link))
+    return type(price) == "number" and price or nil
+end
+function V:OnTooltip(tooltip, data)
+    if ONE.FeatureOn and not ONE:FeatureOn("core.sellPrice") then return false end
+    if not (tooltip and tooltip.GetItem and tooltip.AddDoubleLine) then return false end
+    -- WoW zeigt den Preis selbst (z. B. am offenen Haendler): nicht doppelt
+    if (tonumber(rawget(tooltip, "shownMoneyFrames")) or 0) > 0 then return false end
+    local _, link = tooltip:GetItem()
+    if not link then return false end
+    local price = V.SellPrice(link)
+    if not price or price <= 0 then return false end
+    local n = V.StackCount(data)
+    local text = V.Money(price * n)
+    if n > 1 then text = text .. "  |cffaaaaaa(" .. T("%d Stück", n) .. ")|r" end
+    tooltip:AddDoubleLine(T("Verkaufspreis"), text, 1, .82, 0, 1, 1, 1)
+    if tooltip.Show then tooltip:Show() end
+    return true
+end
+function V:HookTooltips()
+    local function Hook(tt, data) pcall(V.OnTooltip, V, tt, data) end
+    local TDP, E = rawget(_G, "TooltipDataProcessor"), rawget(_G, "Enum")
+    if TDP and TDP.AddTooltipPostCall and E and E.TooltipDataType and E.TooltipDataType.Item then
+        TDP.AddTooltipPostCall(E.TooltipDataType.Item, function(tt, data)
+            if tt == rawget(_G, "GameTooltip") or tt == rawget(_G, "ItemRefTooltip") then Hook(tt, data) end
+        end)
+        return true
+    end
+    for _, tt in ipairs({rawget(_G, "GameTooltip"), rawget(_G, "ItemRefTooltip")}) do
+        if tt and tt.HookScript then tt:HookScript("OnTooltipSetItem", function(t) Hook(t) end) end
+    end
+    return true
 end
 
 function V.Money(copper)
@@ -175,6 +230,7 @@ function V:Initialize()
     if ONE.RegisterSlash then
         ONE:RegisterSlash("schrott", function() V:Check() end, T("Prüfen, ob Schrott verkauft werden kann"))
     end
+    pcall(V.HookTooltips, V)
     local f = CreateFrame("Frame")
     pcall(f.RegisterEvent, f, "MERCHANT_SHOW")
     pcall(f.RegisterEvent, f, "MERCHANT_CLOSED")

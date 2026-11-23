@@ -33,14 +33,14 @@ local NATIVE_WINDOW={width=858,height=533,insetX=96,insetRight=12,insetTop=60,in
     contentX=108,contentY=72,sideX=10,sideWidth=80,navHeight=44,navGap=2}
 UI.NATIVE_WINDOW=NATIVE_WINDOW
 -- Unterseiten markieren in der Leiste ihren Hauptbereich
-local VIEW_PARENT={["guild-members"]="guild",today="home"}
+local VIEW_PARENT={["guild-members"]="guild",today="home",alts="home"}
 UI.VIEW_PARENT=VIEW_PARENT
 local function BookActive() return false end
 -- 0.7.1: Glas-Look (Glass.lua): drei Spalten, eigene runde Bereichsknoepfe
 local function GlassActive() return ONE.Glass and ONE.Glass:Active() end
 local ICONS="Interface\\AddOns\\ONE_Core\\Textures\\Common\\TabIcons"
 local ICON_INDEX={home=0,guild=1,calendar=2,dungeons=3,groups=3,crafting=4,classes=5,quests=6,nav=7,options=8,leveling=10}
-local NAV_LABEL={home="Startseite",guild="Gilde",calendar="Kalender",today="Heute",
+local NAV_LABEL={home="Startseite",guild="Gilde",calendar="Kalender",today="Heute",alts="Meine Figuren",
     dungeons=T("Dungeons"),groups=T("Gruppen"),crafting=T("Berufe"),classes=T("Klasse"),quests=T("Quests"),leveling=T("Leveln"),nav=T("Navi"),options=T("Optionen")}
 
 local function Label(parent,content,font,x,y,width,roleOverride)
@@ -387,6 +387,7 @@ function UI:UpdateViews()
         if set then for _,it in ipairs(items) do if it.key==set.active then activeLabel=T(it.label) end end end
         ONE.Glass:ShowViews(self,set,title,self.contexts and self.contexts[self.activeTab])
         if self.pathLabel then self.pathLabel:SetText(activeLabel or T(NAV_LABEL[self.activeTab] or title)) end
+        self:UpdateContext()
         return
     end
     local right=-118
@@ -477,10 +478,14 @@ end
 function UI:UpdateContext()
     if not self.contextLabel then return end
     local text=self.contexts and self.contexts[self.activeTab]
+    -- nie dasselbe zweimal (Spielbild 23.11.2026: "Darstellung  Darstellung"): Zusatz = Seitenname -> weg
+    local path=self.pathLabel and self.pathLabel.GetText and self.pathLabel:GetText()
+    if type(text)=="string" and type(path)=="string" and text:lower():match("^%s*(.-)%s*$")==path:lower():match("^%s*(.-)%s*$") then text=nil end
     self.contextLabel:SetText(text or "")
     self:FitContext()
     self.contextLabel:SetText(UI.BreakAtSeparator(self.contextLabel,text or ""))
-    if GlassActive() and ONE.Glass.colSub then ONE.Glass.colSub:SetText(text or "") end
+    -- Glas: der Zusatz steht schon rechts oben neben dem Seitennamen – unter dem Spaltentitel nicht noch einmal
+    if GlassActive() and ONE.Glass.colSub then ONE.Glass.colSub:SetText("") end
 end
 function UI:Refresh()
     local active=self.tabs[self.activeTab] or self.views[self.activeTab]
@@ -830,7 +835,13 @@ function UI:CategoryEntries(cat)
     return out
 end
 
+function UI:ClearOptionsSearch()
+    self.optionsSearch=""
+    local box=self.optionsSearchBox
+    if box and box.SetText and box.GetText and box:GetText()~="" then box:SetText("") end
+end
 function UI:OpenOptions(cat)
+    if type(cat)=="string" then self:ClearOptionsSearch() end
     if type(cat)=="string" then
         self:CategoryList()
         if self.categories[cat] then self.optionsCategory=cat end
@@ -936,6 +947,44 @@ local function RowHeight(row,o)
     return h
 end
 
+-- Suche in den Optionen (Gesamtpruefung 23.11.2026, Idee wie Leatrix Plus): Treffer aus allen Bereichen,
+-- gesucht wird in Beschriftung, Erklaerung, Abschnitt und Bereich (deutsch und englisch).
+local function Fold(text)
+    text=tostring(text or ""):lower()
+    return (text:gsub("Ä","ä"):gsub("Ö","ö"):gsub("Ü","ü"))
+end
+local function EntryText(o,cat)
+    local parts={}
+    local function Add(v)
+        if type(v)=="function" then local ok,r=pcall(v) v=ok and r or nil end
+        if type(v)=="string" and v~="" then parts[#parts+1]=v parts[#parts+1]=T(v) end
+    end
+    Add(o.label) Add(o.tooltip) Add(o.note) Add(o.section)
+    if cat then Add(cat.title) end
+    if type(o.searchText)=="table" then for _,v in ipairs(o.searchText) do Add(v) end end
+    if type(o.options)=="function" and o.kind~="custom" then
+        local ok,list=pcall(o.options)
+        if ok and type(list)=="table" then for _,opt in ipairs(list) do if type(opt)=="table" then Add(opt.text) end end end
+    end
+    return Fold(table.concat(parts," "))
+end
+function UI:SearchOptions(text)
+    local words=Fold(text)
+    local out={}
+    if words:match("^%s*$") then return out end
+    for _,c in ipairs(self:CategoryList()) do
+        for _,o in ipairs(self:CategoryEntries(c.id)) do
+            if (not o.visible or o.visible()) and o.kind~="text" then
+                local hay=EntryText(o,c)
+                local all=true
+                for w in words:gmatch("%S+") do if not hay:find(w,1,true) then all=false break end end
+                if all then out[#out+1]={entry=o,cat=c} end
+            end
+        end
+    end
+    return out
+end
+
 local function BuildOptions(panel)
     local W=UI.Layout.width
     local H=ONE.Geometry.tokens.contentHeight or 437
@@ -962,10 +1011,33 @@ local function BuildOptions(panel)
     end
     -- rechts scrollbar (Mausrad); die Leiste der Vorlage sitzt rechts innen
     local innerW=paneW-44
+    -- Suchfeld ueber den Einstellungen
+    local okSearch,search=pcall(CreateFrame,"EditBox",nil,pane,"SearchBoxTemplate")
+    if not okSearch or not search then
+        search=CreateFrame("EditBox",nil,pane)
+        if search.SetFontObject and GameFontHighlight then search:SetFontObject(GameFontHighlight) end
+    end
+    search:SetSize(math.min(innerW,320),22)
+    search:SetPoint("TOPLEFT",pane,"TOPLEFT",18,-8)
+    if search.SetAutoFocus then search:SetAutoFocus(false) end
+    if search.HookScript then
+        search:HookScript("OnTextChanged",function(box)
+            local text=box.GetText and box:GetText() or ""
+            if text~=(UI.optionsSearch or "") then UI.optionsSearch=text UI:Refresh() end
+        end)
+        search:HookScript("OnEnter",function(box)
+            if not GameTooltip then return end
+            GameTooltip:SetOwner(box,"ANCHOR_BOTTOM")
+            GameTooltip:AddLine(T("Einstellung suchen, z. B. „Ton“, „Minimap“ oder „Pfeil“ – Treffer aus allen Bereichen."),1,1,1,true)
+            GameTooltip:Show()
+        end)
+        search:HookScript("OnLeave",function() if GameTooltip then GameTooltip:Hide() end end)
+    end
+    UI.optionsSearchBox=search
     local ok,scroll=pcall(CreateFrame,"ScrollFrame",nil,pane,"UIPanelScrollFrameTemplate")
     if not ok or not scroll then scroll=CreateFrame("ScrollFrame",nil,pane) end
-    scroll:SetPoint("TOPLEFT",pane,"TOPLEFT",12,-10)
-    scroll:SetSize(innerW,H-20)
+    scroll:SetPoint("TOPLEFT",pane,"TOPLEFT",12,-38)
+    scroll:SetSize(innerW,H-48)
     if scroll.EnableMouseWheel and not scroll.ScrollBar then
         scroll:EnableMouseWheel(true)
         scroll:SetScript("OnMouseWheel",function(self,delta)
@@ -1009,7 +1081,57 @@ local function BuildOptions(panel)
         end
         return h
     end
+    local noHit=Label(child,"","GameFontHighlight",4,-4,innerW-12,"soft")
+    if noHit.SetWordWrap then noHit:SetWordWrap(true) end
+    local function Place(o,y,used)
+        local row=rows[o.id]
+        if not row then row=BuildRow(child,o,innerW) rows[o.id]=row end
+        if row.refresh then row.refresh() end
+        row:ClearAllPoints()
+        row:SetPoint("TOPLEFT",child,"TOPLEFT",0,y)
+        row:Show()
+        used[row]=true
+        return y-RowHeight(row,o)-(o.master and 6 or 0)
+    end
+    local function Finish(y,used,key)
+        for _,row in pairs(rows) do if not used[row] then row:Hide() end end
+        for _,h in pairs(heads) do if not used[h] then h:Hide() end end
+        child:SetHeight(math.max(10,-y+10))
+        if shownCat~=key then
+            shownCat=key
+            if scroll.SetVerticalScroll then scroll:SetVerticalScroll(0) end
+            if scroll.UpdateScrollChildRect then scroll:UpdateScrollChildRect() end
+        end
+    end
+    -- Suchergebnis: je Bereich und Abschnitt eine Ueberschrift "Bereich › Abschnitt"
+    local function LayoutSearch(text)
+        local y,used,last=0,{},nil
+        local hits=UI:SearchOptions(text)
+        for _,hit in ipairs(hits) do
+            local o,c=hit.entry,hit.cat
+            local key=c.id.."|"..(o.section or "")
+            if key~=last then
+                last=key
+                if y<0 then y=y-10 end
+                local title=T(c.title)..((o.section and o.section~="") and ("  ›  "..T(o.section)) or "")
+                local h=Head("search|"..key,title)
+                h:SetText(title)
+                h:ClearAllPoints() h:SetPoint("TOPLEFT",child,"TOPLEFT",2,y) h:Show()
+                used[h]=true
+                y=y-22
+            end
+            y=Place(o,y,used)
+        end
+        if #hits==0 then
+            noHit:SetText(T("Nichts gefunden zu „%s“. Anders schreiben oder links einen Bereich wählen.",text))
+            noHit:Show()
+            y=-30
+        else noHit:Hide() end
+        Finish(y,used,"search:"..Fold(text))
+        return #hits
+    end
     local function Layout(cat)
+        noHit:Hide()
         local y=0
         local used={}
         local lastSection
@@ -1026,25 +1148,10 @@ local function BuildOptions(panel)
                         y=y-22
                     end
                 end
-                local row=rows[o.id]
-                if not row then row=BuildRow(child,o,innerW) rows[o.id]=row end
-                if row.refresh then row.refresh() end
-                row:ClearAllPoints()
-                row:SetPoint("TOPLEFT",child,"TOPLEFT",0,y)
-                row:Show()
-                used[row]=true
-                y=y-RowHeight(row,o)
-                if o.master then y=y-6 end
+                y=Place(o,y,used)
             end
         end
-        for _,row in pairs(rows) do if not used[row] then row:Hide() end end
-        for _,h in pairs(heads) do if not used[h] then h:Hide() end end
-        child:SetHeight(math.max(10,-y+10))
-        if shownCat~=cat then
-            shownCat=cat
-            if scroll.SetVerticalScroll then scroll:SetVerticalScroll(0) end
-            if scroll.UpdateScrollChildRect then scroll:UpdateScrollChildRect() end
-        end
+        Finish(y,used,cat)
     end
     return function()
         local cats=UI:CategoryList()
@@ -1060,6 +1167,7 @@ local function BuildOptions(panel)
             b.categoryId=c.id
             b:SetScript("OnClick",function()
                 UI.optionsCategory=c.id
+                UI:ClearOptionsSearch()
                 UI:Refresh()
             end)
             if c.id==cat then b.sel:Show() if b.caption.SetTextColor then b.caption:SetTextColor(1,1,1) end
@@ -1072,12 +1180,19 @@ local function BuildOptions(panel)
         if glass then
             local items={}
             for _,c in ipairs(cats) do
-                items[#items+1]={key=c.id,label=c.title,onClick=function(id) UI.optionsCategory=id UI:Refresh() end}
+                items[#items+1]={key=c.id,label=c.title,onClick=function(id) UI.optionsCategory=id UI:ClearOptionsSearch() UI:Refresh() end}
             end
             UI:SetViews("options",items,cat)
         end
-        UI:SetContext("options",T(title))
-        Layout(cat)
+        local text=UI.optionsSearch or ""
+        if not text:match("^%s*$") then
+            local hits=LayoutSearch(text)
+            UI:SetContext("options",hits==1 and T("Suche: 1 Treffer") or T("Suche: %d Treffer",hits))
+        else
+            -- Glas: der Bereich steht schon gross als Seitenname
+            UI:SetContext("options",not glass and T(title) or nil)
+            Layout(cat)
+        end
     end
 end
 
@@ -1089,14 +1204,22 @@ local function RegisterCoreSettings()
         tooltip="Ein kleines Fenster zusätzlich zur Chatzeile.",
         get=function() return ONE.db.toastEnabled end,
         set=function(v) ONE.db.toastEnabled=v ONE.Notifications:SettingsChanged() end})
-    Set("general","Hinweise",{id="noticeSound",label="Ton bei Benachrichtigungen",order=11,
+    -- Gesamtpruefung 23.11.2026: alle Klaenge zusammen unter Darstellung › Klaenge
+    Set("look","Klänge",{id="noticeSound",label="Ton bei Benachrichtigungen",order=41,
+        tooltip="Ein kurzer Ton bei Erinnerungen und Hinweisen von Guild Trip.",
         get=function() return ONE.db.soundEnabled end,set=function(v) ONE.db.soundEnabled=v end})
     Set("general","Hinweise",{id="noticeTest",kind="button",label="Benachrichtigung testen",order=19,
         onClick=function() ONE:Notify(T("Guild Trip: Dies ist eine Testbenachrichtigung."),{source=T("Guild Trip Test")}) end})
-    Set("general",nil,{id="noticeHint",kind="text",order=1,
-        label="Benachrichtigungen funktionieren nur, während WoW läuft."})
+    -- Teilen: kurzer Satz oben (Gesamtpruefung 23.11.2026)
+    Set("sharing",nil,{id="shareHint",kind="text",order=1,
+        label="Alles ist am Anfang aus. Geteilt wird nur mit Gildenmitgliedern, die auch Guild Trip haben – jeder Haken einzeln."})
+    -- Allgemein ganz oben (ohne Ueberschrift): Sprache und Minimap-Knopf
+    Set("general",nil,{id="minimapButton",label="Knopf an der Minimap",order=2,
+        tooltip="Der runde GT-Knopf am Rand der Minimap: Klick öffnet Guild Trip, Rechtsklick ein kleines Menü. Auch mit /trip minimap.",
+        get=function() return not (ONE.db.minimap and ONE.db.minimap.hidden) end,
+        set=function(v) if ONE.MinimapButton then ONE.MinimapButton:SetVisible(v) end end})
     -- Darstellung
-    Set("look","Fenster",{id="windowScale",kind="custom",order=10,build=function(row,w)
+    Set("look","Fenster",{id="windowScale",kind="custom",order=10,searchText={"Fenstergröße"},build=function(row,w)
         local sw=math.min(w-80,300)
         Label(row,T("Fenstergröße"),"GameFontHighlight",4,-2,sw-60,"text")
         local value=Label(row,"","GameFontHighlight",sw-56,-2,60,"text")
@@ -1109,7 +1232,7 @@ local function RegisterCoreSettings()
     Set("look","Fenster",{id="windowReset",kind="button",label="Fenstergröße zurücksetzen",order=11,
         onClick=function() ONE.WindowScale:Reset() end})
     local scales=ONE.Kit and ONE.Kit.scales or {1}
-    Set("look","Schrift",{id="fontScale",kind="custom",order=20,build=function(row,w)
+    Set("look","Schrift",{id="fontScale",kind="custom",order=20,searchText={"Schriftgröße"},build=function(row,w)
         local sw=math.min(w-80,300)
         Label(row,T("Schriftgröße"),"GameFontHighlight",4,-2,sw-60,"text")
         local value=Label(row,"","GameFontHighlight",sw-56,-2,60,"text")
@@ -1132,7 +1255,7 @@ local function RegisterCoreSettings()
         tooltip="Nebentexte werden so hell wie normaler Text.",
         get=function() return ONE.Kit and ONE.Kit.Settings().contrast=="high" end,
         set=function() if ONE.Kit then ONE.Kit:ToggleContrast() end end})
-    Set("look","Sprache und Aussehen",{id="language",kind="dropdown",label="Sprache / Language",order=30,width=220,
+    Set("general",nil,{id="language",kind="dropdown",label="Sprache / Language",order=1,width=220,
         options=function() return {{value=nil,text="Automatisch (Spielsprache)"},{value="de",text="Deutsch"},{value="en",text="English"}} end,
         get=function() return ONE.db.language end,set=function(v) ONE.db.language=v end,
         onChange=function() UI:AskReload() end})
@@ -1141,9 +1264,15 @@ end
 local CORE_FEATURE_PLACE={
     ["core.loginSummary"]={"general","Hinweise",12},
     ["core.sounds"]={"look","Klänge",40},
+    ["core.questSounds"]={"look","Klänge",42},
     ["core.autoRepair"]={"general","Händler",30},
     ["core.autoRepairGuild"]={"general","Händler",31,1},
     ["core.sellJunk"]={"general","Händler",32},
+    ["core.sellPrice"]={"general","Händler",29},
+    ["core.declineDuels"]={"general","Anfragen",40},
+    ["core.declineInvites"]={"general","Anfragen",41},
+    ["core.acceptRes"]={"general","Anfragen",42},
+    ["core.acceptSummon"]={"general","Anfragen",43},
 }
 UI.CORE_FEATURE_PLACE=CORE_FEATURE_PLACE
 function UI:PlaceFeatures()

@@ -72,6 +72,39 @@ function Page.TrainerMatches(filter, e)
     if filter == "other" then return e.kind ~= "class" and e.kind ~= "profession" and e.kind ~= "weapon" end
     return e.kind == filter
 end
+-- Suche in Navi › Lehrer (23.11.2026, Lehrer stehen nur noch hier): Name, Fach, Waffen, Ort. Nicht gespeichert.
+Page.trainerSearch = ""
+local function Fold(text)
+    text = tostring(text or ""):lower()
+    return (text:gsub("Ä", "ä"):gsub("Ö", "ö"):gsub("Ü", "ü"))
+end
+Page.Fold = Fold
+function Page.SearchMatches(search, ...)
+    local words = Fold(search)
+    if words:match("^%s*$") then return true end
+    local hay = Fold(table.concat({...}, " "))
+    for word in words:gmatch("%S+") do
+        if not hay:find(word, 1, true) then return false end
+    end
+    return true
+end
+-- Beschreibung eines Lehrers: Fach (Waffenarten), Stufen, Ort, neutral
+function Page.TrainerInfo(e)
+    local crafting = ONE.modules and ONE.modules.crafting
+    local what = crafting and crafting.WhatName and crafting.WhatName(e) or e.what or ""
+    local parts = {T(what)}
+    local ws = e.kind == "weapon" and crafting and crafting.WeaponsOf and crafting.WeaponsOf(e)
+    if ws and ONE.Weapons and ONE.Weapons.types then
+        local names = {}
+        for _, w in ipairs(ONE.Weapons.types) do if ws[w.key] then names[#names + 1] = T(w.name) end end
+        if #names > 0 then parts[1] = parts[1] .. ": " .. table.concat(names, ", ") end
+    end
+    local teach = crafting and crafting.TeachText and crafting.TeachText(e) or ""
+    if teach ~= "" then parts[#parts + 1] = teach end
+    if e.area then parts[#parts + 1] = T(e.area) .. (e.neutral and (" (" .. T("neutral") .. ")") or "") end
+    return table.concat(parts, " · ")
+end
+
 -- Auswahl: feste Arten + jeder bekannte Beruf einzeln
 function Page:TrainerFilterOptions()
     local out = {{value = "all", text = "Alle Lehrer"}, {value = "class", text = "Klassenlehrer"},
@@ -132,11 +165,11 @@ function Page:Targets(view)
         local filter = self:TrainerFilter()
         for _, e in ipairs(crafting and crafting.AllTrainers and crafting:AllTrainers() or {}) do
             local cls = e.kind == "class" and CLASS_OF[e.what]
-            if e.map and e.x and e.y and (e.kind ~= "class" or cls == myClass) and Page.TrainerMatches(filter, e) then
+            local info = (e.map and e.x and e.y) and Page.TrainerInfo(e)
+            if info and (e.kind ~= "class" or cls == myClass) and Page.TrainerMatches(filter, e)
+                and Page.SearchMatches(self.trainerSearch, e.npc, info, e.what) then
                 local dist, text = Distance(nav.Travel.World(e.map, e.x, e.y))
-                local crafting = ONE.modules and ONE.modules.crafting
-                local teach = crafting and crafting.TeachText and crafting.TeachText(e) or ""
-                items[#items + 1] = {name = e.npc, info = T(e.what or "") .. (teach ~= "" and (" · " .. teach) or "") .. (e.area and (" · " .. T(e.area)) or ""),
+                items[#items + 1] = {name = e.npc, info = info, trainer = e,
                     dist = dist, distText = text, first = cls and true or false,
                     go = function() nav.Arrow:StartPoint(e.npc, e.map, e.x, e.y, {service = true}) end}
             end
@@ -216,6 +249,31 @@ function Page:Build(panel)
         get = function() return Page:TrainerFilter() end, set = function(v) Page:SetTrainerFilter(v) end,
         onChange = function() ONE.UI:Refresh() end})
 
+    -- Suchfeld (nur in der Ansicht Lehrer): mit Kopfzeile links in der freien Reiter-Zeile
+    local okSearch, search = pcall(CreateFrame, "EditBox", nil, panel, "SearchBoxTemplate")
+    if not okSearch or not search then
+        search = CreateFrame("EditBox", nil, panel)
+        if search.SetFontObject and GameFontHighlight then search:SetFontObject(GameFontHighlight) end
+    end
+    local searchX = headerViews and 6 or 474
+    search:SetSize(math.max(120, (W - 200 - 12) - searchX), 22)
+    search:SetPoint("TOPLEFT", panel, "TOPLEFT", searchX, tabY - 1)
+    if search.SetAutoFocus then search:SetAutoFocus(false) end
+    if search.HookScript then
+        search:HookScript("OnTextChanged", function(box)
+            local text = box.GetText and box:GetText() or ""
+            if text ~= Page.trainerSearch then Page.trainerSearch = text ONE.UI:Refresh() end
+        end)
+        search:HookScript("OnEnter", function(box)
+            if not GameTooltip then return end
+            GameTooltip:SetOwner(box, "ANCHOR_BOTTOM")
+            GameTooltip:AddLine(T("Lehrer suchen: Name, Beruf, Waffe oder Ort – z. B. „Dolche“, „Reiten“ oder „Orgrimmar“."), 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        search:HookScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    end
+    Page.searchBox = search
+
     -- Haendler-Angebot (nur in der Ansicht Haendler), gleicher Platz wie die Lehrer-Auswahl
     local merchantFilter = ONE.Kit:Dropdown(panel, {point = "TOPLEFT", x = (W - 200), y = (tabY - 2),
         width = 200,
@@ -270,6 +328,17 @@ function Page:Build(panel)
                     end
                 end
             end
+            local e = it.trainer
+            if e then
+                local crafting = ONE.modules and ONE.modules.crafting
+                local fac = crafting and crafting.FactionText and crafting.FactionText(e, (UnitFactionGroup and UnitFactionGroup("player")))
+                if fac then GameTooltip:AddLine(T("Fraktion: %s", fac), .56, .70, 1) end
+                if e.confirmed then
+                    GameTooltip:AddLine(T("Position bestätigt") .. (e.by and (" " .. T("von %s", (e.by:match("^[^-]+")) or e.by)) or ""), .5, .9, .5)
+                else
+                    GameTooltip:AddLine(T("Position ungefähr – wird bestätigt, sobald jemand aus der Gilde den Lehrer anspricht."), 1, .67, .2, true)
+                end
+            end
             GameTooltip:AddLine(T("Grüner Pfeil: Navi dorthin"), .4, 1, .6)
             if it.member then GameTooltip:AddLine(T("Klick: Navi, Flüstern, Einladen …"), .8, .8, .8) end
             GameTooltip:Show()
@@ -293,7 +362,9 @@ function Page:Build(panel)
             icon:SetAlpha(1)
         else
             goal:SetText(T("Kein Navi aktiv."))
-            tip:SetText(T("Wähle unten ein Ziel – der Pfeil zeigt die Richtung, keine Straßen."))
+            local routesOn = not ONE.FeatureOn or ONE:FeatureOn("nav.routes")
+            tip:SetText(routesOn and T("Wähle unten ein Ziel – der Pfeil führt dich über Straßen und Wege hin.")
+                or T("Wähle unten ein Ziel – der Pfeil zeigt die Richtung, keine Straßen."))
             stop:Hide()
             icon:SetAlpha(.35)
         end
@@ -322,6 +393,7 @@ function Page:Build(panel)
         if trainerFilter.frame then
             if self.view == "trainers" then trainerFilter.frame:Show() trainerFilter:Refresh() else trainerFilter.frame:Hide() end
         end
+        if self.view == "trainers" then search:Show() else search:Hide() end
         local items = self:Targets(self.view)
         list:SetItems(items)
         if #items == 0 then
@@ -336,6 +408,10 @@ function Page:Build(panel)
             if self.view == "trainers" and self:TrainerFilter() ~= "all" then
                 emptyTitle:SetText(T("Keine passenden Lehrer bekannt."))
                 emptyHint:SetText(T("Oben rechts eine andere Lehrer-Art wählen. Neue Lehrer merkt sich Guild Trip, sobald du einen ansprichst."))
+            end
+            if self.view == "trainers" and not tostring(self.trainerSearch or ""):match("^%s*$") then
+                emptyTitle:SetText(T("Kein Lehrer passt zu „%s“.", self.trainerSearch))
+                emptyHint:SetText(T("Anders schreiben oder oben rechts „Alle Lehrer“ wählen."))
             end
             emptyTitle:Show() emptyHint:Show()
         else
@@ -370,7 +446,7 @@ function Page:Register()
             get = function() return nav.Arrow:Settings().style == "blizzard" and "blizzard" or "one" end,
             set = function(v) nav.Arrow:Create() nav.Arrow:SetStyle(v) end})
         -- Weg auf Minimap/Weltkarte: goldene Punkte (Standard) oder Fussspuren
-        opt({id = "navRouteStyle", section = "Weg", order = 22, kind = "dropdown", width = 200, label = "Weg zeigen als",
+        opt({id = "navRouteStyle", section = "Wegführung", order = 22, kind = "dropdown", width = 200, label = "Weg zeigen als",
             options = function()
                 return {{value = "dots", text = "Goldene Punkte"}, {value = "feet", text = "Fußspuren"}}
             end,

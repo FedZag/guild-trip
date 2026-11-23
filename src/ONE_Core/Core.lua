@@ -4,7 +4,7 @@ local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select(
 
 -- Andere AddOns haben eigene Namespace-Tabellen. Die Bruecke ist nur das Core-API.
 _G.ProjectONE = ONE
-ONE.version = "0.7.9-alpha"
+ONE.version = "0.8.0-alpha"
 ONE.modules = {}
 ONE.moduleOrder = {}
 ONE.slashCommands = {}
@@ -68,9 +68,11 @@ function ONE:RegisterFeature(id, def)
 end
 -- Kern-Funktionen (gehoeren zu keinem Modul, stehen oben in der Liste)
 ONE:RegisterFeature("core.loginSummary", {label = "Tagesüberblick beim Einloggen",
+    tooltip = "Beim Einloggen ein kleines Fenster mit Terminen, Gilde und dem, was ansteht. Jederzeit: /trip begruessung.",
     get = function() return ONE.db and ONE.db.loginSummaryEnabled and true or false end,
     set = function(on) if ONE.db then ONE.db.loginSummaryEnabled = on end end})
 ONE:RegisterFeature("core.sounds", {label = "Menüklänge",
+    tooltip = "Leise Klicks beim Bedienen des Guild-Trip-Fensters.",
     get = function() return ONE.db and ONE.db.theme and ONE.db.theme.uiSounds ~= false end,
     set = function(on) if ONE.db then ONE.db.theme = ONE.db.theme or {} ONE.db.theme.uiSounds = on and true or false end end})
 function ONE:FeatureOn(id)
@@ -158,6 +160,8 @@ function ONE:Initialize()
     self.Welcome:Initialize()
     if self.WhatsNew then self.WhatsNew:Initialize() end
     if self.Vendor then self.Vendor:Initialize() end
+    if self.Comfort then self.Comfort:Initialize() end
+    if self.Alts then self.Alts:Initialize() end
     if self.Graphics then self.Graphics:Initialize() end
     -- alle eigenen Fenster durch Ziehen an Kanten/Ecken vergroesserbar (sobald es sie gibt)
 
@@ -193,13 +197,16 @@ function ONE:Initialize()
         elseif command == "bug" or command == "fehler" then
             if self.BugReport then self.BugReport:Slash(rest) end
         elseif input == "help" or input == "hilfe" then
-            self:Print("/trip - Fenster | /trip gilde | /trip karte | /trip minimap | /trip bug (Fehler melden)")
+            self:Print("/trip - Fenster | /trip optionen | /trip heute | /trip gilde | /trip karte | /trip minimap | /trip klang | /trip bug (Fehler melden)")
             for _, name in ipairs(self.slashOrder) do
                 local help = self.slashCommands[name].help
                 self:Print("/trip " .. name .. (help and (" - " .. T(help)) or ""))
             end
         elseif command and self:RunSlash(command, rest, rawRest) then
             -- handled by an optional module
+        elseif command then
+            -- vertippt: nicht still das Fenster oeffnen (Gesamtpruefung 23.11.2026)
+            self:Print(T("Unbekannter Befehl „%s“. Alle Befehle: /trip hilfe", command))
         else
             self.UI:Toggle()
         end
