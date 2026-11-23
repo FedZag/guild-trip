@@ -169,11 +169,32 @@ function F:Initialize()
             -- Kontrolle weg kurz nach dem Klick auf ein Flugziel = Abflug
             if F.flight and Now() - (F.flight.clicked or 0) < 10 then F:Started() end
         elseif F.flight and F.flight.start then
-            local onTaxi = rawget(_G, "UnitOnTaxi")
-            if not (type(onTaxi) == "function" and onTaxi("player")) then F:Landed() end
+            -- Kontrolle zurueck = gelandet (Spielbild 23.11.2026: UnitOnTaxi meldete hier noch "fliegt",
+            -- der Balken blieb stehen); kurz nach dem Abflug nicht (falls das Spiel dort zuckt)
+            if Now() - F.flight.start >= F.GRACE then F:Landed() end
         end
     end)
     if C_Timer and C_Timer.NewTicker then
-        C_Timer.NewTicker(.5, function() if F.flight and F.flight.start then F:Update() end end)
+        C_Timer.NewTicker(.5, function() pcall(F.Tick, F) end)
     end
+end
+
+-- Alle 0,5 s: Balken auffrischen; nicht mehr im Flug -> Landung (falls das Ereignis fehlte).
+-- Ohne UnitOnTaxi: spaetestens 2 min nach der erwarteten Zeit ausblenden, ohne die Zeit zu merken.
+F.GRACE = 3
+function F:Tick()
+    local f = self.flight
+    if not (f and f.start) then return nil end
+    local since = Now() - f.start
+    local onTaxi = rawget(_G, "UnitOnTaxi")
+    if type(onTaxi) == "function" then
+        local ok, flying = pcall(onTaxi, "player")
+        if ok and not flying and since >= self.GRACE then self:Landed() return "landed" end
+    elseif since > (f.dur or self.MAX) + 120 then
+        self.flight = nil
+        if self.frame then self.frame:Hide() end
+        return "timeout"
+    end
+    self:Update()
+    return "flying"
 end

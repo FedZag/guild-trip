@@ -93,6 +93,23 @@ assert(dur == 100 and guess == false)
 F:OnTake(5) F:Started() now = now + 2
 assert(F:Landed() == nil and F:Times()["1>2"] == 100, "abgebrochener Flug (2 s) zaehlt nicht")
 assert(F.Clock(83) == "1:23")
+-- Landung per Takt (Spielbild 23.11.2026: Balken blieb nach der Landung stehen)
+local flying = true
+UnitOnTaxi = function() return flying end
+F:OnTake(5) F:Started()
+now = now + 1
+flying = false
+assert(F:Tick() == "flying", "gleich nach dem Abflug noch nicht landen")
+now = now + 90
+flying = true
+assert(F:Tick() == "flying" and F.flight)
+flying = false
+assert(F:Tick() == "landed" and F.flight == nil and F:Times()["1>2"] == 91, tostring(F:Times()["1>2"]))
+-- ohne UnitOnTaxi: Notausgang nach erwarteter Zeit + 2 min, ohne Zeit zu merken
+UnitOnTaxi = nil
+F:OnTake(5) F:Started()
+now = now + 91 + 121
+assert(F:Tick() == "timeout" and F.flight == nil and F:Times()["1>2"] == 91)
 
 -- ===== 4) Meine Figuren =====
 GetRealmName = function() return "Testrealm" end

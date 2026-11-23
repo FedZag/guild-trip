@@ -4,6 +4,20 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.8.1-alpha (veröffentlicht 23.11.2026)
+
+```
+## 0.8.1-alpha
+
+**English**
+- Fix: the flight bar now disappears by itself after landing (it stayed on screen until /reload).
+
+**Deutsch**
+- Fix: Der Flug-Balken verschwindet nach der Landung jetzt von selbst (er blieb bis zum /reload stehen).
+```
+
+---
+
 ## 0.8.0-alpha (veröffentlicht 23.11.2026)
 
 ```

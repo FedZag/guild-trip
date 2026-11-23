@@ -10,6 +10,15 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    -- Schnell-Fix nach 0.8.0: wer von 0.7.9 kommt, soll die Neuerungen von 0.8.0 trotzdem sehen
+    ["0.8.1-alpha"] = {
+        "Optionen: Suchfeld über allen Einstellungen, Minimap-Knopf als Schalter, alle Klänge an einem Ort",
+        "Questlog: EP je Quest und Anteil an der Stufe; Erholt-EP in der Kopfzeile von Leveln",
+        "Verkaufspreis im Gegenstands-Tooltip; Meine Figuren (Startseite): Gold, Stufe, Erholt und wer was in Tasche und Bank hat",
+        "Navi: Lehrer mit Suchfeld, Koordinaten auf der Weltkarte, Restzeit im Flug",
+        "Optionen › Allgemein › Anfragen (aus): Duelle und Einladungen von Fremden ablehnen, Wiederbelebung und Beschwörung annehmen",
+        "Fix: Der Flug-Balken verschwindet nach der Landung von selbst",
+    },
     ["0.8.0-alpha"] = {
         "Optionen: Suchfeld über allen Einstellungen, Minimap-Knopf als Schalter, alle Klänge an einem Ort",
         "Questlog: EP je Quest und Anteil an der Stufe; Erholt-EP in der Kopfzeile von Leveln",

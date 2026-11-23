@@ -610,3 +610,4 @@ EN["Questlog: EP je Quest und Anteil an der Stufe; Erholt-EP in der Kopfzeile vo
 EN["Verkaufspreis im Gegenstands-Tooltip; Meine Figuren (Startseite): Gold, Stufe, Erholt und wer was in Tasche und Bank hat"] = "Sell price in item tooltips; My characters (home page): gold, level, rested and who has what in bags and bank"
 EN["Navi: Lehrer mit Suchfeld, Koordinaten auf der Weltkarte, Restzeit im Flug"] = "Navi: trainers with a search field, coordinates on the world map, time left in flight"
 EN["Optionen › Allgemein › Anfragen (aus): Duelle und Einladungen von Fremden ablehnen, Wiederbelebung und Beschwörung annehmen"] = "Options › General › Requests (off): decline duels and invites from strangers, accept resurrection and summons"
+EN["Fix: Der Flug-Balken verschwindet nach der Landung von selbst"] = "Fix: the flight bar disappears by itself after landing"
