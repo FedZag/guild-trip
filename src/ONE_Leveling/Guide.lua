@@ -648,16 +648,7 @@ function G:Replan(follow)
             -- Lehrer sind kein Routen-Schritt (Nutzer 21.11.2026: "neue Skills lernen nur als Info bei Stufenaufstieg")
             local tr = ctx.train
             if tr and (tr.now or 0) > 0 then self.plan.trainHint = {n = tr.now, spots = tr.spots} end
-            -- Taschen (fast) voll: naechster Haendler im Gebiet als Hinweis (Nutzer: "Verkauf von Schrott mit
-            -- einplanen" – in der festen Route kein eigener Schritt, nur am Weg)
-            if ctx.bags and ctx.bags <= P.BAG_LOW and ctx.vendors and ctx.vendors[1] then
-                local me, best, bd = ctx.me, nil, nil
-                for _, v in ipairs(ctx.vendors) do
-                    local d = (me.x and v.x) and ((v.x - me.x) ^ 2 + (v.y - me.y) ^ 2) or 0
-                    if not bd or d < bd then best, bd = v, d end
-                end
-                self.plan.vendorHint = best
-            end
+            -- Taschen (fast) voll: plan.vendorHint rechnet der Planer (Haendler am Weg zum naechsten Schritt)
             -- bessere Ausruestung aus Quests ausserhalb der Route: nur Hinweis
             local gh = G.GearHints(self:GearRows(ctx.me.level or 1), ctx.follow, self.plan.gearIn, ctx.done)
             if #gh > 0 then self.plan.gearHint = gh end

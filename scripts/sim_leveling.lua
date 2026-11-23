@@ -132,6 +132,8 @@ local function Run(sc)
         local z = Z[f[7] or 0]
         if Mine(f[5]) and z and ((z.low or 99) < math.max(2, sc.level - 4) or f[7] == sc.map or (z.city)) then known[f[1]] = true end
     end
+    local known0 = {}
+    for k in pairs(known) do known0[k] = true end
     local hc, hx, hy = World(sc.home[1], sc.home[2], sc.home[3])
     local inns = {}
     for _, inn in ipairs(lev.INNS) do if Mine(inn[5]) then inns[#inns + 1] = {inn[2], inn[3], inn[4], id = inn[1], name = inn[7]} end end
@@ -191,6 +193,8 @@ local function Run(sc)
             me.level = me.level + 1
             me.xpMax = XP_NEED[me.level] or me.xpMax
         end
+        -- Spielzeit bis 60 (Vergleich vorher/nachher, 23.11.2026)
+        if me.level >= 60 and not stats.t60 then stats.t60 = t end
     end
     local function Ctx()
         local flights, fp = {}, {}
@@ -243,6 +247,8 @@ local function Run(sc)
             t = t + 10
             AddXP(g)
             stats.idle = (stats.idle or 0) + 10
+            -- in der Route vermerken (nicht ausgeliefert): die Stufe danach rechnet scripts/route_opt.lua mit
+            if stats.route then stats.route[#stats.route + 1] = {k = "idle", g = g, l = me.level, step = n, map = me.mapID} end
             Line(("%3d %6.1f min  St %2d  (nichts geplant: 10 min Monster hauen)"):format(n, t, me.level))
             plan = nil
         else
@@ -317,6 +323,7 @@ local function Run(sc)
         end
         local desc
         local lvlBefore = me.level
+        local xpBefore = stats.xp
         -- Route aufzeichnen (Neubau 21.11.2026: feste Route statt Live-Planer): je ausgefuehrtem Schritt Art,
         -- Quests ("a12 t13"), NPC, erwartete Stufe; Reisen nicht (die Wegfuehrung findet den Weg selbst)
         if st.kind ~= "travel" then
@@ -442,7 +449,13 @@ local function Run(sc)
                 acts[#acts + 1] = ("Monster hauen %d EP (%.0f min)"):format(st.xp or 0, st.work or 0)
             elseif st.kind == "train" then trainedAt = me.level t = t + P.TRAIN_MIN acts[#acts + 1] = "Lehrer"
             elseif st.kind == "fp" then
-                for _, f in ipairs(lev.FLIGHTMASTERS) do if tw and f[2] == tw[1] and Dist({f[2], f[3], f[4]}, tw) < 60 then known[f[1]] = true end end
+                for _, f in ipairs(lev.FLIGHTMASTERS) do
+                    if tw and f[2] == tw[1] and Dist({f[2], f[3], f[4]}, tw) < 60 then
+                        known[f[1]] = true
+                        local lr = stats.route and stats.route[#stats.route]
+                        if lr and lr.step == n then lr.fpID = f[1] end
+                    end
+                end
                 acts[#acts + 1] = "Flugpunkt"
             elseif st.kind == "bind" then
                 for _, inn in ipairs(inns) do if inn.id == st.inn then home = {inn[1], inn[2], inn[3], inn = inn.id, place = inn.name} end end
@@ -453,7 +466,7 @@ local function Run(sc)
             end
             if st.stopKey then executed[st.stopKey] = true end
             local here = Pos()
-            do local lr = stats.route and stats.route[#stats.route] if lr and lr.step == n then lr.w, lr.map = here, me.mapID end end
+            do local lr = stats.route and stats.route[#stats.route] if lr and lr.step == n then lr.w, lr.map, lr.g = here, me.mapID, stats.xp - xpBefore end end
             local isHubWork = true
             local mark = ""
 
@@ -520,6 +533,8 @@ local function Run(sc)
         local cnt = 0 for _ in pairs(log) do cnt = cnt + 1 end
         stats.logMax = math.max(stats.logMax, cnt)
         stats.steps = n
+        -- mit 60 ist die Route fertig (danach geplante Schritte braucht niemand)
+        if me.level >= 60 then break end
     end
     stats.minutes = t
     stats.level, stats.xpLeft = me.level, me.xp
@@ -579,6 +594,47 @@ local function Run(sc)
         end
         stats.routeLog = maxLog
         if verbose then print("  NACHPOLIERT: " .. moved .. " Annahmen nach vorn, Rest-Besuche nur zum Annehmen " .. rest .. ", Log hoechstens " .. stats.routeLog) end
+    end
+
+    -- Ganze Route auf einmal ueberarbeiten (Neubau 23.11.2026, scripts/route_opt.lua): Bloecke und ganze Besuche eines
+    -- Bereichs wandern an die Stelle mit dem kuerzesten Weg, Annehmen/Abgeben gehen zum naechsten Besuch beim selben
+    -- NPC mit, leere Schritte entfallen. Harte Regeln wie im Spiel (annehmen < Ziel < abgeben, Vorquests, Stufen, Log).
+    -- Ersparte Wegzeit zaehlt in "bis60". SIM_NOOPT=1 schaltet es ab (Vergleich).
+    -- SIM_RAW=<datei>: Route vor dem Ueberarbeiten speichern (zum Nachrechnen mit scripts/route_opt.lua)
+    if os.getenv("SIM_RAW") then
+        local fh = assert(io.open(os.getenv("SIM_RAW"), "w"))
+        local function V(v)
+            if type(v) == "table" then local p = {} for _, x in ipairs(v) do p[#p + 1] = V(x) end return "{" .. table.concat(p, ",") .. "}" end
+            return type(v) == "string" and ("%q"):format(v) or tostring(v)
+        end
+        fh:write("return {sc = {level = ", sc.level, "}, home0 = {", table.concat({World(sc.home[1], sc.home[2], sc.home[3])}, ","), "}, known0 = {")
+        for k in pairs(known0) do fh:write("[", k, "]=true,") end
+        fh:write("}, route = {\n")
+        for _, r in ipairs(stats.route or {}) do
+            local p = {}
+            for k, v in pairs(r) do p[#p + 1] = k .. "=" .. V(v) end
+            fh:write("{", table.concat(p, ","), "},\n")
+        end
+        fh:write("}}\n")
+        fh:close()
+    end
+    if not os.getenv("SIM_NOOPT") then
+        local fps = {}
+        for _, f in ipairs(lev.FLIGHTMASTERS) do if Mine(f[5]) then fps[#fps + 1] = {f[2], f[3], f[4], id = f[1]} end end
+        local startXP = 0
+        for l = 1, sc.level - 1 do startXP = startXP + (XP_NEED[l] or 0) end
+        local opt = dofile(root:gsub("src$", "scripts") .. "/route_opt.lua")
+        local c0 = os.clock()
+        local out, info = opt.Run(stats.route or {}, {Q = Q, P = P, XP_NEED = XP_NEED, startXP = startXP, fps = fps,
+            known0 = known0, home0 = {World(sc.home[1], sc.home[2], sc.home[3])}, verbose = verbose, passes = tonumber(os.getenv("SIM_OPT_PASSES") or "6")})
+        stats.route = out
+        stats.optSaved, stats.optMoves = info.saved, info.moves
+        -- weniger EP (Quests spaeter mit hoeherer Stufe abgegeben): fehlende EP am Ende mit Monster hauen
+        local extra = info.xpDiff < 0 and -info.xpDiff / (P.GrindEPM(59) * (P.GRIND_REAL or .7)) or 0
+        stats.optExtra = extra
+        if stats.t60 then stats.t60 = stats.t60 - info.saved + extra end
+        io.stderr:write(("  GESAMT: %d Verschiebungen, %d Besuche gespart, %d Schritte weniger, %.0f min Weg gespart, EP %+d (%.0f min Hauen), %.0f s%s")
+            :format(info.moves, info.tokMoves or 0, info.removed or 0, info.saved, info.xpDiff or 0, extra, os.clock() - c0, info.skipped and " (Ausgangsroute ungueltig, unveraendert)" or "") .. "\n")
     end
     -- Ziele in mehreren Gebieten (Spieltest 22.11.2026, "Chens leeres Faesschen": Loewen und Ebenenschreiter im
     -- Norden, Donnerechsen im Sueden – wie ein Leitfaden je Gebiet einen eigenen Schritt): jede Zielgruppe der Quest
@@ -687,8 +743,13 @@ local function Run(sc)
                         if #order > 0 then r.q = #toks > 0 and table.concat(toks, " ") or nil end
                         for pn = #entries, 1, -1 do
                             local en = entries[pn]
-                            if en.k == i and #toks > 0 then en.k = i + 1 end -- Halt hat noch andere Quests: eigener Schritt danach
-                            if en.k == i then
+                            -- Halt hat noch andere Quests: eigener Schritt danach – gibt man dort aber diese Quest ab, davor
+                            local before = en.k == i and #toks > 0 and Has(r, "t", id)
+                            if en.k == i and #toks > 0 and not before then en.k = i + 1 end
+                            if before then
+                                table.insert(route, i, en.e)
+                                i = i + 1
+                            elseif en.k == i then
                                 -- am alten Halt: ihn selbst zum Teil machen (Lage/Knoten des Teils)
                                 r.q = r.q and (r.q .. " " .. en.e.q) or en.e.q
                                 r.p, r.n, r.map, r.w = en.e.p, en.e.n, en.e.map, en.e.w
@@ -713,11 +774,14 @@ local function Run(sc)
             local parts = {}
             if r.q then parts[#parts + 1] = ("%q"):format(r.q) end
             r.z = r.map
-            for _, k in ipairs({"k", "n", "l", "z", "inn", "to", "m", "x", "y"}) do
+            if r.k == "idle" then parts = nil end
+            for _, k in ipairs(parts and {"k", "n", "l", "z", "inn", "to", "m", "x", "y"} or {}) do
                 if r[k] ~= nil then parts[#parts + 1] = k .. "=" .. (type(r[k]) == "string" and ("%q"):format(r[k]) or tostring(r[k])) end
             end
-            if r.p then parts[#parts + 1] = "p={" .. table.concat(r.p, ",") .. "}" end
-            fh:write("{", table.concat(parts, ","), "},\n")
+            if parts then
+                if r.p then parts[#parts + 1] = "p={" .. table.concat(r.p, ",") .. "}" end
+                fh:write("{", table.concat(parts, ","), "},\n")
+            end
         end
         fh:write("}\n")
         fh:close()
@@ -783,8 +847,8 @@ for _, sc in ipairs(SCEN) do
         local zl = {}
         for z, c in pairs(s.zones) do zl[#zl + 1] = z .. " " .. c end
         table.sort(zl)
-        print(("%-17s %3d Schr. %5.0f min  St %d->%d  %6d EP/h  %3d Quests  Rückweg %d  Hin-Her %d  Umsort. %d  Kippt %d  PRUEF %d  Ausgel. %d  Flüge %d  RS %d  Hauen %d (%.0f min)  Log max %d  Leer %d min  Gebietswechsel %d (zurück %d)  Planen Ø %d ms max %d ms | %s")
-            :format(sc.key, s.steps, s.minutes, s.startLevel, s.level, math.floor(s.xp / math.max(1, s.minutes) * 60), s.quests,
+        print(("%-17s %3d Schr. %5.0f min  bis60 %s  St %d->%d  %6d EP/h  %3d Quests  Rückweg %d  Hin-Her %d  Umsort. %d  Kippt %d  PRUEF %d  Ausgel. %d  Flüge %d  RS %d  Hauen %d (%.0f min)  Log max %d  Leer %d min  Gebietswechsel %d (zurück %d)  Planen Ø %d ms max %d ms | %s")
+            :format(sc.key, s.steps, s.minutes, s.t60 and ("%.0f"):format(s.t60) or "-", s.startLevel, s.level, math.floor(s.xp / math.max(1, s.minutes) * 60), s.quests,
                 s.returns, s.pingpong, s.reorder, s.flip or 0, s.hard or 0, s.missed or 0, s.flights, s.hearths, s.grind, s.grindMin, s.logMax, s.idle or 0, s.switches or 0, s.zoneBack or 0, (s.planSum or 0) / math.max(1, s.planN or 1) * 1000, (s.planMax or 0) * 1000, table.concat(zl, ", ")))
         total.returns, total.pingpong, total.reorder = total.returns + s.returns, total.pingpong + s.pingpong, total.reorder + s.reorder
         total.flip = (total.flip or 0) + (s.flip or 0)

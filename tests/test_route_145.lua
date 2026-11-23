@@ -128,8 +128,30 @@ off = G.OffRoute(G.RouteFollow(route, 10), {1, 9})
 G.DB = function() return {} end
 local rows = Tr:Rows({steps = plan.steps, offRoute = off})
 local hit
-for _, r in ipairs(rows) do if r.text and r.text:find("Nicht im Plan", 1, true) then hit = r end end
+local iLabel, iNext
+for i, r in ipairs(rows) do
+    if r.off == 9 then hit = r end
+    if r.text == "NICHT IM PLAN" then iLabel = i end
+    if r.text == "ALS NÄCHSTES" then iNext = i end
+end
 assert(hit and hit.click and hit.menu, "Zeile 'Nicht im Plan': Klick + Rechtsklick-Menue")
+-- eigener Abschnitt ganz unten (Nutzer 23.11.2026), nach ALS NAECHSTES
+assert(iLabel and (not iNext or iLabel > iNext) and rows[#rows].off, "NICHT IM PLAN ganz unten")
+do -- alle Quests einzeln, ab 7 mit "(+n)"
+    local many = {}
+    for k = 1, 8 do many[k] = {id = 100 + k} end
+    local n, plus = 0, nil
+    for _, r in ipairs(Tr:Rows({steps = plan.steps, offRoute = many})) do
+        if r.off then n = n + 1 end
+        if r.text and r.text:find("(+3)", 1, true) then plus = r end
+    end
+    assert(n == 5 and plus, "5 Quests + (+3): " .. n)
+    local three = {}
+    for k = 1, 6 do three[k] = {id = 100 + k} end
+    n = 0
+    for _, r in ipairs(Tr:Rows({steps = plan.steps, offRoute = three})) do if r.off then n = n + 1 end end
+    assert(n == 6, "6 Quests: alle zeigen statt (+1)")
+end
 -- Abstecher (Nutzer 22.11.2026): Klick = Navi zur Quest, danach zurueck zum Plan; Abbrechen nur ueber Menue mit Rueckfrage
 do
     ONE.Print = ONE.Print or function() end
@@ -176,7 +198,7 @@ do
     local iObj, iOff
     for i, r in ipairs(r2) do
         if r.kind == "obj" then iObj = iObj or i end
-        if r.text and r.text:find("Nicht im Plan", 1, true) then iOff = i end
+        if r.off then iOff = i end
     end
     Tr.Objectives = oldObj
     assert(iObj and iOff and iObj < iOff, "Teilziele vor 'Nicht im Plan'")
@@ -205,6 +227,43 @@ rows = Tr:Rows({steps = plan.steps, vendorHint = {mapID = 1, x = .2, y = .2, nam
 hit = nil
 for _, r in ipairs(rows) do if r.text and r.text:find("Händler: Haendlerin", 1, true) then hit = r end end
 assert(hit and hit.click, "Hinweis Haendler mit Navi")
+-- Taschen (Nutzer 23.11.2026: "volle Taschen beruecksichtigen"): der Haendler mit dem kleinsten Umweg zum naechsten
+-- Schritt (accept:2 bei .3/.1), nicht der naechste zum Spieler (.9/.9); bei 5-8 freien Plaetzen nur, wenn er am Weg liegt
+do
+    local onWay = {mapID = 1, x = .6, y = .5, name = "AmWeg", id = 1}
+    local behind = {mapID = 1, x = .95, y = .95, name = "Hinten", id = 2}
+    local function VCtx(bags, vendors) local c = Ctx(10) c.bags, c.vendors = bags, vendors return c end
+    local vh = assert(P:Plan(VCtx(6, {behind, onWay}))).vendorHint
+    assert(vh and vh.name == "AmWeg" and vh.kind == "way" and vh.detour < 1, "Haendler am Weg, nicht der naechste hinten")
+    assert(not P:Plan(VCtx(6, {behind})).vendorHint, "6 frei, Haendler nur mit Umweg: kein Hinweis")
+    vh = P:Plan(VCtx(3, {behind})).vendorHint
+    assert(vh and vh.name == "Hinten" and vh.kind == "low" and vh.detour >= 1, "fast voll: auch mit Umweg")
+    vh = P:Plan(VCtx(0, {behind, onWay})).vendorHint
+    assert(vh and vh.name == "AmWeg" and vh.kind == "full", "voll")
+    assert(not P:Plan(Ctx(10)).vendorHint, "ohne Haendlerliste (genug Platz) kein Hinweis")
+    local function Text(h)
+        for _, r in ipairs(Tr:Rows({steps = plan.steps, vendorHint = h})) do if r.text and r.text:find("Händler", 1, true) then return r.text end end
+    end
+    assert(Text({name = "X", kind = "way", detour = 0}):find("Händler am Weg: X", 1, true), "Text am Weg")
+    assert(Text({name = "X", kind = "full", detour = 2.4}):find("Taschen voll – Händler: X (+2 min)", 1, true), "Text voll mit Umweg")
+end
+-- Dungeon-Quest/Vorquest am Weg (Nutzer 23.11.2026): nur Hinweis. Geber 11 steht bei .1/.1; 31 = Vorquest zu
+-- Dungeonquest 30 (ab 14), 30 selbst erst ab 15, 32 = lange Weltreihe (kein Hinweis), 33 braucht 32
+do
+    local function DCtx(level, x, y) local c = Ctx(level) c.me.x, c.me.y = x, y return c end
+    assert(not P:Plan(DCtx(12, .1, .1)).dungeonHint, "Stufe zu niedrig: kein Hinweis")
+    local dh = P:Plan(DCtx(14, .1, .1)).dungeonHint
+    assert(dh and dh.id == 31 and dh.dungeon == "wc" and dh.detour < 1, "Vorquest zum Dungeon am Weg")
+    assert(not P:Plan(DCtx(14, .9, .9)).dungeonHint, "Geber weit vom Weg: kein Hinweis")
+    log[31] = "open"
+    assert(not P:Plan(DCtx(14, .1, .1)).dungeonHint, "schon im Log: kein Hinweis")
+    log[31] = nil
+    dh = P:Plan(DCtx(15, .1, .1)).dungeonHint
+    assert(dh and (dh.id == 31 or dh.id == 30) and dh.more == 1, "ab 15 beide (eine Zeile, +1)")
+    local hit
+    for _, r in ipairs(Tr:Rows({steps = plan.steps, dungeonHint = dh})) do if r.text and r.text:find("Dungeon-Quest am Weg", 1, true) then hit = r end end
+    assert(hit and hit.click and hit.text:find("(+1)", 1, true), "Zeile mit Navi")
+end
 print("OK test_route_145")
 
 -- 6) die erzeugte Routen-Datei (falls vorhanden): laedt, jede Route hat Schritte bis in hohe Stufen, Stufen steigen

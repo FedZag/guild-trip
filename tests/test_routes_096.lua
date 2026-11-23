@@ -220,6 +220,44 @@ assert(real.length > 1900 and real.length < 2800, "Länge plausibel: " .. real.l
 -- Orgrimmar-Flugmeister -> Wegekreuz (Brachland) auf Kalimdor
 local kal = assert(R:Find(1, 1677.59, -4315.71, -441.8, -2596.08), "Weg Orgrimmar -> Wegekreuz")
 assert(kal.length > 2500 and kal.length < 5500, "Länge plausibel: " .. kal.length)
+-- 7) Einstieg mitten auf einem Weg (Spielbild 23.11.2026, Nördliches Brachland 52.6,21.4: auf der Straße nach
+-- Norden, Navi schickte erst 200 yd nach Westen zu einem Geber – 874 statt rund 300 yd)
+do
+    local brach = assert(R:Find(1, 166.2, -2707.0, 463.5, -2646.2), "Brachland: Weg nach Norden")
+    assert(brach.length < 400, "auf der Straße bleiben statt Umweg: " .. math.floor(brach.length))
+    for _, q in ipairs(brach.points) do
+        assert(q.y < -2600, "nicht nach Westen zum Geber: " .. q.x .. "," .. q.y)
+    end
+    -- kleines Netz: lange Straße 1-2 entlang x=0, Abzweig 3 westlich, Ziel 4 hinter Knoten 2
+    GuildTripRoutes = {R = {[3] = {
+        nodes = "0 -300 0 900 -250 0 300 1100",
+        edges = {{1, 2, 1200, "0 600"}, {3, 2, 950, ""}, {2, 4, 360, ""}},
+    }}}
+    R.cache = {}
+    local same = assert(R:Find(3, 5, 0, 5, 600), "Start und Ziel auf derselben Straße")
+    assert(same.length < 650, "direkt die Straße entlang: " .. same.length)
+    local via = assert(R:Find(3, 5, 0, 310, 1110), "über Knoten 2 weiter")
+    assert(via.length < 1400, "die Straße hoch, kein Abzweig: " .. via.length)
+    for _, q in ipairs(via.points) do assert(q.x > -10, "nicht über den Abzweig im Westen") end
+    -- im Spiel: Index in Häppchen (C_Timer), bis dahin Einstieg nur an Knoten – kein Fehler, kein Ruckeln
+    local queue = {}
+    C_Timer = {After = function(_, fn) queue[#queue + 1] = fn end}
+    R.cache = {}
+    local n3 = R:Net(3)
+    assert(#queue == 1 and not n3.ecellDone, "Index startet im Hintergrund")
+    assert(#R.Snap(n3, 5, 0, 320, 6) == 0, "vor Fertigstellung: keine Kanten-Stellen")
+    local guard = 0
+    while #queue > 0 and guard < 100 do guard = guard + 1 table.remove(queue, 1)() end
+    assert(n3.ecellDone and #R.Snap(n3, 5, 0, 320, 6) >= 1, "danach: Einstieg auf der Kante")
+    C_Timer = nil
+    -- Schleife: hin zu (300,0), zurück zu (0,10), dann nach Norden – abschneiden bei (0,10)
+    local loop = R.CutLoops({{x = 0, y = 0}, {x = 150, y = 0}, {x = 300, y = 0}, {x = 150, y = 5}, {x = 0, y = 10},
+        {x = 0, y = 300}}, 20)
+    for _, q in ipairs(loop) do assert(q.x < 20, "Schleife nach Osten abgeschnitten") end
+    assert(loop[#loop].y == 300, "Ziel bleibt")
+    local straight = R.CutLoops({{x = 0, y = 0}, {x = 100, y = 0}, {x = 200, y = 0}, {x = 300, y = 0}}, 20)
+    assert(#straight == 4, "gerader Weg bleibt unverändert")
+end
 print("OK test_routes_096")
 -- Pfeil dreht fliessend: weich zum Zielwinkel, kuerzester Weg ueber +-pi, Start springt sofort
 do

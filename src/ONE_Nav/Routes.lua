@@ -7,6 +7,8 @@ local Routes = {
     reach = 320,       -- so weit (Luftlinie) darf der nächste Netzknoten von Spieler/Ziel weg sein
     offroad = 1.5,     -- Luftlinie zum/vom Netz zählt teurer (kein Weg bekannt; wie abseits der Straße im Netz)
     candidates = 6,    -- so viele Knoten am Anfang/Ende ausprobieren
+    loop = 20,         -- Weg kommt so nah wieder an eine alte Stelle: Schleife abschneiden
+    snaps = 24,        -- so viele Kanten-Stellen am Anfang/Ende (Wege teilen sich Straßen, viele liegen übereinander)
     direct = 120,      -- näher als das: direkt hin, kein Netz
     passRadius = 14,   -- Punkt gilt als erreicht
     offRoute = 70,     -- weiter weg von der Linie: neu planen
@@ -101,6 +103,7 @@ function Routes:Net(continent)
         for _, edge in ipairs(raw.edges) do Add(edge[1], edge[2], edge[3], edge[4] or "") end
     end
     self.cache[continent] = net
+    self.IndexLater(net)
     return net
 end
 
@@ -179,6 +182,171 @@ function Routes.EdgePoints(net, e, out)
     end
 end
 
+-- ===== Einstieg mitten auf einem Weg =====
+-- Das Netz verbindet feste Punkte (Geber, Flugmeister …). Wer zwischen zwei Punkten auf dem Weg steht, darf nicht
+-- erst zum nächsten Punkt laufen (Spielbild 23.11.2026, Nördliches Brachland: auf der Straße nach Norden, Navi
+-- schickte 200 yd nach Westen zu einem Geber und parallel zurück – 874 statt 303 yd). Darum: nächste Stelle auf
+-- einer Kante suchen und von dort in beide Richtungen ins Netz.
+local ECELL = 200
+function Routes.Poly(net, k)
+    local pts = {{x = net.x[net.ea[k]], y = net.y[net.ea[k]]}}
+    Routes.EdgePoints(net, k, pts)
+    return pts
+end
+-- Zellen-Index der Kanten (einmal je Kontinent, beim ersten Bedarf). Liest die Zwischenpunkte direkt aus dem
+-- Text, ohne Tabellen je Punkt (Lua 5.1: 0,32 s → deutlich weniger).
+-- limit = höchstens so viele Kanten in diesem Aufruf (Spiel: in Häppchen im Hintergrund, kein Ruckeln);
+-- liefert den Index erst, wenn er fertig ist.
+function Routes.EdgeIndex(net, limit)
+    if net.ecellDone then return net.ecell end
+    net.ecell, net.eseen = net.ecell or {}, net.eseen or {}
+    local idx, half = net.ecell, ECELL / 2
+    local seen, mark = net.eseen, 0
+    local nx, ny, ea, eb, ep, text = net.x, net.y, net.ea, net.eb, net.ep, net.text
+    local k
+    local function Mark(x, y)
+        local key = floor(x / ECELL) * 100000 + floor(y / ECELL)
+        if seen[key] == mark then return end
+        seen[key] = mark
+        local cell = idx[key]
+        if not cell then cell = {} idx[key] = cell end
+        cell[#cell + 1] = k
+    end
+    local function Line(x1, y1, x2, y2)
+        local dx, dy = x2 - x1, y2 - y1
+        local len = sqrt(dx * dx + dy * dy)
+        for s = 1, floor(len / half) do
+            local t = s * half / len
+            Mark(x1 + t * dx, y1 + t * dy)
+        end
+        Mark(x2, y2)
+    end
+    local from = net.enext or 1
+    local to = limit and math.min(#ea, from + limit - 1) or #ea
+    for e = from, to do
+        k, mark = e, e
+        local x, y = nx[ea[e]], ny[ea[e]]
+        Mark(x, y)
+        local p = ep[e]
+        if type(p) == "number" then p = text:sub(floor(p / 65536), floor(p / 65536) + p % 65536 - 1) end
+        if p then
+            for dx, dy in p:gmatch("(%-?%d+) (%-?%d+)") do
+                local x2, y2 = x + tonumber(dx), y + tonumber(dy)
+                Line(x, y, x2, y2)
+                x, y = x2, y2
+            end
+        end
+        Line(x, y, nx[eb[e]], ny[eb[e]])
+    end
+    net.enext = to + 1
+    if to < #ea then return nil end
+    net.ecellDone, net.eseen = true, nil
+    return idx
+end
+-- Im Spiel: Index nach dem Entpacken in Häppchen bauen (je ~1000 Kanten pro Bild)
+function Routes.IndexLater(net)
+    if net.ecellDone or net.ebuilding then return end
+    local timer = rawget(_G, "C_Timer")
+    if not (timer and timer.After) then return end
+    net.ebuilding = true
+    local function Step()
+        if not Routes.EdgeIndex(net, 1000) then timer.After(0, Step) else net.ebuilding = nil end
+    end
+    timer.After(0, Step)
+end
+-- Nächste Stellen auf Kanten innerhalb radius (je Kante die nächste), sortiert, höchstens max.
+-- Eintrag: {k = Kante, d = Abstand, x, y = Stelle, pts = Linie a→b, seg = Abschnitt (pts[seg]→pts[seg+1]), f = Anteil ab a}
+function Routes.Snap(net, x, y, radius, max)
+    -- im Spiel wird der Index im Hintergrund gebaut; bis dahin nur Einstieg an Knoten (wie früher)
+    local idx
+    if rawget(_G, "C_Timer") then
+        Routes.IndexLater(net)
+        idx = net.ecellDone and net.ecell
+    else
+        idx = Routes.EdgeIndex(net)
+    end
+    if not idx then return {} end
+    local r = math.ceil(radius / ECELL)
+    local cx, cy = floor(x / ECELL), floor(y / ECELL)
+    local seen, out = {}, {}
+    for gx = cx - r, cx + r do
+        for gy = cy - r, cy + r do
+            local cell = idx[gx * 100000 + gy]
+            if cell then
+                for _, k in ipairs(cell) do
+                    if not seen[k] then
+                        seen[k] = true
+                        local pts = Routes.Poly(net, k)
+                        local cum, bestD, best = 0, huge, nil
+                        local lens = {}
+                        for j = 1, #pts - 1 do
+                            local a, b = pts[j], pts[j + 1]
+                            local vx, vy = b.x - a.x, b.y - a.y
+                            local len = sqrt(vx * vx + vy * vy)
+                            local t = len > 0 and math.max(0, math.min(1, ((x - a.x) * vx + (y - a.y) * vy) / (len * len))) or 0
+                            local jx, jy = a.x + t * vx, a.y + t * vy
+                            local d = sqrt((jx - x) ^ 2 + (jy - y) ^ 2)
+                            if d < bestD then bestD, best = d, {k = k, d = d, x = jx, y = jy, pts = pts, seg = j, at = cum + t * len} end
+                            cum = cum + len
+                        end
+                        if best and bestD <= radius then
+                            best.f = cum > 0 and best.at / cum or 0
+                            out[#out + 1] = best
+                        end
+                    end
+                end
+            end
+        end
+    end
+    table.sort(out, function(p, q) return p.d < q.d end)
+    for k = #out, (max or #out) + 1, -1 do out[k] = nil end
+    return out
+end
+-- Kosten einer Kante (aus der Nachbarliste von a)
+local function EdgeCost(net, k)
+    local adj = net.adj[net.ea[k]]
+    for j = 1, #adj, 3 do if adj[j + 2] == k then return adj[j + 1] end end
+    return 0
+end
+-- Punkte von der Stelle s zum Ende der Kante (toB) bzw. zum Anfang, ohne die Stelle selbst
+local function FromSnap(s, toB)
+    local out = {}
+    if toB then
+        for j = s.seg + 1, #s.pts do out[#out + 1] = s.pts[j] end
+    else
+        for j = s.seg, 1, -1 do out[#out + 1] = s.pts[j] end
+    end
+    return out
+end
+
+-- Schleifen abschneiden: Kommt der Weg später wieder an einer Stelle vorbei, an der er schon war (höchstens
+-- within Yards entfernt), geht es dort direkt weiter. Kein Weg soll denselben Ort zweimal besuchen.
+function Routes.CutLoops(points, within)
+    local n = #points
+    if n < 4 then return points end
+    local out, i = {points[1]}, 1
+    while i < n do
+        local p, jump, jx, jy = points[i], nil, nil, nil
+        for j = n, i + 3, -1 do
+            local a, b = points[j - 1], points[j]
+            local vx, vy = b.x - a.x, b.y - a.y
+            local len2 = vx * vx + vy * vy
+            local t = len2 > 0 and math.max(0, math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / len2)) or 0
+            local qx, qy = a.x + t * vx, a.y + t * vy
+            if (qx - p.x) ^ 2 + (qy - p.y) ^ 2 <= within * within then jump, jx, jy = j, qx, qy break end
+        end
+        if jump then
+            out[#out + 1] = {x = jx, y = jy}
+            out[#out + 1] = points[jump]
+            i = jump
+        else
+            i = i + 1
+            out[#out + 1] = points[i]
+        end
+    end
+    return out
+end
+
 -- Einstieg abkürzen: Statt erst zum Netzknoten zu laufen und dann umzukehren, direkt (Luftlinie, höchstens
 -- maxStraight Yards) auf den Weg treffen – an der Stelle der ersten within Yards, die am meisten spart.
 -- points[1] = Spieler. Liefert eine neue Liste.
@@ -248,16 +416,42 @@ function Routes:Find(continent, fx, fy, tx, ty)
     if straight <= self.direct then return nil, "near" end
     local starts = self.Nearest(net, fx, fy, self.reach, self.candidates)
     local goals = self.Nearest(net, tx, ty, self.reach, self.candidates)
-    if #starts == 0 or #goals == 0 then return nil, "far" end
-    local goalCost = {}
+    local sSnap = self.Snap(net, fx, fy, self.reach, self.snaps)
+    local gSnap = self.Snap(net, tx, ty, self.reach, self.snaps)
+    if (#starts == 0 and #sSnap == 0) or (#goals == 0 and #gSnap == 0) then return nil, "far" end
+    -- Ziel: Knoten direkt (Luftlinie) oder über eine Stelle auf einer Kante
+    local goalCost, goalVia = {}, {}
     for _, g in ipairs(goals) do goalCost[g[1]] = g[2] * self.offroad end
-    local dist, via, heap = {}, {}, {}
-    for _, s in ipairs(starts) do
-        local c = s[2] * self.offroad
-        if not dist[s[1]] or c < dist[s[1]] then dist[s[1]] = c Push(heap, s[1], c) end
+    local function GoalAdd(n, c, how)
+        if c < (goalCost[n] or huge) then goalCost[n], goalVia[n] = c, how end
+    end
+    for _, g in ipairs(gSnap) do
+        local c = EdgeCost(net, g.k)
+        GoalAdd(net.ea[g.k], g.d * self.offroad + c * g.f, {g, false})
+        GoalAdd(net.eb[g.k], g.d * self.offroad + c * (1 - g.f), {g, true})
+    end
+    local dist, via, heap, startVia = {}, {}, {}, {}
+    local function StartAdd(n, c, how)
+        if c < (dist[n] or huge) then dist[n], startVia[n] = c, how Push(heap, n, c) end
+    end
+    for _, s in ipairs(starts) do StartAdd(s[1], s[2] * self.offroad, false) end
+    for _, s in ipairs(sSnap) do
+        local c = EdgeCost(net, s.k)
+        StartAdd(net.ea[s.k], s.d * self.offroad + c * s.f, {s, false})
+        StartAdd(net.eb[s.k], s.d * self.offroad + c * (1 - s.f), {s, true})
     end
     -- Umwege (Fluss, Gebirge) sind normal; erst ab dem Vierfachen der Luftlinie lieber geradeaus
     local best, bestNode = straight * 4, nil
+    -- Start und Ziel auf derselben Kante: einfach auf ihr entlang
+    local same
+    for _, s in ipairs(sSnap) do
+        for _, g in ipairs(gSnap) do
+            if s.k == g.k then
+                local c = (s.d + g.d) * self.offroad + EdgeCost(net, s.k) * math.abs(s.f - g.f)
+                if c < best then best, same = c, {s, g} end
+            end
+        end
+    end
     while true do
         local n, c = Pop(heap)
         if not n or c >= best then break end
@@ -274,18 +468,49 @@ function Routes:Find(continent, fx, fy, tx, ty)
             end
         end
     end
-    if not bestNode then return nil, "none" end
-    -- Kantenkette zurückverfolgen
-    local chain, n = {}, bestNode
-    while via[n] do
-        local e = via[n]
-        chain[#chain + 1] = e
-        local k = e > 0 and e or -e
-        n = e > 0 and net.ea[k] or net.eb[k]
+    local points
+    if bestNode then
+        -- Kantenkette zurückverfolgen
+        local chain, n = {}, bestNode
+        while via[n] do
+            local e = via[n]
+            chain[#chain + 1] = e
+            local k = e > 0 and e or -e
+            n = e > 0 and net.ea[k] or net.eb[k]
+        end
+        points = {{x = fx, y = fy}}
+        local sv = startVia[n]
+        if sv then
+            -- Einstieg auf der Kante: Stelle, dann die Kante entlang bis zum Knoten n
+            points[#points + 1] = {x = sv[1].x, y = sv[1].y}
+            for _, p in ipairs(FromSnap(sv[1], sv[2])) do points[#points + 1] = p end
+        else
+            points[#points + 1] = {x = net.x[n], y = net.y[n]}
+        end
+        for k = #chain, 1, -1 do self.EdgePoints(net, chain[k], points) end
+        local gv = goalVia[bestNode]
+        if gv then
+            -- Ausstieg: vom Knoten die Kante entlang bis zur Stelle nahe am Ziel
+            local back = FromSnap(gv[1], gv[2])
+            for j = #back, 1, -1 do points[#points + 1] = back[j] end
+            points[#points + 1] = {x = gv[1].x, y = gv[1].y}
+        end
+        points[#points + 1] = {x = tx, y = ty}
+    elseif same then
+        local s, g = same[1], same[2]
+        points = {{x = fx, y = fy}, {x = s.x, y = s.y}}
+        local forward = g.f >= s.f
+        local lo, hi = forward and s.seg + 1 or g.seg + 1, forward and g.seg or s.seg
+        if forward then
+            for j = lo, hi do points[#points + 1] = s.pts[j] end
+        else
+            for j = hi, lo, -1 do points[#points + 1] = s.pts[j] end
+        end
+        points[#points + 1] = {x = g.x, y = g.y}
+        points[#points + 1] = {x = tx, y = ty}
+    else
+        return nil, "none"
     end
-    local points = {{x = fx, y = fy}, {x = net.x[n], y = net.y[n]}}
-    for k = #chain, 1, -1 do self.EdgePoints(net, chain[k], points) end
-    points[#points + 1] = {x = tx, y = ty}
     -- in Städten nicht abkürzen (Mauern/Felskanten)
     if not self.InCity(continent, fx, fy) then points = self.Shortcut(points, self.shortcut, self.joinWithin) end
     -- am Ziel genauso: rückwärts abkürzen
@@ -294,6 +519,7 @@ function Routes:Find(continent, fx, fy, tx, ty)
     if not self.InCity(continent, tx, ty) then rev = self.Shortcut(rev, self.shortcut, self.joinWithin) end
     points = {}
     for k = #rev, 1, -1 do points[#points + 1] = rev[k] end
+    points = self.CutLoops(points, self.loop)
     points = self.Pull(points, self.pull, self.pullRatio, continent)
     -- doppelte Punkte (Spieler steht auf dem Knoten) entfernen, Länge messen
     local clean, length = {points[1]}, 0

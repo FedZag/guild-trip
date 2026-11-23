@@ -611,3 +611,8 @@ EN["Verkaufspreis im Gegenstands-Tooltip; Meine Figuren (Startseite): Gold, Stuf
 EN["Navi: Lehrer mit Suchfeld, Koordinaten auf der Weltkarte, Restzeit im Flug"] = "Navi: trainers with a search field, coordinates on the world map, time left in flight"
 EN["Optionen › Allgemein › Anfragen (aus): Duelle und Einladungen von Fremden ablehnen, Wiederbelebung und Beschwörung annehmen"] = "Options › General › Requests (off): decline duels and invites from strangers, accept resurrection and summons"
 EN["Fix: Der Flug-Balken verschwindet nach der Landung von selbst"] = "Fix: the flight bar disappears by itself after landing"
+EN["Quest-Führung: alle Routen neu geordnet – rund 15 % schneller bis 60, kaum noch Hin und Zurück"] = "Quest guide: all routes reordered – about 15 % faster to 60, hardly any back and forth"
+EN["Navi: steigt mitten auf Wegen ein und aus statt nur an festen Punkten"] = "Navi: joins and leaves paths anywhere along them, not only at fixed points"
+EN["Quest-Kasten: Quests außerhalb des Plans stehen unten in einem eigenen Abschnitt"] = "Quest box: quests outside the plan get their own section at the bottom"
+EN["Taschen fast voll: Händler mit dem kleinsten Umweg zum nächsten Schritt"] = "Bags almost full: vendor with the smallest detour to the next step"
+EN["Hinweis, wenn ein Geber für eine Dungeon-Quest direkt am Weg liegt"] = "Hint when a dungeon quest giver is right on your way"

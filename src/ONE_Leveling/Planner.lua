@@ -90,6 +90,7 @@ P.GRIND_HUB_MAX = 10     -- hoechstens so viele Minuten Monster hauen, damit am 
 P.VENDOR_NEAR = 1
 P.VENDOR_MIN = .5
 P.BAG_LOW = 4
+P.DUNGEON_NEAR = 1       -- Hinweis Dungeon-(Vor-)Quest nur bei hoechstens so viel Umweg (Minuten)
 P.BAG_SOON = 1
 P.LOOT_PER_SLOT = 8
 -- Quest-Ziele draussen erst angehen, wenn die Queststufe hoechstens so viel ueber deiner (Plan-)Stufe liegt
@@ -288,15 +289,37 @@ function P.IsDungeonChain(id)
     -- (z. B. "Patrouille zur Rueckendeckung" in Tirisfal), bleiben normale Quests
     local e = Q.q[id]
     if not e then return false end
-    if dz[e[14] or 0] then return true end
+    if dz[e[14] or 0] then return dz[e[14]] end
     local nexts = {}
     if (e[12] or 0) > 0 then nexts[1] = e[12] end
     for _, nx in ipairs(dungeonNext[id] or {}) do nexts[#nexts + 1] = nx end
     for _, nx in ipairs(nexts) do
         local ne = Q.q[nx]
-        if ne and dz[ne[14] or 0] then return true end
+        if ne and dz[ne[14] or 0] then return dz[ne[14]] end
     end
     return false
+end
+-- Geber von Dungeon-Quests und Vorquests dorthin je Karte: {{id, nr}} (einmal gebaut; Hinweis "am Weg")
+local dungeonGivers
+function P.DungeonGivers(mapID)
+    local Q = P.Data()
+    if not (Q and mapID) then return {} end
+    if not dungeonGivers then
+        dungeonGivers = {}
+        for id, e in pairs(Q.q) do
+            if type(e[6]) == "table" and #e[6] > 0 and P.IsDungeonChain(id) then
+                for _, nr in ipairs(e[6]) do
+                    local n = Q.n and Q.n[nr]
+                    for i = 2, n and #n or 0, 3 do
+                        local m = n[i]
+                        dungeonGivers[m] = dungeonGivers[m] or {}
+                        table.insert(dungeonGivers[m], {id, nr})
+                    end
+                end
+            end
+        end
+    end
+    return dungeonGivers[mapID] or {}
 end
 
 function P.Data()
@@ -2225,7 +2248,64 @@ function P:Plan(ctx)
     for _, s in ipairs(order) do orderKeys[#orderKeys + 1] = P.StopKey(s) orderLoops[#orderLoops + 1] = s.loop or 0 end
     local logSeen = {}
     for id, o in pairs(info) do if o.log then logSeen[id] = true end end
-    return {onWay = onWay, gearIn = gearIn, logSeen = logSeen, workZone = startWork, orderKeys = orderKeys, orderLoops = orderLoops, loops = loops, steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left, abandon = abandon,
+    -- feste Route: Taschen (fast) voll -> Haendler mit dem kleinsten Umweg auf dem Weg zum naechsten Schritt
+    -- (Nutzer 23.11.2026: "volle Taschen beruecksichtigen"). Nur Hinweis, kein Routen-Schritt. Bis P.BAG_LOW freie
+    -- Plaetze immer; davor (ctx.vendors gibt es ab G.VENDOR_BAGS) nur, wenn er praktisch am Weg liegt (P.VENDOR_NEAR)
+    local vendorHint, dungeonHint
+    -- Umweg ueber Punkt w auf dem Weg zum naechsten Schritt (ohne naechsten Schritt: hin und zurueck)
+    local nextW
+    if ctx.route and here then
+        for _, st in ipairs(steps) do
+            nextW = st.mapID and st.x and World(nil, st.mapID, st.x, st.y)
+            if nextW then break end
+        end
+    end
+    local direct = nextW and nextW[1] == here[1] and Minutes(here, nextW)
+    local function Detour(w)
+        if direct and w[1] == here[1] then return Minutes(here, w) + Minutes(w, nextW) - direct end
+        return 2 * Minutes(here, w)
+    end
+    if ctx.route and ctx.vendors and ctx.bags and here then
+        local best, bd
+        for _, sp in ipairs(Spots(ctx.vendors)) do
+            local d = Detour(sp.w)
+            if not bd or d < bd then best, bd = sp, d end
+        end
+        if best and (ctx.bags <= P.BAG_LOW or bd <= P.VENDOR_NEAR) then
+            vendorHint = {name = best.name, mapID = best.mapID, x = best.x, y = best.y, id = best.id, detour = math.max(0, bd),
+                free = ctx.bags, kind = ctx.bags <= 0 and "full" or ctx.bags <= P.BAG_LOW and "low" or "way"}
+        end
+    end
+    -- feste Route: Dungeon-Quest oder Vorquest dorthin, deren Geber am Weg zum naechsten Schritt steht (Nutzer
+    -- 23.11.2026: "den Hinweis bau mal"). Nur Hinweis, nie Routen-Schritt – Dungeons stehen absichtlich nicht im Guide.
+    -- Nur annehmbare (Stufe, Vorquests, Volk/Klasse), nicht grau, nicht im Log, Umweg hoechstens P.DUNGEON_NEAR
+    if ctx.route and here and me.mapID then
+        local seen = {}
+        for _, g in ipairs(P.DungeonGivers(me.mapID)) do
+            local id, nr = g[1], g[2]
+            local e = Q.q[id]
+            local ok = e and not seen[id] and not inLog(id) and not (follow and follow["accept:" .. id])
+                and (e[2] or 0) <= L and (e[1] or 0) >= P.GreyBelow(L) and Fits(id, e, me, done, inLog) and not P.IsDrop(e)
+            if ok and type(e[9]) == "table" then for _, p in ipairs(e[9]) do if not done(p) then ok = false end end end
+            if ok and type(e[5]) == "table" and #e[5] > 0 then
+                local any = false
+                for _, p in ipairs(e[5]) do if done(p) then any = true end end
+                ok = any
+            end
+            local w = ok and World(nr)
+            if w then
+                seen[id] = true
+                local d = Detour(w)
+                if d <= P.DUNGEON_NEAR then
+                    if not dungeonHint or d < dungeonHint.detour - .1 then
+                        local m, x, y = w[4], w[5], w[6]
+                        dungeonHint = {id = id, dungeon = P.IsDungeonChain(id), mapID = m, x = x, y = y, detour = math.max(0, d), more = dungeonHint and (dungeonHint.more + 1) or 0}
+                    else dungeonHint.more = dungeonHint.more + 1 end
+                end
+            end
+        end
+    end
+    return {vendorHint = vendorHint, dungeonHint = dungeonHint, onWay = onWay, gearIn = gearIn, logSeen = logSeen, workZone = startWork, orderKeys = orderKeys, orderLoops = orderLoops, loops = loops, steps = steps, blocks = blocks, info = info, chosen = chosen, skipped = skipped, minutes = minutes, xp = xpSum, left = left, abandon = abandon,
         grind = grind, factor = factor, level = L}
 end
 

@@ -4,6 +4,28 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.8.2-alpha (veröffentlicht 23.11.2026)
+
+```
+## 0.8.2-alpha
+
+**English**
+- Quest guide: all 40 routes were reordered as a whole – about 15 % faster to level 60, hardly any walking back and forth.
+- Navi: the route now joins and leaves paths anywhere along them instead of only at fixed network points.
+- Quest box: quests that are not part of the plan are listed in their own section at the bottom, one line each.
+- Bags almost full: the hint now picks the vendor with the smallest detour to your next step.
+- New hint when the giver of a dungeon quest (or its pre-quest) is at most 1 minute off your way. Click to navigate.
+
+**Deutsch**
+- Quest-Führung: alle 40 Routen als Ganzes neu geordnet – rund 15 % schneller bis Stufe 60, kaum noch Wege hin und zurück.
+- Navi: Die Wegführung steigt jetzt mitten auf Wegen ein und aus statt nur an festen Netzpunkten.
+- Quest-Kasten: Quests außerhalb des Plans stehen unten in einem eigenen Abschnitt, je Quest eine Zeile.
+- Taschen fast voll: Der Hinweis wählt den Händler mit dem kleinsten Umweg zum nächsten Schritt.
+- Neuer Hinweis, wenn der Geber einer Dungeon-Quest (oder ihrer Vorquest) höchstens 1 Minute neben dem Weg liegt. Klick = Navi.
+```
+
+---
+
 ## 0.8.1-alpha (veröffentlicht 23.11.2026)
 
 ```

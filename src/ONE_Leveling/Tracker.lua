@@ -371,6 +371,7 @@ function Tr:Distance()
 end
 
 -- leicht getoenter Hintergrund mit farbiger Kante links: JETZT gold, ALS NAECHSTES silbergrau
+Tr.MAX_OFF = 5 -- so viele Quests unter NICHT IM PLAN, dann "(+n)"
 Tr.BLOCK_COLOR = {now = {1, .82, 0}, next = {.75, .75, .75}}
 function Tr:Blocks(list)
     local f = self.frame
@@ -518,11 +519,30 @@ function Tr:Rows(plan, budget)
         end
         local vh = plan.vendorHint
         if vh then
-            rows[#rows + 1] = {text = Tr.Code("hint") .. T("Taschen fast voll – Händler: %s", vh.name or "?") .. "|r", kind = "who", block = "now",
+            -- Taschen voll / fast voll / Haendler am Weg (Planer: kleinster Umweg zum naechsten Schritt, Nutzer 23.11.2026)
+            local name = vh.name or "?"
+            local text = vh.kind == "full" and T("Taschen voll – Händler: %s", name)
+                or vh.kind == "way" and T("Händler am Weg: %s – Taschen leeren", name)
+                or T("Taschen fast voll – Händler: %s", name)
+            if (vh.detour or 0) >= 1 then text = text .. " " .. T("(+%d min)", math.floor(vh.detour + .5)) end
+            rows[#rows + 1] = {text = Tr.Code("hint") .. text .. "|r", kind = "who", block = "now",
                 tip = T("Verkaufen machst du selbst (oder der Plunder-Verkauf von Guild Trip). Klicken: Navi zum Händler."),
                 click = function()
                     local nav = ONE.modules and ONE.modules.nav
                     if nav and nav.PointTo then nav:PointTo(vh.name or T("Händler"), vh.mapID, vh.x, vh.y) end
+                end}
+        end
+        -- Dungeon-Quest oder Vorquest dorthin am Weg (Nutzer 23.11.2026): nur Hinweis, Klick = Navi zum Questgeber
+        local dh = plan.dungeonHint
+        if dh then
+            local c = dh.dungeon and G.Catalog and G.Catalog(dh.dungeon)
+            local text = c and c.name and T("Für %s am Weg: %s", c.name, G.Title(dh.id)) or T("Dungeon-Quest am Weg: %s", G.Title(dh.id))
+            if (dh.more or 0) > 0 then text = text .. " " .. T("(+%d)", dh.more) end
+            rows[#rows + 1] = {text = Tr.Code("hint") .. text .. "|r", kind = "who", block = "now",
+                tip = T("Nicht in der Route – Dungeons planst du selbst (Dungeon-Seite). Liegt hier am Weg, falls du später hingehst. Klicken: Navi zum Questgeber."),
+                click = function()
+                    local nav = ONE.modules and ONE.modules.nav
+                    if nav and nav.PointTo then nav:PointTo(G.Title(dh.id), dh.mapID, dh.x, dh.y) end
                 end}
         end
         -- bessere Ausruestung aus einer Quest ausserhalb der Route (Nutzer 22.11.2026), Klick = Navi zum Questgeber
@@ -539,21 +559,6 @@ function Tr:Rows(plan, budget)
                 tip = table.concat(tip, "\n"),
                 click = function() if lev.Way then lev.Way:Get(h.src, h.item.id) end end}
         end
-        -- feste Route: Quests im Log, die nicht dazugehoeren (Nutzer 21.11.2026: "eigener Hinweis")
-        local off = plan.offRoute or {}
-        if #off > 0 then
-            local names = {}
-            for i = 1, math.min(2, #off) do names[#names + 1] = G.Title(off[i].id) end
-            local more = #off > 2 and (" " .. T("(+%d)", #off - 2)) or ""
-            local ids = {}
-            for _, o in ipairs(off) do ids[#ids + 1] = o.id end
-            -- Linksklick = Abstecher (Navi dorthin, danach zurueck zum Plan), Rechtsklick = Menue (Navi / Abbrechen mit
-            -- Rueckfrage) – Nutzer 22.11.2026: "zusaetzlich machen, ohne den Plan zu zerstoeren"
-            rows[#rows + 1] = {text = Tr.Code("hint") .. T("Nicht im Plan: %s", table.concat(names, ", ")) .. more .. "|r", kind = "who", block = "now",
-                tip = T("Gehört nicht zur Route – du kannst sie nebenbei machen. Klick: Abstecher dorthin (mit Rückfrage), danach führt der Pfeil zurück zum Plan. Rechtsklick: Menü (Navi oder abbrechen, beides mit Rückfrage)."),
-                click = function() Tr:AskDetour(ids[1]) end,
-                menu = function(owner) Tr:OffMenu(owner, ids) end}
-        end
     end
     -- ALS NAECHSTES (Nutzer 18.11.2026, statt "Noch annehmen"): die naechsten hoechstens MAX_NEXT
     -- Schritte der Fuehrung, wie sie kommen – aktualisiert sich mit dem Plan.
@@ -561,7 +566,26 @@ function Tr:Rows(plan, budget)
     for i = 2, math.min(#plan.steps, 1 + (preset.maxNext or Tr.MAX_NEXT)) do nexts[#nexts + 1] = plan.steps[i] end
     -- ALS NAECHSTES: so viele, wie in die Hoehe passen (mindestens einer); je Schritt ein kleiner Block
     -- wie JETZT (Name, was/bei wem, Ort · Zeit), blau statt gold (Nutzer 18.11.2026)
+    -- NICHT IM PLAN (Nutzer 23.11.2026: "ganz runter als separate Spalte"): eigener Abschnitt unten, je
+    -- angenommener Quest ausserhalb der Route eine Zeile. Klick = Abstecher (mit Rueckfrage), Rechtsklick = Menue
+    local offRows = {}
+    local off = (s1 and preset.maxNext ~= 0) and plan.offRoute or {}
+    if #off > 0 then
+        offRows[1] = {kind = "gap"}
+        if not preset.noLabels then offRows[2] = {text = T("NICHT IM PLAN"), kind = "label", block = "off", blockColor = "next"} end
+        local tip = T("Gehört nicht zur Route – du kannst sie nebenbei machen. Klick: Abstecher dorthin (mit Rückfrage), danach führt der Pfeil zurück zum Plan. Rechtsklick: Menü (Navi oder abbrechen, beides mit Rückfrage).")
+        for i, o in ipairs(off) do
+            if i > Tr.MAX_OFF and #off > Tr.MAX_OFF + 1 then
+                offRows[#offRows + 1] = {text = Tr.Code("hint") .. T("(+%d)", #off - Tr.MAX_OFF) .. "|r", kind = "nxWho", block = "off", blockColor = "next", tip = tip}
+                break
+            end
+            local id = o.id
+            offRows[#offRows + 1] = {text = Tr.Code("hint") .. G.Title(id) .. "|r", kind = "nxWho", block = "off", blockColor = "next", off = id,
+                tip = tip, click = function() Tr:AskDetour(id) end, menu = function(owner) Tr:OffMenu(owner, {id}) end}
+        end
+    end
     local used = 0
+    for _, r in ipairs(offRows) do used = used + Tr.St(r.kind)[5] end
     for _, r in ipairs(rows) do used = used + Tr.St(r.kind)[5] end
     local nl = preset.nextLines
     local per = Tr.St("nxTitle")[5] + ((not nl or nl.nxWho) and Tr.St("nxWho")[5] or 0)
@@ -587,6 +611,7 @@ function Tr:Rows(plan, budget)
         end
         for _, r in ipairs(ins) do rows[#rows + 1] = r end
     end
+    for _, r in ipairs(offRows) do rows[#rows + 1] = r end
     return rows, fit
 end
 
