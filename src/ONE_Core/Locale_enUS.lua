@@ -638,3 +638,5 @@ EN["Navi-Pfeil: Überschrift ohne „Zu“ bei Quests"] = "Navi arrow: title wit
 EN["Chat: Link-Tooltips mit Guild-Trip-Wissen (Gegenstände und Quests), auch im WoW-Chat"] = "Chat: link tooltips with Guild Trip knowledge (items and quests), also in the WoW chat"
 EN["Randleiste: per Mausrad bis 100 Nachrichten zurückblättern, Knopf „Nach unten“ mit Zähler"] = "Side bar: scroll back up to 100 messages with the mouse wheel, \"Down\" button with a counter"
 EN["Gilden-Einladen-Knöpfe entfernt – Forever blockt das Einladen aus Addons"] = "Guild invite buttons removed – Forever blocks inviting from addons"
+EN["Quest-Führung: Sind die Quests der laufenden Runde schon im Log, wird erst die Runde im eigenen Gebiet fertig gemacht – kein Abstecher in ein anderes Gebiet und zurück"] = "Quest guide: if the quests of the current round are already in your log, the round in your own zone is finished first – no detour to another zone and back"
+EN["/trip buffcheck nennt je Spieler den genauen Grund, warum er nicht in der Buff-Liste steht"] = "/trip buffcheck names the exact reason for each player why they are not in the buff list"

@@ -58,4 +58,32 @@ assert(f2["turnin:11"] > f2["turnin:20"], "unfertige Quest bleibt in ihrer Runde
 log = {[10] = "open", [20] = "done"}
 local f3 = G.RouteFollow(route, 17, inLog, nil, done, nil, complete)
 assert(f3["turnin:20"] > f3["turnin:10"] and f3["turnin:20"] == f2["turnin:20"], "Abgabe in anderem Gebiet bleibt")
+-- 3) Schon in der spaeteren Runde (Spieltest 24.11.2026: Brachland-Quests der naechsten Runde im Log, Route wollte erst
+--    kurz ins Steinkrallengebirge): steht man in diesem Gebiet, erst diese Runde fertig, die fruehere Runde danach
+local route2 = {
+    {"a10", n = 1, l = 17, z = 1413, r = 1},
+    {"t10", n = 1, l = 17, z = 1413},
+    {"a20", n = 5, l = 17, z = 1442, r = 2},
+    {"o20", n = 6, l = 17, z = 1442},
+    {"t20", n = 5, l = 18, z = 1442},
+    {"a30 a31", n = 3, l = 18, z = 1413, r = 3},
+    {"o30", n = 4, l = 19, z = 1413},
+    {"t30", n = 3, l = 20, z = 1413},
+    {"o31", n = 4, l = 19, z = 1413},
+    {"t31", n = 3, l = 20, z = 1413},
+    {"a40", n = 7, l = 20, z = 1442, r = 4},
+}
+log = {[30] = "open"}
+local done10 = function(id) return id == 10 end
+local g = G.RouteFollow(route2, 19, inLog, nil, done10, nil, complete, 1413)
+assert(g["accept:31"] < g["accept:20"] and g["turnin:30"] < g["accept:20"], "erst die Brachland-Runde fertig")
+assert(g["accept:20"] < g["obj:20"] and g["obj:20"] < g["turnin:20"] and g["turnin:20"] < g["accept:40"],
+    "fruehere Runde danach in ihrer Reihenfolge, vor der naechsten Runde")
+-- im anderen Gebiet: Reihenfolge der Route bleibt
+local g2 = G.RouteFollow(route2, 19, inLog, nil, done10, nil, complete, 1442)
+assert(g2["accept:20"] < g2["accept:31"], "im Steinkrallengebirge bleibt die Route")
+-- nichts aus der spaeteren Runde im Log: Route bleibt
+log = {}
+local g3 = G.RouteFollow(route2, 19, inLog, nil, done10, nil, complete, 1413)
+assert(g3["accept:20"] < g3["accept:30"], "ohne Quests der spaeteren Runde bleibt die Route")
 print("OK abfahrt_flug")

@@ -10,6 +10,10 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.8.8-alpha"] = {
+        "Quest-Führung: Sind die Quests der laufenden Runde schon im Log, wird erst die Runde im eigenen Gebiet fertig gemacht – kein Abstecher in ein anderes Gebiet und zurück",
+        "/trip buffcheck nennt je Spieler den genauen Grund, warum er nicht in der Buff-Liste steht",
+    },
     ["0.8.7-alpha"] = {
         "Quest-Führung: Warsongberichte und ähnliche Quests mit Zielen in einem höheren Gebiet bleiben im Log, bis die Route dorthin kommt – kein falsches „abgeben“ mehr",
         "Navi-Pfeil: Überschrift ohne „Zu“ bei Quests",

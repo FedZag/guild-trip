@@ -65,7 +65,7 @@ local inLog = function(id) return log[id] ~= nil end
 local ctx = {me = {level = level, xp = 0, xpMax = P.XP_NEED[level] or 13000, class = class, race = race, faction = faction, mapID = map, x = x, y = y},
     done = function(id) return done[id] == true end, inLog = inLog, complete = function(id) return log[id] == "done" end,
     world = World, tempo = tempo, speed = 7, departures = departures, route = true, flow = true,
-    follow = G.RouteFollow(route, level, inLog, nil, function(id) return done[id] == true end)}
+    follow = G.RouteFollow(route, level, inLog, nil, function(id) return done[id] == true end, nil, function(id) return log[id] == "done" end, map)}
 -- Ausruestungs-Reihen wie im Spiel (G.GearChains): Umgebung GEAR="Belohnungsquest,Belohnungsquest" (Plus 50 %)
 if os.getenv("GEAR") then
     local rows = {}

@@ -530,7 +530,7 @@ G.ROUTE_MISS_STEPS = 40
 -- in der Route, falls der Planer sie statt langem Hauen zurueckholt), ahead (Rest der Quest liegt noch vor einem)}.
 -- later = {[Quest] = 1 (einmal "Spaeter": ans Ende der Runde) | 2 (wieder nicht gemacht: faellt aus dem Plan)} –
 -- Elite-Quests ohne Gruppe (Nutzer 24.11.2026). Runden beginnen an Schritten mit r = Nummer (scripts/build_loop.lua).
-function G.RouteFollow(route, level, inLog, open, done, later, complete)
+function G.RouteFollow(route, level, inLog, open, done, later, complete, here)
     local f, n, parts = {}, 0, {}
     local rankAt = {}
     local kinds = {a = "accept", o = "obj", t = "turnin"}
@@ -611,14 +611,14 @@ function G.RouteFollow(route, level, inLog, open, done, later, complete)
         nodes[id] = pick.nodes
     end
     if type(later) == "table" then G.RouteLater(route, f, nodes, rankAt, later, inLog, done) end
-    if complete then G.RouteReady(route, f, rankAt, inLog, done, complete) end
+    if complete then G.RouteReady(route, f, rankAt, inLog, done, complete, here) end
     return f, nodes, missed, gates, dungeons
 end
 -- Fertige Quests im Log nicht aus dem Gebiet mitnehmen (Spieltest 24.11.2026: "einer zum Abgeben direkt in
 -- Crossroads" – die Route gab Chol'aruk erst in der naechsten Brachland-Runde ab, man sollte vorher nach Unterstadt).
 -- Laufende Runde = Runde der ersten noch offenen Quest im Log (Ziele nicht fertig); sonst der ersten offenen Annahme.
 -- Liegt die Abgabe einer fertigen Quest im selben Gebiet, aber in einer spaeteren Runde: ans Ende der laufenden Runde.
-function G.RouteReady(route, f, rankAt, inLog, done, complete)
+function G.RouteReady(route, f, rankAt, inLog, done, complete, here)
     local hasR = false
     for _, st in ipairs(route) do if st.r then hasR = true break end end
     local function RoundStart(i)
@@ -643,11 +643,35 @@ function G.RouteReady(route, f, rankAt, inLog, done, complete)
             end
         end
     end
+    local inRound = cur
     cur = cur or curAcc
     if not cur then return end
     local s, e = RoundStart(cur), RoundEnd(cur)
     local zones = {}
     for i = s, e do if route[i].z then zones[route[i].z] = true end end
+    -- Schon in einer spaeteren Runde unterwegs (Spieltest 24.11.2026, Brachland: Quests der naechsten Brachland-Runde
+    -- im Log, die Route wollte erst kurz ins Steinkrallengebirge und dann zurueck): steht man im Gebiet dieser Runde,
+    -- kommen die noch nicht angenommenen Quests frueherer Runden ans Ende der laufenden Runde. Was dann zu niedrig ist,
+    -- faellt ueber G.ROUTE_BEHIND weg.
+    if inRound and here and zones[here] then
+        local move = {}
+        for i = 1, s - 1 do
+            local st = route[i]
+            if type(st[1]) == "string" then
+                for k, id in st[1]:gmatch("(%a)(%d+)") do
+                    id = tonumber(id)
+                    if not inLog(id) and not (done and done(id)) then move[id] = true end
+                end
+            end
+        end
+        local top = rankAt[e] or 0
+        for id in pairs(move) do
+            for _, kind in ipairs({"accept:", "obj:", "turnin:"}) do
+                local key = kind .. id
+                if f[key] and f[key] <= top then f[key] = top + .7 + f[key] * 1e-6 end
+            end
+        end
+    end
     local base, k = rankAt[e] or 0, 0
     local ids = {}
     for id, i in pairs(turnAt) do ids[#ids + 1] = id end
@@ -859,7 +883,7 @@ function G:Replan(follow)
             -- selbst angenommene Quests: bereitwilliger einbauen (wer annimmt, will sie machen), nur ohne grossen Umweg
             ctx.tempo = P.ROUTE_TEMPO
             local later = self:LaterTable()
-            ctx.follow, ctx.objNodes, ctx.missed, ctx.routeGates, ctx.routeDungeons = G.RouteFollow(route, ctx.me.level or 1, ctx.inLog, ctx.targets, ctx.done, later, ctx.complete)
+            ctx.follow, ctx.objNodes, ctx.missed, ctx.routeGates, ctx.routeDungeons = G.RouteFollow(route, ctx.me.level or 1, ctx.inLog, ctx.targets, ctx.done, later, ctx.complete, ctx.me.mapID)
             -- zweimal "Spaeter": abgewaehlt (im Log dann "Nicht im Plan", abbrechen mit Rueckfrage)
             for id, v in pairs(later) do
                 if v >= 2 then

@@ -728,11 +728,22 @@ function Nearby:Diagnose()
                 local why = {}
                 if not U("UnitCanAssist", "player", unit) then why[#why + 1] = "nicht unterstuetzbar" end
                 if U("UnitIsDeadOrGhost", unit) then why[#why + 1] = "tot" end
-                local range = offers[1] and Plain((Call(rangeFn, offers[1].name, unit)))
-                if range == false or range == 0 then why[#why + 1] = "zu weit" end
+                -- wie Scan: nur wer SICHER in Reichweite ist, kommt in die Liste (roh-Werte zeigen, was WoW liefert)
+                local raw = offers[1] and Call(rangeFn, offers[1].name, unit)
+                local near = Call(rawget(_G, "CheckInteractDistance"), unit, 4)
+                local inRange = offers[1] and Nearby.InRange(rangeFn, offers[1].name, unit)
+                if inRange == false then why[#why + 1] = "zu weit"
+                elseif inRange == nil then
+                    why[#why + 1] = ("Reichweite unbekannt (Zauber=%s, Nähe=%s)"):format(IsSecret(raw) and "geheim" or tostring(raw),
+                        IsSecret(near) and "geheim" or tostring(near))
+                end
                 local e = {name = U("GetUnitName", unit, true), level = U("UnitLevel", unit), auras = UnitAuras(unit),
                     classFile = select(2, Call(rawget(_G, "UnitClass"), unit))}
-                if #self:MissingFor(e, offers) == 0 then why[#why + 1] = "hat schon alle Buffs" end
+                if not e.auras then why[#why + 1] = "Buffs unlesbar (geheim)" end
+                e.missing = self:MissingFor(e, offers)
+                if #e.missing == 0 then why[#why + 1] = "hat schon alle Buffs"
+                elseif self:IsDone(e, offers) then why[#why + 1] = "gerade von dir gebufft" end
+                if U("UnitIsConnected", unit) == false then why[#why + 1] = "offline" end
                 say(("%s (%s, Stufe %s): %s"):format(tostring(e.name), unit, tostring(e.level), #why > 0 and table.concat(why, ", ") or "PASST – sollte in der Liste stehen"))
             end
         end

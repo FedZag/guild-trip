@@ -4,6 +4,22 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.8.8-alpha (veröffentlicht 25.11.2026)
+
+```
+## 0.8.8-alpha
+
+**English**
+- Quest guide: if the quests of the current round are already in your log, the round in your own zone is finished first – no detour to another zone and back.
+- /trip buffcheck names the exact reason for each player why they are not in the buff list.
+
+**Deutsch**
+- Quest-Führung: Sind die Quests der laufenden Runde schon im Log, wird erst die Runde im eigenen Gebiet fertig gemacht – kein Abstecher in ein anderes Gebiet und zurück.
+- /trip buffcheck nennt je Spieler den genauen Grund, warum er nicht in der Buff-Liste steht.
+```
+
+---
+
 ## 0.8.7-alpha (veröffentlicht 24.11.2026)
 
 ```
