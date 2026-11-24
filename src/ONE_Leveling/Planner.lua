@@ -1250,9 +1250,10 @@ function P:Plan(ctx)
         return nodes, lo
     end
     -- Quest probeweise einfuegen: neue Folge, Mehrzeit, EP
-    local function TryJob(j, origin, seq)
+    local function TryJob(j, origin, seq, minK)
         local nodes, lo = Needs(j, seq)
         if not nodes then return nil end
+        if minK then lo = math.max(lo, minK) end
         local s2 = {}
         for k, nd in ipairs(seq) do s2[k] = nd end
         local dt, xp = 0, 0
@@ -1345,12 +1346,32 @@ function P:Plan(ctx)
             flNew = {}
             for k, v in pairs(fl) do flNew[k] = v end
             for _, j in ipairs(jobs) do
+                -- Route mit Abgabe, aber ohne Ziel-Halt, obwohl die Quest offene Ziele hat (Route mit aelteren Daten
+                -- gebaut – Spieltest 24.11.2026 "Die Warsongberichte": Kasten nur "abgeben bei Kadrak", die Spaeher
+                -- in Eschental fehlten, die Abgabe wurde nie bereit): die Routen-Abgabe gilt nicht, die Quest wird wie
+                -- eine selbst angenommene eingereiht (oder steht unter "Nicht im Plan")
+                local broken = ctx.route and inLog(j.id) and j.t and not j.t.used and not finished[j.id] and j.e
+                    and not j.e.used and not f2[P.StopKey(j.t)] and f2[P.StopKey(j.e)] and true or false
+                if broken then
+                    f2[P.StopKey(j.e)] = nil
+                    for i = #seq, 1, -1 do if seq[i].s == j.e then table.remove(seq, i) end end
+                end
                 -- (Route: jedes Mal neu pruefen – die Route selbst kippt nicht, sie steht fest)
                 local open = j.e and not j.e.used and j.e.w and inLog(j.id) and not j.byway
-                    and (ctx.route or not (ctx.prevLog and ctx.prevLog[j.id])) and not follow["accept:" .. j.id]
+                    and (ctx.route or not (ctx.prevLog and ctx.prevLog[j.id])) and (broken or not follow["accept:" .. j.id])
                 for _, s in ipairs({j.a, j.t, j.e}) do if s and not s.used and f2[P.StopKey(s)] then open = false end end
+                -- Ziel in einem anderen Gebiet (Spieltest 24.11.2026, Nutzer: Eschental mit Stufe 19 "viel zu hoch",
+                -- Spaeher bei Zoram und Satyrnaar): nicht sofort hinlaufen, sondern erst, wenn die Route ohnehin dort
+                -- ist; fuehrt sie nicht mehr hin, nur wenn das Gebiet zur Stufe passt – sonst bleibt die Quest im Log
+                -- ("Nicht im Plan"), ohne Abgabe-Schritt
+                local minK
+                local tz = open and ctx.route and j.t and not j.t.used and not finished[j.id] and j.t.w and j.t.w[4]
+                if tz and not (pos and pos[4] == tz) and not P.CITY[tz] then
+                    for k, nd in ipairs(seq) do if nd.w and nd.w[4] == tz then minK = k break end end
+                    if not minK and P.FlowAllowed(me.race, me.faction, tz, PlanLevel()) == false then open = false end
+                end
                 if open then
-                    local s2, dt, gx = TryJob(j, pos, seq)
+                    local s2, dt, gx = TryJob(j, pos, seq, minK)
                     if s2 and gx / dt >= Need(j) then
                         Rank(s2, f2, fl, flNew)
                         seq = s2

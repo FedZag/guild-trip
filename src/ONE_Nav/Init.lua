@@ -56,6 +56,8 @@ if ONE.RegisterFeature then
         tooltip = "Zeigt im Tooltip eines Gegners, für welche Quest du ihn brauchst und wie weit du bist – dazu Gruppe und Gilde („Bob 7/10“). Ein kleines Symbol an der Namensplakette markiert Questgegner (gelb: du, blau: nur andere)."})
     ONE:RegisterFeature("nav.questLevels", {module = "nav", section = "Quest-Hilfen", order = 38, label = "Questlevel vor Questnamen",
         tooltip = "Zeigt die Stufe vor dem Questnamen – „[12] Die Volksmiliz“ – in der Quest-Führung, im Kasten unter der Minimap und in Quest-Links im Chat. Nur deine Anzeige: Was andere im Chat sehen, bleibt unverändert."})
+    ONE:RegisterFeature("nav.questTip", {module = "nav", section = "Quest-Hilfen", order = 39, label = "Quest-Links mit Bezug zu dir",
+        tooltip = "Im Tooltip eines Quest-Links (z. B. im Chat): schon erledigt oder im Questlog, passt die Stufe, EP, wo sie beginnt und wer in der Gilde sie hat. Klick auf den Link: Knopf „Navi zum Start“."})
     ONE:RegisterFeature("nav.givers", {module = "nav", section = "Quest-Hilfen", order = 33, label = "Questgeber (!) sammeln und zeigen",
         tooltip = "Merkt sich, wo du (und mit „Quests teilen“ deine Gilde) neue Quests angeboten bekommen hast, und zeigt dort ein „!“ – nur für Quests, die zu deiner Stufe passen. Ist Questie installiert, bleibt das aus, weil Questie eigene „!“ zeigt."})
     ONE:RegisterFeature("nav.giversMinimapAll", {module = "nav", section = "Quest-Hilfen", order = 34,

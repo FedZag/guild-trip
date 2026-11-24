@@ -13,7 +13,7 @@ local TAIL_TEX = "Interface\\AddOns\\ONE_Chat\\Textures\\BubbleTail"
 local TAIL_RING_TEX = "Interface\\AddOns\\ONE_Chat\\Textures\\BubbleTailRing"
 local BUBBLE_R = 10
 local R = {bubbles = {}, icons = {},
-    BUBBLE_MAX = 6, BUBBLE_W = 300, COLUMN_W = 400, RISE_H = 420, BUBBLE_GAP = 28, REPLAY = 10, STATIC_MAX = 10, INPUT_CLOSE = 3, ANIM = .25,
+    BUBBLE_MAX = 6, BUBBLE_W = 300, COLUMN_W = 400, RISE_H = 420, BUBBLE_GAP = 28, REPLAY = 10, STATIC_MAX = 10, SCROLL_MAX = 100, SCROLL_STEP = 3, INPUT_CLOSE = 3, ANIM = .25,
     ICON = 28, GAP = 12, WIDTH = 38, QUICK_W = 380, QUICK_H = 54, SNAP = 60, EDGE = 2}
 chat.Rail = R
 local function M() return chat.Messenger end
@@ -375,7 +375,6 @@ function R:NewIcon()
     b:SetScript("OnDragStart", function() R:StartDrag() end)
     b:SetScript("OnDragStop", function() R:StopDrag() end)
     b:SetScript("OnEnter", function(btn)
-        R:ShowCrest(btn)
         -- Drueberfahren: kurz verweilen zeigt die letzten Nachrichten (Nutzer 23.11.2026)
         if btn.conv then
             R.hoverIcon, R.hoverAt = btn, Now()
@@ -477,7 +476,6 @@ function R:StopDrag()
         local p1, _, p2, x, y = f:GetPoint()
         if p1 then s.railPoint = {p1, p2, x, y} end
     end
-    if not (InCombatLockdown and InCombatLockdown()) then self:HideCrest() end
     self:Update()
 end
 -- Jedes Gespräch ein eigenes Symbol, Gruppen (Angeheftet, Gespräche, Flüstern, System) mit Abstand
@@ -594,76 +592,6 @@ function R:Update()
     self:LiftBottom()
     self:PlaceAround()
 end
--- Wappen zum Gilden-Einladen neben einem Fluester-Symbol, nur beim Drueberfahren (Nutzer 23.11.2026:
--- "das Wappen zum Einladen dezent mit einfügen"). Sicherer Makro-Knopf (/ginvite), nur ausserhalb des Kampfs;
--- ein einziger Knopf, der zum Symbol wandert – feste sichere Knoepfe liessen sich im Kampf nicht umordnen.
-R.CREST_LEAVE = .6
-function R.CrestTarget(c)
-    local m = M()
-    local name = c and c.whisper
-    if not name or (Chat.IsBN and Chat.IsBN(name)) then return nil end
-    if not (m.CanInvite and m.CanInvite()) then return nil end
-    local info = m.RosterInfo and m.RosterInfo(name)
-    if info and info.inGuild then return nil end
-    return name
-end
-function R:BuildCrest()
-    if self.crest then return self.crest end
-    local ok, b = pcall(CreateFrame, "Button", "GuildTripRailInvite", UIParent, "SecureActionButtonTemplate")
-    if not ok or not b then return nil end
-    b:SetSize(18, 18)
-    b:SetFrameStrata("HIGH")
-    if b.RegisterForClicks then b:RegisterForClicks("AnyUp", "AnyDown") end
-    b:SetAttribute("type", "macro")
-    local t = b:CreateTexture(nil, "ARTWORK")
-    t:SetAllPoints(b)
-    t:SetTexture("Interface\\GossipFrame\\TabardGossipIcon")
-    local hl = b:CreateTexture(nil, "HIGHLIGHT")
-    hl:SetAllPoints(b)
-    hl:SetTexture("Interface\\Buttons\\UI-Common-MouseHilight")
-    if hl.SetBlendMode then hl:SetBlendMode("ADD") end
-    b:SetScript("OnEnter", function(btn)
-        if not GameTooltip then return end
-        GameTooltip:SetOwner(btn, R.TipAnchor())
-        GameTooltip:SetText(T("In die Gilde einladen"))
-        GameTooltip:AddLine(T("Lädt %s in deine Gilde ein.", btn.target or "?"), .8, .8, .8, true)
-        GameTooltip:Show()
-    end)
-    b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
-    b:SetScript("PostClick", function() if not (InCombatLockdown and InCombatLockdown()) then R:HideCrest() end end)
-    -- Kampfbeginn (kommt kurz bevor WoW sperrt): weg und vom Symbol loesen, sonst gaelte die Leiste als geschuetzt
-    local ev = CreateFrame("Frame")
-    if ev.RegisterEvent then ev:RegisterEvent("PLAYER_REGEN_DISABLED") end
-    ev:SetScript("OnEvent", function() R:HideCrest() end)
-    b:Hide()
-    self.crest = b
-    return b
-end
-function R:HideCrest()
-    local b = self.crest
-    if not b then return end
-    self.crestLeft = nil
-    b:Hide()
-    b.icon = nil
-    b:ClearAllPoints()
-    b:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-end
-function R:ShowCrest(icon)
-    if InCombatLockdown and InCombatLockdown() then return end
-    local name = R.CrestTarget(icon.conv)
-    if not name then self:HideCrest() return end
-    local b = self:BuildCrest()
-    if not b then return end
-    b.target, b.icon = name, icon
-    b:SetAttribute("macrotext", "/ginvite " .. name)
-    b:ClearAllPoints()
-    local side = R.Layout()
-    if side == "right" then b:SetPoint("RIGHT", icon, "LEFT", -6, 0)
-    elseif side == "top" then b:SetPoint("TOP", icon, "BOTTOM", 0, -6)
-    elseif side == "bottom" then b:SetPoint("BOTTOM", icon, "TOP", 0, 6)
-    else b:SetPoint("LEFT", icon, "RIGHT", 6, 0) end
-    b:Show()
-end
 -- Tooltip: Name, letzte Nachricht, was Klicks tun
 function R.ConvTip(c)
     local m = M()
@@ -724,6 +652,7 @@ function R:EndPreview()
 end
 function R:CloseTab()
     self.openView = nil
+    self.back, self.backNew = 0, 0
     self:ClearBubbles(true)
     self:Update()
 end
@@ -735,10 +664,45 @@ end
 -- Klick auf ein Symbol: die letzten Nachrichten dort steigen noch einmal als Blasen auf
 -- (Spieltest 23.11.2026: "müssen wieder sichtbar sein, wenn man den Reiter anklickt"); gilt als gelesen
 function R:Replay(view)
-    local buf = Chat:Buffer(view)
-    self:ClearBubbles(true)
-    for i = math.max(1, #buf - self.REPLAY + 1), #buf do self:AddBubble(buf[i], view, true) end
+    self.back, self.backNew = 0, 0
+    self:ShowRange(view)
     if (Chat.unread[view] or 0) > 0 then Chat:MarkRead(view) end
+    self:Update()
+end
+-- ===== Zurueckblaettern (Nutzer 24.11.2026: "die 10 nachrichten müssen auf 100 hoch") =====
+-- Es stehen weiter hoechstens REPLAY Blasen da (mehr passt nicht auf den Bildschirm); das Mausrad ueber den
+-- stehenden Blasen blaettert bis SCROLL_MAX Nachrichten zurueck. self.back = wie viele der neuesten
+-- uebersprungen sind. Neue Nachrichten waehrend des Zurueckblaetterns: kein Sprung, Zaehler am Knopf unten.
+function R:ShowRange(view)
+    local buf = Chat:Buffer(view)
+    local last = #buf - (self.back or 0)
+    local first = math.max(1, last - self.REPLAY + 1, #buf - self.SCROLL_MAX + 1)
+    self:ClearBubbles(true)
+    for i = first, last do if buf[i] then self:AddBubble(buf[i], view, true) end end
+    self:LayoutBubbles()
+end
+function R:MaxBack(view)
+    local n = #Chat:Buffer(view)
+    return math.max(0, math.min(n, self.SCROLL_MAX) - self.REPLAY)
+end
+function R:ScrollBack(delta)
+    local view = self.previewView or self.openView
+    if not view then return false end
+    local old = self.back or 0
+    local new = math.max(0, math.min(self:MaxBack(view), old + (delta > 0 and self.SCROLL_STEP or -self.SCROLL_STEP)))
+    if new == old then return false end
+    self.back = new
+    if new == 0 then self:ToNewest() return true end
+    self:ShowRange(view)
+    return true
+end
+function R:ToNewest()
+    local view = self.previewView or self.openView
+    self.back, self.backNew = 0, 0
+    if view then
+        self:ShowRange(view)
+        if (Chat.unread[view] or 0) > 0 then Chat:MarkRead(view) end
+    end
     self:Update()
 end
 function R:ConvMenu(owner, c)
@@ -770,6 +734,29 @@ function R:BuildBubbleHost()
     host:SetFrameStrata("HIGH")
     if host.SetClampedToScreen then host:SetClampedToScreen(true) end
     self.host = host
+    -- "Nach unten" mit Zahl neuer Nachrichten (wie im Fenster), nur beim Zurueckblaettern
+    local down = CreateFrame("Button", nil, host)
+    down:SetSize(26, 26)
+    if ONE.Glass and ONE.Glass.Surface then ONE.Glass:Surface(down, "button") end
+    local dt = down:CreateTexture(nil, "ARTWORK")
+    dt:SetSize(20, 20)
+    dt:SetPoint("CENTER", down, "CENTER", 0, -1)
+    dt:SetTexture("Interface\\Buttons\\UI-ScrollBar-ScrollDownButton-Up")
+    down.count = Text(down, "GameFontHighlightSmall")
+    down.count:SetPoint("LEFT", down, "RIGHT", 4, 0)
+    down:SetScript("OnClick", function() R:ToNewest() end)
+    down:SetScript("OnEnter", function(btn)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(btn, R.TipAnchor())
+        GameTooltip:SetText(T("Nach unten"))
+        GameTooltip:AddLine(T("Mausrad über den Blasen blättert zurück (bis %d Nachrichten)", R.SCROLL_MAX), .8, .8, .8, true)
+        GameTooltip:Show()
+    end)
+    down:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    if down.EnableMouseWheel then down:EnableMouseWheel(true) end
+    down:SetScript("OnMouseWheel", function(_, delta) R:ScrollBack(delta) end)
+    down:Hide()
+    self.down = down
     -- Abstand zur Leiste (Spieltest 23.11.2026: "zu nah an der Leiste"), auf der Seite zur Bildschirmmitte
     self:PlaceAround(true)
 end
@@ -810,9 +797,6 @@ function R:NewBubble()
     if b.text.SetWordWrap then b.text:SetWordWrap(true) end
     b:SetScript("OnClick", function(btn, button)
         if button == "RightButton" then R:DropBubble(btn) return end
-        -- Alt+Klick: Absender in die Gilde einladen (sicherer Knopf an der Maus)
-        local e = btn.entry
-        if e and not e.inform and not (Chat.IsPlain and Chat.IsPlain(e)) and UI.AltInvite and UI:AltInvite(e.author) then return end
         R:OpenWindow(btn.view)
     end)
     -- Drueberfahren: steht ein Gegenstand (Zauber, Quest …) in der Nachricht, gleich dessen Tooltip zeigen
@@ -823,6 +807,9 @@ function R:NewBubble()
     b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     if b.EnableMouseWheel then b:EnableMouseWheel(true) end
     b:SetScript("OnMouseWheel", function(btn, delta)
+        -- stehende Blasen: Mausrad blaettert im Verlauf, Umschalt+Mausrad durch mehrere Links
+        local shift = type(IsShiftKeyDown) == "function" and IsShiftKeyDown()
+        if btn.static and not shift then R:ScrollBack(delta) return end
         local n = #(btn.links or {})
         if n < 2 then return end
         btn.linkIndex = ((btn.linkIndex or 1) - (delta > 0 and 1 or -1) - 1) % n + 1
@@ -839,7 +826,8 @@ function R:BubbleTip(btn)
     local l = links[btn.linkIndex or 1]
     if l and pcall(GameTooltip.SetHyperlink, GameTooltip, l.link) then
         if #links > 1 then
-            GameTooltip:AddLine(T("Mausrad: nächster Link (%d/%d)", btn.linkIndex or 1, #links), .6, .6, .6, true)
+            GameTooltip:AddLine(btn.static and T("Umschalt+Mausrad: nächster Link (%d/%d)", btn.linkIndex or 1, #links)
+                or T("Mausrad: nächster Link (%d/%d)", btn.linkIndex or 1, #links), .6, .6, .6, true)
         end
         GameTooltip:AddLine(T("Klick: Gespräch öffnen"), .6, .6, .6, true)
         GameTooltip:Show()
@@ -1022,6 +1010,18 @@ function R:LayoutBubbles()
     local down = R.Layout() == "top"
     local v, sign = down and "TOP" or "BOTTOM", down and -1 or 1
     local pl, pr = v .. "LEFT", v .. "RIGHT"
+    local d = self.down
+    if d then
+        if (self.back or 0) > 0 and (self.previewView or self.openView) then
+            d:ClearAllPoints()
+            d:SetPoint(pl, self.host, pl, 0, sign * y)
+            d.count:SetText((self.backNew or 0) > 0 and T("%d neue", self.backNew) or "")
+            d:Show()
+            y = y + 32
+        else
+            d:Hide()
+        end
+    end
     for i = #self.bubbles, 1, -1 do
         local b = self.bubbles[i]
         if b.static then
@@ -1060,6 +1060,14 @@ function R:OnMessage(entry, views)
     if standing then
         for _, v in ipairs(views or {}) do
             if v == standing then
+                if (self.back or 0) > 0 then
+                    -- beim Zurueckblaettern nicht springen: gleiche Ansicht, Zaehler am Knopf
+                    self.back = math.min(self:MaxBack(v), self.back + 1)
+                    self.backNew = (self.backNew or 0) + 1
+                    self:LayoutBubbles()
+                    self:Update()
+                    return
+                end
                 self:AddBubble(entry, v, true)
                 Chat:MarkRead(v)
                 self:Update()
@@ -1403,17 +1411,6 @@ function R:Tick(elapsed)
         else
             self.previewLeft = self.previewLeft or now
             if now - self.previewLeft >= self.PREVIEW_LEAVE then self:EndPreview() end
-        end
-    end
-    local crest = self.crest
-    if crest and crest:IsShown() and not (InCombatLockdown and InCombatLockdown()) then
-        -- kurze Gnadenfrist: der Weg vom Symbol zum Wappen fuehrt ueber eine Luecke (Spieltest 24.11.2026:
-        -- "sobald ich mit der Maus vom Icon gehe, verschwindet auch das Wappen")
-        if not (self.frame and self.frame:IsShown()) then self:HideCrest()
-        elseif Over(crest) or Over(crest.icon) then self.crestLeft = nil
-        else
-            self.crestLeft = self.crestLeft or now
-            if now - self.crestLeft >= self.CREST_LEAVE then self:HideCrest() end
         end
     end
     -- Blinken: Ring um Symbole mit wartenden Nachrichten pulsiert

@@ -171,7 +171,7 @@ function Page:Targets(view)
                 local dist, text = Distance(nav.Travel.World(e.map, e.x, e.y))
                 items[#items + 1] = {name = e.npc, info = info, trainer = e,
                     dist = dist, distText = text, first = cls and true or false,
-                    go = function() nav.Arrow:StartPoint(e.npc, e.map, e.x, e.y, {service = true}) end}
+                    go = function() nav.Arrow:StartPoint(e.npc, e.map, e.x, e.y, {service = true, prefix = "Zu %s"}) end}
             end
         end
     elseif view == "merchants" then
@@ -179,7 +179,7 @@ function Page:Targets(view)
         for _, m in ipairs(M and M:List(M:Filter()) or {}) do
             local dist, text = Distance(nav.Travel.World(m.mapID, m.x, m.y))
             items[#items + 1] = {name = m.name, info = M.CatText(m.cats, 3), dist = dist, distText = text, merchant = m,
-                go = function() nav.Arrow:StartPoint(m.name, m.mapID, m.x, m.y, {service = true}) end}
+                go = function() nav.Arrow:StartPoint(m.name, m.mapID, m.x, m.y, {service = true, prefix = "Zu %s"}) end}
         end
     elseif view == "flights" then
         local nodes, known = nav.Flights:Nodes(), nav.Flights:Known()
@@ -189,7 +189,7 @@ function Page:Targets(view)
                 local short = node.name:match("^([^,]+)") or node.name
                 items[#items + 1] = {name = short, info = node.name:match(",%s*(.+)$") or "",
                     dist = dist, distText = text,
-                    go = function() nav.Arrow:StartWorld(short, node.continent, node.x, node.y, {service = true}) end}
+                    go = function() nav.Arrow:StartWorld(short, node.continent, node.x, node.y, {service = true, prefix = "Nach %s"}) end}
             end
         end
     end

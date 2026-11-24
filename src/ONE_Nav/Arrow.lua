@@ -18,6 +18,14 @@ local ARROW_SIZE = 44
 
 local function Clock() return type(GetTime) == "function" and GetTime() or 0 end
 local function ShortName(name) return type(name) == "string" and (name:match("^[^-]+") or name) or "?" end
+-- Ueberschrift am Pfeil (Nutzer 24.11.2026: "Zu Von Hass zerfressen" klang falsch): Spieler "Zu Name", Orte "Nach Ort"
+-- (opts.prefix), Quests, Leiche und Wegpunkte ohne Zusatz. Feste Ziele nie kuerzen – ShortName schneidet am Bindestrich
+-- (Realm), Quest- und Ortsnamen haben aber oft einen.
+local function TitleOf(probe, name)
+    if probe then return probe.prefix and T(probe.prefix, probe.name or "?") or (probe.name or "?") end
+    return T("Zu %s", ShortName(name))
+end
+Arrow.TitleOf = TitleOf
 
 function Arrow:Settings()
     if not ONE.db then return {} end
@@ -294,7 +302,7 @@ function Arrow:Start(name)
     self.lastPeer = peer
     self.lastPeerAt = Clock()
     self.active = true
-    self.title:SetText("Zu " .. ShortName(peer.name))
+    self.title:SetText(TitleOf(nil, peer.name))
     self.frame:Show()
     self:Refresh()
     self:Rotate()
@@ -329,7 +337,7 @@ function Arrow:StartPoint(label, mapID, x, y, opts)
     self:Create()
     self:RememberForReturn(opts)
     self.probe = {name = label or T("Ziel"), mapID = mapID, x = x, y = y, service = opts and opts.service, corpse = opts and opts.corpse,
-        area = opts and opts.area, arrive = opts and opts.arrive}
+        area = opts and opts.area, arrive = opts and opts.arrive, prefix = opts and opts.prefix}
     self.arrivedAt, self.leftAfterArrival = nil, nil
     self:SetDelegated(self:Delegate(mapID, x, y, self.probe.name))
     self.target = self.probe.name
@@ -352,7 +360,7 @@ function Arrow:StartWorld(label, continent, x, y, opts)
     self:Create()
     self:RememberForReturn(opts)
     self.probe = {name = label or T("Ziel"), world = {continent, x, y}, service = opts and opts.service, area = opts and opts.area,
-        arrive = opts and opts.arrive}
+        arrive = opts and opts.arrive, prefix = opts and opts.prefix}
     self.arrivedAt, self.leftAfterArrival = nil, nil
     self:CancelDelegate() -- Weltkoordinaten (ohne Karte) kann Shortest Path Forever nicht annehmen
     self.target = self.probe.name
@@ -566,7 +574,7 @@ function Arrow:Refresh()
     if spot and spotDist <= self.areaRadius then
         self.route = nil
         self.state = {player = player, target = target, advice = {kind = "area", distance = spotDist}}
-        self.title:SetText("Zu " .. ShortName(peer.name))
+        self.title:SetText(TitleOf(self.probe, peer.name))
         self.distance:SetText(Travel.FormatDistance(spotDist))
         if self.arrow and self.arrow.SetVertexColor then self.arrow:SetVertexColor(Arrow.NearColor(spotDist)) end
         self.hint:SetText(T("Im Zielgebiet"))
@@ -601,7 +609,7 @@ function Arrow:Refresh()
         local d = guildModule:DescribePeer(peer)
         where = d.place or d.region or d.map or ""
     end
-    self.title:SetText("Zu " .. ShortName(peer.name) .. (where ~= "" and (" · " .. where) or ""))
+    self.title:SetText(TitleOf(self.probe, peer.name) .. (where ~= "" and (" · " .. where) or ""))
     if advice.distance then
         self.distance:SetText(Travel.FormatDistance(advice.distance))
     elseif player and target and player.continent == target.continent then

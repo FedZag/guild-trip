@@ -4,6 +4,28 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.8.7-alpha (veröffentlicht 24.11.2026)
+
+```
+## 0.8.7-alpha
+
+**English**
+- Quest guide: Warsong reports and similar quests with objectives in a higher zone stay in your log until the route gets there – no more wrong "turn in".
+- Navi arrow: title without "To" for quests.
+- Chat: link tooltips with Guild Trip knowledge (items and quests), also in the WoW chat.
+- Side bar: scroll back up to 100 messages with the mouse wheel, "Down" button with a counter.
+- Guild invite buttons removed – Forever blocks inviting from addons.
+
+**Deutsch**
+- Quest-Führung: Warsongberichte und ähnliche Quests mit Zielen in einem höheren Gebiet bleiben im Log, bis die Route dorthin kommt – kein falsches „abgeben“ mehr.
+- Navi-Pfeil: Überschrift ohne „Zu“ bei Quests.
+- Chat: Link-Tooltips mit Guild-Trip-Wissen (Gegenstände und Quests), auch im WoW-Chat.
+- Randleiste: per Mausrad bis 100 Nachrichten zurückblättern, Knopf „Nach unten“ mit Zähler.
+- Gilden-Einladen-Knöpfe entfernt – Forever blockt das Einladen aus Addons.
+```
+
+---
+
 ## 0.8.6-alpha (veröffentlicht 24.11.2026)
 
 ```

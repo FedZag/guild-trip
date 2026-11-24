@@ -1619,11 +1619,11 @@ M.PAD_TOP, M.PAD_BOTTOM = 7, 6
 -- Groesse der Emojis, wenn eine Nachricht nur aus Emojis besteht
 function M.BigEmojiSize(fsize) return math.floor((fsize or 14) * 2.2) end
 
--- ===== In die Gilde einladen (sicherer Knopf) =====
--- Forever sperrt das Einladen fuer Addons ("ONE_Chat wurde geblockt", Spieltest 22.11.2026) – auch, wenn ein Addon
--- den Namen nur ins Einladungsfenster schreibt. Erlaubt ist ein Makro-Knopf, den DU anklickst
--- (SecureActionButtonTemplate, /ginvite Name). Er haengt an UIParent, damit das Chatfenster nicht "geschuetzt"
--- wird; er wird nur ausserhalb des Kampfs gezeigt/geaendert und beim Kampfbeginn versteckt.
+-- ===== In die Gilde einladen: geht in Forever NICHT aus einem Addon (24.11.2026) =====
+-- taint.log: "An action was blocked because of taint from (null) - Invite()". C_GuildInfo.Invite ist
+-- "AllowedWhenUntainted": der NAME darf nicht von einem Addon kommen – auch nicht ueber einen Makro-Knopf
+-- (macrotext) oder ins Blizzard-Fenster geschrieben. Wappen, Kopfzeilen-Knopf, Knopf unter dem Fenster und
+-- Alt+Klick wurden darum entfernt. Einladen: Namen selbst im WoW-Fenster tippen.
 function M.CanInvite()
     if type(IsInGuild) == "function" and not Call(IsInGuild) then return false end
     if type(CanGuildInvite) == "function" then return Call(CanGuildInvite) and true or false end
@@ -1638,54 +1638,6 @@ function M.InviteTarget(view)
     if info and info.inGuild then return nil end
     return name
 end
-function M:BuildInviteButton()
-    if self.inviteButton or not self.head then return self.inviteButton end
-    local ok, b = pcall(CreateFrame, "Button", "GuildTripChatInvite", UIParent, "SecureActionButtonTemplate")
-    if not ok or not b then return nil end
-    b:SetSize(20, 20)
-    b:SetFrameStrata("HIGH")
-    if b.RegisterForClicks then b:RegisterForClicks("AnyUp", "AnyDown") end
-    local t = b:CreateTexture(nil, "ARTWORK")
-    t:SetAllPoints(b)
-    t:SetTexture("Interface\\GossipFrame\\TabardGossipIcon")
-    local hl = b:CreateTexture(nil, "HIGHLIGHT")
-    hl:SetAllPoints(b)
-    hl:SetTexture("Interface\\Buttons\\UI-Common-MouseHilight")
-    hl:SetBlendMode("ADD")
-    b:SetAttribute("type", "macro")
-    b:SetScript("OnEnter", function(btn)
-        if not GameTooltip then return end
-        GameTooltip:SetOwner(btn, "ANCHOR_LEFT")
-        GameTooltip:SetText(T("In die Gilde einladen"))
-        GameTooltip:AddLine(T("Lädt %s in deine Gilde ein.", btn.target or "?"), .8, .8, .8, true)
-        GameTooltip:Show()
-    end)
-    b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
-    b:Hide()
-    -- Kampfbeginn: PLAYER_REGEN_DISABLED kommt kurz BEVOR WoW sperrt -> jetzt noch verstecken
-    local ev = CreateFrame("Frame")
-    ev:RegisterEvent("PLAYER_REGEN_DISABLED")
-    ev:RegisterEvent("PLAYER_REGEN_ENABLED")
-    ev:SetScript("OnEvent", function(_, event)
-        if event == "PLAYER_REGEN_DISABLED" then b:Hide() else M:UpdateInviteButton() end
-    end)
-    self.inviteButton = b
-    return b
-end
-function M:UpdateInviteButton()
-    if InCombatLockdown and InCombatLockdown() then return end
-    local b = self:BuildInviteButton()
-    if not b then return end
-    local shown = self.frame and self.frame:IsShown() and self.head and self.head:IsVisible() and self.headMenu and self.headMenu:IsVisible()
-    local target = shown and M.CanInvite() and M.InviteTarget(UI.current)
-    if not target then b:Hide() b.target = nil return end
-    b.target = target
-    b:SetAttribute("macrotext", "/ginvite " .. target)
-    b:ClearAllPoints()
-    b:SetPoint("RIGHT", self.headMenu, "LEFT", -4, 0)
-    b:Show()
-end
-
 -- Namens-Menue fuer ein Fluestergespraech: bei Battle.net-Freunden mit dem WoW-Charakter (Einladen, Ziel
 -- usw. brauchen den Spielernamen, nicht die BattleTag "Name#1234")
 function M.OpenPlayerMenu(owner, name)
@@ -1751,7 +1703,6 @@ function M:BubbleClick(owner, item)
     local shift = type(IsShiftKeyDown) == "function" and IsShiftKeyDown()
     if M.CursorOnName(owner) and not e.npc and (e.author or "") ~= "" then
         local name = e.author
-        if UI.AltInvite and UI:AltInvite(name) then return end
         if shift and UI.ShiftLink and UI.ShiftLink("player:" .. name, "[" .. Short(name) .. "]", "LeftButton", owner) then return end
         if ONE.PlayerMenu then ONE.PlayerMenu:Open(owner, Short(name), {lineID = e.lineID}) end
         return
@@ -2187,7 +2138,6 @@ function M:RefreshHead()
     self.headMenu:SetShown(whisper and ONE.PlayerMenu ~= nil)
     if self.headHit then self.headHit:SetShown(whisper and true or false) end
     if self.headClose then self.headClose:SetShown(whisper) end
-    self:UpdateInviteButton()
     local to = whisper and c.whisper or (chatType and M.SendLabel(view)) or nil
     if self.placeholder then
         self.placeholder:SetText(to and T("Nachricht an %s …", to) or T("Hier kann man nur lesen."))
@@ -2236,7 +2186,6 @@ function M:Layout()
     self:LayoutList()
     self:LayoutLog()
     if self.picker and self.picker:IsShown() then self:FillPicker() end
-    self:UpdateInviteButton()
 end
 
 -- ===== Fenster =====
@@ -2635,7 +2584,6 @@ function M:Hide(now)
     if chat.SlashList then chat.SlashList:Hide() end
     if chat.ItemList then chat.ItemList:Hide() end
     Chat.visible = false
-    self:UpdateInviteButton()
     if chat.Launcher and chat.Launcher.Update then chat.Launcher:Update() end
     if chat.Rail and chat.Rail.OnWindowHidden then chat.Rail:OnWindowHidden() end
     if chat.Rail and chat.Rail.Update then chat.Rail:Update() end

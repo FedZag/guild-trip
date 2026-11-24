@@ -109,6 +109,8 @@ local SCEN = {
     {key = "h-barrens-15", fac = "Horde", race = "Troll", class = "MAGE", level = 15, map = 1413, x = .627, y = .372, home = {1413, .520, .297}, doneBelow = 13},
     {key = "h-barrens-20", fac = "Horde", race = "Tauren", class = "WARRIOR", level = 20, map = 1413, x = .449, y = .591, home = {1413, .520, .297}, doneBelow = 18},
     {key = "h-orgrimmar-12", fac = "Horde", race = "Orc", class = "WARRIOR", level = 12, map = 1454, x = .52, y = .62, home = {1413, .520, .297}, doneBelow = 11, log = {5726}},
+    -- Spieltest 24.11.2026 "Die Warsongberichte": angenommen in Mor'shan, Ziele (Spaeher/Laeufer/Vorreiter) in Eschental
+    {key = "h-morshan-19", fac = "Horde", race = "Orc", class = "WARRIOR", level = 19, map = 1413, x = .481, y = .056, home = {1413, .520, .297}, doneBelow = 17, log = {6543}},
     {key = "h-mid-30", fac = "Horde", race = "Undead", class = "MAGE", level = 30, map = 1441, x = .461, y = .510, home = {1441, .461, .510}, doneBelow = 28},
     {key = "a-mid-30", fac = "Alliance", race = "Human", class = "WARRIOR", level = 30, map = 1424, x = .51, y = .59, home = {1431, .738, .444}, doneBelow = 28},
     {key = "h-mid-45", fac = "Horde", race = "Orc", class = "HUNTER", level = 45, map = 1446, x = .515, y = .28, home = {1446, .517, .275}, doneBelow = 43},

@@ -1044,7 +1044,8 @@ end
 
 -- ===== Umschalt+Klick auf Links =====
 -- Dialoge mit Namensfeld, in die WoW per Umschalt+Klick den Namen eintraegt
-UI.namePopups = {"ADD_GUILDMEMBER", "ADD_FRIEND", "ADD_IGNORE", "ADD_RAIDMEMBER", "CHANNEL_INVITE", "ADD_MUTE"}
+-- ohne ADD_GUILDMEMBER: Name von uns im Gilden-Fenster sperrt das Einladen (taint.log 24.11.2026)
+UI.namePopups = {"ADD_FRIEND", "ADD_IGNORE", "ADD_RAIDMEMBER", "CHANNEL_INVITE", "ADD_MUTE"}
 local function Shift()
     if type(IsModifiedClick) == "function" then
         local ok, on = pcall(IsModifiedClick, "CHATLINK")
@@ -1068,97 +1069,20 @@ function UI.GuildPopup()
         if type(p) == "table" and p.IsShown and p:IsShown() and UI.guildPopups[rawget(p, "which") or ""] then return p, name end
     end
 end
--- Sicherer Knopf "<Name> in die Gilde einladen" unter Blizzards Fenster: Makro /ginvite, danach Blizzards
--- Abbrechen-Knopf per /click (schliesst das Fenster, ohne dass wir es anfassen). Nur ausserhalb des Kampfs.
--- Alt+Klick auf einen Namen (Chat, Blasen, Kopfzeile, Randleiste): ohne Gildenfenster einladen. Ein Menue-
--- eintrag wuerde gesperrt (Menues gelten nicht als sicher) -> derselbe sichere Knopf, diesmal an der Maus.
-function UI:AltInvite(name)
-    if not (type(IsAltKeyDown) == "function" and IsAltKeyDown()) then return false end
-    if type(name) ~= "string" or name == "" then return false end
-    local shown = Chat.Short(name)
-    name = name:gsub("%s", "")
-    local M = chat.Messenger
-    local me = type(UnitName) == "function" and UnitName("player") or nil
-    if Chat.Short(name) == me then return true end
-    if not (M and M.CanInvite and M.CanInvite()) then ONE:Print(T("Du darfst gerade niemanden in die Gilde einladen.")) return true end
-    local info = M.RosterInfo and M.RosterInfo(name)
-    if info and info.inGuild then ONE:Print(T("%s ist schon in deiner Gilde.", Chat.Short(name))) return true end
-    return self:GuildInviteHelper(name, nil, nil, shown)
-end
-function UI:GuildInviteHelper(name, popup, popupName, shown)
-    if InCombatLockdown and InCombatLockdown() then ONE:Print(T("Im Kampf nicht möglich.")) return true end
-    local b = self.guildHelper
-    if not b then
-        local ok, nb = pcall(CreateFrame, "Button", "GuildTripGuildInviteHelper", UIParent, "SecureActionButtonTemplate, UIPanelButtonTemplate")
-        if not ok or not nb then return false end
-        b = nb
-        b:SetSize(230, 26)
-        b:SetFrameStrata("DIALOG")
-        if b.RegisterForClicks then b:RegisterForClicks("AnyUp", "AnyDown") end
-        b:SetAttribute("type", "macro")
-        -- Blizzard-Fenster zu: Knopf weg (nur ausserhalb des Kampfs; beim Kampfbeginn sofort verstecken)
-        if b.SetClampedToScreen then b:SetClampedToScreen(true) end
-        b:SetScript("OnUpdate", function(btn)
-            if InCombatLockdown and InCombatLockdown() then return end
-            local p = btn.popup
-            if p then
-                if not (p.IsShown and p:IsShown()) then btn:Hide() end
-            elseif not (btn.IsMouseOver and btn:IsMouseOver()) and (type(GetTime) == "function" and GetTime() or 0) > (btn.expire or 0) then
-                btn:Hide()
-            end
-        end)
-        -- nach dem Klick weg
-        b:SetScript("PostClick", function(btn) if not (InCombatLockdown and InCombatLockdown()) then btn:Hide() end end)
-        local ev = CreateFrame("Frame")
-        if ev.RegisterEvent then
-            ev:RegisterEvent("PLAYER_REGEN_DISABLED")
-            pcall(ev.RegisterEvent, ev, "GLOBAL_MOUSE_DOWN")
-        end
-        ev:SetScript("OnEvent", function(_, event)
-            if event == "PLAYER_REGEN_DISABLED" then b:Hide() return end
-            -- Klick woanders hin: Knopf an der Maus weg (nicht beim Klick auf ihn selbst)
-            if InCombatLockdown and InCombatLockdown() then return end
-            if not b.popup and b:IsShown() and not (b.IsMouseOver and b:IsMouseOver()) then b:Hide() end
-        end)
-        self.guildHelperEvents = ev
-        self.guildHelper = b
-    end
-    b.popup = popup
-    b.macro = "/ginvite " .. name .. (popupName and ("\n/click " .. popupName .. "Button2") or "")
-    b:SetAttribute("macrotext", b.macro)
-    b:SetText(T("%s in die Gilde einladen", shown or Chat.Short(name)))
-    -- Breite passend zum Text (Spielbild 23.11.2026: langer Name ragte aus dem Knopf)
-    local fs = b.GetFontString and b:GetFontString()
-    local tw = fs and fs.GetStringWidth and fs:GetStringWidth()
-    if type(tw) == "number" and tw > 0 then b:SetWidth(math.max(140, math.ceil(tw) + 32)) end
-    b:ClearAllPoints()
-    if popup then
-        b:SetPoint("TOP", popup, "BOTTOM", 0, -6)
-    else
-        -- an der Maus, verschwindet nach ein paar Sekunden (Maus drauf haelt ihn)
-        local x, y = 0, 0
-        if type(GetCursorPosition) == "function" then x, y = GetCursorPosition() end
-        local sc = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
-        b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x or 0) / sc + 8, (y or 0) / sc + 6)
-        b.expire = ((type(GetTime) == "function" and GetTime()) or 0) + 6
-    end
-    b:Show()
-    return true
-end
 -- true = erledigt (kein Namens-Menue)
 function UI.ShiftLink(link, text, button, owner)
     local kind, rest = tostring(link or ""):match("^(%a+):(.*)$")
-    -- Alt+Klick auf einen Namen: sicherer Gilden-Einladen-Knopf an der Maus (Nutzer 23.11.2026)
-    if kind == "player" and UI:AltInvite(rest:match("^([^:]+)")) then return true end
     if not Shift() then return false end
     if kind == "player" then
         local name = rest:match("^([^:]+)") or ""
         if name == "" then return false end
         -- Gilde einladen: Blizzard-Fenster NICHT anfassen. Jede Eingabe von uns (auch nur SetText ins Feld)
-        -- macht das Fenster "vom Addon beruehrt", danach sperrt WoW das Einladen – mit Enter wie mit Mausklick
-        -- (Spieltest 23.11.2026). Stattdessen eigener sicherer Knopf unter dem Fenster: "/ginvite Name".
-        local gp, gname = UI.GuildPopup()
-        if gp then return UI:GuildInviteHelper(name, gp, gname) end
+        -- macht den Namen "vom Addon", danach sperrt Forever das Einladen (taint.log 24.11.2026: Invite()).
+        -- Auch ein Makro-Knopf mit dem Namen geht nicht -> nur Hinweis, Namen bitte selbst tippen.
+        if UI.GuildPopup() then
+            ONE:Print(T("Forever erlaubt Gilden-Einladen nur mit selbst getipptem Namen – bitte %s ins Feld tippen.", Chat.Short(name)))
+            return true
+        end
         -- offener Dialog (Freund, Ignorieren …): Name ins Feld
         if type(StaticPopup_Visible) == "function" then
             for _, which in ipairs(UI.namePopups) do

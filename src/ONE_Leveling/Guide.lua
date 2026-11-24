@@ -1209,7 +1209,9 @@ function G:Navi(step, quiet)
         local label = step.via and step.via.kind == "flight" and (step.via.from.name or T("Flugmeister"))
             or (step.kind == "fp" and T("Flugmeister")) or (step.kind == "bind" and (step.name or T("Gastwirt")))
             or (step.kind == "train" and (step.name or T("Lehrer"))) or (step.kind == "vendor" and (step.name or T("Händler"))) or T("Abfahrt")
-        local ok = ns.Arrow:StartWorld(label, step.world[1], step.world[2], step.world[3], {quiet = quiet or nil})
+        -- Ueberschrift am Pfeil: Personen "Zu …", Abfahrt ohne Zusatz (Nutzer 24.11.2026)
+        local person = (step.via and step.via.kind == "flight") or step.kind == "fp" or step.kind == "bind" or step.kind == "train" or step.kind == "vendor"
+        local ok = ns.Arrow:StartWorld(label, step.world[1], step.world[2], step.world[3], {quiet = quiet or nil, prefix = person and "Zu %s" or nil})
         if ok then self.autoKey, self.autoLabel = step.stopKey, ns.Arrow.target end
         return ok
     end
@@ -1226,7 +1228,9 @@ function G:Navi(step, quiet)
     else label = step.name or "" end
     -- Ankunftsklang je Ziel-Art (Questgeber, Abgabe, Zielgebiet)
     local first = step.actions and step.actions[1]
-    local opts = {quiet = quiet or nil, area = step.area, arrive = first and first.kind or nil}
+    -- Ueberschrift am Pfeil: Quests ohne Zusatz, Lehrer/Haendler "Zu …" (Nutzer 24.11.2026: "Zu Von Hass zerfressen")
+    local opts = {quiet = quiet or nil, area = step.area, arrive = first and first.kind or nil,
+        prefix = (step.kind == "train" or step.kind == "vendor") and "Zu %s" or nil}
     local ok = nav:PointTo(T(label or ""), step.mapID, step.x, step.y, opts)
     local arrow = Nav() and Nav().Arrow
     if ok and arrow then self.autoKey, self.autoLabel = step.stopKey, arrow.target end

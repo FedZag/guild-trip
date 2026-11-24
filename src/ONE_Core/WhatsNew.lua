@@ -10,6 +10,13 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.8.7-alpha"] = {
+        "Quest-Führung: Warsongberichte und ähnliche Quests mit Zielen in einem höheren Gebiet bleiben im Log, bis die Route dorthin kommt – kein falsches „abgeben“ mehr",
+        "Navi-Pfeil: Überschrift ohne „Zu“ bei Quests",
+        "Chat: Link-Tooltips mit Guild-Trip-Wissen (Gegenstände und Quests), auch im WoW-Chat",
+        "Randleiste: per Mausrad bis 100 Nachrichten zurückblättern, Knopf „Nach unten“ mit Zähler",
+        "Gilden-Einladen-Knöpfe entfernt – Forever blockt das Einladen aus Addons",
+    },
     ["0.8.6-alpha"] = {
         "Quest-Führung: Routen ohne komplette Dungeon-Läufe (nur Vorquests), Quests höchstens 5 Stufen unter dir – deutlich weniger Monsterhauen",
         "Quest-Führung: Flug zur Zeppelin-/Schiff-Abfahrt, wenn er sich lohnt; fertige Quests werden vor dem Gebietswechsel abgegeben",

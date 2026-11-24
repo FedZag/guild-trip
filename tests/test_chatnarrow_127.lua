@@ -222,10 +222,10 @@ end
 do
     local edit = Region("EditBox")
     _G.StaticPopup1 = {editBox = edit}
-    StaticPopup_Visible = function(which) return which == "ADD_GUILDMEMBER" and "StaticPopup1" or nil end
+    StaticPopup_Visible = function(which) return which == "ADD_FRIEND" and "StaticPopup1" or nil end
     shift = true
     UI.log.scripts.OnHyperlinkClick(UI.log, "player:Thrall-Forever:9", "[Thrall]", "LeftButton")
-    assert(edit.text == "Thrall-Forever", "Name im Einladungsdialog")
+    assert(edit.text == "Thrall-Forever", "Name im Freundes-Dialog (Gilde: nicht mehr, Forever sperrt das)")
     StaticPopup_Visible = function() return nil end
     function UI.input:HasFocus() return true end
     function UI.input:Insert(t) self.text = (self.text or "") .. t end

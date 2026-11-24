@@ -633,3 +633,8 @@ EN["Quest-Führung: Flug zur Zeppelin-/Schiff-Abfahrt, wenn er sich lohnt; ferti
 EN["Ausrüstung: Intelligenz und Zauberschaden zählen für Zauberer gleich, die Zeile nennt Gewinn und Verlust"] = "Gear: intellect and spell power count the same for casters, the line names gain and loss"
 EN["Chat: eigene Nachrichten im Fenster rechts, Emotes als Blase, Gegenstands-Tooltip beim Drüberfahren; Gruppe einladen bei Battle.net-Freunden"] = "Chat: own messages on the right in the window, emotes as bubbles, item tooltip on hover; group invite for Battle.net friends"
 EN["Makro-Knöpfe nach „WoW-Chat ersetzen“ nicht mehr geblockt; Wappen der Randleiste bleibt beim Hinfahren stehen"] = "Macro buttons no longer blocked after \"Replace WoW chat\"; the side bar crest stays while you move to it"
+EN["Quest-Führung: Warsongberichte und ähnliche Quests mit Zielen in einem höheren Gebiet bleiben im Log, bis die Route dorthin kommt – kein falsches „abgeben“ mehr"] = "Quest guide: Warsong reports and similar quests with objectives in a higher zone stay in your log until the route gets there – no more wrong \"turn in\""
+EN["Navi-Pfeil: Überschrift ohne „Zu“ bei Quests"] = "Navi arrow: title without \"To\" for quests"
+EN["Chat: Link-Tooltips mit Guild-Trip-Wissen (Gegenstände und Quests), auch im WoW-Chat"] = "Chat: link tooltips with Guild Trip knowledge (items and quests), also in the WoW chat"
+EN["Randleiste: per Mausrad bis 100 Nachrichten zurückblättern, Knopf „Nach unten“ mit Zähler"] = "Side bar: scroll back up to 100 messages with the mouse wheel, \"Down\" button with a counter"
+EN["Gilden-Einladen-Knöpfe entfernt – Forever blockt das Einladen aus Addons"] = "Guild invite buttons removed – Forever blocks inviting from addons"

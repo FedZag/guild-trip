@@ -161,6 +161,24 @@ Gear.SLOTS = {
 Gear.MAX_ARMOR = {PRIEST = 1, MAGE = 1, WARLOCK = 1, ROGUE = 2, DRUID = 2, HUNTER = 3, SHAMAN = 3, WARRIOR = 4, PALADIN = 4}
 Gear.ARMOR_NAMES = {"Stoff", "Leder", "Kette", "Platte"}
 
+-- Waffen-Unterklasse (GetItemInfoInstant) -> Schluessel der Waffenkunde (Weapons.types)
+Gear.WEAPON_KEYS = {[0] = "axe1", [1] = "axe2", [2] = "bow", [3] = "gun", [4] = "mace1", [5] = "mace2", [6] = "polearm",
+    [7] = "sword1", [8] = "sword2", [10] = "staff", [13] = "fist", [15] = "dagger", [16] = "thrown", [18] = "crossbow", [19] = "wand"}
+-- Darf die Klasse die Waffe fuehren, kann sie aber noch nicht? -> Waffenart (Weapons.types-Eintrag) oder nil
+function Gear.WeaponToLearn(link, classFile)
+    local W = classes.Weapons
+    local itemID = type(link) == "string" and tonumber(link:match("item:(%d+)")) or link
+    local fn = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+    local _, _, _, _, _, classID, subclassID = Call(fn, itemID)
+    local key = classID == 2 and Gear.WEAPON_KEYS[subclassID]
+    local w = key and W and W.byKey[key]
+    if not (w and not w.free and W.byClass[classFile or ""]) then return nil end
+    local can = false
+    for _, k in ipairs(W.byClass[classFile]) do if k == key then can = true break end end
+    if can and W.Known(w) == false then return w end
+    return nil
+end
+
 -- Ergebnis fuer einen Gegenstand: {verdict = "better"|"worse"|"same"|"new"|"cannot", diff, specName}
 function Gear:Judge(link, p, def, build)
     if type(link) ~= "string" then return nil end
@@ -174,6 +192,14 @@ function Gear:Judge(link, p, def, build)
     if classID == 4 and maxArmor and subclassID and subclassID >= 1 and subclassID <= 4 and subclassID > maxArmor
         and equipLoc ~= "INVTYPE_CLOAK" then
         return {verdict = "cannot", armor = Gear.ARMOR_NAMES[subclassID]}
+    end
+    -- Waffe, die die Klasse nie lernen kann (Chat-Ideen 24.11.2026: Gegenstands-Links mit Waffenkunde)
+    local wkey = classID == 2 and Gear.WEAPON_KEYS[subclassID]
+    local W = classes.Weapons
+    if wkey and W and W.byClass[p.classFile or ""] then
+        local can = false
+        for _, k in ipairs(W.byClass[p.classFile]) do if k == wkey then can = true break end end
+        if not can then return {verdict = "cannot", weapon = W.byKey[wkey] and W.byKey[wkey].name or wkey} end
     end
     local role = def.roles and def.roles[p.spec] or "caster"
     local w = Gear.Weights(build, role)
@@ -285,6 +311,7 @@ function Gear:Line(r)
     end
     if r.verdict == "worse" then return "|cffff5050" .. T("Guild Trip: schlechter für dich") .. why .. "|r" end
     if r.verdict == "new" then return "|cff40ff40" .. T("Guild Trip: passt zu dir – der Platz ist noch frei") .. "|r" end
+    if r.verdict == "cannot" and r.weapon then return "|cff9d9d9d" .. T("Guild Trip: %s kann deine Klasse nicht führen", T(r.weapon)) .. "|r" end
     if r.verdict == "cannot" then return "|cff9d9d9d" .. T("Guild Trip: %s kann deine Klasse nicht tragen", T(r.armor or "")) .. "|r" end
     -- etwa gleich, aber andere Werte: Gewinn und Verlust nebeneinander ("−2 Intelligenz, +2 Zauberschaden")
     if r.verdict == "same" and why ~= spec then
@@ -328,6 +355,16 @@ function Gear:OnTooltip(tooltip)
     local r = self:Judge(link, p, def, build)
     local line = self:Line(r)
     if line then tooltip:AddLine(line, 1, 1, 1, true) end
+    -- Waffe, die du noch beim Waffenmeister lernen musst (mit dem naechsten Lehrer)
+    local learn = Gear.WeaponToLearn(link, p.classFile)
+    if learn then
+        local W = classes.Weapons
+        local trainer = W.BestTrainer and W:BestTrainer(learn.key)
+        local text = trainer and T("Guild Trip: %s musst du erst lernen – Waffenmeister %s", T(learn.name), trainer.npc)
+            or T("Guild Trip: %s musst du erst beim Waffenmeister lernen", T(learn.name))
+        tooltip:AddLine("|cffffd100" .. text .. "|r", 1, 1, 1, true)
+        line = line or text
+    end
     -- Fundort aus gesammelter Beute (eigene Funde, Gilde, Startpaket)
     local itemID = tonumber(link:match("item:(%d+)"))
     local src = itemID and classes.Loot and (not ONE.FeatureOn or ONE:FeatureOn("classes.loot")) and classes.Loot:SourceText(itemID)

@@ -255,7 +255,8 @@ assert(not arrow.active and not fr.shown)
 -- 8) Probe ohne zweiten Spieler: Zonenmitte, auch ohne ONE_Guild-Peer
 playerX, playerY = .5, .8
 ONE.slashCommands.navi("probe")
-assert(arrow.active and arrow.title.text == "Zu Testpunkt (Zonenmitte)", tostring(arrow.title.text))
+-- (seit 24.11.2026 ohne "Zu": Wegpunkte/Quests stehen ohne Zusatz am Pfeil, nur Spieler/Personen "Zu", Orte "Nach")
+assert(arrow.active and arrow.title.text == "Testpunkt (Zonenmitte)", tostring(arrow.title.text))
 assert(arrow.distance.text == "300 m" and near(arrow.arrow.rotation, 0))
 now = now + 400
 arrow.frame.scripts.OnUpdate(arrow.frame, 1)

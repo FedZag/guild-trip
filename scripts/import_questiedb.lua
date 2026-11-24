@@ -150,13 +150,33 @@ local function Starters(t) -- {creature, object, item}
     for _, o in ipairs(t[2] or {}) do out[#out + 1] = -o end
     return out
 end
+-- Gegenstand ohne Beute-Quelle, aber Belohnung einer kleinen Zwischenquest (Spieltest 24.11.2026, "Die
+-- Warsongberichte": die drei Berichte gibt es bei Spaeher/Laeufer/Vorreiter in Eschental fuer je eine eigene Quest)
+-- -> der Abgeber dieser Quest ist der Ort des Ziels. Feld 6 der Gegenstaende = questRewards.
+-- Nur Zwischenquests, die zu DIESER Quest gehoeren (Kind-Quest, Feld 14 / parentQuest Feld 25) – sonst landete z. B.
+-- "Gib Gerard einen Drink" (Milch beim Haendler) bei fremden Gastwirten, die Milch als Belohnung geben.
+local function RewardGivers(itemID, forQuest)
+    local it, out = items[itemID], {}
+    if type(it) ~= "table" or not forQuest then return out end
+    local parent = quests[forQuest]
+    local child = {}
+    for _, c in ipairs(type(parent) == "table" and type(parent[14]) == "table" and parent[14] or {}) do child[c] = true end
+    for _, rq in ipairs(type(it[6]) == "table" and it[6] or {}) do
+        local qd = quests[rq]
+        if type(qd) == "table" and (child[rq] or qd[25] == forQuest) then
+            for _, nr in ipairs(Starters(qd[3])) do if #out < 3 then out[#out + 1] = nr end end
+        end
+    end
+    return out
+end
 -- Gegenstand -> Quellen (Monster/Objekte, die ihn fallen lassen), höchstens 3
-local function ItemSources(itemID)
+local function ItemSources(itemID, forQuest)
     local it = items[itemID]
     if type(it) ~= "table" then return {} end
     local out = {}
     for _, u in ipairs(it[2] or {}) do if #out < 3 then out[#out + 1] = u end end
     for _, o in ipairs(it[3] or {}) do if #out < 3 then out[#out + 1] = -o end end
+    if #out == 0 then out = RewardGivers(itemID, forQuest) end
     return out
 end
 local function Race(mask)
@@ -208,7 +228,7 @@ for _, id in ipairs(ids) do
         local objs, obj = {}, d[10] or {}
         for _, c in ipairs(obj[1] or {}) do objs[#objs + 1] = c[1] end
         for _, o in ipairs(obj[2] or {}) do objs[#objs + 1] = -o[1] end
-        for _, it in ipairs(obj[3] or {}) do for _, nr in ipairs(ItemSources(it[1])) do objs[#objs + 1] = nr end end
+        for _, it in ipairs(obj[3] or {}) do for _, nr in ipairs(ItemSources(it[1], id)) do objs[#objs + 1] = nr end end
         for _, kc in ipairs(obj[5] or {}) do
             local list = type(kc[1]) == "table" and kc[1] or {}
             objs[#objs + 1] = kc[2] or list[1]
@@ -232,6 +252,7 @@ for _, id in ipairs(ids) do
                     for _, u in ipairs(src[2] or {}) do if #g < 12 then g[#g + 1] = u end end
                     for _, o in ipairs(src[3] or {}) do if #g < 12 then g[#g + 1] = -o end end
                 end
+                if #g == 0 then g = RewardGivers(it[1], id) end
                 t.i[#t.i + 1] = g
             end
             if #t.m + #t.o + #t.i > 0 then objT[id] = t end

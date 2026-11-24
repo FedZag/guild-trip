@@ -388,3 +388,7 @@ EN["Leisten unten erkannt: %s (Oberkante %d)"] = EN["Leisten unten erkannt: %s (
 EN["Chat-Leiste zurück an den linken Rand holen"] = EN["Chat-Leiste zurück an den linken Rand holen"] or "Bring the chat bar back to the left edge"
 EN["%s spielt gerade kein WoW – Einladen und Namens-Menü gehen nur, wenn er im Spiel ist."] = EN["%s spielt gerade kein WoW – Einladen und Namens-Menü gehen nur, wenn er im Spiel ist."] or "%s is not playing WoW right now – invite and player menu only work while they are in game."
 EN["Weitere Links: Klick zeigt die Auswahl (%d)"] = EN["Weitere Links: Klick zeigt die Auswahl (%d)"] or "More links: click shows the list (%d)"
+EN["Forever erlaubt Gilden-Einladen nur mit selbst getipptem Namen – bitte %s ins Feld tippen."] = "Forever only allows guild invites with a name you typed yourself – please type %s into the field."
+EN["Umschalt+Mausrad: nächster Link (%d/%d)"] = "Shift+mouse wheel: next link (%d/%d)"
+EN["Mausrad über den Blasen blättert zurück (bis %d Nachrichten)"] = "Mouse wheel over the bubbles scrolls back (up to %d messages)"
+EN["%d neue"] = EN["%d neue"] or "%d new"

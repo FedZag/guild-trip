@@ -366,18 +366,18 @@ local kum
 for _, b in ipairs(M.convRows) do if b.shown and b.name and b.name.shown and b.name.text == "Kumpel#1234" then kum = b end end
 assert(kum and kum.online.shown, "Battle.net-Gespraech in der Liste, online")
 C_BattleNet = nil
--- 16) Fluestern: Name oben per Umschalt+Klick in den Gilden-Einladungsdialog (Spieltest 22.11.2026)
+-- 16) Fluestern: Name oben per Umschalt+Klick in einen offenen Namens-Dialog (Freund; Gilde nicht mehr, 24.11.2026)
 do
     UI:Show(Chat:OpenWhisper("Lyra"))
     assert(M.headHit and M.headHit.shown ~= false, "Name oben anklickbar")
     local edit = Region("EditBox")
     local popup = {EditBox = edit}
     -- neuer Client: StaticPopup_Visible liefert Name UND Fenster, Feld heisst EditBox
-    StaticPopup_Visible = function(which) if which == "ADD_GUILDMEMBER" then return "StaticPopup1", popup end end
+    StaticPopup_Visible = function(which) if which == "ADD_FRIEND" then return "StaticPopup1", popup end end
     local oldShift = IsShiftKeyDown
     IsShiftKeyDown = function() return true end
     M.headHit.scripts.OnClick(M.headHit, "LeftButton")
-    assert(edit.text == "Lyra", "Name im Einladungsdialog")
+    assert(edit.text == "Lyra", "Name im Freundes-Dialog")
     -- ohne Umschalt: Namens-Menue
     IsShiftKeyDown = function() return false end
     local opened
@@ -485,7 +485,7 @@ do
     -- Einfuegen ruft keine Blizzard-Funktion am Fenster auf
     local edit = Region("EditBox")
     local popup = {editBox = edit, GetEditBox = function() error("darf nicht aufgerufen werden") end}
-    StaticPopup_Visible = function(which) if which == "ADD_GUILDMEMBER" then return "StaticPopup1", popup end end
+    StaticPopup_Visible = function(which) if which == "ADD_FRIEND" then return "StaticPopup1", popup end end
     local oldShift = IsShiftKeyDown
     IsShiftKeyDown = function() return true end
     assert(UI.ShiftLink("player:Lyra", "[Lyra]", "LeftButton", nil) and edit.text == "Lyra", "Name im Feld, ohne Funktionsaufruf")
@@ -496,92 +496,20 @@ do
     gpop.which = "ADD_GUILDMEMBER"
     gpop.SetText = function() error("Blizzard-Fenster angefasst") end
     StaticPopup2 = gpop
+    ONE.printed = nil
     assert(UI.ShiftLink("player:Lyra", "[Lyra]", "LeftButton", nil), "Umschalt+Klick erledigt")
     assert(edit.text == "", "Feld im Gilden-Fenster nicht angefasst")
-    local gh = UI.guildHelper
-    assert(gh and gh.shown and gh.macro == "/ginvite Lyra\n/click StaticPopup2Button2", "sicherer Knopf: " .. tostring(gh and gh.macro))
-    assert(gh.points[#gh.points][2] == gpop, "Knopf unter dem Fenster")
-    gpop.shown = false
-    gh.scripts.OnUpdate(gh)
-    assert(not gh.shown, "Fenster zu: Knopf weg")
+    assert(ONE.printed, "Hinweis: Namen selbst tippen")
+    -- taint.log 24.11.2026: Forever sperrt Einladen mit einem Namen vom Addon (auch per Makro-Knopf) ->
+    -- kein Knopf mehr, nur Hinweis "selbst tippen"
+    assert(UI.guildHelper == nil and UI.GuildInviteHelper == nil and UI.AltInvite == nil, "kein Einladen-Knopf mehr")
     StaticPopup2 = nil
     IsShiftKeyDown, StaticPopup_Visible = oldShift, nil
-    -- Alt+Klick auf einen Namen: Knopf an der Maus, ohne Gildenfenster (Nutzer 23.11.2026)
+    -- Alt+Klick auf einen Namen: kein Einladen mehr, normales Namens-Verhalten
     IsAltKeyDown = function() return true end
-    local oldCan, oldRoster = M.CanInvite, M.RosterInfo
-    M.CanInvite = function() return true end
-    M.RosterInfo = function(n) if n == "Thorgrim" then return {inGuild = true} end end
-    GetCursorPosition = function() return 200, 300 end
-    gh:Hide()
-    assert(UI.ShiftLink("player:Lyra-Forever:12", "[Lyra]", "LeftButton", nil), "Alt+Klick erledigt")
-    assert(gh.shown and gh.macro == "/ginvite Lyra-Forever" and not gh.popup, "Knopf an der Maus: " .. tostring(gh.macro))
-    assert(gh.points[#gh.points][2] == UIParent and gh.points[#gh.points][4] == 208, "an der Mausposition")
-    -- langer Name mit Leerzeichen: Text mit Leerzeichen, Knopf breit genug
-    gh.GetFontString = function(self) return {GetStringWidth = function() return #self.text * 7 end} end
-    UI.ShiftLink("player:Papacito Seifigerpopo", "[Papacito Seifigerpopo]", "LeftButton", nil)
-    assert(gh.text:find("Papacito Seifigerpopo", 1, true), "Name mit Leerzeichen im Knopf: " .. gh.text)
-    assert(gh.w >= #gh.text * 7 + 32, "Knopf breit genug")
-    -- Klick woanders: weg; Klick auf ihn: bleibt bis nach dem Klick
-    gh.IsMouseOver = function(self) return self.mouse end
-    gh.mouse = true
-    UI.guildHelperEvents.scripts.OnEvent(UI.guildHelperEvents, "GLOBAL_MOUSE_DOWN")
-    assert(gh.shown, "Klick auf den Knopf: bleibt")
-    gh.scripts.PostClick(gh)
-    assert(not gh.shown, "nach dem Klick weg")
-    UI.ShiftLink("player:Lyra", "[Lyra]", "LeftButton", nil)
-    gh.mouse = false
-    UI.guildHelperEvents.scripts.OnEvent(UI.guildHelperEvents, "GLOBAL_MOUSE_DOWN")
-    assert(not gh.shown, "Klick woanders: weg")
-    -- schon in der Gilde / darf nicht einladen: Hinweis, kein Knopf
-    ONE.printed = nil
-    assert(UI.ShiftLink("player:Thorgrim", "[Thorgrim]", "LeftButton", nil) and not gh.shown and ONE.printed, "schon Mitglied")
-    M.CanInvite = function() return false end
-    ONE.printed = nil
-    assert(UI.ShiftLink("player:Lyra", "[Lyra]", "LeftButton", nil) and not gh.shown and ONE.printed, "keine Rechte")
-    M.CanInvite, M.RosterInfo = oldCan, oldRoster
-    IsAltKeyDown, GetCursorPosition = nil, nil
-    -- sicherer Makro-Knopf: nur ausserhalb des Kampfs, nicht fuer Gildenmitglieder
-    local attrs, made2 = {}, nil
-    local cf = CreateFrame
-    CreateFrame = function(kind, name, parent, template)
-        local r = cf(kind, name, parent, template)
-        if template == "SecureActionButtonTemplate" then
-            made2 = r
-            r.template = template
-            function r:SetAttribute(k, v) attrs[k] = v end
-            function r:RegisterEvent() end
-        end
-        return r
-    end
-    IsInGuild = function() return true end
-    CanGuildInvite = function() return true end
-    UnitName = function() return "Ich" end
-    UI:Show(Chat:OpenWhisper("Lyra"))
-    M.head.IsVisible = function() return true end
-    M.headMenu.IsVisible = function() return true end
-    M.inviteButton = nil
-    M:UpdateInviteButton()
-    assert(made2 and made2.template == "SecureActionButtonTemplate", "sicherer Knopf")
-    assert(attrs.type == "macro" and attrs.macrotext == "/ginvite Lyra" and made2.shown, "Makro /ginvite")
-    -- schon in der Gilde: kein Knopf
-    GetNumGuildMembers = function() return 1, 1 end
-    GetGuildRosterInfo = function() return "Lyra-Forever", "", 0, 20, "Magier", "Ort", "", "", true, 0, "MAGE" end
-    M:UpdateInviteButton()
-    assert(not made2.shown, "Gildenmitglied: kein Knopf")
-    GetNumGuildMembers, GetGuildRosterInfo = nil, nil
-    -- keine Rechte: kein Knopf
-    CanGuildInvite = function() return false end
-    M:UpdateInviteButton()
-    assert(not made2.shown, "ohne Einlade-Recht kein Knopf")
-    -- im Kampf nichts aendern
-    CanGuildInvite = function() return true end
-    InCombatLockdown = function() return true end
-    attrs.macrotext = nil
-    M:UpdateInviteButton()
-    assert(attrs.macrotext == nil, "im Kampf unveraendert")
-    InCombatLockdown = nil
-    CreateFrame = cf
-    IsInGuild, CanGuildInvite = nil, nil
+    assert(not UI.ShiftLink("player:Lyra-Forever:12", "[Lyra]", "LeftButton", nil), "Alt+Klick: nichts Besonderes")
+    IsAltKeyDown = nil
+    assert(M.BuildInviteButton == nil and M.UpdateInviteButton == nil, "kein Einladen-Knopf in der Kopfzeile")
 end
 -- 21) Links in Blasen anklicken (Spieltest 22.11.2026: Berufs-Link [Verzauberkunst] ging nicht)
 do

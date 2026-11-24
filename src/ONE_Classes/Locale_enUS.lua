@@ -788,3 +788,7 @@ EN["In der Nähe: Aussehen"] = "Nearby: appearance"
 EN["Beschriftung"] = "Label"
 EN["Überschriften"] = "Headings"
 EN["Aussehen"] = "Appearance"
+-- Waffenkunde im Gegenstands-Tooltip (24.11.2026)
+EN["Guild Trip: %s kann deine Klasse nicht führen"] = "Guild Trip: your class cannot use %s"
+EN["Guild Trip: %s musst du erst lernen – Waffenmeister %s"] = "Guild Trip: you must learn %s first – weapon master %s"
+EN["Guild Trip: %s musst du erst beim Waffenmeister lernen"] = "Guild Trip: you must learn %s from a weapon master first"

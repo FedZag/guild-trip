@@ -202,6 +202,27 @@ gIcon.scripts.OnDoubleClick(gIcon, "LeftButton")
 assert(#R.bubbles == R.REPLAY and R.openView == "guild" and R.bubbles[1].static, "Klick: letzte " .. R.REPLAY .. " Nachrichten stehen da")
 assert(R.bubbles[#R.bubbles].text.text:find("Verlauf 6", 1, true) and R.bubbles[#R.bubbles - 5].text.text:find("Verlauf 1", 1, true), "in Reihenfolge, neueste unten")
 assert((Chat.unread.guild or 0) == 0, "gilt als gelesen")
+-- 3c) Zurueckblaettern bis 100 (Nutzer 24.11.2026: "die 10 nachrichten müssen auf 100 hoch")
+for i = 7, 46 do Guild("Verlauf " .. i) end
+local function LastText() return R.bubbles[#R.bubbles].text.text end
+assert(LastText():find("Verlauf 46", 1, true) and not R.down.shown, "unten: neueste, kein Knopf")
+R.bubbles[1].scripts.OnMouseWheel(R.bubbles[1], 1)
+assert(R.back == 3 and LastText():find("Verlauf 43", 1, true) and R.down.shown, "Mausrad hoch: 3 zurueck, Knopf da")
+assert(#R.bubbles == R.REPLAY, "weiter " .. R.REPLAY .. " Blasen")
+Guild("Neu A")
+assert(LastText():find("Verlauf 43", 1, true) and R.backNew == 1 and R.down.count.text == "1 neue", "neue Nachricht: kein Sprung, Zaehler")
+IsShiftKeyDown = function() return true end
+R.bubbles[1].scripts.OnMouseWheel(R.bubbles[1], 1)
+assert(LastText():find("Verlauf 43", 1, true), "Umschalt+Mausrad blaettert nicht im Verlauf")
+IsShiftKeyDown = nil
+for _ = 1, 60 do R:ScrollBack(1) end
+assert(R.back == R:MaxBack("guild") and R.back <= R.SCROLL_MAX - R.REPLAY, "hoechstens bis " .. R.SCROLL_MAX)
+R.bubbles[1].scripts.OnMouseWheel(R.bubbles[1], -1)
+assert(R.back == R:MaxBack("guild") - 3, "Mausrad runter: wieder vor")
+R.down.scripts.OnClick(R.down)
+assert(R.back == 0 and LastText():find("Neu A", 1, true) and not R.down.shown and R.backNew == 0, "Knopf: zurueck zu neu")
+Guild("Neu B")
+assert(LastText():find("Neu B", 1, true), "unten: neue Nachricht steht gleich da")
 R:CloseTab()
 R:ClearBubbles()
 
@@ -277,21 +298,17 @@ local ib = R:AddBubble({kind = "whisper", author = "Brakk", text = gear, time = 
 assert(#ib.links == 2, "zwei Gegenstaende, Spieler-Link zaehlt nicht")
 ib.scripts.OnEnter(ib)
 assert(shownLink == "item:15284::::::::", "Tooltip des ersten Gegenstands: " .. tostring(shownLink))
+-- stehende Blase: Umschalt+Mausrad blaettert die Links (Mausrad allein: Verlauf)
+IsShiftKeyDown = function() return true end
 ib.scripts.OnMouseWheel(ib, -1)
-assert(shownLink == "item:6448::::::::", "Mausrad: naechster")
+assert(shownLink == "item:6448::::::::", "Umschalt+Mausrad: naechster")
 ib.scripts.OnMouseWheel(ib, -1)
 assert(shownLink == "item:15284::::::::", "rundherum")
+IsShiftKeyDown = nil
 shownLink = nil
 local nb = R:AddBubble({kind = "guild", author = "Thorgrim", text = "ohne Link", time = clock}, "guild", false)
 nb.scripts.OnEnter(nb)
 assert(not shownLink, "ohne Link: nur der Hinweis")
--- Alt+Klick auf eine Blase: Absender einladen (sicherer Knopf), Fenster geht nicht auf
-local asked
-local oldAlt = UI.AltInvite
-UI.AltInvite = function(_, n) asked = n return true end
-nb.scripts.OnClick(nb, "LeftButton")
-assert(asked == "Thorgrim" and not M.frame.shown, "Alt+Klick: Einladen statt Fenster")
-UI.AltInvite = oldAlt
 R:DropBubble(ib) R:DropBubble(nb)
 GameTooltip = nil
 -- eigene Emotes rechts (auch automatische), fremde links
@@ -393,38 +410,11 @@ for _, b in ipairs(R.icons) do
     if b.shown and b.conv and b.conv.view == "guild" then assert(not b.online.shown, "Gilde ohne Punkt") end
 end
 M.PersonInfo = savedInfo
--- Wappen beim Drueberfahren ueber ein Fluester-Symbol (nur wenn man einladen darf, nicht fuer Mitglieder)
-local oldCan, oldRoster = M.CanInvite, M.RosterInfo
-M.CanInvite = function() return true end
-M.RosterInfo = function(n) if n == "Mira" then return {inGuild = true} end end
+-- Kein Wappen mehr (taint.log 24.11.2026: Forever sperrt Einladen mit Addon-Namen)
 local bIcon
 for _, b in ipairs(R.icons) do if b.shown and b.conv and b.conv.view == "w:Brakk" then bIcon = b end end
 bIcon.scripts.OnEnter(bIcon)
-assert(R.crest and R.crest.shown and R.crest.target == "Brakk", "Wappen neben Brakk")
-assert(R.crest.points[#R.crest.points][2] == bIcon, "am Symbol")
-bIcon.mouse = true
-R:Tick(.016)
-assert(R.crest.shown, "Maus auf dem Symbol: bleibt")
-bIcon.mouse = false
-R:Tick(.016)
-assert(R.crest.shown, "Weg zum Wappen (Luecke): bleibt kurz stehen")
-R.crest.mouse = true
-clock = clock + 2
-R:Tick(.016)
-assert(R.crest.shown, "Maus auf dem Wappen: bleibt")
-R.crest.mouse = false
-R:Tick(.016)
-clock = clock + 1
-R:Tick(.016)
-assert(not R.crest.shown, "Maus weg: Wappen nach kurzer Frist weg")
-local gI
-for _, b in ipairs(R.icons) do if b.shown and b.conv and b.conv.view == "guild" then gI = b end end
-gI.scripts.OnEnter(gI)
-assert(not R.crest.shown, "kein Wappen bei der Gilde")
-M.CanInvite = function() return false end
-bIcon.scripts.OnEnter(bIcon)
-assert(not R.crest.shown, "ohne Rechte kein Wappen")
-M.CanInvite, M.RosterInfo = oldCan, oldRoster
+assert(R.crest == nil and R.ShowCrest == nil, "kein Wappen")
 -- Freunde vorletztes Symbol, Klick: Fenster mit Freundesliste
 assert(R.friendsButton.shown, "Freunde-Symbol")
 local fy, wy = -R.friendsButton.points[#R.friendsButton.points][5], -R.windowButton.points[#R.windowButton.points][5]
