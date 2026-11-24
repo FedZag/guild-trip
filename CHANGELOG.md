@@ -4,6 +4,22 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.8.5-alpha (veröffentlicht 24.11.2026)
+
+```
+## 0.8.5-alpha
+
+**English**
+- Chat side bar: snaps to every screen edge (left, right, top, bottom) and into the corners; at the bottom it sits above the action bars instead of behind them. /trip leiste brings it back if it gets lost.
+- Side bar: shows an outline while dragging where it will snap, icons pulse in strong red on new messages, the active conversation gets a glowing line and the others are dimmed.
+
+**Deutsch**
+- Chat-Randleiste: rastet an jedem Bildschirmrand (links, rechts, oben, unten) und in den Ecken ein; unten sitzt sie über den Aktionsleisten statt dahinter. /trip leiste holt sie zurück, falls sie verschwunden ist.
+- Randleiste: zeigt beim Ziehen einen Umriss, wo sie einrastet, Symbole atmen in kräftigem Rot bei neuen Nachrichten, das aktive Gespräch bekommt einen Leuchtstrich, die anderen werden abgedunkelt.
+```
+
+---
+
 ## 0.8.4-alpha (veröffentlicht 24.11.2026)
 
 ```

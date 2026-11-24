@@ -14,7 +14,7 @@ local TAIL_RING_TEX = "Interface\\AddOns\\ONE_Chat\\Textures\\BubbleTailRing"
 local BUBBLE_R = 10
 local R = {bubbles = {}, icons = {},
     BUBBLE_MAX = 6, BUBBLE_W = 300, COLUMN_W = 400, RISE_H = 420, BUBBLE_GAP = 28, REPLAY = 10, STATIC_MAX = 10, INPUT_CLOSE = 3, ANIM = .25,
-    ICON = 28, GAP = 12, WIDTH = 38, QUICK_W = 380, QUICK_H = 54}
+    ICON = 28, GAP = 12, WIDTH = 38, QUICK_W = 380, QUICK_H = 54, SNAP = 60, EDGE = 2}
 chat.Rail = R
 local function M() return chat.Messenger end
 local function Now() return (type(GetTime) == "function" and GetTime()) or 0 end
@@ -42,6 +42,180 @@ function R.WhisperBubbles() return Chat:Settings().railWhisper ~= false end
 function R.Blink() return Chat:Settings().railBlink ~= false end
 -- Fenster schliesst sich nach so vielen Sekunden ohne Maus/Tippen (0 = nie, Standard)
 function R.AutoClose() return tonumber(Chat:Settings().railAutoClose) or 0 end
+
+-- ===== Einrasten am Bildschirmrand (Nutzer 24.11.2026: "egal an welcher stelle? oben, unten oder rechts") =====
+-- Losgelassen nahe einem Rand: rastet dort ein (Stelle entlang des Rands bleibt), sonst frei.
+-- Links/rechts senkrecht, oben/unten waagerecht. Blasen, Eingabezeile, Fenster und Wappen gehen immer
+-- zur Bildschirmmitte hin; oben sinken die Blasen nach unten statt zu steigen.
+R.SIDES = {left = true, right = true, top = true, bottom = true}
+function R.Side()
+    local s = Chat:Settings().railSide
+    return R.SIDES[s] and s or nil
+end
+function R.Horizontal() local s = R.Side() return s == "top" or s == "bottom" end
+-- Seite, nach der sich alles richtet: eingerastet = der Rand; frei = die naehere Bildschirmhaelfte
+function R.Layout()
+    local side = R.Side()
+    if side then return side end
+    local f = R.frame
+    local W = UIParent and UIParent.GetWidth and UIParent:GetWidth()
+    local l, w = f and f.GetLeft and f:GetLeft(), f and f.GetWidth and f:GetWidth()
+    if l and w and W and W > 0 and l + w / 2 > W / 2 then return "right" end
+    return "left"
+end
+-- Naechster Rand nach dem Loslassen (Masse in Bildschirm-Einheiten): Seite und Anker {Punkt, Punkt, x, y}
+-- oder nil (frei). Entlang des Rands: oberes/unteres (linkes/rechtes) Drittel haelt die Ecke, sonst Mitte.
+function R.SnapPoint(l, b, w, h, W, H, horiz)
+    local d = {left = l, right = W - (l + w), top = H - (b + h), bottom = b}
+    -- In einer Ecke liegen zwei Raender nah: dann bleibt die Leiste, wie sie ist (waagerecht bleibt waagerecht,
+    -- Spieltest 24.11.2026: "in die ecken setzen (oben und unten) und sie waagerecht bleiben")
+    local side, best
+    local same = horiz and {top = true, bottom = true} or {left = true, right = true}
+    for _, k in ipairs({"left", "right", "top", "bottom"}) do
+        if d[k] <= R.SNAP and same[k] and (not best or d[k] < best) then side, best = k, d[k] end
+    end
+    if not side then
+        for _, k in ipairs({"left", "right", "top", "bottom"}) do
+            if not best or d[k] < best then side, best = k, d[k] end
+        end
+        if best > R.SNAP then return nil end
+    end
+    local E = R.EDGE
+    if side == "left" or side == "right" then
+        local cy, v, y = b + h / 2
+        -- nah an der Ecke: ganz in die Ecke
+        if cy > H * 2 / 3 then v, y = "TOP", (d.top <= R.SNAP) and -E or (b + h) - H
+        elseif cy < H / 3 then v, y = "BOTTOM", (d.bottom <= R.SNAP) and E or b
+        else v, y = "", cy - H / 2 end
+        local pt = v .. (side == "left" and "LEFT" or "RIGHT")
+        return side, {pt, pt, side == "left" and E or -E, y}
+    end
+    local cx, hz, x = l + w / 2
+    if cx < W / 3 then hz, x = "LEFT", (d.left <= R.SNAP) and E or l
+    elseif cx > W * 2 / 3 then hz, x = "RIGHT", (d.right <= R.SNAP) and -E or (l + w) - W
+    else hz, x = "", cx - W / 2 end
+    local pt = (side == "top" and "TOP" or "BOTTOM") .. hz
+    return side, {pt, pt, x, side == "top" and -E or E}
+end
+-- Unten eingerastet: ueber den Aktionsleisten statt dahinter (Spieltest 24.11.2026: "verschwindet hinter der
+-- skillleiste am unteren bildschirmrand"). Hoechste Oberkante der sichtbaren Blizzard-Leisten im unteren
+-- Viertel, die waagerecht mit der Leiste [l, r] ueberlappen (Bildschirm-Einheiten); 0 = keine.
+R.BOTTOM_BARS = {"MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBar5", "MultiBar6",
+    "MultiBar7", "StanceBar", "PetActionBar", "PossessActionBar", "OverrideActionBar", "MainStatusTrackingBarContainer",
+    "SecondaryStatusTrackingBarContainer", "StatusTrackingBarManager", "MicroMenuContainer", "BagsBar"}
+-- dazu die einzelnen Knoepfe (falls ein Client die Leisten anders nennt; Spieltest 24.11.2026: Leiste
+-- blieb trotzdem dahinter)
+R.BOTTOM_BUTTONS = {"ActionButton", "MultiBarBottomLeftButton", "MultiBarBottomRightButton", "MultiBar5Button",
+    "MultiBar6Button", "MultiBar7Button", "StanceButton", "PetActionButton", "PossessButton"}
+function R.BottomFrames()
+    local out = {}
+    for _, name in ipairs(R.BOTTOM_BARS) do out[#out + 1] = name end
+    for _, pre in ipairs(R.BOTTOM_BUTTONS) do for i = 1, 12 do out[#out + 1] = pre .. i end end
+    return out
+end
+function R.BottomInset(l, r, found)
+    local H = UIParent and UIParent.GetHeight and UIParent:GetHeight()
+    if not (H and H > 0) then return 0 end
+    local pes = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+    local top = 0
+    for _, name in ipairs(R.BottomFrames()) do
+        local bar = rawget(_G, name)
+        if type(bar) == "table" and bar.IsVisible and bar.GetTop then
+            local ok, vis, bt, bb, bl, br, es = pcall(function()
+                return bar:IsVisible(), bar:GetTop(), bar:GetBottom(), bar:GetLeft(), bar:GetRight(),
+                    bar.GetEffectiveScale and bar:GetEffectiveScale()
+            end)
+            if ok and vis and type(bt) == "number" and type(bb) == "number" and type(bl) == "number" and type(br) == "number" then
+                local k = (es or pes) / pes
+                bt, bb, bl, br = bt * k, bb * k, bl * k, br * k
+                if bb < H * .25 and br > l - 10 and bl < r + 10 then
+                    if found then found[#found + 1] = name .. "=" .. math.floor(bt + .5) end
+                    if bt > top then top = bt end
+                end
+            end
+        end
+    end
+    return top
+end
+-- Notausgang /trip leiste: zurueck an den linken Rand (Spieltest 24.11.2026: "wie bekomme ich sie wieder vor?")
+function R:Reset()
+    local s = Chat:Settings()
+    local f = self.frame
+    local found = {}
+    local W = UIParent and UIParent.GetWidth and UIParent:GetWidth() or 0
+    local inset = R.BottomInset(0, W, found)
+    s.railSide, s.railPoint = nil, nil
+    self.liftY = nil
+    if f then
+        f:ClearAllPoints()
+        f:SetPoint("LEFT", UIParent, "LEFT", 2, -40)
+        self:Update()
+    end
+    ONE:Print(T("Chat-Leiste ist wieder am linken Rand."))
+    ONE:Print(T("Leisten unten erkannt: %s (Oberkante %d)", #found > 0 and table.concat(found, ", ", 1, math.min(#found, 8)) or "-", math.floor(inset + .5)))
+end
+-- Hoehe einer unten eingerasteten Leiste (Anker pt, Laenge w): ueber den Leisten, die sie ueberlappt
+function R.BottomY(pt, w)
+    local W = UIParent and UIParent.GetWidth and UIParent:GetWidth()
+    if not (W and W > 0) then return R.EDGE end
+    local x = tonumber(pt[3]) or 0
+    local l = pt[1] == "BOTTOMLEFT" and x or pt[1] == "BOTTOMRIGHT" and (W + x - w) or (W / 2 + x - w / 2)
+    local ok, inset = pcall(R.BottomInset, l, l + w)
+    return R.EDGE + (ok and inset or 0)
+end
+function R:LiftBottom()
+    local f = self.frame
+    local pt = Chat:Settings().railPoint
+    if not (f and R.Side() == "bottom" and type(pt) == "table") or self.dragging then return end
+    local x = tonumber(pt[3]) or 0
+    local y = R.BottomY(pt, f:GetWidth() or 0)
+    if y == self.liftY and not self.liftDirty then return end
+    self.liftY, self.liftDirty = y, nil
+    f:ClearAllPoints()
+    f:SetPoint(pt[1], UIParent, pt[2], x, y)
+end
+-- Leuchtstrich des aktiven Symbols: aussen (zum Bildschirmrand), quer zur Leiste
+R.DIM, R.MARK_LEN, R.MARK_W = .72, 18, 3
+function R.PlaceMark(b)
+    local t = b.sel
+    if not t then return end
+    local side = R.Layout()
+    t:ClearAllPoints()
+    if side == "top" or side == "bottom" then t:SetSize(R.MARK_LEN, R.MARK_W) else t:SetSize(R.MARK_W, R.MARK_LEN) end
+    if side == "right" then t:SetPoint("LEFT", b, "RIGHT", 1, 0)
+    elseif side == "top" then t:SetPoint("BOTTOM", b, "TOP", 0, 1)
+    elseif side == "bottom" then t:SetPoint("TOP", b, "BOTTOM", 0, -1)
+    else t:SetPoint("RIGHT", b, "LEFT", -1, 0) end
+end
+-- Tooltip zur Bildschirmmitte hin
+function R.TipAnchor()
+    local side = R.Layout()
+    return side == "right" and "ANCHOR_LEFT" or side == "top" and "ANCHOR_BOTTOM" or side == "bottom" and "ANCHOR_TOP" or "ANCHOR_RIGHT"
+end
+-- Blasen, Eingabezeile neben die Leiste (zur Mitte hin); force = auch wenn die Seite gleich blieb
+function R:PlaceAround(force)
+    local f, host = self.frame, self.host
+    if not (f and host) then return end
+    local side = R.Layout()
+    if side == self.placedSide and not force then return end
+    self.placedSide = side
+    local function At(x, gap)
+        x:ClearAllPoints()
+        if side == "right" then x:SetPoint("BOTTOMRIGHT", f, "BOTTOMLEFT", -gap, 0)
+        elseif side == "bottom" then x:SetPoint("BOTTOM", f, "TOP", 0, gap)
+        elseif side == "top" then x:SetPoint("TOP", f, "BOTTOM", 0, -gap)
+        else x:SetPoint("BOTTOMLEFT", f, "BOTTOMRIGHT", gap, 0) end
+    end
+    At(host, self.BUBBLE_GAP)
+    if self.quick then At(self.quick, 10) end
+    local m = M()
+    if self.docked and m then
+        if m.picker then m:PlaceOverlay(m.picker, 20) end
+        if chat.SlashList and chat.SlashList.frame then m:PlaceOverlay(chat.SlashList.frame, 25) end
+        if chat.ItemList and chat.ItemList.frame then m:PlaceOverlay(chat.ItemList.frame, 26) end
+    end
+    self:LayoutBubbles()
+end
 
 function R.GroupOf(c)
     local m = M()
@@ -104,7 +278,8 @@ function R:Build()
     f:SetHeight(self.WIDTH)
     local pt = type(s.railPoint) == "table" and s.railPoint
     if pt then f:SetPoint(pt[1], UIParent, pt[2], pt[3], pt[4]) else f:SetPoint("LEFT", UIParent, "LEFT", 2, -40) end
-    f:SetFrameStrata("MEDIUM")
+    -- ueber den Aktionsleisten (MEDIUM): nie dahinter verschwinden
+    f:SetFrameStrata("HIGH")
     f:SetClampedToScreen(true)
     f:SetMovable(true)
     f:EnableMouse(true)
@@ -137,7 +312,8 @@ function R:Build()
     self.windowButton.iconPath = IconPath({"Interface\\ChatFrame\\UI-ChatIcon-Maximize-Up"})
     self.windowButton.onClick = function() R:OpenWindow() end
     self.windowButton.tip = function()
-        return {{T("Chatfenster öffnen")}, {T("Enter öffnet nur die Eingabezeile.")}, {T("Ziehen verschiebt die Leiste."), .6, .6, .6}}
+        return {{T("Chatfenster öffnen")}, {T("Enter öffnet nur die Eingabezeile.")}, {T("Ziehen verschiebt die Leiste."), .6, .6, .6},
+            {T("Am Bildschirmrand rastet sie ein – links, rechts, oben oder unten."), .6, .6, .6}}
     end
     self:BuildBubbleHost()
     return f
@@ -148,9 +324,8 @@ function R:NewIcon()
     local b = CreateFrame("Button", nil, f)
     b:SetSize(self.ICON, self.ICON)
     if b.RegisterForClicks then b:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
-    b.sel = b:CreateTexture(nil, "BACKGROUND")
-    b.sel:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 3)
-    b.sel:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 3, -3)
+    -- aktives Gespraech: kurzer Leuchtstrich aussen an der Leiste (Nutzer 24.11.2026 statt Ring, wie Discord)
+    b.sel = b:CreateTexture(nil, "OVERLAY", nil, 7)
     b.sel:SetTexture(ONE.Glass and ONE.Glass.tex.circle or "Interface\\Buttons\\WHITE8X8")
     b.sel:Hide()
     b.av = b:CreateTexture(nil, "ARTWORK")
@@ -207,7 +382,7 @@ function R:NewIcon()
             if R.PREVIEW_DELAY <= 0 then R:StartPreview(btn) end
         end
         if not (GameTooltip and btn.tip) then return end
-        GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+        GameTooltip:SetOwner(btn, R.TipAnchor())
         for i, l in ipairs(btn.tip() or {}) do
             if i == 1 then GameTooltip:SetText(l[1], l[2] or 1, l[3] or 1, l[4] or 1)
             else GameTooltip:AddLine(l[1], l[2] or .8, l[3] or .8, l[4] or .8, true) end
@@ -221,13 +396,89 @@ function R:StartDrag()
     self.dragging = true
     self.frame:StartMoving()
 end
+-- Wohin die Leiste jetzt einrasten wuerde (Seite, Anker) – beim Ziehen fuer den Umriss, beim Loslassen
+function R:SnapTarget()
+    local f = self.frame
+    local W, H = UIParent and UIParent.GetWidth and UIParent:GetWidth(), UIParent and UIParent.GetHeight and UIParent:GetHeight()
+    local l, b = f and f.GetLeft and f:GetLeft(), f and f.GetBottom and f:GetBottom()
+    if not (l and b and W and H and W > 0 and H > 0) then return nil end
+    return R.SnapPoint(l, b, f:GetWidth(), f:GetHeight(), W, H, R.Horizontal())
+end
+-- Umriss beim Ziehen (Nutzer 24.11.2026: "waagerecht und senkrecht schon als Vorschau"): zeigt, wo und wie
+-- die Leiste landet; weg, wenn sie frei bliebe
+function R:BuildGhost()
+    if self.ghost then return self.ghost end
+    local g = CreateFrame("Frame", nil, UIParent)
+    g:SetFrameStrata("DIALOG")
+    if g.EnableMouse then g:EnableMouse(false) end
+    g.fill = g:CreateTexture(nil, "BACKGROUND")
+    g.fill:SetAllPoints(g)
+    g.fill:SetColorTexture(1, 1, 1, 1)
+    g.edges = {}
+    for _, side in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
+        local t = g:CreateTexture(nil, "BORDER")
+        if side == "TOP" or side == "BOTTOM" then
+            t:SetHeight(1)
+            t:SetPoint(side .. "LEFT", g, side .. "LEFT", 0, 0)
+            t:SetPoint(side .. "RIGHT", g, side .. "RIGHT", 0, 0)
+        else
+            t:SetWidth(1)
+            t:SetPoint("TOP" .. side, g, "TOP" .. side, 0, 0)
+            t:SetPoint("BOTTOM" .. side, g, "BOTTOM" .. side, 0, 0)
+        end
+        t:SetColorTexture(1, 1, 1, 1)
+        g.edges[#g.edges + 1] = t
+    end
+    g:Hide()
+    self.ghost = g
+    return g
+end
+function R:UpdateGhost()
+    local f = self.frame
+    local side, pt = self:SnapTarget()
+    if not side then
+        if self.ghost then self.ghost:Hide() end
+        return
+    end
+    local g = self:BuildGhost()
+    local len = R.Horizontal() and f:GetWidth() or f:GetHeight()
+    local horiz = side == "top" or side == "bottom"
+    if horiz then g:SetSize(len, self.WIDTH) else g:SetSize(self.WIDTH, len) end
+    local y = pt[4]
+    if side == "bottom" then y = R.BottomY(pt, len) end
+    local key = pt[1] .. ":" .. pt[3] .. ":" .. y .. ":" .. len .. ":" .. side
+    if key ~= g.key then
+        g.key = key
+        g:ClearAllPoints()
+        g:SetPoint(pt[1], UIParent, pt[2], pt[3], y)
+        local m = M()
+        local gl = m and m.Palette and m:Palette().glow or {1, .82, 0}
+        g.fill:SetVertexColor(gl[1], gl[2], gl[3], .16)
+        for _, t in ipairs(g.edges) do t:SetVertexColor(gl[1], gl[2], gl[3], .75) end
+    end
+    g:Show()
+end
 function R:StopDrag()
     local f = self.frame
+    local s = Chat:Settings()
+    -- erst messen (noch an der Maus), dann loslassen
+    local side, pt = self:SnapTarget()
     f:StopMovingOrSizing()
     self.dragging = nil
     self.draggedAt = Now()
-    local p1, _, p2, x, y = f:GetPoint()
-    if p1 then Chat:Settings().railPoint = {p1, p2, x, y} end
+    if self.ghost then self.ghost:Hide() self.ghost.key = nil end
+    s.railSide = side
+    if pt then
+        f:ClearAllPoints()
+        f:SetPoint(pt[1], UIParent, pt[2], pt[3], pt[4])
+        s.railPoint = pt
+        self.liftDirty = true
+    else
+        local p1, _, p2, x, y = f:GetPoint()
+        if p1 then s.railPoint = {p1, p2, x, y} end
+    end
+    if not (InCombatLockdown and InCombatLockdown()) then self:HideCrest() end
+    self:Update()
 end
 -- Jedes Gespräch ein eigenes Symbol, Gruppen (Angeheftet, Gespräche, Flüstern, System) mit Abstand
 -- und feiner Linie dazwischen (Nutzer 23.11.2026)
@@ -241,18 +492,22 @@ function R:Update()
     local groups = R.Groups()
     self.lines = self.lines or {}
     local y, n, nl = 5, 0, 0
+    -- oben/unten eingerastet: Symbole nebeneinander, sonst untereinander
+    local horiz = R.Horizontal()
+    local function Put(w, off)
+        w:ClearAllPoints()
+        if horiz then w:SetPoint("LEFT", f, "LEFT", off, 0) else w:SetPoint("TOP", f, "TOP", 0, -off) end
+    end
     local function Line()
         nl = nl + 1
         local t = self.lines[nl]
         if not t then
             t = f:CreateTexture(nil, "ARTWORK")
-            t:SetHeight(1)
-            t:SetWidth(self.ICON - 6)
             t:SetColorTexture(1, 1, 1, .18)
             self.lines[nl] = t
         end
-        t:ClearAllPoints()
-        t:SetPoint("TOP", f, "TOP", 0, -(y + self.GAP / 2 - 2))
+        if horiz then t:SetSize(1, self.ICON - 6) else t:SetSize(self.ICON - 6, 1) end
+        Put(t, y + self.GAP / 2 - 2)
         t:Show()
         y = y + self.GAP
     end
@@ -268,8 +523,13 @@ function R:Update()
                 b.onClick = function(btn, button) R:ClickConv(btn, c, button) end
                 b.onDouble = function() R:OpenTab(c) end
                 b.tip = function() return R.ConvTip(c) end
-                b:ClearAllPoints()
-                b:SetPoint("TOP", f, "TOP", 0, -y)
+                Put(b, y)
+                -- aktiv: etwas groesser (gleiche Mitte), Strich am Aussenrand
+                local isActive = c.view == active
+                local size = isActive and self.ICON + 4 or self.ICON
+                b:SetSize(size, size)
+                Put(b, y - (size - self.ICON) / 2)
+                R.PlaceMark(b)
                 local cr, cg, cb = m.AvatarColor(c)
                 local icon, coords = m.AvatarIcon(c)
                 m.PaintAvatar(b.glass, p, cr, cg, cb, icon, coords, b.letter, UI.First and UI.First(c.title) or c.title:sub(1, 1))
@@ -278,8 +538,8 @@ function R:Update()
                 local ar, ag, ab, aa
                 if b.av.GetVertexColor then ar, ag, ab, aa = b.av:GetVertexColor() end
                 b.baseAv = {ar or .2, ag or .2, ab or .22, aa or .55}
-                b.sel:SetVertexColor(gl[1], gl[2], gl[3], .7)
-                b.sel:SetShown(c.view == active)
+                b.sel:SetVertexColor(gl[1], gl[2], gl[3], 1)
+                b.sel:SetShown(isActive)
                 local unread = c.unread or 0
                 if unread > 0 then
                     if c.muted then b.badge:SetVertexColor(.38, .38, .4) else b.badge:SetVertexColor(gl[1] * .8, gl[2] * .8, gl[3] * .8) end
@@ -290,7 +550,8 @@ function R:Update()
                 else
                     b.badge:Hide() b.count:Hide()
                 end
-                b:SetAlpha(c.muted and .6 or 1)
+                -- die anderen leicht abgedunkelt; mit neuen Nachrichten voll (das rote Atmen soll kraeftig bleiben)
+                b:SetAlpha(isActive and 1 or c.muted and .5 or unread > 0 and 1 or R.DIM)
                 local info = c.whisper and m.PersonInfo(c.whisper)
                 local on = info and info.online and true or false
                 b.online:SetShown(on)
@@ -309,8 +570,7 @@ function R:Update()
     for i = nl + 1, #self.lines do self.lines[i]:Hide() end
     -- vorletztes: Freunde (wie der Freunde-Knopf im Messenger, Nutzer 23.11.2026)
     local fb = self.friendsButton
-    fb:ClearAllPoints()
-    fb:SetPoint("TOP", f, "TOP", 0, -y)
+    Put(fb, y)
     m.PaintAvatar(fb.glass, p, .30, .70, 1, fb.iconPath, fb.iconPath and {0, 1, 0, 1} or nil, fb.letter, "F")
     fb.sel:Hide() fb.online:Hide() fb.onlineRim:Hide() fb.blink = nil
     local fOn = m.FriendsOnline and m.FriendsOnline() or 0
@@ -327,11 +587,12 @@ function R:Update()
     fb:Show()
     y = y + self.ICON + 4
     local w = self.windowButton
-    w:ClearAllPoints()
-    w:SetPoint("TOP", f, "TOP", 0, -y)
+    Put(w, y)
     m.PaintAvatar(w.glass, p, .6, .6, .65, w.iconPath, w.iconPath and {0, 1, 0, 1} or nil, w.letter, "+")
     w.sel:Hide() w.badge:Hide() w.count:Hide() w.online:Hide() w.onlineRim:Hide() w.blink = nil
-    f:SetHeight(y + self.ICON + 6)
+    if horiz then f:SetSize(y + self.ICON + 6, self.WIDTH) else f:SetSize(self.WIDTH, y + self.ICON + 6) end
+    self:LiftBottom()
+    self:PlaceAround()
 end
 -- Wappen zum Gilden-Einladen neben einem Fluester-Symbol, nur beim Drueberfahren (Nutzer 23.11.2026:
 -- "das Wappen zum Einladen dezent mit einfügen"). Sicherer Makro-Knopf (/ginvite), nur ausserhalb des Kampfs;
@@ -362,7 +623,7 @@ function R:BuildCrest()
     if hl.SetBlendMode then hl:SetBlendMode("ADD") end
     b:SetScript("OnEnter", function(btn)
         if not GameTooltip then return end
-        GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+        GameTooltip:SetOwner(btn, R.TipAnchor())
         GameTooltip:SetText(T("In die Gilde einladen"))
         GameTooltip:AddLine(T("Lädt %s in deine Gilde ein.", btn.target or "?"), .8, .8, .8, true)
         GameTooltip:Show()
@@ -394,7 +655,11 @@ function R:ShowCrest(icon)
     b.target, b.icon = name, icon
     b:SetAttribute("macrotext", "/ginvite " .. name)
     b:ClearAllPoints()
-    b:SetPoint("LEFT", icon, "RIGHT", 6, 0)
+    local side = R.Layout()
+    if side == "right" then b:SetPoint("RIGHT", icon, "LEFT", -6, 0)
+    elseif side == "top" then b:SetPoint("TOP", icon, "BOTTOM", 0, -6)
+    elseif side == "bottom" then b:SetPoint("BOTTOM", icon, "TOP", 0, 6)
+    else b:SetPoint("LEFT", icon, "RIGHT", 6, 0) end
     b:Show()
 end
 -- Tooltip: Name, letzte Nachricht, was Klicks tun
@@ -499,11 +764,12 @@ end
 -- ===== Blasen =====
 function R:BuildBubbleHost()
     local host = CreateFrame("Frame", nil, UIParent)
-    -- Abstand zur Leiste (Spieltest 23.11.2026: "zu nah an der Leiste")
-    host:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMRIGHT", self.BUBBLE_GAP, 0)
     host:SetSize(self.COLUMN_W, 10)
-    host:SetFrameStrata("MEDIUM")
+    host:SetFrameStrata("HIGH")
+    if host.SetClampedToScreen then host:SetClampedToScreen(true) end
     self.host = host
+    -- Abstand zur Leiste (Spieltest 23.11.2026: "zu nah an der Leiste"), auf der Seite zur Bildschirmmitte
+    self:PlaceAround(true)
 end
 function R:NewBubble()
     local b = CreateFrame("Button", nil, self.host)
@@ -574,7 +840,7 @@ function R.TipLinks(text)
 end
 function R:BubbleTip(btn)
     if not GameTooltip then return end
-    GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+    GameTooltip:SetOwner(btn, R.TipAnchor())
     local links = btn.links or {}
     local l = links[btn.linkIndex or 1]
     if l and pcall(GameTooltip.SetHyperlink, GameTooltip, l.link) then
@@ -766,13 +1032,18 @@ function R.RiseAlpha(rise, height)
 end
 -- unten die stehenden Blasen des geoeffneten Reiters, darueber steigen die anderen auf
 function R:LayoutBubbles()
+    if not self.host then return end
     local y = (self.quick and self.quick:IsShown()) and (self.QUICK_H + 6) or 0
+    -- Leiste oben: Blasen haengen darunter und sinken nach unten (gespiegelt)
+    local down = R.Layout() == "top"
+    local v, sign = down and "TOP" or "BOTTOM", down and -1 or 1
+    local pl, pr = v .. "LEFT", v .. "RIGHT"
     for i = #self.bubbles, 1, -1 do
         local b = self.bubbles[i]
         if b.static then
             b:ClearAllPoints()
-            if b.out then b:SetPoint("BOTTOMRIGHT", self.host, "BOTTOMRIGHT", 0, y)
-            else b:SetPoint("BOTTOMLEFT", self.host, "BOTTOMLEFT", 0, y) end
+            if b.out then b:SetPoint(pr, self.host, pr, 0, sign * y)
+            else b:SetPoint(pl, self.host, pl, 0, sign * y) end
             b:SetAlpha(1)
             y = y + (b:GetHeight() or 40) + 6
         end
@@ -782,8 +1053,8 @@ function R:LayoutBubbles()
         if not b.static then
             b:ClearAllPoints()
             -- ohne Runden: fliessend statt in Pixel-Spruengen (Spieltest 23.11.2026: "sehr ruckelig")
-            if b.out then b:SetPoint("BOTTOMRIGHT", self.host, "BOTTOMRIGHT", 0, y + (b.rise or 0))
-            else b:SetPoint("BOTTOMLEFT", self.host, "BOTTOMLEFT", 0, y + (b.rise or 0)) end
+            if b.out then b:SetPoint(pr, self.host, pr, 0, sign * (y + (b.rise or 0)))
+            else b:SetPoint(pl, self.host, pl, 0, sign * (y + (b.rise or 0))) end
             b:SetAlpha(R.RiseAlpha(b.rise, b:GetHeight()))
         end
     end
@@ -825,8 +1096,8 @@ function R:BuildQuick()
     m:Build()
     local q = CreateFrame("Frame", "GuildTripChatQuickInput", UIParent)
     q:SetSize(self.QUICK_W, self.QUICK_H)
-    q:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMRIGHT", 10, 0)
     q:SetFrameStrata("HIGH")
+    if q.SetClampedToScreen then q:SetClampedToScreen(true) end
     q:EnableMouse(true)
     -- kein Hintergrund, nur ein leichter Rand (Spielbild 23.11.2026: "nur ein leichter rand drumherum")
     q.border = {}
@@ -855,6 +1126,7 @@ function R:BuildQuick()
     q.to = to
     q:Hide()
     self.quick = q
+    self:PlaceAround(true)
     -- Fokus weg (Esc, Senden, Klick ins Spiel): Zeile schließt sich kurz danach
     local box = m.input
     local lost = box:GetScript("OnEditFocusLost")
@@ -993,9 +1265,15 @@ function R:PlaceWindow(f)
     local r = self.frame
     local rl, rb, rh = r and r.GetLeft and r:GetLeft(), r and r.GetBottom and r:GetBottom(), r and r.GetHeight and r:GetHeight()
     if not (rl and rb and rh) then return false end
+    local rw = (r.GetWidth and r:GetWidth()) or 0
     local k = ES(r) / ES(f)
+    local side = R.Layout()
     f:ClearAllPoints()
-    f:SetPoint("LEFT", UIParent, "BOTTOMLEFT", rl * k, (rb + rh / 2) * k)
+    -- Fenster beginnt dort, wo die Leiste war (gleicher Rand), Mitte auf Mitte der Leiste
+    if side == "right" then f:SetPoint("RIGHT", UIParent, "BOTTOMLEFT", (rl + rw) * k, (rb + rh / 2) * k)
+    elseif side == "top" then f:SetPoint("TOP", UIParent, "BOTTOMLEFT", (rl + rw / 2) * k, (rb + rh) * k)
+    elseif side == "bottom" then f:SetPoint("BOTTOM", UIParent, "BOTTOMLEFT", (rl + rw / 2) * k, rb * k)
+    else f:SetPoint("LEFT", UIParent, "BOTTOMLEFT", rl * k, (rb + rh / 2) * k) end
     return true
 end
 -- ShowView ruft das zuerst: Zeile zurück ins Fenster, Blasen weg; frisch geoeffnet -> an die Leiste
@@ -1047,14 +1325,25 @@ function R:Animate(opening, done)
     if c.SetScale then c:SetScale(ES(f) / (ES(UIParent) * fs)) end
     c:SetFrameStrata("MEDIUM")
     c:ClearAllPoints()
-    c:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", L * fs, Tp * fs)
-    c:SetHeight(H * fs)
-    c:SetWidth(opening and 1 or W * fs)
+    -- der Rahmen waechst von der Leistenseite aus (links/rechts in der Breite, oben/unten in der Hoehe)
+    local side = R.Layout()
+    local vertical = side == "top" or side == "bottom"
+    local anchor = side == "right" and "TOPRIGHT" or side == "bottom" and "BOTTOMLEFT" or "TOPLEFT"
+    local ax = side == "right" and (L + W) or L
+    local ay = side == "bottom" and (Tp - H) or Tp
+    c:SetPoint(anchor, UIParent, "BOTTOMLEFT", ax * fs, ay * fs)
+    if vertical then
+        c:SetWidth(W * fs)
+        c:SetHeight(opening and 1 or H * fs)
+    else
+        c:SetHeight(H * fs)
+        c:SetWidth(opening and 1 or W * fs)
+    end
     c:Show()
     f:SetParent(c)
     f:ClearAllPoints()
-    f:SetPoint("TOPLEFT", c, "TOPLEFT", 0, 0)
-    local anim = {t = 0, opening = opening, W = W * fs, L = L, Tp = Tp, done = done}
+    f:SetPoint(anchor, c, anchor, 0, 0)
+    local anim = {t = 0, opening = opening, W = (vertical and H or W) * fs, vertical = vertical, L = L, Tp = Tp, done = done}
     self.anim = anim
     c:SetScript("OnUpdate", function(_, elapsed) R:AnimStep(elapsed or 0) end)
     return true
@@ -1066,7 +1355,7 @@ function R:AnimStep(elapsed)
     local p = math.min(1, a.t / self.ANIM)
     local e = 1 - (1 - p) * (1 - p)     -- weich auslaufen
     local w = a.opening and e or (1 - e)
-    c:SetWidth(math.max(1, a.W * w))
+    if a.vertical then c:SetHeight(math.max(1, a.W * w)) else c:SetWidth(math.max(1, a.W * w)) end
     if p >= 1 then self:EndAnim() end
 end
 function R:EndAnim()
@@ -1090,17 +1379,20 @@ function R.BreathX(now)
     return (1 - math.cos(2 * math.pi * (now % R.BLINK_T) / R.BLINK_T)) / 2
 end
 -- Bild heller, Glanz staerker, eigener Rand in Richtung Leuchtfarbe – nichts kommt dazu
+-- Rand atmet in kraeftigem Rot (Nutzer 24.11.2026: "umrandungen ... in einem kräftigen rot atmen"),
+-- der Glaskreis faerbt sich leicht mit, Bild heller, Glanz
+R.BREATH_RED = {1, .1, .1}
 function R.Breathe(b, x, glow)
     local a, base = b.glass, b.base
     if not (a and base) then return end
-    -- kraeftiger (Nutzer 23.11.2026: "noch intensiver und farblich auffälliger"): Rand ganz in der Leuchtfarbe,
-    -- Glaskreis faerbt sich ein, Bild heller, starker Glanz
-    a.ring:SetVertexColor(base[1] + (glow[1] - base[1]) * x, base[2] + (glow[2] - base[2]) * x, base[3] + (glow[3] - base[3]) * x, .65 + .35 * x)
+    local red = R.BREATH_RED
+    a.ring:SetVertexColor(base[1] + (red[1] - base[1]) * x, base[2] + (red[2] - base[2]) * x, base[3] + (red[3] - base[3]) * x, .65 + .35 * x)
     local av = b.baseAv
     if av and a.av then
-        a.av:SetVertexColor(av[1] + (glow[1] - av[1]) * x, av[2] + (glow[2] - av[2]) * x, av[3] + (glow[3] - av[3]) * x, av[4] + (.95 - av[4]) * x)
+        local k = .45 * x
+        a.av:SetVertexColor(av[1] + (red[1] - av[1]) * k, av[2] + (red[2] - av[2]) * k, av[3] + (red[3] - av[3]) * k, av[4] + (.9 - av[4]) * x)
     end
-    a.shine:SetVertexColor(1, 1, 1, .30 + .55 * x)
+    a.shine:SetVertexColor(1, 1, 1, .30 + .45 * x)
     if base[4] then
         local v = base[4] + (1 - base[4]) * x
         a.icon:SetVertexColor(v, v, v, .92 + .08 * x)
@@ -1111,6 +1403,7 @@ end
 function R:Tick(elapsed)
     if not R.Active() then return end
     local now = Now()
+    if self.dragging then self:UpdateGhost() end
     -- Vorschau: verweilen startet, Maus weg (nicht Symbol, nicht eine stehende Blase) beendet
     local hi = self.hoverIcon
     if hi then

@@ -235,6 +235,13 @@ for k = 2, #shown do
 end
 assert(gapSame and gapGroup and gapGroup > gapSame, "Abstand zwischen den Gruppen")
 assert(shown[1].sel.shown, "aktives Gespraech leuchtet")
+-- Nutzer 24.11.2026: statt Ring Leuchtstrich aussen, aktiv groesser, andere leicht abgedunkelt
+local act = shown[1]
+assert(act.sel.w == R.MARK_W and act.sel.h == R.MARK_LEN and act.sel.points[1][1] == "RIGHT", "Strich links aussen")
+assert(act.w == R.ICON + 4 and act.alpha == 1, "aktiv groesser, voll")
+local other
+for _, b in ipairs(shown) do if b ~= act and not b.sel.shown and (b.conv.unread or 0) == 0 and not b.conv.muted then other = b end end
+if other then assert(other.w == R.ICON and other.alpha == R.DIM, "andere normal gross, abgedunkelt") end
 -- Klick auf Fluestern: wird aktiv (Blasen von dort), Fenster bleibt zu
 local brakk
 for _, b in ipairs(shown) do if b.conv.view == "w:Brakk" then brakk = b end end
@@ -539,10 +546,15 @@ local before = gb.breath
 R:Update()
 assert(gb.breath and math.abs(gb.breath - before) < .03, "Neuzeichnen bleibt im Atemzug")
 assert(gb.glass.ring.color[4] > .65 or R.BreathX(clock) < .01, "Rand leuchtet auf")
--- kraeftiger: Glaskreis faerbt sich zur Leuchtfarbe
-R.Breathe(gb, 1, {1, 0, 0})
-assert(gb.glass.av.color[1] == 1 and gb.glass.av.color[2] == 0 and gb.glass.av.color[4] >= .9, "Kreis in Leuchtfarbe")
-assert(gb.glass.shine.color[4] >= .8, "starker Glanz")
+-- Rand in kraeftigem Rot (Nutzer 24.11.2026), Kreis leicht mitgefaerbt, egal welche Leuchtfarbe
+R.Breathe(gb, 1, {0, 1, 0})
+local rc = gb.glass.ring.color
+assert(rc[1] == 1 and rc[2] < .2 and rc[3] < .2 and rc[4] == 1, "Rand kraeftig rot")
+local ac = gb.glass.av.color
+assert(ac[1] > ac[2] and ac[1] > ac[3] and ac[4] >= .85, "Kreis rot angehaucht")
+assert(gb.glass.shine.color[4] >= .7, "Glanz")
+R.Breathe(gb, 0, {0, 1, 0})
+assert(gb.glass.ring.color[4] == .65, "ausgeatmet: normaler Rand")
 Chat:Settings().railBlink = false
 R:Update()
 assert(not gb.blink, "Atmen abschaltbar")
@@ -575,4 +587,179 @@ assert(not R.Active() and not ids["chat.railWhisper"].visible(), "zurueck zu Mes
 local found0
 for _, o in ipairs(ids["chat.opacity"].options()) do if o.value == 0 then found0 = o.text end end
 assert(found0 and found0:find("durchsichtig", 1, true), "Hintergrund 0 % waehlbar")
+
+-- 8) Einrasten am Bildschirmrand (Nutzer 24.11.2026): links, rechts, oben, unten; frei bleibt frei
+Chat:Settings().style = "rail"
+Chat:Settings().rail = true
+R:Apply()
+assert(R.Active() and R.frame.shown, "Leiste wieder an")
+UIParent.GetWidth = function() return 1920 end
+UIParent.GetHeight = function() return 1080 end
+local W, H = 1920, 1080
+-- Rand-Erkennung
+local side, pt = R.SnapPoint(20, 500, 38, 300, W, H)
+assert(side == "left" and pt[1] == "LEFT" and pt[3] == R.EDGE, "links Mitte")
+side, pt = R.SnapPoint(W - 38 - 10, 800, 38, 250, W, H)
+assert(side == "right" and pt[1] == "TOPRIGHT" and pt[3] == -R.EDGE and pt[4] < 0, "rechts oben: Ecke bleibt")
+side, pt = R.SnapPoint(900, H - 300 - 15, 38, 300, W, H)
+assert(side == "top" and pt[1] == "TOP" and pt[4] == -R.EDGE, "oben Mitte")
+side, pt = R.SnapPoint(1700, 10, 38, 300, W, H)
+assert(side == "bottom" and pt[1] == "BOTTOMRIGHT" and pt[4] == R.EDGE, "unten rechts")
+assert(R.SnapPoint(900, 400, 38, 300, W, H) == nil, "mitten im Bild: frei")
+-- Ecken (Spieltest 24.11.2026): waagerecht bleibt waagerecht, senkrecht bleibt senkrecht, ganz in die Ecke
+side, pt = R.SnapPoint(10, H - 38 - 5, 300, 38, W, H, true)
+assert(side == "top" and pt[1] == "TOPLEFT" and pt[3] == R.EDGE and pt[4] == -R.EDGE, "waagerecht oben links in der Ecke")
+side, pt = R.SnapPoint(W - 300 - 8, 6, 300, 38, W, H, true)
+assert(side == "bottom" and pt[1] == "BOTTOMRIGHT" and pt[3] == -R.EDGE and pt[4] == R.EDGE, "waagerecht unten rechts in der Ecke")
+side, pt = R.SnapPoint(5, H - 300 - 8, 38, 300, W, H, false)
+assert(side == "left" and pt[1] == "TOPLEFT" and pt[4] == -R.EDGE, "senkrecht oben links bleibt senkrecht")
+side, pt = R.SnapPoint(W - 38 - 4, 3, 38, 300, W, H, false)
+assert(side == "right" and pt[1] == "BOTTOMRIGHT" and pt[4] == R.EDGE, "senkrecht unten rechts")
+-- waagerecht an den linken Rand (nicht Ecke): wird senkrecht
+side = R.SnapPoint(5, 500, 300, 38, W, H, true)
+assert(side == "left", "waagerecht an die Seite: senkrecht")
+-- Loslassen rastet ein und merkt sich Seite + Stelle
+local railGetW, railGetH = R.frame.GetWidth, R.frame.GetHeight
+local function DropAt(l, b, w, h)
+    R.frame.GetLeft = function() return l end
+    R.frame.GetBottom = function() return b end
+    R.frame.GetWidth = function() return w end
+    R.frame.GetHeight = function() return h end
+    R:StopDrag()
+    R.frame.GetWidth, R.frame.GetHeight = railGetW, railGetH
+end
+DropAt(900, H - 315, 38, 300)
+assert(Chat:Settings().railSide == "top" and Chat:Settings().railPoint[1] == "TOP", "oben eingerastet")
+assert(R.Horizontal() and R.frame.w > R.frame.h, "oben: Leiste waagerecht")
+local icon1
+for _, b in ipairs(R.icons) do if b.shown then icon1 = b break end end
+assert(icon1.points[1][1] == "LEFT", "Symbole nebeneinander")
+local hpTop = R.host.points[#R.host.points]
+assert(hpTop[1] == "TOP" and hpTop[3] == "BOTTOM" and hpTop[5] < 0, "Blasen unter der Leiste")
+-- oben: Blasen haengen darunter und sinken
+R:ClearBubbles()
+Guild("von oben")
+local tb = R.bubbles[1]
+local tp = tb.points[#tb.points]
+assert(tp[1]:find("^TOP") and tp[5] <= 0, "Blase haengt nach unten")
+R:Tick(1)
+tp = tb.points[#tb.points]
+assert(tp[5] < 0, "sinkt nach unten: " .. tostring(tp[5]))
+-- Eingabezeile unter der Leiste, Listen darunter
+UI:OpenInput()
+local qp = R.quick.points[#R.quick.points]
+assert(qp[1] == "TOP" and qp[3] == "BOTTOM", "Eingabezeile unter der Leiste")
+local bp = R.bubbles[1].points[#R.bubbles[1].points]
+assert(bp[5] <= -(R.QUICK_H + 6), "Blasen unter der Eingabezeile")
+if M.picker then
+    M:PlaceOverlay(M.picker, 20)
+    assert(M.picker.points[1][1] == "TOPLEFT" and M.picker.points[1][3] == "BOTTOMLEFT", "Emojis unter der Zeile")
+end
+R:CloseInput()
+-- Fenster klappt von oben nach unten auf
+R.frame.GetLeft = function() return 900 end
+R.frame.GetBottom = function() return H - 40 end
+R.frame.GetHeight = function() return 38 end
+R.frame.GetWidth = function() return 300 end
+M.frame.GetLeft = function() return 730 end
+M.frame.GetTop = function() return H - 2 end
+M.frame.fixedW, M.frame.fixedH = 640, 420
+UI:Show("guild")
+local wp = M.frame.points[1]
+assert(R.clip.points[1][1] == "TOPLEFT" and R.anim and R.anim.vertical, "Vorhang von oben")
+assert(R.clip.h < 10 and R.clip.w == 640, "beginnt flach an der Leiste")
+R:AnimStep(R.ANIM / 2)
+assert(R.clip.h > 100 and R.clip.h < 420, "halb offen nach unten: " .. R.clip.h)
+R:AnimStep(R.ANIM)
+M:Hide()
+R:AnimStep(R.ANIM + .1)
+assert(not M.frame.shown and R.frame.shown, "zu: Leiste oben wieder da")
+-- rechts: senkrecht, alles nach links
+DropAt(W - 45, 400, 300, 38)
+assert(Chat:Settings().railSide == "right" and not R.Horizontal() and R.frame.h > R.frame.w, "rechts: senkrecht")
+local hpR = R.host.points[#R.host.points]
+assert(hpR[1] == "BOTTOMRIGHT" and hpR[3] == "BOTTOMLEFT" and hpR[4] < 0, "Blasen links der Leiste")
+assert(R.TipAnchor() == "ANCHOR_LEFT", "Tooltip nach links")
+R.frame.GetLeft = function() return W - 40 end
+R.frame.GetBottom = function() return 400 end
+R.frame.GetHeight = function() return 300 end
+R.frame.GetWidth = function() return 38 end
+M:Hide(true)
+R.frame.shown = true
+UI:Show("guild")
+assert(M.frame.points[1][1] == "TOPRIGHT" or M.frame.points[#M.frame.points][1] == "RIGHT", "Fenster am rechten Rand")
+assert(R.clip.points[1][1] == "TOPRIGHT" and not R.anim.vertical, "Vorhang von rechts")
+R:AnimStep(R.ANIM + .1)
+M:Hide()
+R:AnimStep(R.ANIM + .1)
+-- unten: waagerecht, Blasen steigen darueber
+DropAt(900, 8, 38, 300)
+assert(Chat:Settings().railSide == "bottom" and R.Horizontal(), "unten: waagerecht")
+local hpB = R.host.points[#R.host.points]
+assert(hpB[1] == "BOTTOM" and hpB[3] == "TOP" and hpB[5] > 0, "Blasen ueber der Leiste")
+R:ClearBubbles()
+Guild("von unten")
+local ub = R.bubbles[1].points[#R.bubbles[1].points]
+assert(ub[1]:find("^BOTTOM") and ub[5] >= 0, "Blase steigt nach oben")
+-- unten: ueber den Aktionsleisten, nicht dahinter (Spieltest 24.11.2026)
+local function Bar(l, b, w, h) return {IsVisible = function() return true end, GetTop = function() return b + h end,
+    GetBottom = function() return b end, GetLeft = function() return l end, GetRight = function() return l + w end} end
+MainActionBar = Bar(700, 0, 520, 45)
+MultiBarBottomLeft = Bar(700, 45, 520, 45)
+MicroMenuContainer = Bar(1600, 0, 300, 40)
+assert(R.BottomInset(800, 1000) == 90, "ueber beiden Leisten")
+assert(R.BottomInset(100, 300) == 0, "links frei: kein Abstand")
+assert(R.BottomInset(1650, 1700) == 40, "ueber dem Menue")
+DropAt(900, 8, 38, 300)
+local rp = R.frame.points[#R.frame.points]
+assert(rp[1] == "BOTTOM" and rp[5] == R.EDGE + 90, "Leiste sitzt ueber den Aktionsleisten: " .. tostring(rp[5]))
+MultiBarBottomLeft.IsVisible = function() return false end
+R:Update()
+rp = R.frame.points[#R.frame.points]
+assert(rp[5] == R.EDGE + 45, "Leiste ausgeblendet: rutscht nach")
+-- Knopf statt Leiste erkannt (anderer Name im Client)
+MultiBarBottomLeft = nil
+MainActionBar = nil
+ActionButton3 = Bar(850, 0, 40, 40)
+R:Update()
+assert(R.frame.points[#R.frame.points][5] == R.EDGE + 40, "einzelner Aktionsknopf reicht")
+-- Notausgang /trip leiste
+R:Reset()
+assert(Chat:Settings().railSide == nil and Chat:Settings().railPoint == nil, "Reset: frei")
+assert(R.frame.points[#R.frame.points][1] == "LEFT" and not R.Horizontal(), "Reset: links, senkrecht")
+assert(ONE.printed and ONE.printed:find("ActionButton3=40", 1, true), "Reset nennt erkannte Leisten: " .. tostring(ONE.printed))
+ActionButton3 = nil
+DropAt(900, 8, 38, 300)
+MainActionBar, MultiBarBottomLeft, MicroMenuContainer = nil, nil, nil
+R:Update()
+assert(R.frame.points[#R.frame.points][5] == R.EDGE, "ohne Leisten am Rand")
+-- Umriss beim Ziehen (Nutzer 24.11.2026): zeigt Lage und Stelle, bevor man loslaesst
+R:StartDrag()
+R.frame.GetLeft = function() return 900 end
+R.frame.GetBottom = function() return H - 300 - 10 end
+R.frame.GetWidth = function() return 38 end
+R.frame.GetHeight = function() return 300 end
+Chat:Settings().railSide = nil
+R:Tick(.01)
+assert(R.ghost and R.ghost.shown, "Umriss am oberen Rand")
+assert(R.ghost.w == 300 and R.ghost.h == R.WIDTH, "Umriss schon waagerecht")
+assert(R.ghost.points[1][1] == "TOP", "Umriss oben")
+R.frame.GetBottom = function() return 400 end
+R:Tick(.01)
+assert(not R.ghost.shown, "mitten im Bild: kein Umriss")
+R.frame.GetLeft = function() return 4 end
+R:Tick(.01)
+assert(R.ghost.shown and R.ghost.w == R.WIDTH and R.ghost.h == 300, "links: Umriss senkrecht")
+R:StopDrag()
+assert(not R.ghost.shown and Chat:Settings().railSide == "left", "losgelassen: Umriss weg, eingerastet")
+R.frame.GetWidth, R.frame.GetHeight = railGetW, railGetH
+-- frei im Bild: senkrecht, Seite nach Bildschirmhaelfte
+DropAt(1400, 400, 300, 38)
+assert(Chat:Settings().railSide == nil and not R.Horizontal(), "frei: senkrecht")
+R.frame.GetLeft = function() return 1400 end
+R.frame.GetWidth = function() return 38 end
+assert(R.Layout() == "right", "frei in der rechten Haelfte: Blasen nach links")
+R.frame.GetLeft = function() return 300 end
+assert(R.Layout() == "left", "frei links: wie bisher")
+M.frame.GetLeft, M.frame.GetTop, M.frame.fixedW, M.frame.fixedH = nil, nil, nil, nil
 print("OK test_rail_166")

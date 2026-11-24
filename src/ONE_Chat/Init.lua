@@ -39,6 +39,7 @@ ONE:RegisterModule("chat", {
         Chat.listeners[#Chat.listeners + 1] = function(entry, views, update) UI:OnMessage(entry, views, update) end
 
         ONE:RegisterSlash("chat", function() UI:Toggle() end, T("Guild-Trip-Chat öffnen/schließen"))
+        ONE:RegisterSlash("leiste", function() if chat.Rail.Active() then chat.Rail:Build() end chat.Rail:Reset() end, T("Chat-Leiste zurück an den linken Rand holen"))
         ONE:RegisterSlash("chatdiag", function()
             local lines = UI:Diag()
             ONE.db.chatDiag = {time = time and time() or 0, lines = lines}

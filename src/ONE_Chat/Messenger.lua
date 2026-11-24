@@ -1378,6 +1378,10 @@ function M:PlaceOverlay(f, level)
     if host == self.main then
         f:SetPoint("BOTTOMLEFT", self.log, "BOTTOMLEFT", 4, 4)
         f:SetPoint("BOTTOMRIGHT", self.log, "BOTTOMRIGHT", -4, 4)
+    elseif R.Layout and R.Layout() == "top" then
+        -- Leiste oben: Listen unter der Zeile (darueber ist der Bildschirmrand)
+        f:SetPoint("TOPLEFT", host, "BOTTOMLEFT", 0, -4)
+        f:SetPoint("TOPRIGHT", host, "BOTTOMRIGHT", 0, -4)
     else
         f:SetPoint("BOTTOMLEFT", host, "TOPLEFT", 0, 4)
         f:SetPoint("BOTTOMRIGHT", host, "TOPRIGHT", 0, 4)

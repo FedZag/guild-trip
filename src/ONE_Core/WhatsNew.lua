@@ -10,6 +10,10 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.8.5-alpha"] = {
+        "Chat-Randleiste: rastet an jedem Bildschirmrand und in den Ecken ein, unten über den Aktionsleisten; /trip leiste holt sie zurück",
+        "Randleiste: Umriss beim Ziehen, Symbole atmen rot bei neuen Nachrichten, aktives Gespräch mit Leuchtstrich",
+    },
     ["0.8.4-alpha"] = {
         "Quest-Führung als Schleife je Gebiet: alle Quests am Stützpunkt annehmen, Ziele der Reihe nach, alles abgeben – dann die nächste Runde",
         "Elite-Quests mit „GRUPPE“ im Kasten: keine Gruppe? Klick schiebt sie ans Ende der Runde, zweiter Klick nimmt sie raus",
