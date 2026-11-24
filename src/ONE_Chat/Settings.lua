@@ -28,17 +28,35 @@ UI.settingChecks = {
 }
 UI.fontSizes = {12, 13, 14, 16, 18, 20}
 -- Auswahlfelder (Spalte Aussehen): {Schluessel, Beschriftung, Werte {Wert, Text}, nach dem Aendern}
-local function Pct(list) local out = {} for _, v in ipairs(list) do out[#out + 1] = {v, v >= 1 and "100 %" or (math.floor(v * 100 + .5) .. " %")} end return out end
+local function Pct(list)
+    local out = {}
+    for _, v in ipairs(list) do
+        out[#out + 1] = {v, v >= 1 and "100 %" or v <= 0 and T("0 % (durchsichtig)") or (math.floor(v * 100 + .5) .. " %")}
+    end
+    return out
+end
 UI.settingDrops = {
     {"fontSize", "Schriftgröße", function() local o = {} for _, n in ipairs(UI.fontSizes) do o[#o + 1] = {n, tostring(n)} end return o end, function(v) UI:SetFontSize(v) end},
     {"spacing", "Zeilenabstand", function() return {{0, T("eng")}, {2, T("normal")}, {4, T("weit")}, {7, T("sehr weit")}} end, Look},
-    {"opacity", "Hintergrund", function() return Pct({1, .85, .7, .55, .4, .25}) end, Look},
+    {"opacity", "Hintergrund", function() return Pct({1, .85, .7, .55, .4, .25, .1, 0}) end, Look},
     {"idleAlpha", "Ohne Maus", function()
         local o = {{1, T("immer sichtbar")}}
         for _, v in ipairs({.6, .35, .15}) do o[#o + 1] = {v, T("auf %d %% ausblenden", math.floor(v * 100 + .5))} end
         return o
     end, Look},
 }
+
+-- Stil des Chats als ein Wert: "messenger", "rail" (Messenger mit Randleiste) oder "classic"
+function UI.StyleSetting()
+    local s = Chat:Settings()
+    if s.style == "classic" then return "classic" end
+    return s.rail == true and "rail" or "messenger"
+end
+function UI.SetStyle(v)
+    local s = Chat:Settings()
+    s.style = v == "classic" and "classic" or "messenger"
+    s.rail = v == "rail" or nil
+end
 
 -- Wert lesen (whisperHere ist "an", solange nicht ausdruecklich aus)
 function UI.SettingOn(key)
@@ -83,13 +101,27 @@ function UI:SettingDefs()
             local other = Chat.OtherChatAddon()
             return other and ("|cffffd100" .. T("%s erkannt:", other) .. "|r " .. T("Töne ggf. dort oder hier abschalten, sonst klingt es doppelt. „WoW-Chat ausblenden“ bleibt gesperrt.")) or ""
         end})
+    -- Stil: Messenger, Randleiste (Messenger + Leiste, Nutzer 23.11.2026: "sehr versteckt … als eigenen Stil"),
+    -- Klassisch. Messenger <-> Randleiste wirkt sofort, Klassisch braucht /reload.
     Add({id = "chat.style", section = "Stil", order = 5, kind = "dropdown", label = "Stil des Chats", width = 220,
-        tooltip = "Messenger: Gesprächsliste und Sprechblasen. Klassisch: Reiter oben, Zeilen wie im WoW-Chat. Wirkt nach /reload.",
-        options = function() return {{value = "messenger", text = T("Messenger")}, {value = "classic", text = T("Klassisch")}} end,
-        get = function() return Chat:Settings().style end,
-        set = function(v) Chat:Settings().style = v == "classic" and "classic" or "messenger" end,
-        reload = true,
-        onChange = function() ONE:Print(T("Der Stil des Chats ändert sich nach /reload.")) end})
+        tooltip = "Messenger: Gesprächsliste und Sprechblasen. Randleiste: nur eine schmale Leiste am Rand, neue Nachrichten steigen als Blasen auf, Enter öffnet nur die Eingabezeile. Klassisch: Reiter oben, Zeilen wie im WoW-Chat (wirkt nach /reload).",
+        options = function()
+            return {{value = "messenger", text = T("Messenger")}, {value = "rail", text = T("Randleiste")}, {value = "classic", text = T("Klassisch")}}
+        end,
+        get = function() return UI.StyleSetting() end,
+        set = function(v) UI.SetStyle(v) end,
+        onChange = function(v)
+            -- laeuft gerade der Messenger (auch als Randleiste)? Wechsel von/zu Klassisch braucht /reload
+            local running = UI.style == "messenger" and "messenger" or "classic"
+            local want = v == "classic" and "classic" or "messenger"
+            if running ~= want then
+                UI.needReload = true
+                ONE:Print(T("Der Stil des Chats ändert sich nach /reload."))
+            elseif chat.Rail then
+                chat.Rail:Apply()
+                if v == "rail" then ONE:Print(T("Randleiste an: Schließ das Chatfenster – dann bleibt nur die Leiste links. Enter öffnet die Eingabezeile.")) end
+            end
+        end})
     for i, c in ipairs(self.settingChecks) do
         local key, after, col = c[1], c[4], c[5] or 1
         Add({id = "chat." .. key, section = SECTION[col], order = col * 100 + i, label = c[2], tooltip = c[3],
@@ -149,6 +181,37 @@ function UI:SettingDefs()
         get = function() return Chat:Settings().classIcons ~= false end,
         set = function(on) Chat:Settings().classIcons = on and true or false end,
         onChange = function() UI:Render() end})
+    -- Randleiste statt Fenster (Nutzerwunsch 23.11.2026)
+    local function RailOn() return Messenger() and Chat:Settings().rail == true end
+    Add({id = "chat.railWhisper", section = "Randleiste", order = 251, label = "Flüstern immer als Blase", visible = RailOn,
+        tooltip = "Auch wenn gerade ein anderes Gespräch aktiv ist (z. B. Gilde), erscheint eine Flüsternachricht als Blase.",
+        get = function() return Chat:Settings().railWhisper ~= false end,
+        set = function(on) Chat:Settings().railWhisper = on and true or false end})
+    Add({id = "chat.railTime", section = "Randleiste", order = 252, kind = "dropdown", label = "Blasen sichtbar", width = 180, visible = RailOn,
+        tooltip = "So lange schwebt eine Blase, dann verblasst sie. Maus drüber hält sie fest.",
+        options = function()
+            local out = {}
+            for _, v in ipairs({10, 20, 30, 45, 60}) do out[#out + 1] = {value = v, text = T("%d Sekunden", v)} end
+            return out
+        end,
+        get = function() return tonumber(Chat:Settings().railTime) or 20 end,
+        set = function(v) Chat:Settings().railTime = v ~= 20 and v or nil end})
+    Add({id = "chat.railBlink", section = "Randleiste", order = 253, label = "Symbole mit neuen Nachrichten blinken", visible = RailOn,
+        tooltip = "Ein Leuchtring pulsiert um jedes Gespräch, in dem ungelesene Nachrichten warten (nicht bei stummen).",
+        get = function() return Chat:Settings().railBlink ~= false end,
+        set = function(on) Chat:Settings().railBlink = on and true or false end,
+        onChange = function() if chat.Rail then chat.Rail:Update() end end})
+    Add({id = "chat.railAutoClose", section = "Randleiste", order = 254, kind = "dropdown", label = "Fenster schließt sich von selbst", width = 180, visible = RailOn,
+        tooltip = "Das Chatfenster klappt zur Leiste zu, wenn so lange weder die Maus darauf war noch getippt wurde.",
+        options = function()
+            local out = {{value = 0, text = T("aus")}}
+            for _, v in ipairs({30, 60, 120, 300}) do
+                out[#out + 1] = {value = v, text = v < 60 and T("nach %d Sekunden", v) or T("nach %d Min.", v / 60)}
+            end
+            return out
+        end,
+        get = function() return tonumber(Chat:Settings().railAutoClose) or 0 end,
+        set = function(v) Chat:Settings().railAutoClose = (tonumber(v) or 0) > 0 and v or nil end})
     self:RegisterLookSettings(Add, SECTION[2])
     for i, o in ipairs(self.settingDrops) do
         local key, values, after = o[1], o[3], o[4]

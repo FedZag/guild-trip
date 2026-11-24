@@ -106,7 +106,8 @@ function Hider:Apply()
     self:Bind(on)
     if on then
         -- Ohne WoW-Chat muss der eigene Chat da sein
-        if UI.Show and not (UI.frame and UI.frame:IsShown()) then UI:Show() end
+        local rail = chat.Rail and chat.Rail.Active and chat.Rail.Active()
+        if UI.Show and not rail and not (UI.frame and UI.frame:IsShown()) then UI:Show() end
     end
     if UI.RefreshLauncher then UI:RefreshLauncher() end
 end
@@ -115,19 +116,14 @@ end
 function Hider:Bind(on)
     if not self.opener then
         local b = CreateFrame("Button", "GuildTripChatOpener", UIParent)
-        b:SetScript("OnClick", function(_, _, _, text)
-            UI:Show()
-            if UI.input then
-                UI.input:SetFocus()
-                if Hider.pendingText then UI.input:SetText(Hider.pendingText) Hider.pendingText = nil end
-            end
+        b:SetScript("OnClick", function()
+            local text = Hider.pendingText
+            Hider.pendingText = nil
+            UI:OpenInput(nil, text)
         end)
         self.opener = b
         local slash = CreateFrame("Button", "GuildTripChatOpenerSlash", UIParent)
-        slash:SetScript("OnClick", function()
-            UI:Show()
-            if UI.input then UI.input:SetFocus() UI.input:SetText("/") end
-        end)
+        slash:SetScript("OnClick", function() UI:OpenInput(nil, "/") end)
         self.openerSlash = slash
     end
     if not (SetOverrideBindingClick and ClearOverrideBindings) then return end
@@ -143,34 +139,16 @@ end
 -- Antworten-Taste (R), "Fluestern" im WoW-Rechtsklick-Menue, Freundesliste, andere Addons (ChatFrame_OpenChat):
 -- Ist der WoW-Chat ersetzt, landet die Eingabe sonst im unsichtbaren WoW-Feld. Stiller Nach-Hook: stattdessen
 -- das passende Gespraech hier oeffnen und den Text in unser Eingabefeld.
-function Hider.WhisperFromText(text)
-    text = tostring(text or "")
-    local cmd, name, rest = text:match("^(/%S+)%s+([^%s]+)%s*(.-)$")
-    if not cmd then return nil end
-    local low = cmd:lower()
-    for _, key in ipairs({"SLASH_WHISPER", "SLASH_SMART_WHISPER"}) do
-        for i = 1, 10 do
-            local c = rawget(_G, key .. i)
-            if type(c) == "string" and c:lower() == low then return name, rest end
-        end
-    end
-    if low == "/w" or low == "/whisper" or low == "/t" or low == "/tell" or low == "/fl" or low == "/flüstern" then return name, rest end
-    return nil
-end
+function Hider.WhisperFromText(text) return Chat.WhisperCommand(text) end
 function Hider:TakeInput(text, whisperTo)
     if not self:Enabled() then return false end
     local function Go()
         local name, rest = whisperTo, nil
         if not name then name, rest = Hider.WhisperFromText(text) end
         if name and name ~= "" then
-            UI:Show(Chat:OpenWhisper(name))
-            text = rest or ""
+            UI:OpenInput(Chat:OpenWhisper(name), rest or "")
         else
-            UI:Show()
-        end
-        if UI.input then
-            UI.input:SetFocus()
-            if text and text ~= "" then UI.input:SetText(text) end
+            UI:OpenInput(nil, text)
         end
     end
     if C_Timer and C_Timer.After then C_Timer.After(0, Go) else Go() end

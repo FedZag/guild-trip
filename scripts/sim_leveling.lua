@@ -18,6 +18,22 @@ for _, f in ipairs({"Planner", "FlightMasters", "Inns"}) do
     assert(loadfile(file))("ONE_Leveling", lev)
 end
 local P = lev.Planner
+-- SIM_FOLLOW=<Routes.lua>: wie im Spiel der festen Route folgen (ctx.route, Guide.RouteFollow) statt frei planen –
+-- die Gegenprobe "was zeigt der Kasten?" (Nutzer 23.11.2026: "so kann man das niemandem praesentieren"). Zaehlt
+-- EINZEL (Fussweg > 1500 m fuer weniger als einen Block Arbeit) und Hauen-Bloecke > P.ROUTE_GRIND_MAX.
+local FOLLOW, G
+if os.getenv("SIM_FOLLOW") then
+    local function Stub() return setmetatable({}, {__index = function() return function() end end}) end
+    CreateFrame = CreateFrame or function() return Stub() end
+    UIParent = UIParent or Stub()
+    _G.ProjectONE = _G.ProjectONE or {db = {}, modules = {}, ns = {}}
+    assert(loadfile(root .. "/ONE_Leveling/Guide.lua"))("ONE_Leveling", lev)
+    G = lev.Guide
+    for k, v in (os.getenv("SIM_GSET") or ""):gmatch("([%w_]+)=([%d.e+]+)") do G[k] = tonumber(v) end
+    GuildTripQuestRoutes = nil
+    assert(loadfile(os.getenv("SIM_FOLLOW")))()
+    FOLLOW = GuildTripQuestRoutes
+end
 -- SIM_SET="NAME=Wert,NAME=Wert": Planer-Werte probeweise aendern (z. B. SIM_SET=FOLLOW_WORK=3)
 for k, v in (os.getenv("SIM_SET") or ""):gmatch("([%w_]+)=([%d.]+)") do P[k] = tonumber(v) end
 -- SIM_SCEN="Fraktion,Volk,KLASSE,Karte,x,y,HeimKarte,hx,hy": eigene Lage (Schluessel "custom", fuer build_routes.sh)
@@ -33,6 +49,13 @@ do
     end
 end
 local Q = GuildTripQuestDB
+-- Dungeons (Nutzer 23.11.2026 "Dungeon-Quests einbauen"): Stufen aus dem Katalog, Eingaenge aus EntranceData
+local DG = {}
+assert(loadfile(root .. "/ONE_Dungeons/Catalog.lua"))("ONE_Dungeons", DG)
+assert(loadfile(root .. "/ONE_Dungeons/EntranceData.lua"))("ONE_Dungeons", DG)
+local CAT = {}
+for _, c in ipairs(DG.Catalog or {}) do CAT[c.key] = c end
+local DUNGEONS = os.getenv("SIM_NODUNGEONS") == nil
 local spfns = {}
 assert(loadfile(spf .. "/Data/Zones.lua"))("ShortestPathForever", spfns)
 local Z = spfns.Zones
@@ -214,7 +237,12 @@ local function Run(sc)
             inLog = function(id) return log[id] ~= nil end,
             complete = function(id) return log[id] == "done" end,
             world = World, tempo = sc.tempo or "need", speed = 7,
-            catalog = function() return {min = 99} end,
+            override = DunOverride and DunOverride() or nil,
+            catalog = function(key)
+                local c = CAT[key]
+                if not DUNGEONS or not c or (c.faction and c.faction ~= sc.fac) or not DG.EntranceData[key] then return {min = 99} end
+                return c
+            end,
             flights = flights, departures = departures, fpSpots = fp,
             train = #spots > 0 and {now = now, next = nxt, spots = spots} or nil,
             home = home, hearthIn = math.max(0, hearthAt - t) * 60, inns = inns,
@@ -224,6 +252,29 @@ local function Run(sc)
             flow = os.getenv("SIM_FLOW") ~= nil or nil,
             prefer = plan and plan.steps[1] and plan.steps[1].stopKey,
         }
+        if FOLLOW then
+            local route = FOLLOW[(me.race or 0) .. ":" .. (me.class or 0)] or G.Route(me.race, me.class)
+            if route then
+                ctx.route, ctx.flow, ctx.tempo = true, true, P.ROUTE_TEMPO
+                ctx.follow, ctx.objNodes, ctx.missed, ctx.routeGates, ctx.routeDungeons = G.RouteFollow(route, me.level, ctx.inLog, nil, ctx.done)
+                if os.getenv("FOLLOW_DBG") and tonumber(os.getenv("FOLLOW_DBG")) == stepNo then
+                    local list = {}
+                    for k, r in pairs(ctx.follow) do list[#list + 1] = {k = k, r = r} end
+                    table.sort(list, function(a, b) return a.r < b.r end)
+                    local shown = 0
+                    print("  DBG missed", #ctx.missed)
+                    for _, x in ipairs(list) do
+                        local id = tonumber(x.k:match(":(%d+)$") or "")
+                        if id and not done[id] and not (x.k:match("^accept") and log[id]) and not (x.k:match("^obj") and log[id] == "done") then
+                            print(("  DBG %6.1f %s log=%s lvl=%s min=%s"):format(x.r, x.k, tostring(log[id]), tostring(Q.q[id] and Q.q[id][1]), tostring(Q.q[id] and Q.q[id][2])))
+                            shown = shown + 1
+                            if shown >= 25 then break end
+                        end
+                    end
+                end
+                return ctx
+            end
+        end
         if plan and plan.orderKeys then
             local f = {}
             for i, k in ipairs(plan.orderKeys) do if not f[k] then f[k] = i end end
@@ -232,8 +283,100 @@ local function Run(sc)
         return ctx
     end
     local function Line(s) if verbose then print(s) end stats.lines[#stats.lines + 1] = s end
+    local einzel
+    -- Dungeon-Lauf (Nutzer 23.11.2026: "Dungeon-Quests einbauen"): sind Quests fuer einen Dungeon im Log und passt die
+    -- Stufe (ab Mindeststufe + P_DUN_FROM, hoechstens Hoechststufe - 2), geht es zum Eingang; dort werden die Quests
+    -- angenommen, deren Geber am Eingang stehen (<= 400 yd), der Lauf dauert DUN_MIN Minuten und bringt Monster-EP wie
+    -- Hauen; danach sind die Dungeon-Quests im Log erledigt (Abgabe plant der Planer wie sonst). Jeder Dungeon einmal.
+    local DUN_MIN, DUN_FROM, DUN_XP = 60, 2, 1.0
+    local dunDone = {}
+    local DZ = GuildTripLeveling.dz or {}
+    -- Dungeon-Quests gezielt abholen: steht ein Dungeon an (Stufe ab Mindeststufe - 1 bis Hoechststufe - 3, noch nicht
+    -- gelaufen), werden seine Quests "ja" fuer den Planer (override), wenn ihr Geber auf dem Kontinent des Eingangs
+    -- hoechstens DUN_GIVER_YD davon entfernt steht
+    local DUN_GIVER_YD = 6000
+    local ovCache, ovLevel
+    function DunOverride()
+        if not DUNGEONS or FOLLOW then return nil end   -- im Spiel (Folgen) gibt es keine solche Auswahl
+        local cnt = 0
+        for _ in pairs(log) do cnt = cnt + 1 end
+        local room = (P.LOG_MAX or 35) - 6 - cnt   -- Platz im Questlog lassen
+        if ovLevel == me.level and ovCache and room >= 0 then return ovCache end
+        local ov = {}
+        if room <= 0 then ovCache, ovLevel = ov, me.level return ov end
+        local isDone = function(q) return done[q] == true end
+        local isLog = function(q) return log[q] ~= nil end
+        for key, c in pairs(CAT) do
+            local ent = DG.EntranceData[key]
+            if ent and not dunDone[key] and not (c.faction and c.faction ~= sc.fac) and me.level >= c.min - 1 and me.level <= c.max - 3 then
+                local w = {World(ent[1], ent[2], ent[3])}
+                for id, e in pairs(Q.q) do
+                    if DZ[e[14] or 0] == key and not done[id] and (e[2] or 0) <= me.level + 2 and P.Fits(id, e, me, isDone, isLog) then
+                        local g = e[6] and e[6][1] and Q.n[e[6][1]]
+                        local gw = g and g[2] and {World(g[2], g[3] / 1000, g[4] / 1000)}
+                        if gw and w[1] and gw[1] == w[1] and Dist(gw, w) <= DUN_GIVER_YD and room > 0 then ov[id] = "yes" room = room - 1 end
+                    end
+                end
+            end
+        end
+        ovCache, ovLevel = ov, me.level
+        return ov
+    end
+    function DungeonRuns(n)
+        local byKey = {}
+        for id, v in pairs(log) do
+            local e = Q.q[id]
+            local key = e and DZ[e[14] or 0]
+            if key and v == "open" then byKey[key] = byKey[key] or {} table.insert(byKey[key], id) end
+        end
+        for key, ids in pairs(byKey) do
+            local c, ent = CAT[key], DG.EntranceData[key]
+            local ok = c and ent and not dunDone[key] and not (c.faction and c.faction ~= sc.fac)
+            if ok and me.level > c.max then
+                for _, id in ipairs(ids) do log[id] = nil end   -- zu spaet: aufgeben
+                ok = false
+            end
+            if ok and me.level >= math.min(c.min + DUN_FROM, c.max - 2) then
+                dunDone[key] = true
+                ovCache = nil
+                local w = {World(ent[1], ent[2], ent[3])}
+                local from = Pos()
+                if w[1] then
+                    if w[1] == from[1] then t = t + math.min(Dist(from, w) * P.DETOUR / 7 / 60, 15) else t = t + 25 end
+                    MoveTo(w, ent[1])
+                end
+                -- Quests am Eingang gleich mitnehmen
+                local toks = {}
+                for id, e in pairs(Q.q) do
+                    if DZ[e[14] or 0] == key and not log[id] and not done[id] and (e[2] or 0) <= me.level and P.Fits(id, e, me, function(q) return done[q] == true end, function(q) return log[q] ~= nil end) then
+                        local pre = true
+                        if type(e[5]) == "table" and #e[5] > 0 then pre = false for _, p in ipairs(e[5]) do if done[p] then pre = true end end end
+                        if type(e[9]) == "table" then for _, p in ipairs(e[9]) do if not done[p] then pre = false end end end
+                        local g = e[6] and e[6][1] and Q.n[e[6][1]]
+                        local gw = g and g[2] and {World(g[2], g[3] / 1000, g[4] / 1000)}
+                        if pre and gw and gw[1] == w[1] and Dist(gw, w) <= 400 then
+                            log[id] = "open" toks[#toks + 1] = "a" .. id ids[#ids + 1] = id acceptedAt[id] = n
+                        end
+                    end
+                end
+                for _, id in ipairs(ids) do toks[#toks + 1] = "o" .. id log[id] = "done" objAt[id] = n end
+                local x0 = stats.xp
+                t = t + DUN_MIN
+                AddXP(DUN_MIN * P.GrindEPM(me.level) * (P.GRIND_REAL or .7) * DUN_XP)
+                stats.dungeons = (stats.dungeons or 0) + 1
+                if stats.route then
+                    stats.route[#stats.route + 1] = {k = "dungeon", key = key, q = table.concat(toks, " "), l = me.level, step = n,
+                        w = w[1] and w or nil, map = ent[1], m = ent[1], x = math.floor(ent[2] * 1000 + .5), y = math.floor(ent[3] * 1000 + .5),
+                        min = DUN_MIN, g = stats.xp - x0}
+                end
+                Line(("%3d %6.1f min  St %2d  DUNGEON %s (%d Quests: %s)"):format(n, t, me.level, c.name or key, #ids, table.concat(toks, " ")))
+            end
+        end
+    end
+    stepNo = 0
     local lastHub
     for n = 1, maxSteps do
+        stepNo = n
         local ctx = Ctx()
         PLANNER_DEBUG = os.getenv("SIM_DUMP") and tonumber(os.getenv("SIM_DUMP")) == n and (tonumber(os.getenv("SIM_DBG") or "1")) or nil
         local c0 = os.clock()
@@ -338,11 +481,21 @@ local function Run(sc)
                 r.k = st.kind
                 if st.kind == "bind" then r.inn = st.inn
                 elseif st.kind == "grind" then r.to = st.lvl
-                elseif st.kind == "fp" and st.mapID and st.x then r.m, r.x, r.y = st.mapID, math.floor(st.x * 1000 + .5), math.floor(st.y * 1000 + .5) end
+                elseif st.kind == "fp" then
+                    r.fp = st.fpID
+                    if st.mapID and st.x then r.m, r.x, r.y = st.mapID, math.floor(st.x * 1000 + .5), math.floor(st.y * 1000 + .5) end
+                end
             end
             if r.q or r.k == "bind" or r.k == "grind" or r.k == "fp" then stats.route[#stats.route + 1] = r end
         end
         if st.kind == "travel" then
+            if einzel then
+                if einzel.n < 2 and not einzel.obj then
+                    stats.einzel = (stats.einzel or 0) + 1
+                    Line(("      !! EINZEL: %.0f m zu Fuss fuer %s (St %d)"):format(einzel.d * .9144, einzel.what, einzel.l))
+                end
+                einzel = nil
+            end
             -- Reise + der Halt danach als ein Schritt
             local nx = plan.steps[2]
             local v = st.via
@@ -382,8 +535,29 @@ local function Run(sc)
                 tw = tw or st.area[1]
             elseif st.mapID and st.x then tw = {World(st.mapID, st.x, st.y)}
             elseif st.world then tw = st.world end
+            -- EINZEL: offener langer Fussweg – Arbeit am Ziel (dieser + folgende Halte < 300 yd) zaehlen
+            if einzel and tw and tw[1] and (tw[1] ~= einzel.w[1] or Dist(tw, einzel.w) > 300) then
+                if einzel.n < 2 and not einzel.obj then
+                    stats.einzel = (stats.einzel or 0) + 1
+                    Line(("      !! EINZEL: %.0f m zu Fuss fuer %s (St %d)"):format(einzel.d * .9144, einzel.what, einzel.l))
+                end
+                einzel = nil
+            end
+            if st.kind == "grind" and (st.work or 0) > (P.ROUTE_GRIND_MAX or 10) then
+                stats.grindLong = (stats.grindLong or 0) + 1
+                stats.grindMax = math.max(stats.grindMax or 0, st.work)
+                Line(("      !! HAUEN: %.0f min am Stueck (St %d)"):format(st.work, me.level))
+            end
             if tw and tw[1] then
                 local d = tw[1] == from[1] and Dist(from, tw) or 0
+                if d > 1640 and #st.actions > 0 then
+                    local what = {}
+                    for _, a in ipairs(st.actions) do what[#what + 1] = a.kind:sub(1, 1) .. a.id end
+                    einzel = {w = tw, d = d, n = 0, obj = false, l = me.level, what = table.concat(what, " ")}
+                end
+                if einzel then
+                    for _, a in ipairs(st.actions) do einzel.n = einzel.n + 1 if a.kind == "obj" then einzel.obj = true end end
+                end
                 stats.walkYd = stats.walkYd + d
                 t = t + d * P.DETOUR / 7 / 60
                 local m0 = me.mapID
@@ -447,6 +621,12 @@ local function Run(sc)
                 AddXP(st.xp or 0)
                 stats.grind, stats.grindMin = stats.grind + 1, stats.grindMin + (st.work or 0)
                 acts[#acts + 1] = ("Monster hauen %d EP (%.0f min)"):format(st.xp or 0, st.work or 0)
+            elseif st.kind == "dungeon" then
+                for _, id in ipairs(st.ids or {}) do if log[id] then log[id] = "done" objAt[id] = n end end
+                t = t + 60
+                AddXP(60 * P.GrindEPM(me.level) * (P.GRIND_REAL or .7))
+                stats.dungeons = (stats.dungeons or 0) + 1
+                acts[#acts + 1] = "Dungeon " .. tostring(st.key)
             elseif st.kind == "train" then trainedAt = me.level t = t + P.TRAIN_MIN acts[#acts + 1] = "Lehrer"
             elseif st.kind == "fp" then
                 for _, f in ipairs(lev.FLIGHTMASTERS) do
@@ -530,6 +710,7 @@ local function Run(sc)
                 me.level > lvlBefore and ("  -> Stufe " .. me.level) or "", mark))
         end
         end
+        if DUNGEONS and not FOLLOW then DungeonRuns(n) end
         local cnt = 0 for _ in pairs(log) do cnt = cnt + 1 end
         stats.logMax = math.max(stats.logMax, cnt)
         stats.steps = n
@@ -633,8 +814,8 @@ local function Run(sc)
         local extra = info.xpDiff < 0 and -info.xpDiff / (P.GrindEPM(59) * (P.GRIND_REAL or .7)) or 0
         stats.optExtra = extra
         if stats.t60 then stats.t60 = stats.t60 - info.saved + extra end
-        io.stderr:write(("  GESAMT: %d Verschiebungen, %d Ziele verlegt, Zeitquests %d umgestellt/%d raus, %d Besuche gespart, %d Schritte weniger, %.0f min Weg gespart, EP %+d (%.0f min Hauen), %.0f s%s")
-            :format(info.moves, info.objMoves or 0, info.timedFixed or 0, #(info.timedRemoved or {}), info.tokMoves or 0, info.removed or 0, info.saved, info.xpDiff or 0, extra, os.clock() - c0, info.skipped and " (Ausgangsroute ungueltig, unveraendert)" or "") .. "\n")
+        io.stderr:write(("  GESAMT: %d Verschiebungen, %d Ziele verlegt, Zeitquests %d umgestellt/%d raus, %d ohne Abgabe raus, %d Besuche gespart, %d Schritte weniger, %.0f min Weg gespart, EP %+d (%.0f min Hauen), %.0f s%s")
+            :format(info.moves, info.objMoves or 0, info.timedFixed or 0, #(info.timedRemoved or {}), #(info.noTurn or {}), info.tokMoves or 0, info.removed or 0, info.saved, info.xpDiff or 0, extra, os.clock() - c0, info.skipped and (" (Ausgangsroute ungueltig, unveraendert: " .. tostring(info.why) .. " q" .. tostring(info.id) .. " " .. tostring(info.p) .. ")") or "") .. "\n")
     end
     -- Ziele in mehreren Gebieten (Spieltest 22.11.2026, "Chens leeres Faesschen": Loewen und Ebenenschreiter im
     -- Norden, Donnerechsen im Sueden – wie ein Leitfaden je Gebiet einen eigenen Schritt): jede Zielgruppe der Quest
@@ -715,7 +896,7 @@ local function Run(sc)
             local did = false
             for id in (r.q or ""):gmatch("o(%d+)") do
                 id = tonumber(id)
-                local groups = not did and Has(r, "o", id) and Groups(id)
+                local groups = not did and r.k ~= "dungeon" and Has(r, "o", id) and Groups(id)
                 if groups then
                     local ia, it = 0, #route + 1
                     for k = i, 1, -1 do if Has(route[k], "a", id) then ia = k break end end
@@ -792,8 +973,9 @@ local function Run(sc)
             local parts = {}
             if r.q then parts[#parts + 1] = ("%q"):format(r.q) end
             r.z = r.map
-            if r.k == "idle" then parts = nil end
-            for _, k in ipairs(parts and {"k", "n", "l", "z", "inn", "to", "m", "x", "y"} or {}) do
+            r.fp = r.fp or r.fpID
+            if r.k == "idle" then parts = nil end   -- (nach scripts/route_opt.lua: als "grind" mit Minuten)
+            for _, k in ipairs(parts and {"k", "key", "n", "l", "z", "inn", "fp", "to", "min", "m", "x", "y"} or {}) do
                 if r[k] ~= nil then parts[#parts + 1] = k .. "=" .. (type(r[k]) == "string" and ("%q"):format(r[k]) or tostring(r[k])) end
             end
             if parts then
@@ -865,9 +1047,9 @@ for _, sc in ipairs(SCEN) do
         local zl = {}
         for z, c in pairs(s.zones) do zl[#zl + 1] = z .. " " .. c end
         table.sort(zl)
-        print(("%-17s %3d Schr. %5.0f min  bis60 %s  St %d->%d  %6d EP/h  %3d Quests  Rückweg %d  Hin-Her %d  Umsort. %d  Kippt %d  PRUEF %d  Ausgel. %d  Flüge %d  RS %d  Hauen %d (%.0f min)  Log max %d  Leer %d min  Gebietswechsel %d (zurück %d)  Planen Ø %d ms max %d ms | %s")
+        print(("%-17s %3d Schr. %5.0f min  bis60 %s  St %d->%d  %6d EP/h  %3d Quests  Rückweg %d  Hin-Her %d  Umsort. %d  Kippt %d  PRUEF %d  Ausgel. %d  Flüge %d  RS %d  Hauen %d (%.0f min, >10: %d, max %.0f)  Einzel %d  Log max %d  Leer %d min  Gebietswechsel %d (zurück %d)  Planen Ø %d ms max %d ms | %s")
             :format(sc.key, s.steps, s.minutes, s.t60 and ("%.0f"):format(s.t60) or "-", s.startLevel, s.level, math.floor(s.xp / math.max(1, s.minutes) * 60), s.quests,
-                s.returns, s.pingpong, s.reorder, s.flip or 0, s.hard or 0, s.missed or 0, s.flights, s.hearths, s.grind, s.grindMin, s.logMax, s.idle or 0, s.switches or 0, s.zoneBack or 0, (s.planSum or 0) / math.max(1, s.planN or 1) * 1000, (s.planMax or 0) * 1000, table.concat(zl, ", ")))
+                s.returns, s.pingpong, s.reorder, s.flip or 0, s.hard or 0, s.missed or 0, s.flights, s.hearths, s.grind, s.grindMin, s.grindLong or 0, s.grindMax or 0, s.einzel or 0, s.logMax, s.idle or 0, s.switches or 0, s.zoneBack or 0, (s.planSum or 0) / math.max(1, s.planN or 1) * 1000, (s.planMax or 0) * 1000, table.concat(zl, ", ")))
         total.returns, total.pingpong, total.reorder = total.returns + s.returns, total.pingpong + s.pingpong, total.reorder + s.reorder
         total.flip = (total.flip or 0) + (s.flip or 0)
     end

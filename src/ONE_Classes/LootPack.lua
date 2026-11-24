@@ -19,6 +19,7 @@ classes.LootPack = {
         slot = "INVTYPE_NON_EQUIP_IGNORE",
         sources = {
             c11915 = {count = 1, kind = "normal", mapID = 1442, name = "Felsbewahrer der Gogger", x = 0.604, y = 0.907},
+            c1955 = {count = 2, kind = "normal", mapID = 1421, name = "Seekrabbler", x = 0.767, y = 0.261},
         },
     },
     [14113] = {
@@ -121,6 +122,7 @@ classes.LootPack = {
         q = 2,
         slot = "INVTYPE_WEAPON",
         sources = {
+            c3256 = {count = 1, kind = "normal", mapID = 1413, name = "Bluthornsensenklaue", x = 0.459, y = 0.148},
             c3381 = {
                 count = 1,
                 kind = "normal",
@@ -129,6 +131,15 @@ classes.LootPack = {
                 x = 0.638,
                 y = 0.479,
             },
+        },
+    },
+    [15222] = {
+        ilvl = 19,
+        minLevel = 14,
+        q = 2,
+        slot = "INVTYPE_WEAPONMAINHAND",
+        sources = {
+            c1954 = {count = 1, kind = "normal", mapID = 1421, name = "Alter Seeschleicher", x = 0.727, y = 0.356},
         },
     },
     [15268] = {
@@ -147,6 +158,23 @@ classes.LootPack = {
         slot = "INVTYPE_LEGS",
         sources = {
             c3272 = {count = 1, kind = "normal", mapID = 1413, name = "Zänker der Kolkar", x = 0.451, y = 0.205},
+        },
+    },
+    [15304] = {
+        ilvl = 16,
+        minLevel = 11,
+        q = 2,
+        slot = "INVTYPE_CHEST",
+        sources = {
+            c3256 = {count = 1, kind = "normal", mapID = 1413, name = "Bluthornsensenklaue", x = 0.612, y = 0.338},
+            c3284 = {
+                count = 1,
+                kind = "normal",
+                mapID = 1413,
+                name = "Zwangsarbeiter der Venture Co.",
+                x = 0.562,
+                y = 0.089,
+            },
         },
     },
     [15305] = {
@@ -183,6 +211,22 @@ classes.LootPack = {
             c3244 = {count = 1, kind = "normal", mapID = 1413, name = "Großer Ebenenschreiter", x = 0.491, y = 0.23},
         },
     },
+    [2073] = {
+        ilvl = 15,
+        minLevel = 10,
+        q = 2,
+        slot = "INVTYPE_WEAPONMAINHAND",
+        sources = {
+            c3385 = {
+                count = 1,
+                kind = "normal",
+                mapID = 1413,
+                name = "Marinesoldat von Theramore",
+                x = 0.618,
+                y = 0.548,
+            },
+        },
+    },
     [2075] = {
         ilvl = 12,
         minLevel = 7,
@@ -197,7 +241,10 @@ classes.LootPack = {
         minLevel = 13,
         q = 2,
         slot = "INVTYPE_WEAPON",
-        sources = {c3633 = {count = 1, kind = "elite", mapID = 1414, name = "Deviattöter", x = 0.528, y = 0.548}},
+        sources = {
+            c1956 = {count = 1, kind = "normal", mapID = 1421, name = "Alter Seekrabbler", x = 0.772, y = 0.212},
+            c3633 = {count = 1, kind = "elite", mapID = 1414, name = "Deviattöter", x = 0.528, y = 0.548},
+        },
     },
     [248703] = {
         ilvl = 1,
@@ -230,12 +277,44 @@ classes.LootPack = {
         slot = "INVTYPE_NON_EQUIP_IGNORE",
         sources = {o106319 = {count = 1, kind = "object", mapID = 1413, x = 0.465, y = 0.228}},
     },
+    [2969] = {
+        ilvl = 17,
+        minLevel = 12,
+        q = 2,
+        slot = "INVTYPE_CHEST",
+        sources = {
+            c1768 = {
+                count = 1,
+                kind = "normal",
+                mapID = 1421,
+                name = "Gezeitenjäger der Finsterflossen",
+                x = 0.609,
+                y = 0.179,
+            },
+        },
+    },
+    [2981] = {
+        ilvl = 21,
+        minLevel = 16,
+        q = 2,
+        slot = "INVTYPE_ROBE",
+        sources = {c1955 = {count = 1, kind = "normal", mapID = 1421, name = "Seekrabbler", x = 0.781, y = 0.286}},
+    },
     [3036] = {
         ilvl = 15,
         minLevel = 10,
         q = 2,
         slot = "INVTYPE_RANGED",
         sources = {c3632 = {count = 1, kind = "elite", mapID = 1414, name = "Deviatkrabbler", x = 0.52, y = 0.545}},
+    },
+    [3205] = {
+        ilvl = 17,
+        minLevel = 12,
+        q = 2,
+        slot = "INVTYPE_WRIST",
+        sources = {
+            c1939 = {count = 1, kind = "normal", mapID = 1421, name = "Schläger der Moderfelle", x = 0.659, y = 0.305},
+        },
     },
     [3292] = {
         ilvl = 13,
@@ -253,6 +332,38 @@ classes.LootPack = {
         slot = "INVTYPE_FEET",
         sources = {
             c3255 = {count = 1, kind = "normal", mapID = 1413, name = "Bluthornkreischer", x = 0.471, y = 0.257},
+        },
+    },
+    [4345] = {
+        ilvl = 19,
+        minLevel = 0,
+        q = 2,
+        slot = "INVTYPE_NON_EQUIP_IGNORE",
+        sources = {
+            c3385 = {
+                count = 1,
+                kind = "normal",
+                mapID = 1413,
+                name = "Marinesoldat von Theramore",
+                x = 0.615,
+                y = 0.538,
+            },
+        },
+    },
+    [4346] = {
+        ilvl = 20,
+        minLevel = 0,
+        q = 2,
+        slot = "INVTYPE_NON_EQUIP_IGNORE",
+        sources = {
+            c3284 = {
+                count = 1,
+                kind = "normal",
+                mapID = 1413,
+                name = "Zwangsarbeiter der Venture Co.",
+                x = 0.525,
+                y = 0.117,
+            },
         },
     },
     [4408] = {

@@ -211,7 +211,7 @@ function Chat:Settings()
     if s.bubbleColors == nil then s.bubbleColors = true end
     if s.classIcons == nil then s.classIcons = true end
     if s.fontSize == nil then s.fontSize = 14 end
-    if s.opacity == nil then s.opacity = 1 end      -- Deckkraft des Hintergrunds (0.2 … 1)
+    if s.opacity == nil then s.opacity = 1 end      -- Deckkraft des Hintergrunds (0 … 1, 0 = durchsichtig)
     if s.idleAlpha == nil then s.idleAlpha = 1 end  -- ganzes Fenster, wenn die Maus weg ist (1 = nicht ausblenden)
     if s.spacing == nil then s.spacing = 2 end
     if s.lookVersion ~= 2 then s.lookVersion = 2 s.spacing = 2 end -- 17.11.2026: luftigeres Aussehen
@@ -765,7 +765,40 @@ function Chat.EmoteToken(cmd)
     return Chat.emoteCmds[cmd]
 end
 
--- Text aus dem Eingabefeld senden. Slash-Befehle gehen an den WoW-Chat.
+-- "/w Name Text" (alle Fluester-Befehle des Clients): Name, Text – sonst nil
+function Chat.WhisperCommand(text)
+    local cmd, name, rest = tostring(text or ""):match("^(/%S+)%s+([^%s]+)%s*(.-)$")
+    if not cmd then return nil end
+    local low = cmd:lower()
+    for _, key in ipairs({"SLASH_WHISPER", "SLASH_SMART_WHISPER"}) do
+        for i = 1, 10 do
+            local c = rawget(_G, key .. i)
+            if type(c) == "string" and c:lower() == low then return name, rest end
+        end
+    end
+    if low == "/w" or low == "/whisper" or low == "/t" or low == "/tell" or low == "/fl" or low == "/flüstern" then return name, rest end
+    return nil
+end
+-- Privates Befehlsfeld wie Blizzards eigenes Makro-Feld (Mixin der Blizzard-Eingabe), nie sichtbar.
+-- Fehlt die Vorlage (anderer Client), nil -> alter Weg ueber das WoW-Feld.
+function Chat.CommandBox()
+    if Chat.cmdBox then return Chat.cmdBox end
+    local mixin = rawget(_G, "ChatFrameEditBoxBaseMixin")
+    local mix = rawget(_G, "Mixin")
+    if type(mixin) ~= "table" or type(mix) ~= "function" or type(CreateFrame) ~= "function" then return nil end
+    local ok, box = pcall(CreateFrame, "EditBox")
+    if not ok or not box then return nil end
+    mix(box, mixin)
+    if box.SetAutoFocus then box:SetAutoFocus(false) end
+    if box.Hide then box:Hide() end
+    box.chatFrame = _G.DEFAULT_CHAT_FRAME
+    if box.SetChatType then box:SetChatType("SAY") end
+    if box.SetStickyType then box:SetStickyType("SAY") end
+    Chat.cmdBox = box
+    return box
+end
+
+-- Text aus dem Eingabefeld senden. Slash-Befehle gehen ueber ein eigenes Befehlsfeld.
 -- Rueckgabe: true oder nil + Hinweis
 function Chat:Send(view, text)
     text = tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -777,6 +810,29 @@ function Chat:Send(view, text)
             -- ohne Namen: wie im WoW-Chat an das aktuelle Ziel
             local target = rest ~= "" and rest or nil
             if not pcall(C_ChatInfo.PerformEmote, token, target) then return nil, T("Emote ging nicht.") end
+            return true
+        end
+        -- "/w Name Text": ueber unseren Fluesterweg (landet im Gespraech, beruehrt kein Blizzard-Feld)
+        local wName, wRest = Chat.WhisperCommand(text)
+        if wName and Short(wName) == wName then
+            local view = self:OpenWhisper(wName)
+            if wRest == "" then
+                if chat.UI and chat.UI.OpenInput then chat.UI:OpenInput(view) end
+                return true
+            end
+            return self:Send(view, wRest)
+        end
+        -- Eigenes, privates Befehlsfeld (Spielbild 24.11.2026: "Ein Makroskript wurde geblockt" beim
+        -- Gilden-Einladen): Ueber das Blizzard-Eingabefeld gesendet, setzt unser (unsicherer) Code dort
+        -- Chat-Art/Ziel – WoW kopiert genau diese Werte in JEDES Makro, das danach laeuft. Dann sind alle
+        -- Makro-Knoepfe (/ginvite, auch eigene Makros des Spielers) bis /reload blockiert.
+        local own = Chat.CommandBox()
+        if own then
+            own:SetText(text)
+            local ok = pcall(own.SendText, own)
+            own:SetText("")
+            if own.Hide then own:Hide() end
+            if not ok then return nil, T("Befehle gehen hier nicht – bitte im WoW-Chat.") end
             return true
         end
         local box = (type(ChatEdit_ChooseBoxForSend) == "function" and Call(ChatEdit_ChooseBoxForSend))

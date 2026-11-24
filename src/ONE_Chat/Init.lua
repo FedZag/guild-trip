@@ -36,7 +36,7 @@ ONE:RegisterModule("chat", {
             Chat:OnEvent(event, ...)
         end)
         chat.eventFrame = frame
-        Chat.listeners[#Chat.listeners + 1] = function(entry, views) UI:OnMessage(entry, views) end
+        Chat.listeners[#Chat.listeners + 1] = function(entry, views, update) UI:OnMessage(entry, views, update) end
 
         ONE:RegisterSlash("chat", function() UI:Toggle() end, T("Guild-Trip-Chat öffnen/schließen"))
         ONE:RegisterSlash("chatdiag", function()
@@ -60,8 +60,7 @@ ONE:RegisterModule("chat", {
                 available = function(_, ctx) return not (type(ctx) == "table" and ctx.online == false) end,
                 run = function(name)
                     if Chat:Settings().whisperHere ~= false and ONE:IsEnabled("chat") then
-                        UI:Show(Chat:OpenWhisper(name))
-                        if UI.input then UI.input:SetFocus() end
+                        UI:OpenInput(Chat:OpenWhisper(name))
                         return
                     end
                     if type(ChatFrame_SendTell) == "function" then return ChatFrame_SendTell(name) end
@@ -80,6 +79,8 @@ ONE:RegisterModule("chat", {
         end
 
         if chat.Hider then chat.Hider:Initialize() end
+        -- Randleiste statt Fenster (Chat-Einstellungen, Standard aus)
+        if chat.Rail then chat.Rail:Apply() Chat.listeners[#Chat.listeners + 1] = function() chat.Rail:Update() end end
         if chat.Loot then chat.Loot:Initialize() end
         -- Eigene Meldungen (/trip …) auch hier zeigen, wenn der WoW-Chat ersetzt ist – sonst landen sie im
         -- versteckten WoW-Chat (Spieltest 20.11.2026: "/trip planinfo" ohne Ausgabe)
@@ -89,7 +90,7 @@ ONE:RegisterModule("chat", {
 
         -- Einstellungen: Optionen › Chat (Zahnrad im Chatfenster springt dorthin)
         UI:RegisterSettings()
-        if s.openOnLogin and C_Timer and C_Timer.After then C_Timer.After(2, function() UI:Show() end) end
+        if s.openOnLogin and not (chat.Rail and chat.Rail.Active()) and C_Timer and C_Timer.After then C_Timer.After(2, function() UI:Show() end) end
     end,
     -- Fuer andere Module: Gespraech mit einer Person oeffnen
     OpenWhisper = function(_, name) UI:Show(Chat:OpenWhisper(name)) end,
@@ -99,7 +100,7 @@ ONE:RegisterModule("chat", {
         if not (name and ONE:IsEnabled("chat")) then return false end
         local hidden = chat.Hider and chat.Hider.Enabled and chat.Hider:Enabled()
         if Chat:Settings().whisperHere == false and not hidden then return false end
-        UI:Show(Chat:OpenWhisper(name))
+        UI:OpenInput(Chat:OpenWhisper(name))
         local box = UI.input
         if box then
             if box.SetText then box:SetText(text or "") end
@@ -113,7 +114,8 @@ ONE:RegisterModule("chat", {
         if not (text and ONE:IsEnabled("chat")) then return false end
         if UI.WoWEditActive and UI.WoWEditActive() then return false end
         local hidden = chat.Hider and chat.Hider.Enabled and chat.Hider:Enabled()
-        if not Chat.visible and hidden then UI:Show() end
+        local rail = chat.Rail and chat.Rail.Active and chat.Rail.Active()
+        if not Chat.visible and (hidden or rail) then UI:OpenInput() end
         return UI:TakeLink(text, true)
     end,
     Toggle = function() UI:Toggle() end,

@@ -108,4 +108,14 @@ do
     assert(#(i4.timedRemoved or {}) == 2, "Zaehler")
     Q.timed = nil
 end
+-- 6) Spieltest 23.11.2026 "Raecht mein Dorf": nie nur zum Annehmen hinlaufen. Quest 13 wird angenommen und nie
+-- abgegeben: ganz raus (und mit ihr der Weg zum fernen Geber F1)
+do
+    Q.q[13], Q.q[14] = Qst(), Qst()
+    local r4 = {S("a14", H, 11), S("a13", F1, 51), S("o14", N, -44, 50), S("t14", H, 11, 400)}
+    local o5, i5 = opt.Run(r4, {Q = Q, P = P, XP_NEED = P.XP_NEED, startXP = 0, fps = {}, known0 = {}, passes = 6})
+    assert(not i5.skipped, "Ausgangsroute gueltig")
+    for _, r in ipairs(o5) do assert(not (r.q or ""):find("13", 1, true), "13 ohne Abgabe ist raus") end
+    assert(#(i5.noTurn or {}) == 1 and i5.saved > 5, "Zaehler und Weg gespart: " .. tostring(i5.saved))
+end
 print("OK test_route_opt_162")

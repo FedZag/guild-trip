@@ -522,10 +522,17 @@ end
 -- Geber, damit ein zusammengefasster Doppelbesuch beim selben NPC ("ALS NAECHSTES") oder eine vorgezogene Quest nicht
 -- reicht. Liegt der Rest der Quest (Ziele/Abgabe) noch vor einem, kommt sie in missed – der Planer zeigt sie als
 -- Hinweis, wenn der Geber am Weg steht (P.MISSED_NEAR).
-G.ROUTE_AHEAD = 3
--- Liefert den Fahrplan, je Quest die Ziel-Knoten des geltenden Teils und die verpassten Annahmen {id, n, z}.
-function G.RouteFollow(route, level, inLog, open, done)
+-- Abgeschaltet (Nachstellung 23.11.2026: auch mit 40 Schritten Abstand fielen ganze Reihen weg, ~380 statt ~770
+-- Quests – das Spiel arbeitet die Route nie exakt in ihrer Reihenfolge ab); zu niedrige Annahmen regelt G.ROUTE_BEHIND
+G.ROUTE_AHEAD = math.huge
+G.ROUTE_MISS_STEPS = 40
+-- Liefert den Fahrplan, je Quest die Ziel-Knoten des geltenden Teils und die verpassten Annahmen {id, n, z, rank (Platz
+-- in der Route, falls der Planer sie statt langem Hauen zurueckholt), ahead (Rest der Quest liegt noch vor einem)}.
+-- later = {[Quest] = 1 (einmal "Spaeter": ans Ende der Runde) | 2 (wieder nicht gemacht: faellt aus dem Plan)} –
+-- Elite-Quests ohne Gruppe (Nutzer 24.11.2026). Runden beginnen an Schritten mit r = Nummer (scripts/build_loop.lua).
+function G.RouteFollow(route, level, inLog, open, done, later)
     local f, n, parts = {}, 0, {}
+    local rankAt = {}
     local kinds = {a = "accept", o = "obj", t = "turnin"}
     local function Have(id) return (inLog and inLog(id)) or (done and done(id)) end
     -- ahead[i] = verschiedene Geber mit eigener Annahme nach Schritt i; last[id] = letzter Ziel-/Abgabe-Schritt
@@ -544,9 +551,25 @@ function G.RouteFollow(route, level, inLog, open, done)
             end
         end
     end
-    local function Behind(i) return (ahead[i] or 0) >= G.ROUTE_AHEAD end
-    local missed = {}
+    -- und mindestens G.ROUTE_MISS_STEPS Routen-Schritte hinter der spaetesten eigenen Annahme
+    local lastHave = 0
+    if done then
+        for i = #route, 1, -1 do
+            local st = route[i]
+            local hit = false
+            if type(st[1]) == "string" then for k, id in st[1]:gmatch("(%a)(%d+)") do if k == "a" and Have(tonumber(id)) then hit = true end end end
+            if hit then lastHave = i break end
+        end
+    end
+    local function Behind(i) return (ahead[i] or 0) >= G.ROUTE_AHEAD and lastHave - i >= G.ROUTE_MISS_STEPS end
+    local missed, gates, gate, dungeons = {}, {}, nil, {}
     for i, st in ipairs(route) do
+        -- Flugpunkt lernen / Ruhestein setzen gehoeren zur Route (Nachstellung 23.11.2026: ohne sie lief man zu Fuss)
+        if st.k == "fp" and st.fp and not f["fp:" .. st.fp] then n = n + 1 f["fp:" .. st.fp] = n end
+        -- Hauen der Route: Stufe, die vor dem naechsten Schritt erreicht sein soll (gates[Schluessel] = Stufe)
+        if st.k == "grind" and st.to then gate = math.max(gate or 0, st.to) end
+        -- Dungeon-Lauf der Route (Nutzer 23.11.2026): Annahmen am Eingang (Tokens) zuerst, dann "d:<Schluessel>"
+        local dun = st.k == "dungeon" and st.key and not f["d:" .. st.key] and {key = st.key, m = st.m, x = st.x, y = st.y, ids = {}} or nil
         if type(st[1]) == "string" then
             for k, id, part in st[1]:gmatch("(%a)(%d+)%.?(%d*)") do
                 id = tonumber(id)
@@ -554,15 +577,23 @@ function G.RouteFollow(route, level, inLog, open, done)
                 local behind = k == "a" and (st.l or 0) < level - G.ROUTE_BEHIND and not (inLog and inLog(id))
                 if k == "a" and not behind and Behind(i) and not Have(id) then
                     behind = true
-                    if last[id] and not Behind(last[id]) and (st.n or 0) > 0 then missed[#missed + 1] = {id = id, n = st.n, z = st.z} end
+                    if (st.n or 0) > 0 then
+                        missed[#missed + 1] = {id = id, n = st.n, z = st.z, rank = n + .5, ahead = last[id] and not Behind(last[id]) or false}
+                    end
                 end
                 if key and part ~= "" and type(st.p) == "table" then
                     n = n + 1
                     parts[id] = parts[id] or {}
                     table.insert(parts[id], {rank = n, nodes = st.p})
-                elseif key and not f[key] and not behind then n = n + 1 f[key] = n end
+                elseif key and not f[key] and not behind then
+                    n = n + 1 f[key] = n
+                    if gate then gates[key] = gate gate = nil end
+                end
+                if dun and k == "o" then dun.ids[#dun.ids + 1] = id end
             end
         end
+        if dun then n = n + 1 f["d:" .. dun.key] = n dungeons[#dungeons + 1] = dun end
+        rankAt[i] = n
     end
     local nodes = {}
     for id, list in pairs(parts) do
@@ -579,7 +610,77 @@ function G.RouteFollow(route, level, inLog, open, done)
         f["obj:" .. id] = pick.rank
         nodes[id] = pick.nodes
     end
-    return f, nodes, missed
+    if type(later) == "table" then G.RouteLater(route, f, nodes, rankAt, later, inLog, done) end
+    return f, nodes, missed, gates, dungeons
+end
+-- "Spaeter" (Elite ohne Gruppe): Schritte der Quest ans Ende ihrer Runde (die Runde, in der ihr naechster offener
+-- Schritt liegt); zweites Mal: ganz aus dem Fahrplan. Runde = ab Schritt mit r bis vor den naechsten mit r (alte
+-- Routen ohne r: zusammenhaengende Schritte im selben Gebiet).
+function G.RouteLater(route, f, nodes, rankAt, later, inLog, done)
+    local stepOf = {}
+    for i, st in ipairs(route) do
+        if type(st[1]) == "string" then
+            for k, id in st[1]:gmatch("(%a)(%d+)") do
+                id = tonumber(id)
+                if later[id] then
+                    stepOf[id] = stepOf[id] or {}
+                    table.insert(stepOf[id], {k = k, i = i})
+                end
+            end
+        end
+    end
+    local hasR = false
+    for _, st in ipairs(route) do if st.r then hasR = true break end end
+    local function RoundEnd(i)
+        local j = i
+        while route[j + 1] and (hasR and not route[j + 1].r or (not hasR and route[j + 1].z == route[i].z)) do j = j + 1 end
+        return j
+    end
+    for id, v in pairs(later) do
+        local keys = {"accept:" .. id, "obj:" .. id, "turnin:" .. id}
+        if v and v >= 2 then
+            for _, key in ipairs(keys) do f[key] = nil end
+            nodes[id] = nil
+        elseif v and stepOf[id] and not (done and done(id)) then
+            local have = inLog and inLog(id)
+            local first
+            for _, s in ipairs(stepOf[id]) do
+                if (s.k ~= "a" or not have) and (not first or s.i < first) then first = s.i end
+            end
+            if first then
+                local base = rankAt[RoundEnd(first)] or 0
+                local list = {}
+                for _, key in ipairs(keys) do if f[key] then list[#list + 1] = key end end
+                table.sort(list, function(a, b) return f[a] < f[b] end)
+                for k, key in ipairs(list) do f[key] = base + k * .01 end
+            end
+        end
+    end
+end
+-- Elite-/Gruppenquest? (Art aus Rewards.lua: 1 Gruppe/Elite, 16 Gruppe empfohlen)
+function G.IsElite(id)
+    local R = rawget(_G, "GuildTripLeveling")
+    local rew = P and P.Rew and P.Rew(R, id)
+    local kind = rew and rew[3] or 0
+    return kind % 2 == 1 or math.floor(kind / 16) % 2 == 1
+end
+-- Knopf "Spaeter" im Kasten: erstes Mal ans Ende der Runde, zweites Mal aus dem Plan (je Figur gemerkt)
+function G:LaterTable()
+    local db = self:DB()
+    db.later = type(db.later) == "table" and db.later or {}
+    local who = Try(UnitName, "player") or "?"
+    db.later[who] = type(db.later[who]) == "table" and db.later[who] or {}
+    return db.later[who]
+end
+function G:LaterQuest(id)
+    if not id then return end
+    local t = self:LaterTable()
+    t[id] = math.min(2, (t[id] or 0) + 1)
+    if ONE.Print then
+        if t[id] >= 2 then ONE:Print(T("%s fällt aus dem Plan (wieder keine Gruppe).", G.Title(id)))
+        else ONE:Print(T("%s kommt ans Ende der Runde.", G.Title(id))) end
+    end
+    self:Later(.1, true)
 end
 -- Bessere Ausruestung aus Quests, die nicht in der Route sind (Nutzer 22.11.2026: "wird das bessere Gear mit
 -- eingerechnet?" – die Route bleibt fest, nur ein Hinweis im Kasten). Quelle: Seite Ausruestung (Way:Plan).
@@ -710,7 +811,18 @@ function G:Replan(follow)
             ctx.route, ctx.flow = true, true
             -- selbst angenommene Quests: bereitwilliger einbauen (wer annimmt, will sie machen), nur ohne grossen Umweg
             ctx.tempo = P.ROUTE_TEMPO
-            ctx.follow, ctx.objNodes, ctx.missed = G.RouteFollow(route, ctx.me.level or 1, ctx.inLog, ctx.targets, ctx.done)
+            local later = self:LaterTable()
+            ctx.follow, ctx.objNodes, ctx.missed, ctx.routeGates, ctx.routeDungeons = G.RouteFollow(route, ctx.me.level or 1, ctx.inLog, ctx.targets, ctx.done, later)
+            -- zweimal "Spaeter": abgewaehlt (im Log dann "Nicht im Plan", abbrechen mit Rueckfrage)
+            for id, v in pairs(later) do
+                if v >= 2 then
+                    local ov = {}
+                    for k, x in pairs(ctx.override or {}) do ov[k] = x end
+                    for k, x in pairs(later) do if x >= 2 then ov[k] = "no" end end
+                    ctx.override = ov
+                    break
+                end
+            end
             ctx.followLoops = nil
             if self:GearOn() then
                 local gc = G.GearChains(self:GearRows(ctx.me.level or 1), ctx.follow, ctx.me.level, ctx.done)

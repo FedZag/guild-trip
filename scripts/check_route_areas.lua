@@ -27,9 +27,14 @@ local LONG_YD, STUB_STEPS, AWAY_YD, REVISIT_YD, REVISIT_LVL, ZONE_BACK_LVL, HUB_
 -- Rueckschritte, knapp ueber dem schlechtesten erreichten Wert. Ganz 0 geht nicht: manche Quests gibt es erst
 -- ab einer Stufe, dann ist ein zweiter Besuch billiger als vorher lange Monster zu hauen (z. B. Nordbrachland).
 -- Vorher (22.11.) lagen die Routen bei ABST ~29, ohne Grund ~29, LANG ~210 je Route.
-local LIMITS = {abst = 10, doppOhne = 20, lang = 125, regel = 0, zeit = 0}
+-- 24.11.2026 (Gebiets-Schleife): kein Fussweg ueber 1500 m fuer nur eine Aktion (EINZEL) und keine Quest, die angenommen
+-- und nie abgegeben wird (OHNEABG) – beides muss 0 sein
+local LIMITS = {abst = 10, doppOhne = 20, lang = 125, regel = 0, zeit = 0, einzel = 0, ohneAbg = 0}
 -- Quests mit Zeitlimit: hoechstens TIMED_SHARE des Limits zwischen Annehmen und Abgeben (ZEIT muss 0 sein)
 local TIMED_SHARE = .7
+local NURA_YD, NURA_STEPS = 500, 80
+local EINZEL_YD, CLUSTER_YD = 1640, 300
+local HAUEN_MIN = 10
 GetLocale = function() return "deDE" end
 for _, f in ipairs({"ONE_QuestDB/Data", "ONE_QuestDB/Timed", "ONE_Leveling/Rewards"}) do assert(loadfile("src/" .. f .. ".lua"))() end
 local lev = {}
@@ -112,7 +117,7 @@ local function Check(key, route)
     end
     for i, r in ipairs(route) do
         local w
-        if r.k == "fp" and r.m then w = World(r.m, r.x / 1000, r.y / 1000)
+        if (r.k == "fp" or r.k == "dungeon") and r.m then w = World(r.m, r.x / 1000, r.y / 1000)
         elseif r.k == "fp" and r.z then
             -- Routen-Schritt "Flugpunkt lernen" ohne Lage: der eigene Flugpunkt der Zone, der am naechsten liegt
             local bd
@@ -178,6 +183,68 @@ local function Check(key, route)
         for k, id in (r[1] or ""):gmatch("(%a)(%d+)") do
             id = tonumber(id)
             if k == "a" then accAt[id] = accAt[id] or i elseif k == "o" then objAt[id] = i elseif k == "t" then turnAt[id] = i end
+        end
+    end
+    -- Nur zum Annehmen hingelaufen (Spieltest 23.11.2026 "Raecht mein Dorf"): ein Schritt, der nur annimmt und mit
+    -- einem Fussweg > NURA_YD erreicht wird, braucht fuer mindestens eine seiner Quests Ziel oder Abgabe in den
+    -- naechsten NURA_STEPS Schritten im selben Gebiet; sonst ANNEHMEN. Angenommen und nie abgegeben: OHNEABG.
+    out.annehmen, out.ohneAbg, out.annLines = 0, 0, {}
+    for id, ia in pairs(accAt) do
+        if not turnAt[id] then
+            out.ohneAbg = out.ohneAbg + 1
+            Note(("  OHNEABG q%d angenommen Schritt %d, nie abgegeben"):format(id, ia))
+        end
+    end
+    for i, r in ipairs(route) do
+        local toks, onlyA = {}, r[1] ~= nil
+        for k, id in (r[1] or ""):gmatch("(%a)(%d+)") do
+            if k ~= "a" then onlyA = false end
+            toks[#toks + 1] = tonumber(id)
+        end
+        if onlyA and #toks > 0 and (legs[i] or 0) > NURA_YD then
+            local soon = false
+            for j = i + 1, math.min(#route, i + NURA_STEPS) do
+                local q = route[j]
+                if q.z ~= r.z then break end
+                for k, id in (q[1] or ""):gmatch("(%a)(%d+)") do
+                    id = tonumber(id)
+                    if k ~= "a" then for _, t in ipairs(toks) do if t == id then soon = true end end end
+                end
+                if soon then break end
+            end
+            if not soon then
+                out.annehmen = out.annehmen + 1
+                out.annLines[#out.annLines + 1] = ("  ANNEHMEN Schritt %d %s: %.0f yd hin, Quest erst spaeter"):format(i, r[1], legs[i])
+            end
+        end
+    end
+    -- Langer Fussweg fuer fast nichts (Nutzer 23.11.2026: "ich soll wieder ueber 2000 m laufen um irgendwo eine Quest
+    -- anzunehmen"): Fussweg-Teil > EINZEL_YD (1500 m, nach Flug), und am Ziel (dieser Halt + direkt folgende Halte
+    -- < CLUSTER_YD) weniger als ein Block Arbeit: hoechstens eine Annahme/Abgabe und kein Ziel -> EINZEL
+    -- Hauen am Stueck (Nutzer: ~10 min ok): Routen-Schritte "grind" mit min > HAUEN_MIN
+    out.hauen, out.hauenMax = 0, 0
+    for i, r in ipairs(route) do
+        if r.k == "grind" and (r.min or 0) > HAUEN_MIN then
+            out.hauen = out.hauen + 1
+            out.hauenMax = math.max(out.hauenMax, r.min)
+            out.annLines[#out.annLines + 1] = ("  HAUEN Schritt %d: %d min am Stueck (St %d -> %d)"):format(i, r.min, r.l or 0, r.to or 0)
+        end
+    end
+    out.einzel = 0
+    for i, r in ipairs(route) do
+        if (legs[i] or 0) > EINZEL_YD and r[1] and pts[i] then
+            local n, obj = 0, false
+            local j = i
+            while route[j] do
+                local q = route[j]
+                if j > i and (not pts[j] or Dist(pts[j].w, pts[i].w) > CLUSTER_YD) then break end
+                for k in (q[1] or ""):gmatch("(%a)%d+") do n = n + 1 if k == "o" then obj = true end end
+                j = j + 1
+            end
+            if n < 2 and not obj then
+                out.einzel = out.einzel + 1
+                out.annLines[#out.annLines + 1] = ("  EINZEL Schritt %d %s: %.0f m zu Fuss fuer eine Aktion"):format(i, r[1], legs[i] * .9144)
+            end
         end
     end
     local function Could(tok, i)
@@ -304,22 +371,23 @@ end
 local keys = {}
 for k in pairs(ROUTES) do keys[#keys + 1] = k end
 table.sort(keys)
-local sum = {lang = 0, abst = 0, dopp = 0, doppOhne = 0, zurueck = 0, walkYd = 0, steps = 0, regel = 0, zeit = 0}
+local sum = {lang = 0, abst = 0, dopp = 0, doppOhne = 0, zurueck = 0, walkYd = 0, steps = 0, regel = 0, zeit = 0, annehmen = 0, ohneAbg = 0, einzel = 0, hauen = 0}
 local bad = {}
 for _, k in ipairs(keys) do
     local o = Check(k, ROUTES[k])
     local rl
     o.regel, rl = Rules(k, ROUTES[k])
-    print(("%-8s %4d Schr.  Fussweg %5.0f km  LANG %3d  ABST %2d  DOPP %3d (ohne Grund %2d)  ZURUECK %2d  REGEL %d  ZEIT %d"):format(k, o.steps,
-        o.walkYd / 1094, o.lang, o.abst, o.dopp, o.doppOhne, o.zurueck, o.regel, o.zeit))
+    print(("%-8s %4d Schr.  Fussweg %5.0f km  LANG %3d  ABST %2d  DOPP %3d (ohne Grund %2d)  ZURUECK %2d  REGEL %d  ZEIT %d  ANNEHMEN %d  OHNEABG %d  EINZEL %d  HAUEN %d (max %d)"):format(k, o.steps,
+        o.walkYd / 1094, o.lang, o.abst, o.dopp, o.doppOhne, o.zurueck, o.regel, o.zeit, o.annehmen, o.ohneAbg, o.einzel, o.hauen, o.hauenMax))
     for _, l in ipairs(o.lines) do print(l) end
     for _, l in ipairs(o.zeitLines) do print(l) end
+    for _, l in ipairs(o.annLines) do print(l) end
     if o.regel > 0 then for _, l in ipairs(rl) do print(l) end end
     for f in pairs(sum) do sum[f] = sum[f] + (o[f] or 0) end
     for f, lim in pairs(LIMITS) do if (o[f] or 0) > lim then bad[#bad + 1] = ("%s %s=%d (Grenze %d)"):format(k, f, o[f], lim) end end
 end
-print(("SUMME %d Routen, %d Schritte, Fussweg %.0f km, LANG %d, ABST %d, DOPP %d (ohne Grund %d), ZURUECK %d, REGEL %d, ZEIT %d"):format(#keys, sum.steps,
-    sum.walkYd / 1094, sum.lang, sum.abst, sum.dopp, sum.doppOhne, sum.zurueck, sum.regel, sum.zeit))
+print(("SUMME %d Routen, %d Schritte, Fussweg %.0f km, LANG %d, ABST %d, DOPP %d (ohne Grund %d), ZURUECK %d, REGEL %d, ZEIT %d, ANNEHMEN %d, OHNEABG %d, EINZEL %d, HAUEN %d"):format(#keys, sum.steps,
+    sum.walkYd / 1094, sum.lang, sum.abst, sum.dopp, sum.doppOhne, sum.zurueck, sum.regel, sum.zeit, sum.annehmen, sum.ohneAbg, sum.einzel, sum.hauen))
 if hard and #bad > 0 then
     print("PRUEFUNG NICHT BESTANDEN:\n  " .. table.concat(bad, "\n  "))
     os.exit(1)

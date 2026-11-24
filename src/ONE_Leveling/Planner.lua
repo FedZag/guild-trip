@@ -76,7 +76,6 @@ P.ROUTE_PULL = 3
 -- neben einem Routen-Halt desselben Gebiets eingereiht wird und die Reihe hoechstens so viele Minuten mehr kostet,
 -- als ihre EP wert sind (kein Zickzack fuer ein Teil)
 P.GEAR_EXTRA = 6
-P.ROUTE_AHEAD = 120       -- feste Route: so viele Plaetze voraus noch im aktuellen Gebiet erledigen, bevor es weggeht
 P.PREACCEPT_LOOPS = 3     -- am Stuetzpunkt gleich die Annahmen fuer so viele weitere Runden von dort
 P.FLOW_ACTIVE = 1        -- feste Gebietsfolge: hoechstens so viele Gebiete gleichzeitig
 P.FLOW_SLACK = .5        -- feste Gebietsfolge: Quests dort lohnen schon ab halber Schwelle
@@ -92,11 +91,18 @@ P.VENDOR_MIN = .5
 P.BAG_LOW = 4
 P.DUNGEON_NEAR = 1       -- Hinweis Dungeon-(Vor-)Quest nur bei hoechstens so viel Umweg (Minuten)
 P.MISSED_NEAR = 1        -- Hinweis verpasste fruehere Annahme (Guide.RouteFollow) nur bei hoechstens so viel Umweg (Minuten)
+P.DUNGEON_RUN = 60       -- feste Route: so lange dauert ein Dungeon-Lauf (Minuten, wie in scripts/sim_leveling.lua)
+P.MISSED_PULL = 5        -- statt langem Hauen: verpasste Annahmen bis so viele Minuten entfernt zurueck in die Route
+P.ROUTE_GRIND_MAX = 10   -- feste Route: laenger hauen nur, wenn in der Route sonst nichts geht (Nutzer: ~10 min Hauen ok)
+P.ROUTE_SKIP_AHEAD = 30  -- ... und nur Quest-Schritte so viele Plaetze voraus vorziehen
 P.BAG_SOON = 1
 P.LOOT_PER_SLOT = 8
 -- Quest-Ziele draussen erst angehen, wenn die Queststufe hoechstens so viel ueber deiner (Plan-)Stufe liegt
 -- (Spieltest 19.11.2026: mit 14 "Raptorhoerner [18]" erledigen – Gegner zu stark)
 P.OBJ_AHEAD = 2
+-- feste Route (Gebiets-Schleife, 24.11.2026): in Stufenluecken stehen Quests bis 3 ueber der eigenen Stufe in der Route
+-- (scripts/build_loop.lua AHEAD_GAP) – deren Ziele duerfen dann auch dran sein
+P.ROUTE_OBJ_AHEAD = 3
 P.MAX_STEPS = 60
 P.MAX_MINUTES = 150
 P.FAR_MIN = 12           -- anderer Kontinent / unbekannter Ort
@@ -780,6 +786,7 @@ function P:Plan(ctx)
             if not spell then o.class, o.classValue = false, value end
         end
     end
+    local follow0 = ctx.route and ctx.follow or nil
     for id, o in pairs(info) do
         local e = o.e
         local isGroup = o.kind % 2 == 1 or math.floor(o.kind / 16) % 2 == 1
@@ -790,6 +797,11 @@ function P:Plan(ctx)
             o.skip = "Von dir abgewählt."
         elseif override[id] == "yes" then
             Choose(o, "yes")
+        elseif ctx.route and follow0 and (follow0["accept:" .. id] or follow0["obj:" .. id] or follow0["turnin:" .. id])
+            and not raidOrPvp and (e[1] or 0) > 0 and not (not o.log and (e[12] or 0) > 0 and (done(e[12]) or inLog(e[12]))) then
+            -- Gebiets-Schleife (Nutzer 24.11.2026): die Route enthaelt alle Quests der Gebiete, auch Elite ("Gruppe",
+            -- mit "Spaeter"-Knopf) – im Spiel nicht mehr nach EP oder Aufwand aussortieren
+            Choose(o, "route")
         elseif o.rec and L >= o.rec.min then
             Choose(o, "rec")
         elseif raidOrPvp then
@@ -928,7 +940,8 @@ function P:Plan(ctx)
         local dkey = chosen[id] and ForDungeon(id) or nil
         o.forDungeon = dkey
         -- Dungeonquests und sehr empfohlene Reihen (ohne "jetzt machen"): nur am Weg
-        local byway = dkey ~= nil or (o.rec ~= nil and not Prio(id) and override[id] ~= "yes")
+        -- (vom Route-Bau ausgewaehlte Dungeon-Quests, override "yes": gezielt abholen, nicht nur am Weg)
+        local byway = (dkey ~= nil and override[id] ~= "yes") or (o.rec ~= nil and not Prio(id) and override[id] ~= "yes")
         -- fertig im Log (Dungeon gelaufen): Abgabe ganz normal, auch mit Weg
         local j = {id = id, o = o, byway = byway and not (o.log and o.complete), pool = not chosen[id],
             force = override[id] == "yes" or Prio(id), class = chosen[id] == "class"}
@@ -953,6 +966,16 @@ function P:Plan(ctx)
         for id, o in pairs(info) do if chosen[id] or o.pool then ids[#ids + 1] = id end end
         table.sort(ids)
         for _, id in ipairs(ids) do AddJob(id) end
+    end
+    -- feste Route: Dungeon-Laeufe der Route (Nutzer 23.11.2026 "Dungeon-Quests einbauen") – ein Halt am Eingang, solange
+    -- Quests dieses Dungeons im Log offen sind; danach (Quests fertig) plant er die Abgaben wie sonst
+    if ctx.route and ctx.routeDungeons then
+        for _, d in ipairs(ctx.routeDungeons) do
+            local open = {}
+            for _, id in ipairs(d.ids or {}) do if inLog(id) and not (ctx.complete and ctx.complete(id)) then open[#open + 1] = id end end
+            local w = #open > 0 and d.m and d.x and World(nil, d.m, d.x / 1000, d.y / 1000)
+            if w then stops[#stops + 1] = {kind = "dungeon", key = d.key, ids = open, w = w} end
+        end
     end
     -- Bedingungen: angenommen (im Plan oder im Log) vor Erledigen/Abgeben, Vorquest abgegeben vor Annehmen
     local accepted, finished, turned = {}, {}, {}
@@ -980,11 +1003,11 @@ function P:Plan(ctx)
             if ((Q.q[s.id] or {})[2] or 0) > PlanLevel() then return false end
             return PreReady(s)
         elseif s.kind == "obj" then
-            if ((Q.q[s.id] or {})[1] or 0) > PlanLevel() + P.OBJ_AHEAD then return false end
+            if ((Q.q[s.id] or {})[1] or 0) > PlanLevel() + (ctx.route and P.ROUTE_OBJ_AHEAD or P.OBJ_AHEAD) then return false end
             return accepted[s.id]
         elseif s.kind == "train" then
             return PlanLevel() >= s.lvl
-        elseif s.kind == "fp" or s.kind == "vendor" then
+        elseif s.kind == "fp" or s.kind == "vendor" or s.kind == "dungeon" then
             return true
         else -- Abgabe
             if not accepted[s.id] then return false end
@@ -1120,6 +1143,11 @@ function P:Plan(ctx)
         elseif s.kind == "grind" then
             minutes = minutes + s.work
             xpSum = xpSum + s.xp
+        elseif s.kind == "dungeon" then
+            -- Dungeon-Lauf (feste Route): ~P.DUNGEON_RUN Minuten, Monster-EP wie Hauen; die Quests sind danach fertig
+            minutes = minutes + P.DUNGEON_RUN
+            xpSum = xpSum + P.DUNGEON_RUN * GrindRate(PlanLevel())
+            for _, id in ipairs(s.ids or {}) do finished[id] = true end
         elseif s.kind == "obj" then
             finished[s.id] = true
             local o = info[s.id]
@@ -1363,7 +1391,7 @@ function P:Plan(ctx)
             follow = f2
         end
     end
-    local routeSkip, routeList, routeAt = {}, nil, 1
+    local routeSkip, routeList, routeAt, missedBack, gatesDone = {}, nil, 1, false, {}
     if follow then
         local fl = flNew or ctx.followLoops or {}
         local base
@@ -1374,6 +1402,11 @@ function P:Plan(ctx)
             -- moeglichen Schritt – Westfall, Pestlaender): der naechste Routen-Halt, der noch nicht geht, wird
             -- entweder durch Monster hauen moeglich (fehlende Stufe) oder uebersprungen (Vorquest fehlt, Quest nicht
             -- angenommen – der Spieler ist anders gelaufen)
+            -- Spieltest 23.11.2026 ("Bis Stufe 20 Monster hauen – ca. 147 min", Nutzer: "das geht so nicht"): weicht der
+            -- Spielstand von der Route ab (weniger EP), wird nicht lange gehauen. Mehr als P.ROUTE_GRIND_MAX Minuten:
+            -- 1) verpasste Annahmen (Guide.RouteFollow) in der Naehe (<= P.MISSED_PULL Minuten) zurueck in den Fahrplan,
+            -- 2) sonst diesen Schritt vorerst auslassen, wenn ein spaeterer Routen-Schritt schon geht; erst wenn in der
+            -- Route nichts mehr geht, hauen.
             if ctx.route then
                 if not routeList then
                     routeList = {}
@@ -1387,10 +1420,54 @@ function P:Plan(ctx)
                 while true do
                     while routeList[routeAt] and (routeList[routeAt].s.used or routeSkip[routeList[routeAt].s]) do routeAt = routeAt + 1 end
                     local lo = routeList[routeAt] and routeList[routeAt].s
+                    -- Hauen, das die Route an dieser Stelle vorsieht (ctx.routeGates): wie geplant, damit kein Rueckstand
+                    -- entsteht, der spaeter einen langen Block braucht
+                    local gate = lo and ctx.routeGates and ctx.routeGates[P.StopKey(lo)]
+                    if gate and not gatesDone[gate] and gate > PlanLevel() and (me.xpMax or 0) > 0 then
+                        gatesDone[gate] = true
+                        local gneed = P.XPTo(L, me.xp or 0, me.xpMax, xpSum, gate)
+                        if gneed > 0 then Commit({kind = "grind", lvl = gate, xp = gneed, work = gneed / GrindRate(PlanLevel()), w = pos, opt = true, planned = true}, 0, nil) end
+                    end
                     if not lo or Ready(lo) then break end
                     local lv = lo.kind == "accept" and (Q.q[lo.id] or {})[2]
                     local need = lv and lv > PlanLevel() and (me.xpMax or 0) > 0 and P.XPTo(L, me.xp or 0, me.xpMax, xpSum, lv) or 0
-                    if need > 0 then
+                    local long = need > 0 and need / GrindRate(PlanLevel()) > P.ROUTE_GRIND_MAX
+                    local later = false
+                    if long and not missedBack and ctx.missed and pos then
+                        missedBack = true
+                        local added = false
+                        for _, m in ipairs(ctx.missed) do
+                            local w = m.rank and not follow["accept:" .. m.id] and World(m.n)
+                            if w and w[1] == pos[1] and Minutes(pos, w) <= P.MISSED_PULL then
+                                follow["accept:" .. m.id] = m.rank
+                                added = true
+                            end
+                        end
+                        if added then
+                            routeList = {}
+                            for _, s in ipairs(stops) do
+                                local k = follow[P.StopKey(s)]
+                                if k then routeList[#routeList + 1] = {s = s, k = k} end
+                            end
+                            table.sort(routeList, function(a, b) return a.k < b.k end)
+                            routeAt = 1
+                            later = true
+                        end
+                    end
+                    -- nur Quest-Schritte der naechsten P.ROUTE_SKIP_AHEAD Plaetze in der Naehe (<= P.MISSED_PULL Minuten) –
+                    -- nie z. B. ferne Flugpunkte vorziehen (Nachstellung 23.11.2026: Flugpunkt-Rundreise mit Stufe 27)
+                    if long and not later then
+                        for q = routeAt + 1, #routeList do
+                            local s = routeList[q].s
+                            if routeList[q].k > routeList[routeAt].k + P.ROUTE_SKIP_AHEAD then break end
+                            if s.job and not s.used and not routeSkip[s] and Ready(s) and s.w and pos and s.w[1] == pos[1]
+                                and Minutes(pos, s.w) <= P.MISSED_PULL then later = true break end
+                        end
+                        if later then routeSkip[lo] = true end
+                    end
+                    if later then
+                        -- (verpasste zurueck oder spaeterer Schritt geht): weiter ohne Hauen
+                    elseif need > 0 then
                         Commit({kind = "grind", lvl = lv, xp = need, work = need / GrindRate(PlanLevel()), w = pos, opt = true}, 0, nil)
                         if not Ready(lo) then routeSkip[lo] = true end
                     else
@@ -1407,16 +1484,9 @@ function P:Plan(ctx)
                 end
             end
             if not best then break end
-            -- feste Route: vor einem Gebietswechsel erst, was in den naechsten P.ROUTE_AHEAD Routen-Plaetzen hier im
-            -- Gebiet liegt (Nachstellung 22.11.2026: Silberwald -> Unterstadt -> Silberwald -> Unterstadt)
-            if ctx.route and pos and best.w and pos[4] and best.w[4] ~= pos[4] then
-                local alt, aRank
-                for _, s in ipairs(stops) do
-                    local k = not s.used and not routeSkip[s] and s.w and s.w[4] == pos[4] and follow[P.StopKey(s)]
-                    if k and k > bRank and k <= bRank + P.ROUTE_AHEAD and Ready(s) and (not aRank or k < aRank) then alt, aRank = s, k end
-                end
-                if alt then best, bRank = alt, aRank end
-            end
+            -- (Vorausschau im Gebiet P.ROUTE_AHEAD entfernt 23.11.2026: die Route ist jetzt als Ganzes optimiert
+            -- (scripts/route_opt.lua) – Spieltest "Raecht mein Dorf": Ziele 200 m hinter der Grenze im Steinkrallen-
+            -- gebirge wurden 120 Plaetze nach hinten geschoben, man lief quer durchs Brachland zurueck)
             if best.spots then
                 for _, sp in ipairs(best.spots) do
                     local wk, vi = Reach(pos, sp.w, minutes, hs)
@@ -1637,7 +1707,7 @@ function P:Plan(ctx)
             local z = s.w and s.w[4]
             -- angenommene Quests in einem anderen Gebiet warten, bis hier nichts mehr ist (Nutzer 21.11.2026: "Abgaben
             -- im anderen Gebiet erst, wenn das aktuelle fertig ist"; Pruefung 22.11.: Pendeln zwischen 4 Gebieten)
-            local inFlow = not ctx.flow or not z or (j and (j.class or (accepted[j.id] and wide))) or InFlow(z)
+            local inFlow = not ctx.flow or not z or (j and (j.class or j.force or (accepted[j.id] and wide))) or InFlow(z)
             if inFlow and j and not s.used and s.w and not j.byway and Ready(s) and (not j.pool or s.kind ~= "turnin" or accepted[j.id]) then
                 local hit
                 for _, c in ipairs(list) do
@@ -1672,7 +1742,7 @@ function P:Plan(ctx)
             end
             -- feste Gebietsfolge: neue Quests nur, wenn alle ihre Orte in Gebieten liegen, die gerade dran sind
             -- (Hauptstaedte zaehlen mit); schon angenommene und Pflicht-Klassenquests immer
-            if take and ctx.flow and not j.class then
+            if take and ctx.flow and not j.class and not j.force then
                 for _, s in ipairs({j.a or false, j.t or false, j.e or false}) do
                     local z = s and not s.used and s.w and s.w[4]
                     if z and not accepted[j.id] and not InFlow(z) then take = false break end
@@ -2190,6 +2260,7 @@ function P:Plan(ctx)
         elseif s.kind == "train" or s.kind == "fp" or s.kind == "grind" or s.kind == "bind" or s.kind == "vendor" then
             local w = s.w or {}
             steps[#steps + 1] = {kind = s.kind, group = s.group, name = s.name, lvl = s.lvl, n = s.n, xp = s.xp, work = s.work, inn = s.inn,
+                fpID = s.kind == "fp" and s.id or nil,
                 fromXP = s.fromXP, toXP = s.toXP, maxXP = s.maxXP, hub = s.hub,
                 world = s.kind ~= "grind" and w[1] and {w[1], w[2], w[3]} or nil,
                 mapID = w[4] or (s.kind == "grind" and me.mapID or nil), x = s.kind ~= "grind" and w[5] or nil, y = s.kind ~= "grind" and w[6] or nil,
@@ -2318,10 +2389,10 @@ function P:Plan(ctx)
     -- zurueckschicken, nur Hinweis. ctx.missed kommt aus Guide.RouteFollow (Rest der Quest liegt noch vor einem)
     if ctx.route and here and ctx.missed then
         for _, m in ipairs(ctx.missed) do
-            local id = m.id
+            local id = m.ahead ~= false and m.id
             local e = Q.q[id]
             local ok = e and not inLog(id) and not done(id) and (e[2] or 0) <= L and (e[1] or 0) >= P.GreyBelow(L)
-                and Fits(id, e, me, done, inLog)
+                and Fits(id, e, me, done, inLog) and not (follow and follow["accept:" .. id])
             local w = ok and World(m.n)
             if w then
                 local d = Detour(w)

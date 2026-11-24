@@ -86,6 +86,7 @@ assert(Chat:Send("guild", "/s hallo") and sent == "/s hallo")
 -- 8) Ersetzter WoW-Chat: Fluestern aus WoW-Menues und Antworten-Taste landen hier
 local UI = {shown = {}}
 function UI:Show(view) self.shown[#self.shown + 1] = view or "?" end
+function UI:OpenInput(view, text) self:Show(view) if text and text ~= "" then self.input:SetText(text) end return true end
 UI.input = {SetFocus = function() end, SetText = function(self, t) self.t = t end}
 c.UI = UI
 CreateFrame = function() return {Hide = function() end, SetScript = function() end, RegisterEvent = function() end} end

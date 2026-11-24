@@ -538,6 +538,23 @@ function Tr:Rows(plan, budget)
         end
         local warn = Tr.Warning(s1)
         if warn then rows[#rows + 1] = {text = warn, kind = "who", block = "now"} end
+        -- Elite-Quests (Nutzer 24.11.2026): "Gruppe" und Knopf "Spaeter" – erstes Mal ans Ende der Runde, zweites Mal
+        -- faellt sie aus dem Plan
+        if plan.route and G.IsElite then
+            local seen = {}
+            for _, st in ipairs({s1, unpack(bundle)}) do
+                for _, a in ipairs(st.actions or {}) do
+                    if a.id and not seen[a.id] and a.kind ~= "turnin" and G.IsElite(a.id) then
+                        seen[a.id] = true
+                        local again = (G:LaterTable()[a.id] or 0) >= 1
+                        rows[#rows + 1] = {text = "|cffff5a4a" .. T("GRUPPE") .. "|r " .. T("%s – keine Gruppe? Klick: später", G.Title(a.id)),
+                            kind = "who", block = "now", click = function() G:LaterQuest(a.id) end,
+                            tip = again and T("Schon einmal verschoben: noch ein Klick, dann fällt die Quest aus dem Plan.")
+                                or T("Elite-Quest: allein schwer. Klick schiebt sie ans Ende der Runde; wird sie dann wieder nicht gemacht, fällt sie aus dem Plan.")}
+                    end
+                end
+            end
+        end
         -- Abkuerzungen: Ruhestein benutzen/setzen, Geistheiler (Hearth.lua)
         if lev.Hearth then
             local ok, lines = pcall(lev.Hearth.Lines, lev.Hearth, plan)

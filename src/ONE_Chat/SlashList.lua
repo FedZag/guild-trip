@@ -92,9 +92,10 @@ function S:Build()
     local m = M()
     if not (m and m.main and m.log) then return nil end
     local f = CreateFrame("Frame", nil, m.main)
-    f:SetPoint("BOTTOMLEFT", m.log, "BOTTOMLEFT", 4, 4)
-    f:SetPoint("BOTTOMRIGHT", m.log, "BOTTOMRIGHT", -4, 4)
-    if f.SetFrameLevel and m.main.GetFrameLevel then f:SetFrameLevel((m.main:GetFrameLevel() or 1) + 25) end
+    if m.PlaceOverlay then m:PlaceOverlay(f, 25) else
+        f:SetPoint("BOTTOMLEFT", m.log, "BOTTOMLEFT", 4, 4)
+        f:SetPoint("BOTTOMRIGHT", m.log, "BOTTOMRIGHT", -4, 4)
+    end
     f:EnableMouse(true)
     local G = ONE.Glass
     if G and G.Surface then

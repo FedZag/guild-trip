@@ -435,3 +435,10 @@ EN["Für Zephras hat Guild Trip noch keine Questdaten. Danach geht es mit dem Ze
 EN["Für Zephras hat Guild Trip noch keine Questdaten. Danach geht es mit dem Luftschiff aufs Festland weiter."] = "Guild Trip has no quest data for Zephras yet. Afterwards, take the airship to the mainland."
 EN["Für dieses Gebiet hat Guild Trip noch keine Questdaten."] = "Guild Trip has no quest data for this zone yet."
 EN["Guild Trip zeigt hier Quests, sobald es Daten dafür gibt."] = "Guild Trip will show quests here as soon as there is data for them."
+-- Gebiets-Schleife: Elite-Quests "Spaeter" (24.11.2026)
+EN["GRUPPE"] = "GROUP"
+EN["%s – keine Gruppe? Klick: später"] = "%s – no group? Click: later"
+EN["Schon einmal verschoben: noch ein Klick, dann fällt die Quest aus dem Plan."] = "Already postponed once: one more click and the quest leaves the plan."
+EN["Elite-Quest: allein schwer. Klick schiebt sie ans Ende der Runde; wird sie dann wieder nicht gemacht, fällt sie aus dem Plan."] = "Elite quest: hard alone. Click moves it to the end of the round; if it is skipped again, it leaves the plan."
+EN["%s fällt aus dem Plan (wieder keine Gruppe)."] = "%s leaves the plan (no group again)."
+EN["%s kommt ans Ende der Runde."] = "%s moves to the end of the round."

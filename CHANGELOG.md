@@ -4,6 +4,30 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.8.4-alpha (veröffentlicht 24.11.2026)
+
+```
+## 0.8.4-alpha
+
+**English**
+- Quest guide rebuilt as a loop per zone instead of speed levelling: at each hub you accept all quests of the zone (elite and dungeon pre-quests included), do the objectives nearest first and turn everything in, then the next round. Quests that lead to another zone stay in your log until the route goes there anyway. Your hearthstone is set at the inn of each new zone.
+- Elite quests show "GROUP" in the quest box. No group? One click moves the quest to the end of the round, a second click takes it out of the plan.
+- Level gaps (e.g. Alliance 48–51): instead of long grinding, the route collects single quests from several zones by flight master. Much less grinding overall.
+- Chat: new style "side bar" – one icon per conversation, bubbles rise and fade, icons glow on new messages, preview on hover, time in the bubbles, background down to 0 %.
+- Chat: item suggestions while typing [ (German and English names), inserted as a link.
+- Guild invite: Alt+click a name or the crest next to a whisper icon; macro buttons such as /ginvite are no longer blocked after using the chat.
+
+**Deutsch**
+- Quest-Führung neu als Schleife je Gebiet statt Speed-Leveling: Am Stützpunkt nimmst du alle Quests des Gebiets an (auch Elite und Dungeon-Vorquests), erledigst die Ziele der Reihe nach, gibst alles ab, dann kommt die nächste Runde. Quests, die in ein anderes Gebiet führen, bleiben im Log, bis die Route sowieso dorthin kommt. Der Ruhestein wird im Gasthaus jedes neuen Gebiets gesetzt.
+- Elite-Quests zeigen „GRUPPE“ im Quest-Kasten. Keine Gruppe? Ein Klick schiebt die Quest ans Ende der Runde, ein zweiter nimmt sie aus dem Plan.
+- Stufenlücken (z. B. Allianz 48–51): statt langem Monsterhauen sammelt die Route einzelne Quests aus mehreren Gebieten per Flugmeister ein. Insgesamt viel weniger Hauen.
+- Chat: neuer Stil „Randleiste“ – ein Symbol je Gespräch, Blasen steigen auf und verblassen, Symbole leuchten bei neuen Nachrichten, Vorschau beim Drüberfahren, Uhrzeit in den Blasen, Hintergrund bis 0 %.
+- Chat: Gegenstands-Vorschläge beim Tippen von [ (deutsche und englische Namen), eingefügt als Link.
+- Gilden-Einladen: Alt+Klick auf einen Namen oder das Wappen neben einem Flüster-Symbol; Makro-Knöpfe wie /ginvite werden nach dem Chatten nicht mehr geblockt.
+```
+
+---
+
 ## 0.8.3-alpha (veröffentlicht 23.11.2026)
 
 ```

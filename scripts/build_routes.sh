@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
-# Feste Routen der Quest-Fuehrung vorab rechnen (Neubau 21.11.2026, "wie RestedXP"): je Volk x Klasse ab Stufe 1 im
-# Startgebiet bis 60, mit fester Gebietsfolge (SIM_FLOW), aufgezeichnet mit SIM_RECORD -> src/ONE_Leveling/Routes.lua
-# Aufruf: bash scripts/build_routes.sh <shortest-path-forever-Ordner> [Schritte=3000]
-# Umgebung: JOBS=<n> (gleichzeitige Nachstellungen, Standard 8 – Laptop-Hitze; je Route ~6 min mit Ueberarbeiten), OUT=<ordner> (Protokolle behalten),
-#           NOWRITE=1 (nur rechnen + pruefen, Routes.lua nicht schreiben, z. B. fuer den Vorher-Vergleich),
-#           ONLY="16:1 1:8" (nur diese Routen neu rechnen, die uebrigen aus OUT behalten)
-# Eine Route, die schnellste (Nutzer 22.11.2026 "ich moechte weiterhin speed-leveln"): Schwelle "all" – im Vergleich
-# need/balanced/all (22.11.) war sie am schnellsten und hatte die wenigsten Rueckwege
+# Feste Routen der Quest-Fuehrung vorab rechnen -> src/ONE_Leveling/Routes.lua, je Volk x Klasse ab Stufe 1 bis 60.
+# Seit 24.11.2026 als Gebiets-Schleife (Nutzer: "wir nehmen nur noch die quests in den gebieten an, bauen daraus eine
+# zuverlaessige schleife …"): scripts/build_loop.lua – je Gebiet alle passenden Quests (auch Elite), Runde fuer Runde
+# annehmen -> Ziele -> abgeben, kein Speed-Leveling mehr (vorher Planer-Nachstellung + scripts/route_opt.lua).
+# Aufruf: bash scripts/build_routes.sh <shortest-path-forever-Ordner>
+# Umgebung: JOBS=<n> (gleichzeitige Bauten, Standard 3 – Laptop-Hitze), OUT=<ordner> (Protokolle behalten),
+#           NOWRITE=1 (nur rechnen + pruefen, Routes.lua nicht schreiben), ONLY="16:1 1:8" (nur diese Routen neu,
+#           die uebrigen aus OUT behalten)
 spf="${1:?Aufruf: bash scripts/build_routes.sh <spf> [schritte]}"
-steps="${2:-3000}"
-tempo=all
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-out="${OUT:-${TMPDIR:-/tmp}/routes_${tempo}_$$}"
-jobs_max="${JOBS:-8}"
+out="${OUT:-${TMPDIR:-/tmp}/routes_loop_$$}"
+jobs_max="${JOBS:-3}"
 mkdir -p "$out"
 for key in ${ONLY:-}; do sed -i "/^$key /d" "$out/summary.txt" 2>/dev/null; done
 # Volk (Maske) Fraktion Start (Karte x y) Heimat (Karte x y) Klassen – alle Paare, die Forever erlaubt
@@ -36,18 +34,17 @@ for line in "${starts[@]}"; do
     key="$rmask:${CMASK[$cls]}"
     [[ -n "${ONLY:-}" && " $ONLY " != *" $key "* ]] && continue
     while (( $(jobs -rp | wc -l) >= jobs_max )); do wait -n; done
-    ( SIM_SCEN="$fac,$race,$cls,$m,$x,$y,$hm,$hx,$hy" SIM_TEMPO="$tempo" SIM_FLOW=1 SIM_NOKIPP=1 SIM_RECORD="$out/$key.lua" \
-        nice -n 19 lua5.1 scripts/sim_leveling.lua "$spf" custom "$steps" > "$out/$key.log" 2>&1
-      echo "$key $race $cls: $(tail -2 "$out/$key.log" | head -1 | cut -c1-200)" | tee -a "$out/summary.txt" ) &
+    ( nice -n 19 lua5.1 scripts/build_loop.lua "$spf" "$fac,$race,$cls,$m,$x,$y,$hm,$hx,$hy" "$out/$key.lua" > "$out/$key.log" 2>&1
+      echo "$key $race $cls: $(grep ERGEBNIS "$out/$key.log" | cut -c1-200)" | tee -a "$out/summary.txt" ) &
   done
 done
 wait
 dest=src/ONE_Leveling/Routes.lua
 built="$out/Routes.lua"
 {
-  echo "-- Guild Trip Quest-Fuehrung: feste Routen je Volk:Klasse (Masken), die schnellste (Tempo $tempo) – ERZEUGT von scripts/build_routes.sh, nicht von Hand aendern."
-  echo "-- Je Schritt: {\"a12 t13 o14\" (annehmen/Ziel/abgeben; o14.2 = Teil 2 der Ziele, p = Ziel-Knoten), n = NPC/Ziel, l = erwartete Stufe} oder {k = \"bind\"|\"grind\"|\"fp\", …}."
-  echo "-- Gerechnet mit dem Planer (feste Gebietsfolge), danach als Ganzes ueberarbeitet (scripts/route_opt.lua), harte Pruefung scripts/check_route_areas.lua; im Spiel wird nur noch gefolgt."
+  echo "-- Guild Trip Quest-Fuehrung: feste Routen je Volk:Klasse (Masken), Gebiets-Schleife – ERZEUGT von scripts/build_routes.sh, nicht von Hand aendern."
+  echo "-- Je Schritt: {\"a12 t13 o14\" (annehmen/Ziel/abgeben; o14.2 = Teil 2 der Ziele, p = Ziel-Knoten), n = NPC/Ziel, l = erwartete Stufe, r = Beginn Runde Nr.} oder {k = \"bind\"|\"grind\"|\"fp\"|\"dungeon\", …}."
+  echo "-- Gebaut mit scripts/build_loop.lua (je Gebiet alle Quests, Runde fuer Runde), harte Pruefung scripts/check_route_areas.lua; im Spiel wird nur noch gefolgt."
   echo "GuildTripQuestRoutes = GuildTripQuestRoutes or {}"
   echo "local R = GuildTripQuestRoutes"
   for f in "$out"/*:*.lua; do
@@ -56,8 +53,8 @@ built="$out/Routes.lua"
     sed '1s/^return //' "$f"
   done
 } > "$built"
-# Spielzeit bis 60 (Summe der Nachstellungen) – Vergleich vorher/nachher
-awk '{for(i=1;i<=NF;i++){if($i=="bis60"){m+=$(i+1)} if($i~/^St$/){split($(i+1),a,"->"); if(a[2]<60) low++}}} END{printf "Spielzeit bis 60 gesamt %.0f min (%d Routen unter 60)\n", m, low}' "$out/summary.txt" | tee "$out/zeit.txt"
+# Bau-Rechnung: Hauen (soll 0 sein) und Routen unter 60
+awk '{for(i=1;i<=NF;i++){if($i=="Hauen"){h+=$(i+1)} if($i=="St" && $(i+1)+0<60) low++}} END{printf "Hauen-Schritte gesamt %d (%d Routen unter 60)\n", h, low}' "$out/summary.txt" | tee "$out/zeit.txt"
 # harte Pruefung: bricht eine Route sie, wird nicht ausgeliefert
 if ! lua5.1 scripts/check_route_areas.lua "$spf" "$built" --hart > "$out/pruefung.txt"; then
   tail -20 "$out/pruefung.txt"

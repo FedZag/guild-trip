@@ -270,9 +270,11 @@ local styleRow
 for i, l in ipairs(UI:SettingsLines()) do if l.def and l.def.id == "chat.style" then styleRow = panel.rows[i] end end
 assert(styleRow and styleRow.button.shown and styleRow.button.text == "Messenger")
 styleRow.button.scripts.OnClick(styleRow.button, "LeftButton")
-assert(Chat:Settings().style == "classic" and UI.needReload, "Stil gewechselt, Neuladen angeboten")
+assert(Chat:Settings().style == "messenger" and Chat:Settings().rail == true and not UI.needReload, "Randleiste: sofort, ohne Neuladen")
 styleRow.button.scripts.OnClick(styleRow.button, "LeftButton")
-assert(Chat:Settings().style == "messenger")
+assert(Chat:Settings().style == "classic" and not Chat:Settings().rail and UI.needReload, "Stil gewechselt, Neuladen angeboten")
+styleRow.button.scripts.OnClick(styleRow.button, "LeftButton")
+assert(Chat:Settings().style == "messenger" and not Chat:Settings().rail)
 -- im Messenger keine Schalter des alten Stils
 for _, l in ipairs(UI:SettingsLines()) do assert(not (l.def and l.def.id == "chat.stamps"), "Uhrzeit-Schalter nur klassisch") end
 panel.done.scripts.OnClick(panel.done)
@@ -487,7 +489,57 @@ do
     local oldShift = IsShiftKeyDown
     IsShiftKeyDown = function() return true end
     assert(UI.ShiftLink("player:Lyra", "[Lyra]", "LeftButton", nil) and edit.text == "Lyra", "Name im Feld, ohne Funktionsaufruf")
+    -- Spieltest 23.11.2026: auch nur SetText sperrt das Einladen -> Gilden-Fenster gar nicht anfassen,
+    -- eigener sicherer Knopf darunter
+    edit.text = ""
+    local gpop = Region("Frame")
+    gpop.which = "ADD_GUILDMEMBER"
+    gpop.SetText = function() error("Blizzard-Fenster angefasst") end
+    StaticPopup2 = gpop
+    assert(UI.ShiftLink("player:Lyra", "[Lyra]", "LeftButton", nil), "Umschalt+Klick erledigt")
+    assert(edit.text == "", "Feld im Gilden-Fenster nicht angefasst")
+    local gh = UI.guildHelper
+    assert(gh and gh.shown and gh.macro == "/ginvite Lyra\n/click StaticPopup2Button2", "sicherer Knopf: " .. tostring(gh and gh.macro))
+    assert(gh.points[#gh.points][2] == gpop, "Knopf unter dem Fenster")
+    gpop.shown = false
+    gh.scripts.OnUpdate(gh)
+    assert(not gh.shown, "Fenster zu: Knopf weg")
+    StaticPopup2 = nil
     IsShiftKeyDown, StaticPopup_Visible = oldShift, nil
+    -- Alt+Klick auf einen Namen: Knopf an der Maus, ohne Gildenfenster (Nutzer 23.11.2026)
+    IsAltKeyDown = function() return true end
+    local oldCan, oldRoster = M.CanInvite, M.RosterInfo
+    M.CanInvite = function() return true end
+    M.RosterInfo = function(n) if n == "Thorgrim" then return {inGuild = true} end end
+    GetCursorPosition = function() return 200, 300 end
+    gh:Hide()
+    assert(UI.ShiftLink("player:Lyra-Forever:12", "[Lyra]", "LeftButton", nil), "Alt+Klick erledigt")
+    assert(gh.shown and gh.macro == "/ginvite Lyra-Forever" and not gh.popup, "Knopf an der Maus: " .. tostring(gh.macro))
+    assert(gh.points[#gh.points][2] == UIParent and gh.points[#gh.points][4] == 208, "an der Mausposition")
+    -- langer Name mit Leerzeichen: Text mit Leerzeichen, Knopf breit genug
+    gh.GetFontString = function(self) return {GetStringWidth = function() return #self.text * 7 end} end
+    UI.ShiftLink("player:Papacito Seifigerpopo", "[Papacito Seifigerpopo]", "LeftButton", nil)
+    assert(gh.text:find("Papacito Seifigerpopo", 1, true), "Name mit Leerzeichen im Knopf: " .. gh.text)
+    assert(gh.w >= #gh.text * 7 + 32, "Knopf breit genug")
+    -- Klick woanders: weg; Klick auf ihn: bleibt bis nach dem Klick
+    gh.IsMouseOver = function(self) return self.mouse end
+    gh.mouse = true
+    UI.guildHelperEvents.scripts.OnEvent(UI.guildHelperEvents, "GLOBAL_MOUSE_DOWN")
+    assert(gh.shown, "Klick auf den Knopf: bleibt")
+    gh.scripts.PostClick(gh)
+    assert(not gh.shown, "nach dem Klick weg")
+    UI.ShiftLink("player:Lyra", "[Lyra]", "LeftButton", nil)
+    gh.mouse = false
+    UI.guildHelperEvents.scripts.OnEvent(UI.guildHelperEvents, "GLOBAL_MOUSE_DOWN")
+    assert(not gh.shown, "Klick woanders: weg")
+    -- schon in der Gilde / darf nicht einladen: Hinweis, kein Knopf
+    ONE.printed = nil
+    assert(UI.ShiftLink("player:Thorgrim", "[Thorgrim]", "LeftButton", nil) and not gh.shown and ONE.printed, "schon Mitglied")
+    M.CanInvite = function() return false end
+    ONE.printed = nil
+    assert(UI.ShiftLink("player:Lyra", "[Lyra]", "LeftButton", nil) and not gh.shown and ONE.printed, "keine Rechte")
+    M.CanInvite, M.RosterInfo = oldCan, oldRoster
+    IsAltKeyDown, GetCursorPosition = nil, nil
     -- sicherer Makro-Knopf: nur ausserhalb des Kampfs, nicht fuer Gildenmitglieder
     local attrs, made2 = {}, nil
     local cf = CreateFrame

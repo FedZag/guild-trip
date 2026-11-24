@@ -751,6 +751,8 @@ local function NewConvRow(list)
     return b
 end
 
+M.NewConvRow = NewConvRow
+
 -- Liste fuellen: normal (angeheftet / Gespraeche) oder Suchergebnisse
 function M:ListRows()
     local rows = {}
@@ -1066,14 +1068,20 @@ function M:BuildMain(f)
     box:SetMaxLetters(1020)
     if box.SetTextInsets then box:SetTextInsets(10, 10, 0, 0) end
     if ONE.Glass and ONE.Glass.Surface then ONE.Glass:Surface(box, "card") end
-    box:SetScript("OnEnterPressed", function() M:SendInput() end)
+    -- Enter: offene Gegenstands-Liste setzt erst den Link ein (Nutzer 23.11.2026), sonst senden
+    box:SetScript("OnEnterPressed", function()
+        if chat.ItemList and chat.ItemList:Complete() then return end
+        M:SendInput()
+    end)
     box:SetScript("OnEscapePressed", function(b)
+        if chat.ItemList and chat.ItemList:IsShown() then chat.ItemList:Hide() return end
         if chat.SlashList and chat.SlashList:IsShown() then chat.SlashList:Hide() return end
         if M.picker and M.picker:IsShown() then M.picker:Hide() return end
         b:ClearFocus()
     end)
     box:SetScript("OnTabPressed", function()
-        -- offene Befehlsliste: Tab setzt den Befehl ein
+        -- offene Befehls-/Gegenstandsliste: Tab setzt ein
+        if chat.ItemList and chat.ItemList:Complete() then return end
         if chat.SlashList and chat.SlashList:Complete() then return end
         UI:CycleWhisper(IsShiftKeyDown and IsShiftKeyDown())
     end)
@@ -1086,6 +1094,7 @@ function M:BuildMain(f)
         if M.arrowAt == now and M.arrowKey == key then return end -- dieselbe Taste ueber beide Wege
         M.arrowAt, M.arrowKey = now, key
         local alt = IsAltKeyDown and IsAltKeyDown()
+        if not alt and chat.ItemList and chat.ItemList:Move(key == "UP" and -1 or 1) then return end
         if not alt and chat.SlashList and chat.SlashList:Move(key == "UP" and -1 or 1) then return end
         M:HistoryStep(key == "UP" and 1 or -1)
     end
@@ -1106,6 +1115,7 @@ function M:BuildMain(f)
     box:SetScript("OnTextChanged", function()
         Placeholder()
         if chat.SlashList then chat.SlashList:Update() end
+        if chat.ItemList then chat.ItemList:Update() end
     end)
     -- schmal auf der Liste (z. B. Enter bei ersetztem WoW-Chat): zum Gespraech wechseln
     box:SetScript("OnEditFocusGained", function()
@@ -1115,6 +1125,7 @@ function M:BuildMain(f)
     box:SetScript("OnEditFocusLost", function()
         Placeholder()
         if chat.SlashList then chat.SlashList:FocusLost() end
+        if chat.ItemList then chat.ItemList:FocusLost() end
     end)
     self.input = box
     UI.input = box
@@ -1248,6 +1259,7 @@ function M:SendInput()
         M.AddHistory(raw)
         box:SetText("")
         if chat.SlashList then chat.SlashList:Hide() end
+        if chat.ItemList then chat.ItemList:Hide() end
         -- wie im WoW-Chat: nach dem Senden zurueck ins Spiel, ohne erst ESC (Nutzer 23.11.2026)
         if box.ClearFocus then box:ClearFocus() end
         if Chat.drafts then Chat.drafts[UI.current] = nil end
@@ -1315,10 +1327,8 @@ M.PICK_GROUPS = {{"recent", "Zuletzt"}, {"faces", "Gesichter"}, {"hands", "Geste
 function M:BuildPicker()
     if self.picker then return self.picker end
     local pk = CreateFrame("Frame", nil, self.main)
-    pk:SetPoint("BOTTOMLEFT", self.log, "BOTTOMLEFT", 4, 4)
-    pk:SetPoint("BOTTOMRIGHT", self.log, "BOTTOMRIGHT", -4, 4)
+    self:PlaceOverlay(pk, 20)
     pk:SetHeight(150)
-    if pk.SetFrameLevel and self.main.GetFrameLevel then pk:SetFrameLevel((self.main:GetFrameLevel() or 1) + 20) end
     pk:EnableMouse(true)
     if ONE.Glass and ONE.Glass.Surface then
         local G = ONE.Glass
@@ -1358,6 +1368,21 @@ function M:BuildPicker()
     self.picker = pk
     self.pickGroup = self.pickGroup or "recent"
     return pk
+end
+-- Emoji-Auswahl und Befehlsliste: ueber dem Verlauf – oder ueber der Eingabezeile der Randleiste
+function M:PlaceOverlay(f, level)
+    local R = chat.Rail
+    local host = R and R.docked and R.quick or self.main
+    if f.SetParent then f:SetParent(host) end
+    f:ClearAllPoints()
+    if host == self.main then
+        f:SetPoint("BOTTOMLEFT", self.log, "BOTTOMLEFT", 4, 4)
+        f:SetPoint("BOTTOMRIGHT", self.log, "BOTTOMRIGHT", -4, 4)
+    else
+        f:SetPoint("BOTTOMLEFT", host, "TOPLEFT", 0, 4)
+        f:SetPoint("BOTTOMRIGHT", host, "TOPRIGHT", 0, 4)
+    end
+    if f.SetFrameLevel and host.GetFrameLevel then f:SetFrameLevel((host:GetFrameLevel() or 1) + (level or 20)) end
 end
 function M:TogglePicker()
     local pk = self:BuildPicker()
@@ -1663,6 +1688,7 @@ function M:BubbleClick(owner, item)
     local shift = type(IsShiftKeyDown) == "function" and IsShiftKeyDown()
     if M.CursorOnName(owner) and not e.npc and (e.author or "") ~= "" then
         local name = e.author
+        if UI.AltInvite and UI:AltInvite(name) then return end
         if shift and UI.ShiftLink and UI.ShiftLink("player:" .. name, "[" .. Short(name) .. "]", "LeftButton", owner) then return end
         if ONE.PlayerMenu then ONE.PlayerMenu:Open(owner, Short(name), {lineID = e.lineID}) end
         return
@@ -2497,8 +2523,8 @@ function M.OpenFriend(fr)
 end
 
 -- Gespraech zeigen (und Fenster oeffnen). Entwurf des alten Gespraechs merken, "neue Nachrichten" setzen.
-function M:ShowView(view)
-    if chat.Hider and chat.Hider.OnChatShown then chat.Hider:OnChatShown() end
+-- Gespraech wechseln (Entwurf merken), ohne das Fenster zu zeigen – auch fuer die Randleiste
+function M:SwitchView(view)
     self:Build()
     local old = UI.current
     if view and view ~= old then
@@ -2517,6 +2543,13 @@ function M:ShowView(view)
         if self.picker then self.picker:Hide() end
     end
     if not (Chat:Tab(UI.current) or (UI.current or ""):sub(1, 2) == "w:") then UI.current = "guild" end
+    if chat.Rail and chat.Rail.RememberView then chat.Rail:RememberView() end
+end
+function M:ShowView(view)
+    if chat.Hider and chat.Hider.OnChatShown then chat.Hider:OnChatShown() end
+    self:Build()
+    if chat.Rail and chat.Rail.OnWindowShown then chat.Rail:OnWindowShown() end
+    self:SwitchView(view)
     if view then self.page = "chat" end
     local cur = UI.current
     local n = Chat.unread[cur] or 0
@@ -2531,13 +2564,19 @@ function M:ShowView(view)
     if self.UpdatePlaceholder then self.UpdatePlaceholder() end
     if chat.Launcher and chat.Launcher.Update then chat.Launcher:Update() end
     if ONE.MinimapButton and ONE.MinimapButton.ClearAlert then pcall(ONE.MinimapButton.ClearAlert, ONE.MinimapButton, "chat") end
+    if chat.Rail and chat.Rail.AfterWindowShown then chat.Rail:AfterWindowShown() end
 end
-function M:Hide()
+-- now = sofort (Randleiste: erst zuklappen, dann kommt dieser Aufruf mit now)
+function M:Hide(now)
+    if not now and chat.Rail and chat.Rail.CloseWindow and chat.Rail:CloseWindow() then return end
     if self.frame then self.frame:Hide() end
     if chat.SlashList then chat.SlashList:Hide() end
+    if chat.ItemList then chat.ItemList:Hide() end
     Chat.visible = false
     self:UpdateInviteButton()
     if chat.Launcher and chat.Launcher.Update then chat.Launcher:Update() end
+    if chat.Rail and chat.Rail.OnWindowHidden then chat.Rail:OnWindowHidden() end
+    if chat.Rail and chat.Rail.Update then chat.Rail:Update() end
 end
 
 -- Neue Nachricht (update = Haken/nicht zugestellt an einer schon gezeigten Nachricht)
@@ -2564,6 +2603,8 @@ function M:OnMessage(entry, views, update)
         self:Refresh()
     end
     if update then return end
+    -- Randleiste: Blase, solange das Fenster zu ist
+    if not shown and chat.Rail and chat.Rail.OnMessage then chat.Rail:OnMessage(entry, views) end
     local sound = Chat:SoundFor(entry, views)
     if sound then Chat:PlaySound(sound) end
     if entry.kind == "whisper" and not entry.inform then

@@ -4,7 +4,7 @@ local function T(text, ...) if ONE.T then return ONE.T(text, ...) end if select(
 
 -- Andere AddOns haben eigene Namespace-Tabellen. Die Bruecke ist nur das Core-API.
 _G.ProjectONE = ONE
-ONE.version = "0.8.3-alpha"
+ONE.version = "0.8.4-alpha"
 ONE.modules = {}
 ONE.moduleOrder = {}
 ONE.slashCommands = {}

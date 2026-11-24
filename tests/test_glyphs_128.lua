@@ -16,7 +16,8 @@ for ch in ("äöüÄÖÜß·–…„“"):gmatch("[\192-\244][\128-\191]*") do 
 -- schon länger benutzt, ohne Meldung – nicht ausdrücklich bestätigt
 for ch in ("›‹’”−»•Ø\194\160"):gmatch("[\192-\244][\128-\191]*") do OK[ch] = OK[ch] or "ungeprüft" end
 -- alte, nicht geladene Dateien, Entwickler-Werkzeuge und Spieldaten (Namen aus Questie usw.)
-local SKIP = {["ONE_Dev"] = true, ["ONE_Guild/Navigation.lua"] = true, ["ONE_QuestDB"] = true, ["ONE_Routes"] = true}
+local SKIP = {["ONE_Dev"] = true, ["ONE_Guild/Navigation.lua"] = true, ["ONE_QuestDB"] = true, ["ONE_Routes"] = true,
+    ["ONE_Chat/ItemNames.lua"] = true} -- Gegenstandsnamen aus den Spieldaten (schreibt das Spiel selbst so)
 
 local p = io.popen('find "' .. root .. '" -name "*.lua" | sort')
 local files = {}

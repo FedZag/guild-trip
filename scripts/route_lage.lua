@@ -44,13 +44,28 @@ local never = function() return false end
 for id, e in pairs(GuildTripQuestDB.q) do
     if (e[1] or 0) > 0 and e[1] < doneBelow and not log[id] and P.Fits(id, e, past, never, never) then done[id] = true end
 end
+-- ROUTE_STEP=K: Lage wie nach Routen-Schritt K-1 – erledigt = bis dahin abgegeben, im Log = bis dahin angenommen
+-- (ohne Log-Liste) – statt "erledigt unter Stufe"
+if os.getenv("ROUTE_STEP") then
+    local K = tonumber(os.getenv("ROUTE_STEP"))
+    local rt = assert(G.Route(race, class))
+    done = {}
+    local acc = {}
+    for i = 1, K - 1 do
+        for k, id in (rt[i][1] or ""):gmatch("(%a)(%d+)") do
+            id = tonumber(id)
+            if k == "a" then acc[id] = "open" elseif k == "o" and acc[id] then acc[id] = "done" elseif k == "t" then done[id] = true acc[id] = nil end
+        end
+    end
+    if not logArg or logArg == "" then for id, v in pairs(acc) do log[id] = v end end
+end
 local tempo = "balanced" -- wie im Spiel (P.ROUTE_TEMPO): Schwelle fuer selbst angenommene Quests
 local route = assert(G.Route(race, class), "keine Route fuer " .. race .. ":" .. class)
 local inLog = function(id) return log[id] ~= nil end
 local ctx = {me = {level = level, xp = 0, xpMax = P.XP_NEED[level] or 13000, class = class, race = race, faction = faction, mapID = map, x = x, y = y},
     done = function(id) return done[id] == true end, inLog = inLog, complete = function(id) return log[id] == "done" end,
     world = World, tempo = tempo, speed = 7, departures = departures, route = true, flow = true,
-    follow = G.RouteFollow(route, level, inLog)}
+    follow = G.RouteFollow(route, level, inLog, nil, function(id) return done[id] == true end)}
 -- Ausruestungs-Reihen wie im Spiel (G.GearChains): Umgebung GEAR="Belohnungsquest,Belohnungsquest" (Plus 50 %)
 if os.getenv("GEAR") then
     local rows = {}

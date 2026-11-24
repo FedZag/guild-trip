@@ -149,7 +149,12 @@ function M.Run(route, env)
             local lvl = LevelAt(cum)
             for _, t in ipairs(x.toks) do
                 local e = Q.q[t[2]] or {}
-                if t[1] == "a" then needA[t[2]] = e[2] or 0 origA[t[2]] = lvl
+                -- Annehmen wie im Spiel moeglich: Mindeststufe, und der Planer sieht eine Quest erst ab Questsufe -
+                -- (P.HORIZON + 1) (Nachstellung 23.11.2026: vorgezogene Annahmen zeigte das Spiel nie an, die Reihe fiel weg)
+                if t[1] == "a" then
+                    local dun = GuildTripLeveling and GuildTripLeveling.dz and GuildTripLeveling.dz[e[14] or 0]
+                    needA[t[2]] = math.max(e[2] or 0, dun and 0 or math.min(lvl, (e[1] or 0) - (P.HORIZON + 1)))
+                    origA[t[2]] = lvl
                 elseif t[1] == "o" then needO[t[2]] = math.min((e[1] or 0) - P.OBJ_AHEAD, lvl)
                 else origT[t[2]] = lvl end
             end
@@ -164,6 +169,19 @@ function M.Run(route, env)
     -- Pruefung der ganzen Reihenfolge. Fehlt fuer eine Annahme/ein Ziel Stufe (EP kommen durchs Umstellen spaeter),
     -- wird davor Monster gehauen – das kostet Zeit (Rueckgabe gmin) und zaehlt gegen den gesparten Weg.
     -- collect: Liste {vor Eintrag i, EP, bis Stufe} fuer die Ausgabe.
+    -- Questlog-Grenze: P.LOG_MAX, aber nie enger als in der Ausgangsroute (sonst waere sie selbst "ungueltig")
+    local LOG_CAP = P.LOG_MAX
+    do
+        local open, mx, acc = 0, 0, {}
+        for _, x in ipairs(E) do
+            for _, t in ipairs(x.toks) do
+                if t[1] == "a" then open = open + 1 acc[t[2]] = true elseif t[1] == "t" and acc[t[2]] then open = open - 1 end
+                if open > mx then mx = open end
+            end
+        end
+        LOG_CAP = math.max(LOG_CAP, mx)
+    end
+    local GRIND_BLOCK, GRIND_PEN = 10, tonumber(os.getenv("OPT_GRIND_PEN") or "") or 20
     local function Validate(o, collect)
         local pa, pt, po, pomin = {}, {}, {}, {}
         for i, x in ipairs(o) do
@@ -190,6 +208,8 @@ function M.Run(route, env)
                 local dx = cumTo[math.min(60, need)] - cum
                 if dx > 0 then
                     gmin = gmin + dx / Rate(lvl)
+                    -- Hauen am Stueck hoechstens GRIND_BLOCK Minuten (Nutzer: ~10 min ok) – darueber teuer fuer die Zugwahl
+                    if not collect and dx / Rate(lvl) > GRIND_BLOCK then gmin = gmin + GRIND_PEN * (dx / Rate(lvl) - GRIND_BLOCK) end
                     if glist then glist[#glist + 1] = {i, dx, need} end
                     cum = cum + dx
                     lvl = LevelAt(cum)
@@ -216,7 +236,7 @@ function M.Run(route, env)
                     if pomin[id] and pomin[id] < s then return false, "oa", id end
                     if pt[id] and pt[id] < s then return false, "oa", id end
                     open = open + 1
-                    if open > P.LOG_MAX then return false, "log", id end
+                    if open > LOG_CAP then return false, "log", id end
                 elseif k == "o" then
                     if pt[id] and pt[id] < s then return false, "to", id end
                 else
@@ -267,7 +287,41 @@ function M.Run(route, env)
         end
         return over
     end
-    local function Cost(o) return WayCost(o) + TIMED_PEN * TimedOver(o) end
+    -- Nur zum Annehmen hingelaufen (Spieltest 23.11.2026 "Raecht mein Dorf", harte Pruefung ANNEHMEN): ein Eintrag,
+    -- der nur annimmt, > ACC_YD vom vorigen Halt, und keine seiner Quests hat Ziel/Abgabe, bevor die Route das
+    -- Gebiet verlaesst -> ACC_PEN Minuten Strafe (nur fuer die Wahl der Zuege, nicht in der Spielzeit)
+    local ACC_YD, ACC_PEN = 500, 4
+    local function AccOnly(o)
+        local nextOT, zoneEnd, bad = {}, {}, 0
+        local endAt = #o + 1
+        for i = #o, 1, -1 do
+            local x = o[i]
+            if o[i + 1] and x.map and o[i + 1].map and o[i + 1].map ~= x.map then endAt = i + 1 end
+            zoneEnd[i] = endAt
+        end
+        local seen = {}
+        local soonAt = {}
+        for i = #o, 1, -1 do
+            local x = o[i]
+            local only = #x.toks > 0
+            for _, t in ipairs(x.toks) do if t[1] ~= "a" then only = false end end
+            if only then
+                local best = 1e9
+                for _, t in ipairs(x.toks) do local j = seen[t[2]] if j and j < best then best = j end end
+                soonAt[i] = best
+            end
+            for _, t in ipairs(x.toks) do if t[1] ~= "a" then seen[t[2]] = i end end
+        end
+        local prev
+        for i, x in ipairs(o) do
+            if x.w then
+                if soonAt[i] and prev and prev[1] == x.w[1] and Dist(prev, x.w) > ACC_YD and soonAt[i] >= zoneEnd[i] then bad = bad + 1 end
+                prev = x.w
+            end
+        end
+        return bad
+    end
+    local function Cost(o) return WayCost(o) + TIMED_PEN * TimedOver(o) + ACC_PEN * AccOnly(o) end
     local function Same(x, y)
         if not (x.w and y.w) or y.anchor or x.w[1] ~= y.w[1] then return false end
         if x.n and y.n and x.n == y.n then return true end
@@ -431,6 +485,40 @@ function M.Run(route, env)
     -- Weg + Monster hauen (vorher/nachher gleich gerechnet); cur zaehlt zusaetzlich die Strafe fuer Zeitquests
     local before = WayCost(order) + (tonumber(why0) or 0)
     local cur = Cost(order) + (tonumber(why0) or 0)
+    -- Quests ohne Abgabe in der Route ganz heraus (Spieltest 23.11.2026 "Raecht mein Dorf": nie hinlaufen, nur um
+    -- anzunehmen; die Nachstellung nahm ~580 Quests an, die bis 60 nie abgegeben werden). Abgaben ohne Annahme
+    -- (Start durch Gegenstand) bleiben. Erst alle zusammen, geht das nicht, einzeln.
+    local noTurn = {}
+    do
+        local acc, tin = {}, {}
+        for _, x in ipairs(order) do
+            for _, t in ipairs(x.toks) do if t[1] == "t" then tin[t[2]] = true else acc[t[2]] = true end end
+        end
+        local function Without(o, ids)
+            local n = {}
+            for _, x in ipairs(o) do
+                local keep = {}
+                for _, t in ipairs(x.toks) do if not ids[t[2]] then keep[#keep + 1] = t end end
+                if #keep == #x.toks then n[#n + 1] = x
+                elseif #keep > 0 then local y = Clone(x) y.toks = keep n[#n + 1] = y end
+            end
+            return n
+        end
+        local all, list = {}, {}
+        for id in pairs(acc) do if not tin[id] then all[id] = true list[#list + 1] = id end end
+        table.sort(list)
+        if #list > 0 then
+            local o2, why = Repair(Without(order, all))
+            if o2 then
+                order, cur, noTurn = o2, Cost(o2) + why, list
+            else
+                for _, id in ipairs(list) do
+                    local o3, why3 = Repair(Without(order, {[id] = true}))
+                    if o3 then order, cur = o3, Cost(o3) + why3 noTurn[#noTurn + 1] = id end
+                end
+            end
+        end
+    end
     local moves, tokMoves = 0, 0
     local CELL = 600
 
@@ -915,7 +1003,8 @@ function M.Run(route, env)
         if gr then
             -- Monster hauen bis zur noetigen Stufe (wie im Spiel "Monster hauen bis X"), dort wo man gerade ist
             local lv0 = LevelAt(cum)
-            out[#out + 1] = {k = "grind", to = gr[3], g = gr[2], w = lastW, map = lastMap, l = lv0, added = true}
+            out[#out + 1] = {k = "grind", to = gr[3], g = gr[2], w = lastW, map = lastMap, l = lv0, added = true,
+                min = math.floor(gr[2] / Rate(lv0) + .5)}
             cum, gXP = cum + gr[2], gXP + gr[2]
         end
         if x.w then lastW, lastMap = x.w, x.map end
@@ -930,8 +1019,15 @@ function M.Run(route, env)
         else r.q = nil end
         r.g = g
         r.l = lvl -- auch Flug/Ruhestein/Hauen: Stufe an dieser Stelle der neuen Reihenfolge
+        -- Hauen der Nachstellung (auch "nichts geplant" = idle) kommt als Schritt mit Minuten in die Route, damit das
+        -- Spiel an derselben Stelle haut und nicht spaeter einen grossen Rueckstand aufholen muss (23.11.2026)
+        if r.k == "grind" or r.k == "idle" then
+            r.k, r.min, r.to = "grind", math.floor(g / Rate(lvl) + .5), LevelAt(cum + g)
+        end
         local last = out[#out]
-        if last and last.q and r.q and not last.k and not r.k and last.n == r.n and last.map == r.map and last.l == r.l then
+        if last and last.k == "grind" and r.k == "grind" then
+            last.min, last.g, last.to = (last.min or 0) + (r.min or 0), (last.g or 0) + g, math.max(last.to or 0, r.to or 0)
+        elseif last and last.q and r.q and not last.k and not r.k and last.n == r.n and last.map == r.map and last.l == r.l then
             last.q = last.q .. " " .. r.q
             last.g = (last.g or 0) + g
         elseif r.q or r.k then out[#out + 1] = r end
@@ -940,7 +1036,7 @@ function M.Run(route, env)
     local xpNew = cum - startXP - gXP
     local after = WayCost(order) + (gminEnd or 0)
     return out, {saved = before - after, moves = moves, tokMoves = tokMoves, objMoves = objMoves, removed = #route - #out, xpDiff = xpNew - xpOld,
-        before = before, after = after, grindMin = gminEnd, grinds = #(glist or {}), timedFixed = timedFixed, timedRemoved = timedRemoved}
+        before = before, after = after, grindMin = gminEnd, grinds = #(glist or {}), timedFixed = timedFixed, timedRemoved = timedRemoved, noTurn = noTurn}
 end
 
 return M

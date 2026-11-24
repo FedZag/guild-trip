@@ -288,8 +288,13 @@ do
     for _, r in ipairs(Tr:Rows({steps = plan.steps, dungeonHint = dh})) do if r.text and r.text:find("Dungeon-Quest am Weg", 1, true) then hit = r end end
     assert(hit and hit.click and hit.text:find("(+1)", 1, true), "Zeile mit Navi")
 end
--- Verpasste fruehere Annahmen (Nutzer 23.11.2026 "Ja, bauen"): wer weiter ist, wird nicht zurueckgeschickt
+-- Verpasste fruehere Annahmen (Nutzer 23.11.2026 "Ja, bauen"): wer weiter ist, wird nicht zurueckgeschickt.
+-- Seit der Nachstellung 23.11. abends abgeschaltet (G.ROUTE_AHEAD = unendlich); die Mechanik wird hier mit den alten
+-- Werten weiter geprueft
 do
+    local oldAhead, oldMiss = G.ROUTE_AHEAD, G.ROUTE_MISS_STEPS
+    G.ROUTE_AHEAD, G.ROUTE_MISS_STEPS = 3, 0
+    assert(oldAhead == math.huge, "im Spiel abgeschaltet")
     local r2 = {
         {"a50", n = 11, l = 10}, {"a51", n = 12, l = 10}, {"t51", n = 12, l = 10},
         {"a60", n = 13, l = 10}, {"a61", n = 14, l = 10}, {"a62", n = 22, l = 10}, {"a63", n = 22, l = 10}, {"a64", n = 23, l = 10},
@@ -306,20 +311,79 @@ do
     dn[61] = true
     f2, _, missed = G.RouteFollow(r2, 10, InLog, nil, Done)
     assert(not f2["accept:50"] and not f2["accept:51"], "weiter in der Route: fruehere Annahmen fallen weg")
-    assert(#missed == 1 and missed[1].id == 50 and missed[1].n == 11, "nur 50 (Rest liegt noch vor einem) als verpasst")
+    local ahead = {}
+    for _, m in ipairs(missed) do if m.ahead then ahead[#ahead + 1] = m end end
+    assert(#missed == 2 and #ahead == 1 and ahead[1].id == 50 and ahead[1].n == 11 and ahead[1].rank, "50 und 51 verpasst, nur bei 50 liegt der Rest noch vor einem")
     assert(f2["turnin:50"], "Abgabe bleibt im Fahrplan")
     lg[50] = "open"
     f2, _, missed = G.RouteFollow(r2, 10, InLog, nil, Done)
-    assert(f2["accept:50"] and #missed == 0, "schon angenommen: bleibt drin")
+    assert(f2["accept:50"] and #missed == 1 and missed[1].id == 51, "schon angenommen: bleibt drin (51 weiter verpasst)")
     assert(G.RouteFollow(r2, 10, InLog, nil, nil)["accept:51"], "ohne done wie bisher")
-    -- Planer: Hinweis nur, wenn der Geber am Weg steht (Quest 1, Geber 11 bei .1/.1)
-    local function MCtx(x, y) local c = Ctx(10) c.me.x, c.me.y = x, y c.missed = {{id = 1, n = 11}} return c end
+    -- Planer: Hinweis nur, wenn der Geber am Weg steht (Quest 9, Geber 11 bei .1/.1, nicht im Fahrplan)
+    local function MCtx(x, y) local c = Ctx(10) c.me.x, c.me.y = x, y c.missed = {{id = 9, n = 11}} return c end
     local mh = P:Plan(MCtx(.1, .1)).missedHint
-    assert(mh and mh.id == 1 and mh.detour < 1, "Geber am Weg: Hinweis")
+    assert(mh and mh.id == 9 and mh.detour < 1, "Geber am Weg: Hinweis")
     assert(not P:Plan(MCtx(.9, .9)).missedHint, "Geber weit weg: kein Hinweis")
     local hit
     for _, r in ipairs(Tr:Rows({steps = plan.steps, missedHint = mh})) do if r.text and r.text:find("früher ausgelassen", 1, true) then hit = r end end
     assert(hit and hit.click, "Zeile mit Navi")
+    G.ROUTE_AHEAD, G.ROUTE_MISS_STEPS = oldAhead, oldMiss
+end
+-- Spieltest 23.11.2026 "Raecht mein Dorf": Ziel knapp hinter der Gebietsgrenze kommt direkt nach dem Annehmen dran,
+-- nicht erst nach spaeteren Routen-Plaetzen im aktuellen Gebiet (alte Vorausschau P.ROUTE_AHEAD)
+do
+    local q, nd = GuildTripQuestDB.q, GuildTripQuestDB.n
+    q[70] = {10, 8, 0, 0, false, {71}, {71}, {72}, false, false, 900, 0, 0, 1}
+    q[75] = {10, 8, 0, 0, false, {73}, {73}, {}, false, false, 900, 0, 0, 1}
+    nd[71], nd[72], nd[73] = {0, 1, 200, 200}, {0, 2, 220, 200}, {0, 1, 600, 600}
+    local r3 = {{"a70", n = 71, l = 10}, {"o70", n = 72, l = 10}, {"t70", n = 71, l = 10}, {"a75 t75", n = 73, l = 10}}
+    local c = Ctx(10)
+    c.me.x, c.me.y = .2, .2
+    log[70] = "open"
+    c.follow = G.RouteFollow(r3, 10, function(id) return log[id] ~= nil end)
+    local p3 = assert(P:Plan(c))
+    local first = p3.steps[1]
+    local acts = {}
+    for _, a in ipairs(first.actions or {}) do acts[#acts + 1] = a.kind .. a.id end
+    assert(first.kind == "obj" and acts[1] == "obj70", "Ziel im Nachbargebiet direkt nach dem Annehmen: " .. table.concat(acts, " "))
+    log[70] = nil
+end
+-- Spieltest 23.11.2026 ("Bis Stufe 20 Monster hauen – ca. 147 min"): fehlt fuer den naechsten Routen-Schritt viel
+-- Stufe, aber ein spaeterer Schritt geht schon, wird nicht erst lange gehauen
+do
+    local r5 = {{"a3", n = 13, l = 12}, {"o3", n = 23, l = 12}, {"t3", n = 13, l = 12}, {"a1", n = 11, l = 10}, {"o1", n = 21, l = 10}, {"t1", n = 11, l = 10}}
+    local c = Ctx(10)
+    c.me.x, c.me.y = .1, .1
+    c.follow = G.RouteFollow(r5, 10, function(id) return log[id] ~= nil end)
+    local p5 = assert(P:Plan(c))
+    local need = P.XPTo(10, 0, c.me.xpMax, 0, 12)
+    assert(need / math.max(1, P.GrindEPM(10) * P.GRIND_REAL) > P.ROUTE_GRIND_MAX, "Testlage: Hauen waere lang")
+    assert(p5.steps[1].kind ~= "grind", "erst die Quest, die schon geht, nicht " .. tostring(p5.steps[1].kind))
+    local hasA1
+    for _, st in ipairs(p5.steps) do for _, a in ipairs(st.actions or {}) do if a.kind == "accept" and a.id == 1 then hasA1 = true end end end
+    assert(hasA1, "Quest 1 im Plan")
+end
+-- Dungeon-Lauf in der Route (Nutzer 23.11.2026 "Dungeon-Quests einbauen"): Quest 30 (Gebiet 77 = "wc") ist
+-- angenommen -> naechster Schritt ist der Dungeon am Eingang; ist sie fertig, kommt die Abgabe
+do
+    local r6 = {{"a30", n = 11, l = 18}, {"o30", k = "dungeon", key = "wc", m = 1, x = 500, y = 500, l = 18}, {"t30", n = 11, l = 19}}
+    local f6, _, _, _, dun = G.RouteFollow(r6, 18, function(id) return log[id] ~= nil end)
+    assert(dun and dun[1] and dun[1].key == "wc" and dun[1].ids[1] == 30 and f6["d:wc"] and f6["d:wc"] > f6["accept:30"], "Dungeon in der Route")
+    local function DunCtx()
+        local c = Ctx(18)
+        c.me.x, c.me.y = .1, .1
+        c.follow, c.objNodes, c.missed, c.routeGates, c.routeDungeons = G.RouteFollow(r6, 18, function(id) return log[id] ~= nil end)
+        c.catalog = function() return {min = 15, max = 24, name = "Hoehlen"} end
+        return c
+    end
+    log[30] = "open"
+    local p6 = assert(P:Plan(DunCtx()))
+    assert(p6.steps[1] and p6.steps[1].kind == "dungeon" and p6.steps[1].key == "wc" and p6.steps[1].ids[1] == 30, "Dungeon als naechster Schritt: " .. tostring(p6.steps[1] and p6.steps[1].kind))
+    log[30] = "done"
+    p6 = assert(P:Plan(DunCtx()))
+    local first = p6.steps[1]
+    assert(first and first.kind == "turnin" and first.actions[1].id == 30, "nach dem Dungeon die Abgabe: " .. tostring(first and first.kind))
+    log[30] = nil
 end
 print("OK test_route_145")
 

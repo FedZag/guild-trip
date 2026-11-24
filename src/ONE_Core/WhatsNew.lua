@@ -10,6 +10,13 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.8.4-alpha"] = {
+        "Quest-Führung als Schleife je Gebiet: alle Quests am Stützpunkt annehmen, Ziele der Reihe nach, alles abgeben – dann die nächste Runde",
+        "Elite-Quests mit „GRUPPE“ im Kasten: keine Gruppe? Klick schiebt sie ans Ende der Runde, zweiter Klick nimmt sie raus",
+        "Stufenlücken: einzelne Quests aus mehreren Gebieten per Flugmeister statt langem Monsterhauen; Ruhestein im Gasthaus jedes neuen Gebiets",
+        "Chat: neuer Stil „Randleiste“ mit Symbolen und aufsteigenden Blasen; Gegenstands-Vorschläge beim Tippen von [",
+        "Gilden-Einladen per Alt+Klick oder Wappen; Makro-Knöpfe wie /ginvite werden nicht mehr geblockt",
+    },
     ["0.8.3-alpha"] = {
         "Quest-Führung: Routen für alle 46 Volk-Klasse-Paare von Forever, auch Himmelsgeborene; Questziele dort, wo die Gegner stehen",
         "Quests mit Zeitlimit: Restzeit im Kasten, Annehmen erst kurz vor dem Losgehen",
