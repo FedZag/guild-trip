@@ -437,13 +437,30 @@ function M.Show(text, size)
     if s.emojiImages ~= false and chat.Emoji then text = chat.Emoji.Render(text, size, {noAscii = s.asciiSmileys == false}) end
     return text
 end
+-- Eigene Nachricht? (rechts als eigene Blase; Fenster und Randleiste gleich, Spielbild 24.11.2026: im Fenster
+-- standen eigene Gildennachrichten links). Forever-Namen haben oft Leerzeichen ("Testheld Wackelzahn"),
+-- UnitName liefert manchmal nur den Vornamen -> auch "Vorname " am Anfang zaehlt; sonst GUID; eigene Emotes
+-- beginnen mit "Ihr "/"You ".
+M.OWN_EMOTE = {"^Ihr ", "^You "}
+function M.IsOwn(entry)
+    if type(entry) ~= "table" then return false end
+    if entry.inform then return true end
+    local me = Me()
+    local who = Short(entry.author or "")
+    if type(me) == "string" and me ~= "" and (who == me or who:sub(1, #me + 1) == me .. " ") then return true end
+    if entry.guid and type(UnitGUID) == "function" and entry.guid == Call(UnitGUID, "player") then return true end
+    if entry.event == "CHAT_MSG_TEXT_EMOTE" then
+        for _, pat in ipairs(M.OWN_EMOTE) do if tostring(entry.text or ""):find(pat) then return true end end
+    end
+    return false
+end
 -- Vorschau in der Liste: eine Zeile ohne Links
 function M.Preview(entry)
     if not entry then return "" end
     local text = tostring(entry.text or ""):gsub("|H.-|h(.-)|h", "%1"):gsub("|T.-|t", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
     local who = ""
     if entry.kind ~= "system" then
-        if entry.inform or Short(entry.author) == Me() then who = T("Du") .. ": "
+        if M.IsOwn(entry) then who = T("Du") .. ": "
         elseif entry.author and entry.author ~= "" then who = Short(entry.author) .. ": " end
     end
     return M.Show(who .. text, 12)
@@ -467,18 +484,19 @@ function M.Items(view, newFrom)
             items[#items + 1] = {type = "new", count = #buf - i + 1}
             prev = nil
         end
-        if Chat.IsPlain(e) then
+        -- Spieler-Emotes (/winken …) sind "schlicht", kommen aber wie in der Randleiste als Blase (Nutzer
+        -- 24.11.2026: „Ja, wie Leiste“); NPC-/Boss-Emotes und Systemzeilen bleiben Zeilen in der Mitte
+        local playerEmote = e.event == "CHAT_MSG_TEXT_EMOTE" and type(e.author) == "string" and e.author ~= ""
+        if Chat.IsPlain(e) and not playerEmote then
             items[#items + 1] = {type = "sys", entry = e}
             prev = nil
-        elseif e.kind == "emote" then
-            items[#items + 1] = {type = "sys", entry = e, emote = true}
-            prev = nil
         else
-            local out = e.inform or (me and Short(e.author) == me) or false
+            -- Emotes als Blase wie in der Randleiste, eigene rechts (Nutzer 24.11.2026: „Ja, wie Leiste“)
+            local out = M.IsOwn(e)
             local cont = prev and prev.out == out and Short(prev.entry.author) == Short(e.author)
                 and (e.time or 0) - (prev.entry.time or 0) < 300 or false
             local it = {type = "bubble", entry = e, out = out, cont = cont,
-                name = not out and not whisper and not cont}
+                name = not out and not whisper and not cont and not playerEmote} -- Emote-Text nennt den Namen schon
             -- im Reiter "Alle": Art vor den Namen
             if view == "all" and not out and not cont then it.kind = e.kind end
             items[#items + 1] = it
@@ -917,7 +935,7 @@ function M:ConvMenu(owner, c)
             root:CreateButton(T("Als gelesen markieren"), function() Chat:MarkRead(c.view) M:Refresh() end)
         end
         if c.whisper then
-            if ONE.PlayerMenu then root:CreateButton(T("Namens-Menü …"), function() ONE.PlayerMenu:Open(owner, c.whisper) end) end
+            if ONE.PlayerMenu then root:CreateButton(T("Namens-Menü …"), function() M.OpenPlayerMenu(owner, c.whisper) end) end
             root:CreateButton(T("Gespräch schließen"), function() UI:CloseWhisper(c.view) end)
         elseif c.tab and not c.tab.builtin and UI.EditTab then
             root:CreateButton(T("Reiter bearbeiten …"), function() UI:EditTab(c.tab) end)
@@ -976,7 +994,7 @@ function M:BuildMain(f)
     -- Fluestern: Namens-Menue und Schliessen
     self.headMenu = ONE.Widgets:Button(head, "", 28, 20, "RIGHT", -30, 0, function(btn)
         local view = UI.current or ""
-        if view:sub(1, 2) == "w:" and ONE.PlayerMenu then ONE.PlayerMenu:Open(btn, view:sub(3)) end
+        if view:sub(1, 2) == "w:" then M.OpenPlayerMenu(btn, view:sub(3)) end
     end)
     -- drei Punkte als Bild: Text "···" zeigte im Spiel nur einen Punkt (Spielbild 22.11.2026)
     local G = ONE.Glass
@@ -1545,6 +1563,10 @@ local function NewBubble(log)
         if pcall(GameTooltip.SetHyperlink, GameTooltip, link) then GameTooltip:Show() else GameTooltip:Hide() end
     end)
     pcall(r.SetScript, r, "OnHyperlinkLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    -- Wie in der Randleiste: OnHyperlinkEnter kommt in Forever nicht zuverlaessig an -> Maus auf der Blase zeigt
+    -- den Tooltip des ersten Links (Gegenstand, Zauber, Quest …; Abgleich Fenster/Randleiste 24.11.2026)
+    r:SetScript("OnEnter", function(self) M.BubbleHover(self) end)
+    r:SetScript("OnLeave", function(self) if self.hoverTip and GameTooltip then GameTooltip:Hide() end self.hoverTip = nil end)
     r:SetScript("OnMouseUp", function(self, button)
         if button == "RightButton" and self.item then M:BubbleMenu(self, self.item) return end
         -- Spieltest 22.11.2026: in Forever kommen Link-Klicks in den Blasen nicht an (kein OnHyperlinkClick).
@@ -1569,6 +1591,29 @@ local function NewBubble(log)
     return r
 end
 
+-- Links mit Tooltip (kein Spieler, kein Beruf) – gemeinsam fuer Fenster und Randleiste
+M.TIP_KINDS = {item = true, spell = true, enchant = true, quest = true, achievement = true, talent = true, currency = true}
+function M.TipLinks(text)
+    local out = {}
+    for _, l in ipairs(M.LinksIn(text)) do
+        local kind = l.link:match("^(%a+):")
+        if kind and M.TIP_KINDS[kind] then out[#out + 1] = l end
+    end
+    return out
+end
+function M.BubbleHover(row)
+    local e = row.item and row.item.type == "bubble" and row.item.entry
+    if not (e and GameTooltip) then return false end
+    local links = M.TipLinks(e.text)
+    local l = links[1]
+    if not l then return false end
+    GameTooltip:SetOwner(row, "ANCHOR_CURSOR")
+    if not pcall(GameTooltip.SetHyperlink, GameTooltip, l.link) then GameTooltip:Hide() return false end
+    if #links > 1 then GameTooltip:AddLine(T("Weitere Links: Klick zeigt die Auswahl (%d)", #links), .6, .6, .6, true) end
+    GameTooltip:Show()
+    row.hoverTip = true
+    return true
+end
 -- Innenabstand der Blasen oben/unten
 M.PAD_TOP, M.PAD_BOTTOM = 7, 6
 -- Groesse der Emojis, wenn eine Nachricht nur aus Emojis besteht
@@ -1641,13 +1686,27 @@ function M:UpdateInviteButton()
     b:Show()
 end
 
+-- Namens-Menue fuer ein Fluestergespraech: bei Battle.net-Freunden mit dem WoW-Charakter (Einladen, Ziel
+-- usw. brauchen den Spielernamen, nicht die BattleTag "Name#1234")
+function M.OpenPlayerMenu(owner, name)
+    if not (ONE.PlayerMenu and name) then return false end
+    if Chat.IsBN and Chat.IsBN(name) then
+        local player = Chat.BNPlayerName(name)
+        if not player then
+            ONE:Print(T("%s spielt gerade kein WoW – Einladen und Namens-Menü gehen nur, wenn er im Spiel ist.", name:match("^[^#]+") or name))
+            return false
+        end
+        name = player
+    end
+    ONE.PlayerMenu:Open(owner, name)
+    return true
+end
 -- Name oben im Fluestergespraech: Spielername dazu (Battle.net-Freund: sein Charakter, wenn er WoW spielt)
 function M.HeadPlayer(view)
     if type(view) ~= "string" or view:sub(1, 2) ~= "w:" then return nil end
     local name = view:sub(3)
     if Chat.IsBN and Chat.IsBN(name) then
-        local b = Chat.BNInfo and Chat.BNInfo(Chat.BNFind(name))
-        return b and b.online and b.character and b.character ~= "" and b.character or nil
+        return Chat.BNPlayerName(name)
     end
     return name
 end
@@ -1764,14 +1823,13 @@ function M:FillBubble(r, it, W, p)
     if it.type == "day" or it.type == "sys" then
         local txt
         if it.type == "day" then txt = it.text
-        elseif it.emote then txt = (Chat.ClassColorCode(it.entry.guid, false) or "|cffff8040") .. Short(it.entry.author) .. "|r |cffff9a5a" .. M.Show(it.entry.text, 0) .. "|r"
         else txt = M.Show(it.entry.text, 0) end
         local small = it.type == "day"
         r.text:SetFontObject(small and GameFontDisableSmall or GameFontHighlightSmall)
         r.text:SetJustifyH("CENTER")
         r.text:SetWidth(math.floor(W * .9) - 20)
         r.text:SetText(txt)
-        if not small and not it.emote then r.text:SetTextColor(.85, .80, .55) else r.text:SetTextColor(1, 1, 1) end
+        if not small then r.text:SetTextColor(.85, .80, .55) else r.text:SetTextColor(1, 1, 1) end
         local tw = math.min(math.floor(W * .9) - 20, (r.text:GetStringWidth() or 60) + 2)
         r.text:SetWidth(tw)
         local th = r.text:GetStringHeight() or 12
@@ -1781,7 +1839,7 @@ function M:FillBubble(r, it, W, p)
         r.text:SetPoint("CENTER", r, "CENTER", 0, 0)
         r.text:Show()
         SetBg(r, true, 1, 1, 1, small and .07 or .05)
-        if it.type == "sys" and not it.emote then SetBg(r, true, g[1], g[2], g[3], .08) end
+        if it.type == "sys" then SetBg(r, true, g[1], g[2], g[3], .08) end
         if r.bg then r.bg:Place(math.min(8, math.floor(bh / 2)), 0, r) end
         return bh, "CENTER"
     end
@@ -2224,7 +2282,7 @@ function M.Friends()
     for i = 1, n or 0 do
         local a = C_BattleNet and type(C_BattleNet.GetFriendAccountInfo) == "function" and Call(C_BattleNet.GetFriendAccountInfo, i)
         if type(a) == "table" and type(a.battleTag) == "string" then
-            local g = type(a.gameAccountInfo) == "table" and a.gameAccountInfo or {}
+            local g = Chat.BNGameAccount(a.bnetAccountID, a.gameAccountInfo)
             local char = type(g.characterName) == "string" and g.characterName ~= "" and g.characterName or nil
             out[#out + 1] = {name = a.battleTag, label = a.battleTag:match("^[^#]+") or a.battleTag, bn = a.bnetAccountID,
                 online = (g.isOnline or a.isOnline) and true or false, afk = (a.isAFK or a.isDND or g.isGameAFK) and true or false,

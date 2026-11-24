@@ -407,7 +407,16 @@ R:Tick(.016)
 assert(R.crest.shown, "Maus auf dem Symbol: bleibt")
 bIcon.mouse = false
 R:Tick(.016)
-assert(not R.crest.shown, "Maus weg: Wappen weg")
+assert(R.crest.shown, "Weg zum Wappen (Luecke): bleibt kurz stehen")
+R.crest.mouse = true
+clock = clock + 2
+R:Tick(.016)
+assert(R.crest.shown, "Maus auf dem Wappen: bleibt")
+R.crest.mouse = false
+R:Tick(.016)
+clock = clock + 1
+R:Tick(.016)
+assert(not R.crest.shown, "Maus weg: Wappen nach kurzer Frist weg")
 local gI
 for _, b in ipairs(R.icons) do if b.shown and b.conv and b.conv.view == "guild" then gI = b end end
 gI.scripts.OnEnter(gI)

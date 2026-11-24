@@ -279,15 +279,51 @@ end
 -- ("Name#1234"; Charakternamen haben nie ein #). Gesendet wird an die Konto-Nummer (BNSendWhisper).
 Chat.bnIds = {}
 function Chat.IsBN(name) return type(name) == "string" and name:find("#", 1, true) ~= nil end
+-- Spielt der Freund WoW? Ein Battle.net-Konto hat oft mehrere Spielkonten (Blizzard App UND WoW);
+-- gameAccountInfo ist dann manchmal die App (Spielbild 24.11.2026: "Battle.net · Blizzard App", Einladen ging
+-- nicht). Wie Blizzards Freundesliste alle Spielkonten durchgehen und WoW (gleiches Spiel) bevorzugen.
+function Chat.BNIsWoW(g)
+    if type(g) ~= "table" or not g.isOnline then return false end
+    if g.clientProgram ~= nil and g.clientProgram ~= (rawget(_G, "BNET_CLIENT_WOW") or "WoW") then return false end
+    local mine = rawget(_G, "WOW_PROJECT_ID")
+    if mine and g.wowProjectID and g.wowProjectID ~= mine then return false end
+    return type(g.characterName) == "string" and g.characterName ~= ""
+end
+function Chat.BNWoWChar(g) return Chat.BNIsWoW(g) and g.characterName or nil end
+function Chat.BNGameAccount(id, primary)
+    primary = type(primary) == "table" and primary or {}
+    if Chat.BNIsWoW(primary) then return primary end
+    local bn = rawget(_G, "C_BattleNet")
+    local index = type(rawget(_G, "BNGetFriendIndex")) == "function" and Call(BNGetFriendIndex, id)
+    if index and type(bn) == "table" and type(bn.GetFriendNumGameAccounts) == "function"
+        and type(bn.GetFriendGameAccountInfo) == "function" then
+        local n = tonumber((Call(bn.GetFriendNumGameAccounts, index))) or 0
+        for j = 1, n do
+            local g = Call(bn.GetFriendGameAccountInfo, index, j)
+            if Chat.BNIsWoW(g) then return g end
+        end
+    end
+    return primary
+end
+-- Spielername zum Einladen/Namens-Menue: Charakter (mit Realm, wenn fremd), nur wenn er gerade WoW spielt
+function Chat.BNPlayerName(tag)
+    local b = Chat.BNInfo(Chat.BNFind(tag))
+    if not (b and b.online and b.character) then return nil end
+    local realm = type(b.realm) == "string" and b.realm:gsub("%s", "") or ""
+    local mine = type(GetRealmName) == "function" and (Call(GetRealmName) or ""):gsub("%s", "") or ""
+    if realm ~= "" and realm ~= mine then return b.character .. "-" .. realm end
+    return b.character
+end
 -- Konto-Nummer -> {tag, online, zone, character, game}
 function Chat.BNInfo(id)
     if type(id) ~= "number" or id == 0 then return nil end
     if C_BattleNet and type(C_BattleNet.GetAccountInfoByID) == "function" then
         local a = Call(C_BattleNet.GetAccountInfoByID, id)
         if type(a) == "table" and a.battleTag then
-            local g = type(a.gameAccountInfo) == "table" and a.gameAccountInfo or {}
+            local g = Chat.BNGameAccount(a.bnetAccountID or id, a.gameAccountInfo)
             return {tag = a.battleTag, online = (g.isOnline or a.isOnline) and true or false, zone = g.areaName or g.richPresence,
-                character = g.characterName, level = g.characterLevel, class = g.className, id = a.bnetAccountID or id}
+                character = Chat.BNWoWChar(g), realm = g.realmName, gameAccount = g.gameAccountID,
+                level = g.characterLevel, class = g.className, id = a.bnetAccountID or id}
         end
     end
     if type(BNGetFriendInfoByID) == "function" then

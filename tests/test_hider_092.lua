@@ -31,7 +31,19 @@ c.UI = {Show = function() shown = shown + 1 end}
 assert(loadfile(root .. "/ONE_Chat/Hider.lua"))("ONE_Chat", c)
 local Chat, H = c.Chat, c.Hider
 Chat:Settings().hideBlizzard = true
+-- Makro-Sperre (24.11.2026): Eingabefeld muss VOR dem Umhaengen von ChatFrame1 versteckt sein, sonst setzt
+-- Blizzards OnHide aus unserem Aufruf heraus die Chat-Art (SetLastActiveWindow -> Deactivate)
+local boxShownWhenMoved
+local setParent = ChatFrame1.SetParent
+function ChatFrame1:SetParent(p) boxShownWhenMoved = ChatFrame1EditBox.shown setParent(self, p) end
 H:Apply()
+assert(boxShownWhenMoved == false, "Eingabefeld war beim Umhaengen noch sichtbar (Makros wuerden geblockt)")
+ChatFrame1.SetParent = setParent
+-- ein gerade benutztes Feld (Fokus) wird nicht angefasst
+ChatFrame1EditBox.shown, ChatFrame1EditBox.HasFocus = true, function() return true end
+H.HideEditBoxes()
+assert(ChatFrame1EditBox.shown, "Feld mit Fokus bleibt")
+ChatFrame1EditBox.HasFocus = nil
 assert(ChatFrame1.parent ~= UIParent and not ChatFrame1.parent.shown, "WoW-Chat unsichtbar")
 assert(ChatFrame1Tab.parent == ChatFrame1.parent and GeneralDockManager.parent == ChatFrame1.parent)
 assert(ChatFrame1EditBox.parent == ChatFrame1.parent, "WoW-Eingabefeld auch weg")

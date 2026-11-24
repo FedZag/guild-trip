@@ -597,6 +597,7 @@ end
 -- Wappen zum Gilden-Einladen neben einem Fluester-Symbol, nur beim Drueberfahren (Nutzer 23.11.2026:
 -- "das Wappen zum Einladen dezent mit einfügen"). Sicherer Makro-Knopf (/ginvite), nur ausserhalb des Kampfs;
 -- ein einziger Knopf, der zum Symbol wandert – feste sichere Knoepfe liessen sich im Kampf nicht umordnen.
+R.CREST_LEAVE = .6
 function R.CrestTarget(c)
     local m = M()
     local name = c and c.whisper
@@ -641,6 +642,7 @@ end
 function R:HideCrest()
     local b = self.crest
     if not b then return end
+    self.crestLeft = nil
     b:Hide()
     b.icon = nil
     b:ClearAllPoints()
@@ -828,16 +830,8 @@ function R:NewBubble()
     end)
     return b
 end
--- Links mit Tooltip (kein Spieler, kein Beruf): {link = "item:…", text}
-R.TIP_KINDS = {item = true, spell = true, enchant = true, quest = true, achievement = true, talent = true, currency = true}
-function R.TipLinks(text)
-    local out = {}
-    for _, l in ipairs(M().LinksIn(text)) do
-        local kind = l.link:match("^(%a+):")
-        if kind and R.TIP_KINDS[kind] then out[#out + 1] = l end
-    end
-    return out
-end
+-- Links mit Tooltip: gemeinsam mit dem Fenster (Messenger.TipLinks)
+function R.TipLinks(text) return M().TipLinks(text) end
 function R:BubbleTip(btn)
     if not GameTooltip then return end
     GameTooltip:SetOwner(btn, R.TipAnchor())
@@ -869,18 +863,8 @@ function R.TimeText(t)
 end
 -- Eigene Nachricht? Auch eigene Emotes ("Ihr winkt …", von Hand oder automatisch; Nutzer 23.11.2026: "der
 -- Übersicht halber rechts")
-R.OWN_EMOTE = {"^Ihr ", "^You "}
-function R.IsOwn(entry)
-    if entry.inform then return true end
-    local me = type(UnitName) == "function" and UnitName("player") or nil
-    local who = Chat.Short(entry.author or "")
-    if me and me ~= "" and (who == me or who:sub(1, #me + 1) == me .. " ") then return true end
-    if entry.guid and type(UnitGUID) == "function" and entry.guid == UnitGUID("player") then return true end
-    if entry.event == "CHAT_MSG_TEXT_EMOTE" then
-        for _, pat in ipairs(R.OWN_EMOTE) do if tostring(entry.text or ""):find(pat) then return true end end
-    end
-    return false
-end
+-- gemeinsam mit dem Fenster (Messenger.IsOwn), damit beide dieselben Nachrichten rechts zeigen
+function R.IsOwn(entry) return M().IsOwn(entry) end
 -- Kopf der Blase: "Du", "Thorgrim", "Thorgrim flüstert", "[Gilde] Thorgrim"
 function R.BubbleHead(entry, view)
     local m = M()
@@ -1423,7 +1407,14 @@ function R:Tick(elapsed)
     end
     local crest = self.crest
     if crest and crest:IsShown() and not (InCombatLockdown and InCombatLockdown()) then
-        if not (Over(crest) or Over(crest.icon)) or not (self.frame and self.frame:IsShown()) then self:HideCrest() end
+        -- kurze Gnadenfrist: der Weg vom Symbol zum Wappen fuehrt ueber eine Luecke (Spieltest 24.11.2026:
+        -- "sobald ich mit der Maus vom Icon gehe, verschwindet auch das Wappen")
+        if not (self.frame and self.frame:IsShown()) then self:HideCrest()
+        elseif Over(crest) or Over(crest.icon) then self.crestLeft = nil
+        else
+            self.crestLeft = self.crestLeft or now
+            if now - self.crestLeft >= self.CREST_LEAVE then self:HideCrest() end
+        end
     end
     -- Blinken: Ring um Symbole mit wartenden Nachrichten pulsiert
     if self.frame and self.frame:IsShown() then

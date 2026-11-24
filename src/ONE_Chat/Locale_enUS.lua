@@ -386,3 +386,5 @@ EN["Doppelklick: öffnen – die letzten Nachrichten bleiben als Blasen stehen"]
 EN["Chat-Leiste ist wieder am linken Rand."] = EN["Chat-Leiste ist wieder am linken Rand."] or "Chat bar is back at the left edge."
 EN["Leisten unten erkannt: %s (Oberkante %d)"] = EN["Leisten unten erkannt: %s (Oberkante %d)"] or "Bars found at the bottom: %s (top edge %d)"
 EN["Chat-Leiste zurück an den linken Rand holen"] = EN["Chat-Leiste zurück an den linken Rand holen"] or "Bring the chat bar back to the left edge"
+EN["%s spielt gerade kein WoW – Einladen und Namens-Menü gehen nur, wenn er im Spiel ist."] = EN["%s spielt gerade kein WoW – Einladen und Namens-Menü gehen nur, wenn er im Spiel ist."] or "%s is not playing WoW right now – invite and player menu only work while they are in game."
+EN["Weitere Links: Klick zeigt die Auswahl (%d)"] = EN["Weitere Links: Klick zeigt die Auswahl (%d)"] or "More links: click shows the list (%d)"

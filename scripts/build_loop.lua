@@ -45,8 +45,8 @@ local TIMED = Q.timed or {}
 -- ===== Regeln (Zahlen) =====
 local AHEAD = 2          -- Queststufe hoechstens so viel ueber der eigenen (mit dem Nutzer besprochen: "~2")
 local AHEAD_GAP = 3      -- nur wenn sonst gehauen wuerde (Stufenluecke, z. B. Allianz 47-50): bis 3 drueber
-local GREY = 8           -- Quests so viele Stufen unter der eigenen nicht mehr annehmen (im Spiel "grau", ~keine EP)
-local GREY_GAP = 10      -- nur in Stufenluecken (sonst Hauen): auch so alte Quests
+local GREY = 5           -- Quests so viele Stufen unter der eigenen nicht mehr annehmen (Nutzer 24.11.2026: "bau die untergrenze ein, wenn die quests dann noch bis level 60 reichen" – bis 5 darunter volle EP, Orc-Magier fuhr mit 16 fuer Stufe-8-Quests nach Tirisfal)
+local GREY_GAP = 8       -- nur in Stufenluecken (sonst Hauen): auch so alte Quests (vorher 10; Bau-Vergleich 24.11.: mit 8 weniger Hauen als mit 10 und als vorher)
 local MIN_ROUND = 3      -- eine Runde (Besuch eines Gebiets) erst ab so vielen Quests
 local ISO_YD = 1100      -- Halt so weit (yd, ~1000 m) von allen Halten anderer Quests: Ausreisser, nicht in diese Runde
 local OBJ_NEAR_YD = 1500 -- Ziel-Spawn so nah am Geber gehoert noch zur Runde, auch wenn er im Nachbargebiet liegt
@@ -54,6 +54,11 @@ local PART_YD = 900      -- Ziele einer Quest weiter auseinander: eigene Teil-Sc
 local CARRY_MAX = 10     -- hoechstens so viele Quests im Log, die erst in einem anderen Gebiet weitergehen
 local LOG_MAX = 32       -- Questlog (Forever 40, etwas Luft fuer Drops und Selbstangenommenes)
 local DUN_MIN, DUN_FROM = 60, 2
+-- Ohne Dungeon-Laeufe (Nutzer 24.11.2026: "nur die dungeon-vorquests rein, wenn sich daraus trotzdem noch genuegend ep
+-- ansammeln um bis stufe 60 zu leveln, wenn nicht, dann die kompletten dungeons"). Nachstellung 8 Routen: ohne Laeufe
+-- 0 Hau-Bloecke > 10 min, im Schnitt ~2 % laenger bis 60 -> Standard ohne. Vorquests ausserhalb bleiben drin, Quests,
+-- die im Dungeon enden, fallen weg. DUNGEON=1 baut mit Laeufen (k="dungeon").
+local NODUNGEON = os.getenv("DUNGEON") ~= "1"
 local TIMED_SHARE = .5   -- strenger als die Pruefung (.7): dort zaehlen Ziele anders
 local FP_NEAR_YD = 450   -- unbekannter Flugpunkt so nah an einem Halt der Runde: mitnehmen
 local SPEED = 7
@@ -233,6 +238,7 @@ local function Build(banned, noMid, noCarry, pass)
         if (e[2] or 0) > L or e[1] > L + aheadNow or e[1] < L - greyNow then return false end
         if (e[13] or 0) > 0 and L > e[13] then return false end
         if type(e[10]) == "table" then for _, p in ipairs(e[10]) do if done[p] or log[p] then return false end end end
+        if s.dungeon and NODUNGEON then return false end
         if s.dungeon then
             local c = CAT[s.dungeon]
             if not c or not DG.EntranceData[s.dungeon] or (c.faction and c.faction ~= FAC) or L > c.max - 3 then return false end
@@ -764,6 +770,7 @@ local function Build(banned, noMid, noCarry, pass)
     end
     -- Dungeon-Laeufe: Quests im Log, Stufe passt
     local function Dungeons()
+        if NODUNGEON then return end
         local byKey = {}
         for id, lg in pairs(log) do
             local s = static[id]

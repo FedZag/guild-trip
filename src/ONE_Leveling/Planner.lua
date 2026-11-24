@@ -458,26 +458,33 @@ function P.Travel(a, b, net)
     -- anderer Kontinent: zur naechsten Abfahrt, drueben vom Ankunftsort (naechste Abfahrt zurueck) weiter
     -- Abfahrt nach Gesamtweg: hin + drueben vom Ankunftsort weiter (22.11.2026: nicht einfach die naechste –
     -- Brachland -> Unterstadt ging sonst per Schiff nach Beutebucht und 18 km zu Fuss)
-    local best, bm, bestScore
+    -- Weg zur Abfahrt mit Flug, wenn der sich lohnt (Spieltest 24.11.2026: Brachland -> Unterstadt schickte zu Fuss
+    -- vom Wegekreuz nach Orgrimmar, obwohl der Flug Wegekreuz -> Orgrimmar bekannt war). Dann ist der erste Schritt
+    -- der Flug ({kind = "flight", boat = Abfahrt}); nach der Landung plant die Fuehrung neu und zeigt den Zeppelin.
+    local best, bm, bestScore, bestPre
     for _, d in ipairs(net.departures or {}) do
         if d.from == a[1] and d.to == b[1] and d[1] == a[1] then
-            local m = Walk(a, d)
+            local m, pre = P.Travel(a, d, net)
             local score = m
             if d.arrive and d.arrive[1] == b[1] then score = m + P.Travel(d.arrive, b, net) end
-            if not bestScore or score < bestScore then best, bm, bestScore = d, m, score end
+            if not bestScore or score < bestScore then best, bm, bestScore, bestPre = d, m, score, pre end
         end
     end
     if not best then return P.UNKNOWN_TRIP end
+    local function Via(boat)
+        if bestPre and bestPre.kind == "flight" then return {kind = "flight", from = bestPre.from, to = bestPre.to, boat = boat} end
+        return boat
+    end
     if best.arrive and best.arrive[1] == b[1] then
         local rest, via = P.Travel(best.arrive, b, net)
-        return bm + P.BOAT_MIN + rest, {kind = "boat", dep = best, rest = via}
+        return bm + P.BOAT_MIN + rest, Via({kind = "boat", dep = best, rest = via})
     end
     local back = {}
     for _, d in ipairs(net.departures) do if d.from == b[1] and d.to == a[1] then back[#back + 1] = d end end
     local arrive = NearestOn(back, b[1], b)
-    if not arrive then return bm + P.BOAT_MIN + P.FAR_MIN / 2, {kind = "boat", dep = best} end
+    if not arrive then return bm + P.BOAT_MIN + P.FAR_MIN / 2, Via({kind = "boat", dep = best}) end
     local rest, via = P.Travel(arrive, b, net)
-    return bm + P.BOAT_MIN + rest, {kind = "boat", dep = best, rest = via}
+    return bm + P.BOAT_MIN + rest, Via({kind = "boat", dep = best, rest = via})
 end
 
 -- ===== Hilfen =====

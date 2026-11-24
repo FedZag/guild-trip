@@ -1368,9 +1368,11 @@ function Tr:Update(plan, resizing)
         y = y - st[5]
     end
     self:Blocks(blocks)
-    for i = #rows + 1, #self.lines do self.lines[i]:Hide() end
-    for i = #rows + 1, #(self.rights or {}) do self.rights[i]:Hide() end
-    for i = #rows + 1, #(self.hits or {}) do self.hits[i]:Hide() end
+    -- Klickflaechen gibt es nur fuer Zeilen mit Klick/Tooltip (Luecken): nie per # zaehlen (Spieltest 24.11.2026,
+    -- Lua-Fehler "attempt to index field '?'")
+    for _, list in ipairs({self.lines, self.rights or {}, self.hits or {}}) do
+        for i, w in pairs(list) do if type(i) == "number" and i > #rows and w.Hide then w:Hide() end end
+    end
     -- nie Inhalt abschneiden: reicht die gezogene Hoehe nicht, waechst der Kasten (nicht waehrend des Ziehens)
     if not resizing and -y + 8 > H then f:SetHeight(-y + 8) end
     if self.step and self.step.mapID then f.arrow:Enable() else f.arrow:Disable() end

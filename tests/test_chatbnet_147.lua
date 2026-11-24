@@ -84,4 +84,29 @@ assert(k and k.author == "|Kq99|k")
 -- 7) Senden per BNSendWhisper nur in Chat.lua (Tastendruck in der Eingabezeile)
 local forb = assert(io.open("tests/test_forbidden_123.lua")):read("*a")
 assert(forb:find("BNSendWhisper", 1, true), "BNSendWhisper steht in der Liste der Sende-Stellen")
+-- Spielbild 24.11.2026 ("Battle.net · Blizzard App", Einladen ging nicht): erstes Spielkonto = App,
+-- zweites = WoW -> Charakter aus dem WoW-Konto; BattleTag nie als Spielername
+friends[44] = {bnetAccountID = 44, battleTag = "Aventor#2500",
+    gameAccountInfo = {isOnline = true, clientProgram = "App", richPresence = "Blizzard App"}}
+local games = {{isOnline = true, clientProgram = "App"},
+    {isOnline = true, clientProgram = "WoW", characterName = "Aventorin", realmName = "Forever", areaName = "Dalaran", gameAccountID = 9}}
+BNGetFriendIndex = function(id) return id == 44 and 3 or nil end
+C_BattleNet = {GetAccountInfoByID = function(id) return friends[id] end}
+C_BattleNet.GetFriendNumGameAccounts = function(i) return i == 3 and #games or 0 end
+C_BattleNet.GetFriendGameAccountInfo = function(i, j) return i == 3 and games[j] or nil end
+GetRealmName = function() return "Forever" end
+Chat.bnIds["Aventor#2500"] = 44
+local info = Chat.BNInfo(44)
+assert(info.character == "Aventorin" and info.zone == "Dalaran" and info.gameAccount == 9, "WoW-Konto statt App")
+assert(Chat.BNPlayerName("Aventor#2500") == "Aventorin", "Spielername zum Einladen")
+GetRealmName = function() return "Anderswo" end
+assert(Chat.BNPlayerName("Aventor#2500") == "Aventorin-Forever", "fremder Realm mit Bindestrich")
+-- nur App: kein Spielername (kein Einladen mit BattleTag)
+games[2] = nil
+assert(Chat.BNInfo(44).character == nil and Chat.BNPlayerName("Aventor#2500") == nil)
+-- anderes WoW (anderes Projekt) zaehlt nicht
+WOW_PROJECT_ID = 2
+games[2] = {isOnline = true, clientProgram = "WoW", characterName = "Retailkerl", wowProjectID = 1}
+assert(Chat.BNPlayerName("Aventor#2500") == nil, "anderes WoW-Spiel: nicht einladbar")
+WOW_PROJECT_ID = nil
 print("OK test_chatbnet_147")

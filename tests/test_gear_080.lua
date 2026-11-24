@@ -82,3 +82,27 @@ C_TooltipInfo.GetHyperlink = function(link)
 local line = G:Line(G:Judge("item:2", p, def, build))
 assert(line:find("schlechter für dich – −3 Intelligenz (dein Wert Nr. 2)", 1, true), line)
 print("OK test_gear_080 (Warum)")
+-- Magier (24.11.2026): Baton +2 Intelligenz gegen Stab +2 Zauberschaden ist etwa gleich – bei Arkan UND Frost
+local mdef = c.Data.classes.MAGE
+C_TooltipInfo.GetHyperlink = function(link)
+    if link == "item:7" then return {lines = {{leftText = "+2 Intelligenz"}}} end
+    if link == "item:8" then return {lines = {{leftText = "Anlegen: Erhöht durch Zauber und magische Effekte zugefügten Schaden und Heilung um bis zu 2."}}} end
+    return {lines = {}} end
+info[7] = {"INVTYPE_2HWEAPON", 2, 10}
+info[8] = {"INVTYPE_2HWEAPON", 2, 10}
+worn = {[16] = "item:7"}
+for spec = 1, 3 do
+    local mp = {classFile = "MAGE", spec = spec}
+    local mr = G:Judge("item:8", mp, mdef, c.Data:Build(mdef, spec, "solo"))
+    assert(mr.verdict == "same", "Magier Ausrichtung " .. spec .. ": " .. tostring(mr.verdict) .. " " .. tostring(mr.diff))
+    local ml = G:Line(mr)
+    assert(ml:find("etwa gleich gut", 1, true) and ml:find("−2 Intelligenz", 1, true) and ml:find("+2 Zauberschaden", 1, true), ml)
+end
+-- mehr Intelligenz bleibt besser, und die Zeile nennt auch den Verlust
+C_TooltipInfo.GetHyperlink = function(link)
+    if link == "item:7" then return {lines = {{leftText = "+2 Intelligenz"}}} end
+    if link == "item:8" then return {lines = {{leftText = "+6 Intelligenz"}, {leftText = "-1 Ausdauer"}}} end
+    return {lines = {}} end
+local mr = G:Judge("item:8", {classFile = "MAGE", spec = 1}, mdef, c.Data:Build(mdef, 1, "solo"))
+assert(mr.verdict == "better", tostring(mr.verdict))
+print("OK test_gear_080 (Magier Int/Zauberschaden)")

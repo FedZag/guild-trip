@@ -10,6 +10,13 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.8.6-alpha"] = {
+        "Quest-Führung: Routen ohne komplette Dungeon-Läufe (nur Vorquests), Quests höchstens 5 Stufen unter dir – deutlich weniger Monsterhauen",
+        "Quest-Führung: Flug zur Zeppelin-/Schiff-Abfahrt, wenn er sich lohnt; fertige Quests werden vor dem Gebietswechsel abgegeben",
+        "Ausrüstung: Intelligenz und Zauberschaden zählen für Zauberer gleich, die Zeile nennt Gewinn und Verlust",
+        "Chat: eigene Nachrichten im Fenster rechts, Emotes als Blase, Gegenstands-Tooltip beim Drüberfahren; Gruppe einladen bei Battle.net-Freunden",
+        "Makro-Knöpfe nach „WoW-Chat ersetzen“ nicht mehr geblockt; Wappen der Randleiste bleibt beim Hinfahren stehen",
+    },
     ["0.8.5-alpha"] = {
         "Chat-Randleiste: rastet an jedem Bildschirmrand und in den Ecken ein, unten über den Aktionsleisten; /trip leiste holt sie zurück",
         "Randleiste: Umriss beim Ziehen, Symbole atmen rot bei neuen Nachrichten, aktives Gespräch mit Leuchtstrich",

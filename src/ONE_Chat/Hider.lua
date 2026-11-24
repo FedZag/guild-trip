@@ -81,6 +81,23 @@ function Hider:JumpButton(parent)
 end
 function Hider.JumpShown() return Chat:Settings().jumpButton ~= false end
 
+-- Makros geblockt (Spieltest 24.11.2026: Wappen + Alt+Klick trotz eigenem Befehlsfeld): Haengen wir ChatFrame1
+-- unter den versteckten Halter, feuert OnHide des noch sichtbaren Eingabefelds IN UNSEREM Aufruf. Blizzards
+-- OnHide sieht "LAST_ACTIVE und IsShown()" und ruft SetLastActiveWindow -> Show + Deactivate -> SetChatType:
+-- die Chat-Art wird aus Addon-Code gesetzt, jedes Makro kopiert sie (MacroExecutionManager) und gilt als
+-- beruehrt - bis /reload. Darum die Eingabefelder vorher selbst verstecken: dann ist IsShown() in OnHide
+-- falsch und Blizzard setzt nichts. Ein gerade benutztes Feld (Fokus) bleibt unangetastet.
+function Hider.HideEditBoxes()
+    local n = tonumber(_G.NUM_CHAT_WINDOWS) or 10
+    for i = 1, n do
+        local box = rawget(_G, "ChatFrame" .. i .. "EditBox")
+        if type(box) == "table" and box.IsShown and box.Hide and box:IsShown()
+            and not (box.HasFocus and box:HasFocus()) then
+            box:Hide()
+        end
+    end
+end
+
 function Hider:Apply()
     if InCombatLockdown and InCombatLockdown() then
         self.wantApply = true
@@ -91,6 +108,7 @@ function Hider:Apply()
         self.holder = CreateFrame("Frame", "GuildTripHiddenChat", UIParent)
         self.holder:Hide()
     end
+    if on then Hider.HideEditBoxes() end
     for _, name in ipairs(Hider.Names()) do
         local f = rawget(_G, name)
         if type(f) == "table" and f.SetParent and f.GetParent then

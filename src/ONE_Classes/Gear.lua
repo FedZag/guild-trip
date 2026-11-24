@@ -49,6 +49,12 @@ function Gear.Weights(build, role)
         local key = Gear.STAT_OF[name]
         if key then w[key] = math.max(w[key] or 0, Gear.RANK_WEIGHT[i] or 1) end
     end
+    -- Zauberer: Intelligenz und Zauberschaden gleich schwer (24.11.2026, Spieltest Magier: +2 Int gegen
+    -- +2 Zauberschaden ist praktisch gleichwertig, die Rangfolge allein machte daraus "schlechter")
+    if (role or "caster") == "caster" then
+        local m = math.max(w.int or 0, w.sp or 0)
+        w.int, w.sp = m, m
+    end
     return w
 end
 
@@ -236,12 +242,20 @@ function Gear.MainReason(r)
     for _, x in ipairs(r.reasons) do
         if (r.verdict == "better" and x.delta > 0) or (r.verdict == "worse" and x.delta < 0) then e = x break end
     end
-    local n = math.floor(math.abs(e.delta) * 10 + .5) / 10
-    local text = (e.delta > 0 and "+" or "−") .. (n == math.floor(n) and string.format("%d", n) or tostring(n)) .. " " .. T(Gear.NAMES[e.key] or e.key)
+    local text = Gear.DeltaText(e)
     local rank = r.rank and r.rank[e.key]
     if rank == 1 then text = text .. " " .. T("(dein wichtigster Wert)")
     elseif rank then text = text .. " " .. T("(dein Wert Nr. %d)", rank) end
+    -- Gegenposten mit nennen (Verlust bei "besser", Gewinn bei "schlechter"), damit die Zeile nicht einseitig ist
+    for _, x in ipairs(r.reasons) do
+        if x ~= e and (x.delta > 0) ~= (e.delta > 0) then text = text .. ", " .. Gear.DeltaText(x) break end
+    end
     return text
+end
+-- "+2 Zauberschaden" / "−2 Intelligenz"
+function Gear.DeltaText(e)
+    local n = math.floor(math.abs(e.delta) * 10 + .5) / 10
+    return (e.delta > 0 and "+" or "−") .. (n == math.floor(n) and string.format("%d", n) or tostring(n)) .. " " .. T(Gear.NAMES[e.key] or e.key)
 end
 function Gear.ReasonLine(r, max)
     if not (r and r.reasons and #r.reasons > 0) then return nil end
@@ -272,6 +286,10 @@ function Gear:Line(r)
     if r.verdict == "worse" then return "|cffff5050" .. T("Guild Trip: schlechter für dich") .. why .. "|r" end
     if r.verdict == "new" then return "|cff40ff40" .. T("Guild Trip: passt zu dir – der Platz ist noch frei") .. "|r" end
     if r.verdict == "cannot" then return "|cff9d9d9d" .. T("Guild Trip: %s kann deine Klasse nicht tragen", T(r.armor or "")) .. "|r" end
+    -- etwa gleich, aber andere Werte: Gewinn und Verlust nebeneinander ("−2 Intelligenz, +2 Zauberschaden")
+    if r.verdict == "same" and why ~= spec then
+        return "|cffbbbbbb" .. T("Guild Trip: etwa gleich gut für dich") .. why .. "|r"
+    end
     return "|cffbbbbbb" .. T("Guild Trip: etwa gleich gut für dich") .. spec .. "|r"
 end
 

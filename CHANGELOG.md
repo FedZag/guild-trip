@@ -4,6 +4,28 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.8.6-alpha (veröffentlicht 24.11.2026)
+
+```
+## 0.8.6-alpha
+
+**English**
+- Quest guide: routes without full dungeon runs (pre-quests only), quests at most 5 levels below you – much less grinding.
+- Quest guide: flies to the zeppelin/boat departure when that is faster; finished quests are turned in before changing zones.
+- Gear: intellect and spell power count the same for casters, the line names gain and loss.
+- Chat: own messages on the right in the window, emotes as bubbles, item tooltip on hover; group invite for Battle.net friends.
+- Macro buttons no longer blocked after "Replace WoW chat"; the side bar crest stays while you move to it.
+
+**Deutsch**
+- Quest-Führung: Routen ohne komplette Dungeon-Läufe (nur Vorquests), Quests höchstens 5 Stufen unter dir – deutlich weniger Monsterhauen.
+- Quest-Führung: Flug zur Zeppelin-/Schiff-Abfahrt, wenn er sich lohnt; fertige Quests werden vor dem Gebietswechsel abgegeben.
+- Ausrüstung: Intelligenz und Zauberschaden zählen für Zauberer gleich, die Zeile nennt Gewinn und Verlust.
+- Chat: eigene Nachrichten im Fenster rechts, Emotes als Blase, Gegenstands-Tooltip beim Drüberfahren; Gruppe einladen bei Battle.net-Freunden.
+- Makro-Knöpfe nach „WoW-Chat ersetzen“ nicht mehr geblockt; Wappen der Randleiste bleibt beim Hinfahren stehen.
+```
+
+---
+
 ## 0.8.5-alpha (veröffentlicht 24.11.2026)
 
 ```

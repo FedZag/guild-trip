@@ -1088,4 +1088,46 @@ do
     BNSetFriendNote, BNRemoveFriend, BNInviteFriend, BNSendFriendInvite = nil, nil, nil, nil
     BNGetNumFriendInvites, BNGetFriendInviteInfo, BNAcceptFriendInvite, BNDeclineFriendInvite = nil, nil, nil, nil
 end
+-- Spielbild 24.11.2026: im Fenster standen eigene Nachrichten links. Gleiche Erkennung wie die Randleiste:
+-- Name mit Leerzeichen, GUID, eigenes Emote
+do
+    local saveName, saveGUID = UnitName, UnitGUID
+    UnitName = function() return "Testheld" end
+    UnitGUID = function() return "Player-1-ABC" end
+    assert(M.IsOwn({author = "Testheld Wackelzahn-Forever", text = "huhu"}), "Name mit Leerzeichen")
+    assert(M.IsOwn({author = "Jemand", guid = "Player-1-ABC"}), "eigene GUID")
+    assert(M.IsOwn({inform = true}))
+    assert(not M.IsOwn({author = "Testhelda", text = "hi"}), "aehnlicher Name ist fremd")
+    assert(M.IsOwn({event = "CHAT_MSG_TEXT_EMOTE", author = "x", text = "Ihr winkt."}))
+    UnitName, UnitGUID = saveName, saveGUID
+end
+-- Abgleich Fenster/Randleiste 24.11.2026: Maus auf einer Fenster-Blase zeigt den Gegenstands-Tooltip
+do
+    local saveTip = GameTooltip
+    local shown = {}
+    GameTooltip = {SetOwner = function() end, SetHyperlink = function(_, l) shown.link = l end,
+        AddLine = function(_, t) shown.line = t end, Show = function() shown.ok = true end, Hide = function() shown.ok = false end}
+    local row = {item = {type = "bubble", entry = {text = "schau |cffa335ee|Hitem:19019::::::::60:::::|h[Donnerzorn]|h|r und |cff1eff00|Hitem:2589::::::::1:::::|h[Leinen]|h|r"}}}
+    assert(M.BubbleHover(row) and shown.ok and shown.link:find("^item:19019"), "Tooltip des ersten Links")
+    assert(shown.line, "Hinweis auf weitere Links")
+    assert(not M.BubbleHover({item = {type = "bubble", entry = {text = "nur Text"}}}), "ohne Link kein Tooltip")
+    GameTooltip = saveTip
+end
+-- Nutzer 24.11.2026 „Ja, wie Leiste“: Emotes im Fenster als Blase, eigene rechts
+do
+    local saveName = UnitName
+    UnitName = function() return "Testheld" end
+    local saveBuf = Chat.Buffer
+    local mine = {kind = "emote", event = "CHAT_MSG_TEXT_EMOTE", author = "Testheld", text = "Ihr winkt.", time = 1800000000}
+    local other = {kind = "emote", event = "CHAT_MSG_EMOTE", author = "Brakk", text = "tanzt.", time = 1800000001}
+    Chat.Buffer = function() return {mine, other} end
+    local a, b
+    for _, it in ipairs(M.Items("say")) do
+        if it.entry == mine then a = it elseif it.entry == other then b = it end
+    end
+    Chat.Buffer = saveBuf
+    assert(a and a.type == "bubble" and a.out, "eigenes Emote rechts als Blase")
+    assert(b and b.type == "bubble" and not b.out, "fremdes Emote links als Blase")
+    UnitName = saveName
+end
 print("OK test_messenger_146")

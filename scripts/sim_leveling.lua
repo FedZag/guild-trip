@@ -256,7 +256,7 @@ local function Run(sc)
             local route = FOLLOW[(me.race or 0) .. ":" .. (me.class or 0)] or G.Route(me.race, me.class)
             if route then
                 ctx.route, ctx.flow, ctx.tempo = true, true, P.ROUTE_TEMPO
-                ctx.follow, ctx.objNodes, ctx.missed, ctx.routeGates, ctx.routeDungeons = G.RouteFollow(route, me.level, ctx.inLog, nil, ctx.done)
+                ctx.follow, ctx.objNodes, ctx.missed, ctx.routeGates, ctx.routeDungeons = G.RouteFollow(route, me.level, ctx.inLog, nil, ctx.done, nil, ctx.complete)
                 if os.getenv("FOLLOW_DBG") and tonumber(os.getenv("FOLLOW_DBG")) == stepNo then
                     local list = {}
                     for k, r in pairs(ctx.follow) do list[#list + 1] = {k = k, r = r} end

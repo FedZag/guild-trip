@@ -301,7 +301,10 @@ function UI:BuildFrame(look)
     end
     self.headMenu = ONE.Widgets:Button(head, modern and "···" or T("Menü"), modern and 30 or 64, modern and 22 or 20, "RIGHT", modern and -8 or 0, 0, function(btn)
         local view = UI.current
-        if view and view:sub(1, 2) == "w:" and ONE.PlayerMenu then ONE.PlayerMenu:Open(btn, view:sub(3)) end
+        if view and view:sub(1, 2) == "w:" and ONE.PlayerMenu then
+            local M = chat.Messenger
+            if M and M.OpenPlayerMenu then M.OpenPlayerMenu(btn, view:sub(3)) else ONE.PlayerMenu:Open(btn, view:sub(3)) end
+        end
     end)
     self.headMenu:ClearAllPoints()
     self.headMenu:SetPoint("RIGHT", self.headClose, "LEFT", -4, 0)
@@ -1424,6 +1427,7 @@ end
 -- Navi/Einladen nur, wenn das Namens-Menue sie gerade anbietet
 function UI:RefreshModernHead(view, whisper, to, canSend)
     local name = whisper and view:sub(3) or nil
+    if name and Chat.IsBN and Chat.IsBN(name) then name = Chat.BNPlayerName and Chat.BNPlayerName(name) end
     local info = name and UI.MemberInfo(name)
     self.headText:ClearAllPoints()
     if whisper then
@@ -1472,6 +1476,7 @@ function UI:RunPlayerAction(id)
     local view = self.current or ""
     if view:sub(1, 2) ~= "w:" or not (ONE.PlayerMenu and ONE.PlayerMenu.Items) then return end
     local name = view:sub(3)
+    if Chat.IsBN and Chat.IsBN(name) then name = Chat.BNPlayerName and Chat.BNPlayerName(name) if not name then return end end
     for _, it in ipairs(ONE.PlayerMenu:Items(name, {})) do
         if it.id == id then ONE.PlayerMenu:Run(it, name, {}) return true end
     end
