@@ -122,9 +122,41 @@ function Model:Visible(quest)
     return true
 end
 
+-- Vorquests ohne Folgequests. Die Dungeon-Questdaten zaehlen bei manchen Ketten die ganze Kette als
+-- "Vorquests", auch die Schritte NACH der Dungeonquest (Nutzer 26.11.2026: "Verborgene Feinde" 5728 im
+-- Flammenschlund zeigte "Vorquests 2/4" – 5729/5730 sind die Abgaben danach). Die echte Reihenfolge steht
+-- in der Questdatenbank (Folgequest e[12]); was dort hinter der Quest kommt, ist keine Vorquest.
+local prereqCache = setmetatable({}, {__mode = "k"})
+function Model:Prereqs(quest)
+    local list = quest.prereqs
+    if not list then return {} end
+    local cached = prereqCache[quest]
+    if cached then return cached end
+    local db = rawget(_G, "GuildTripQuestDB")
+    local q = type(db) == "table" and type(db.q) == "table" and db.q
+    local after = {}
+    if q then
+        for _, id in ipairs(quest.ids or {}) do
+            local e, steps = q[id], 0
+            while type(e) == "table" and tonumber(e[12]) and e[12] > 0 and not after[e[12]] and steps < 30 do
+                after[e[12]] = true
+                e, steps = q[e[12]], steps + 1
+            end
+        end
+    end
+    local out = {}
+    for _, p in ipairs(list) do
+        local later = p.ids and #p.ids > 0
+        for _, id in ipairs(p.ids or {}) do if not after[id] then later = false end end
+        if not later then out[#out + 1] = p end
+    end
+    if q then prereqCache[quest] = out end
+    return out
+end
+
 function Model:PrereqState(quest)
     local done, total, unknown = 0, 0, 0
-    for _, p in ipairs(quest.prereqs or {}) do
+    for _, p in ipairs(self:Prereqs(quest)) do
         total = total + 1
         if not p.ids then unknown = unknown + 1
         elseif self:IsDone(p.ids) then done = done + 1 end

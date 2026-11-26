@@ -93,8 +93,12 @@ CreateFrame = function() return {Hide = function() end, SetScript = function() e
 UIParent = {}
 SLASH_SMART_WHISPER1 = "/w"
 local hooks = {}
-hooksecurefunc = function(name, fn) hooks[name] = fn end
+hooksecurefunc = function(a, b, c2)
+    if type(a) == "table" then hooks["util." .. b] = c2 else hooks[a] = b end
+end
 ChatFrame_OpenChat, ChatFrame_SendTell, ChatFrame_ReplyTell = function() end, function() end, function() end
+-- neuer Client: Blizzards Menues rufen ChatFrameUtil direkt (Spieltest 26.11.2026: Gildenmenue › Fluestern)
+ChatFrameUtil = {OpenChat = function() end, SendTell = function() end, ReplyTell = function() end, ReplyTell2 = function() end}
 assert(loadfile(root .. "/ONE_Chat/Hider.lua"))("ONE_Chat", c)
 local H = c.Hider
 H.Enabled = function() return true end
@@ -107,6 +111,17 @@ assert(UI.input.t == "/ginvite ", "anderer Text ins Eingabefeld")
 Chat.lastWhisperFrom = "Bonsai"
 hooks.ChatFrame_ReplyTell()
 assert(UI.shown[#UI.shown] == "w:Bonsai", "Antworten-Taste")
+-- ChatFrameUtil (Gildenmenue, Freunde): SendTell ruft intern auch OpenChat -> nur EIN Oeffnen
+assert(hooks["util.SendTell"] and hooks["util.OpenChat"] and hooks["util.ReplyTell"], "ChatFrameUtil-Haken gesetzt")
+local timers = {}
+C_Timer = {After = function(_, fn) timers[#timers + 1] = fn end}
+local before = #UI.shown
+hooks["util.OpenChat"]("/w Thrall-Forever ")
+hooks["util.SendTell"]("Thrall-Forever")
+assert(#timers == 1, "ein Zeitgeber fuer beide Haken")
+timers[1]()
+assert(#UI.shown == before + 1 and UI.shown[#UI.shown] == "w:Thrall", "Gildenmenue › Fluestern: Gespraech hier (einmal)")
+C_Timer = nil
 -- WoW-Chat nicht ersetzt: nichts abfangen
 H.Enabled = function() return false end
 local n = #UI.shown

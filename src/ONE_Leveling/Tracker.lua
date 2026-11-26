@@ -197,7 +197,9 @@ function Tr:Create()
     f.dist:SetPoint("RIGHT", f.arrow, "LEFT", -4, 0)
     -- Zahnrad nur beim Drueberfahren; Rechtsklick -> Menue (Quest-Seite, Einstellungen, Aussehen) – 22.11.2026
     if ONE.WindowLook and ONE.WindowLook.Attach then
-        ONE.WindowLook:Attach(f, gear, {def = Tr.LOOK, frameClick = true, title = "Quest-Führung", menu = function()
+        ONE.WindowLook:Attach(f, gear, {def = Tr.LOOK, frameClick = true, title = "Quest-Führung", category = "leveling",
+            settings = {"lev.trackerBare", "lev.replaceBlizzard", "lev.autoNavi", "lev.autoQuest", "lev.autoQuestAll", "lev.gearQuests",
+                "lev.recFirst", "lev.journal", "lev.tracker"}, menu = function()
             return {
                 {text = "Quest-Seite öffnen", func = function() if ONE.UI then ONE.UI:Show() ONE.UI:OpenLink("leveling") end end},
                 {text = "Einstellungen der Quest-Führung", func = function() lev.Settings:Toggle() end},
@@ -487,6 +489,13 @@ function Tr:Rows(plan, budget)
         rows[#rows + 1] = {kind = "nxGap"}
     end
     local bundle, bundleIdx, bundleLast = Tr.Bundle(plan)
+    if not s1 then
+        -- kein Schritt: Hinweis statt eines leeren Kastens mit nur der Ueberschrift (Spieltest 26.11.2026)
+        rows[#rows + 1] = {text = T("Gerade kein nächster Schritt."), kind = "now", block = "now",
+            tip = T("Die Führung findet hier gerade nichts Passendes. Sie rechnet nach jeder Quest, jeder neuen Stufe und jedem Gebietswechsel neu – sofort mit /reload.")}
+        local hz = plan.hub and plan.hub.zone and G.ZoneName(plan.hub.zone)
+        if hz then rows[#rows + 1] = {text = T("Questgebiet: %s", hz), kind = "who", block = "now"} end
+    end
     if s1 then
         -- grosser Block (Nutzer 18.11.2026): Name gross, darunter was/bei wem, wo, wie weit/wie lange
         if not preset.noLabels then rows[#rows + 1] = {text = T("JETZT"), kind = "label", block = "now"} end
@@ -682,6 +691,19 @@ function Tr:Rows(plan, budget)
                 tip = tip, click = function() Tr:AskDetour(id) end, menu = function(owner) Tr:OffMenu(owner, {id}) end}
         end
     end
+    -- SPAETER (Stuetzpunkt-Fuehrung 26.11.2026): Quests im Log, die mit Absicht warten – zu hoch oder Ziel in einem
+    -- anderen Gebiet. Eine Zeile, Gruende im Mouseover (kein Abbrechen-Vorschlag: sie kommen von selbst dran)
+    local wait = (preset.maxNext ~= 0) and plan.waiting or {}
+    if #wait > 0 then
+        if #offRows == 0 then offRows[1] = {kind = "gap"} end
+        local lines = {T("Angenommen, kommt später dran:")}
+        for i, w in ipairs(wait) do
+            if i > 12 then lines[#lines + 1] = T("(+%d)", #wait - 12) break end
+            lines[#lines + 1] = G.Title(w.id) .. " – " .. Tr.WaitText(w, plan)
+        end
+        offRows[#offRows + 1] = {text = Tr.Code("hint") .. (#wait == 1 and T("Später: 1 Quest") or T("Später: %d Quests", #wait)) .. "|r",
+            kind = "nxWho", block = "off", blockColor = "next", tip = table.concat(lines, "\n")}
+    end
     local used = 0
     for _, r in ipairs(offRows) do used = used + Tr.St(r.kind)[5] end
     for _, r in ipairs(rows) do used = used + Tr.St(r.kind)[5] end
@@ -728,6 +750,16 @@ function Tr.StepTip(plan, i)
     end
     if step.onWay then
         lines[#lines + 1] = T("Liegt am Weg – jetzt mitnehmen spart später den Rückweg.")
+    end
+    local hub = plan.hub
+    if hub and hub.zone then
+        local at = hub.at and Tr.NearName(hub.at[1], hub.at[2], hub.at[3])
+        local zn = G.ZoneName(hub.zone)
+        lines[#lines + 1] = at and T("Stützpunkt: %s (%s)", at, zn) or T("Gebiet: %s", zn)
+        local normal = (lev.Hubs and lev.Hubs.AHEAD) or 2
+        if (hub.ahead or normal) > normal then
+            lines[#lines + 1] = T("Hier gibt es gerade nichts bis %d Stufen über dir – ausnahmsweise bis %d Stufen drüber.", normal, hub.ahead)
+        end
     end
     local loop = step.loop
     if loop and loop > 0 then
@@ -845,6 +877,17 @@ end
 -- naechster bekannter Ortsname (Flugpunkt/Stadt) zu einem Kartenpunkt; WoW nennt Ortsnamen
 -- nur fuer die eigene Stelle, darum "nahe …"
 Tr.NEAR = 900   -- Yards
+-- Grund, warum eine angenommene Quest wartet (Stuetzpunkt-Fuehrung)
+function Tr.WaitText(w, plan)
+    local Q = rawget(_G, "GuildTripQuestDB")
+    local e = Q and Q.q and Q.q[w.id]
+    if w.why == "high" and e then return T("ab Stufe %d", math.max(1, (e[1] or 0) - ((plan.hub and plan.hub.ahead) or 1))) end
+    if w.why == "zone" then return T("Ziel in einem anderen Gebiet") end
+    if w.why == "turnin" then return T("Abgabe in einem anderen Gebiet") end
+    if w.why == "class" then return T("Klassenquest – machst du selbst") end
+    if w.why == "dungeon" then return T("Dungeon-Quest – nicht in der Führung") end
+    return T("nächste Runde")
+end
 function Tr.NearName(mapID, x, y)
     local nv = ONE.ns and ONE.ns.nav
     local tr, F = nv and nv.Travel, nv and nv.Flights
@@ -1242,6 +1285,54 @@ function Tr.QuestIDs(nav)
     return out
 end
 
+-- Questtext aus dem Questlog fuer den Tooltip (Nutzer 25.11.2026: "beim drueberfahren den kompletten text",
+-- statt das Questlog zu oeffnen). Forever: GetQuestLogQuestText(index) liefert Beschreibung und Questziel ohne
+-- Auswahl im Questlog. Nur fuer angenommene Quests – vorher gibt WoW den Text nicht heraus.
+Tr.qtextCache = {}
+function Tr.QuestText(id)
+    if type(id) ~= "number" then return nil end
+    local c = Tr.qtextCache[id]
+    if c then return c[1], c[2] end
+    local QL, get = rawget(_G, "C_QuestLog"), rawget(_G, "GetQuestLogQuestText")
+    if not (QL and type(QL.GetLogIndexForQuestID) == "function" and type(get) == "function") then return nil end
+    local ok, idx = pcall(QL.GetLogIndexForQuestID, id)
+    if not ok or type(idx) ~= "number" or idx <= 0 then return nil end
+    local ok2, desc, obj = pcall(get, idx)
+    if not ok2 then return nil end
+    desc = type(desc) == "string" and desc:gsub("^%s+", ""):gsub("%s+$", "") or ""
+    obj = type(obj) == "string" and obj:gsub("^%s+", ""):gsub("%s+$", "") or ""
+    if desc == "" and obj == "" then return nil end
+    Tr.qtextCache[id] = {desc, obj}
+    return desc, obj
+end
+-- Zeilen, die eine Quest benennen (Titel), bekommen den Questtext in den Tooltip
+Tr.QTEXT_KIND = {now = true, nxTitle = true, obj2 = true}
+function Tr.TextQuests(r)
+    if r.off then return {r.off} end
+    if not Tr.QTEXT_KIND[r.kind] then return {} end
+    return Tr.QuestIDs(r.nav)
+end
+function Tr.AddQuestText(tt, ids)
+    local shown = 0
+    for _, id in ipairs(ids or {}) do
+        local desc, obj = Tr.QuestText(id)
+        if desc and shown < 3 then
+            shown = shown + 1
+            tt:AddLine(" ")
+            if #ids > 1 then tt:AddLine(G.Title(id), 1, .82, 0) end
+            if obj ~= "" then
+                tt:AddLine(T("Questziel"), 1, .82, 0)
+                tt:AddLine(obj, 1, 1, 1, true)
+            end
+            if desc ~= "" then
+                tt:AddLine(T("Beschreibung"), 1, .82, 0)
+                tt:AddLine(desc, .85, .85, .85, true)
+            end
+        end
+    end
+    return shown
+end
+
 function Tr:Hit(i, r, st, y, W)
     self.hits = self.hits or {}
     local b = self.hits[i]
@@ -1274,6 +1365,7 @@ function Tr:Hit(i, r, st, y, W)
             GameTooltip:SetOwner(self, "ANCHOR_LEFT")
             if (self.title or "") ~= "" then GameTooltip:AddLine(self.title, 1, .82, 0) end
             if self.tip then GameTooltip:AddLine(self.tip, 1, 1, 1, true) end
+            if Tr.AddQuestText(GameTooltip, self.qids) > 0 then GameTooltip:AddLine(" ") end
             if self.nav then GameTooltip:AddLine(T("Klick: Navi dorthin"), .6, .6, .6) end
             if #Tr.QuestIDs(self.nav) > 0 then GameTooltip:AddLine(T("Umschalt+Klick: Quest in den Chat"), .6, .6, .6) end
             if #Tr.QuestIDs(self.nav) > 0 then GameTooltip:AddLine(T("Rechtsklick: Quest abwählen"), .6, .6, .6) end
@@ -1283,6 +1375,7 @@ function Tr:Hit(i, r, st, y, W)
         self.hits[i] = b
     end
     b.nav, b.tip, b.click, b.menu = r.nav, r.tip, r.click, r.menu
+    b.qids = Tr.TextQuests(r)
     if ONE.Fit then
         b.__fitTexts = {fs, right}
         if not b.__fitHooked then ONE.Fit:Line(fs, b) end

@@ -13,6 +13,8 @@ if ONE.RegisterFeature then
         set = function(on) dungeons.Share:Settings().notify = on and true or false end})
     ONE:RegisterFeature("dungeons.entrances", {module = "dungeons", section = "Dungeons", order = 10, label = "Dungeon-Eingänge merken",
         tooltip = "Merkt sich beim Betreten eines Dungeons den Eingang für „Zum Eingang“."})
+    ONE:RegisterFeature("dungeons.chatNames", {module = "dungeons", section = "Dungeons", order = 12, label = "Dungeon-Namen im Chat",
+        tooltip = "Dungeon-Namen im Guild-Trip-Chat (auch Kürzel wie SFK, BRD) werden farbig: Maus drüber zeigt Stufe und deine Quests dort, Klick öffnet die Dungeon-Seite."})
     ONE:RegisterFeature("dungeons.recap", {module = "dungeons", section = "Dungeons", order = 11, label = "Rückblick nach jedem Dungeon",
         tooltip = "Nach dem Dungeon eine kleine Karte: Dauer (mit Bestzeit im Gildenpass), Gruppe, Bosse, Tode und Beute. Auf Wunsch eine Zeile in den Gildenchat."})
     ONE:RegisterFeature("dungeons.tripReminders", {module = "dungeons", category = "reminders", section = "Gildenausflüge", order = 40, label = "Erinnerung an Gildenausflüge",

@@ -23,7 +23,7 @@ local function Navi(rest)
     elseif rest == "stil" then
         nav.Arrow:Create()
         local style = nav.Arrow:ToggleStyle()
-        ONE:Print(style == "blizzard" and T("Navi-Pfeil: Blizzard-Stil.") or T("Navi-Pfeil: Guild-Trip-Stil (gold)."))
+        ONE:Print(style == "blizzard" and T("Navi-Pfeil: Blizzard-Stil.") or style == "glass" and T("Navi-Pfeil: Glas-Stil.") or T("Navi-Pfeil: Guild-Trip-Stil (gold)."))
     elseif rest == "aus" or rest == "stop" then
         nav.Arrow:Stop(T("Navi beendet."))
     elseif rest == "fest" then

@@ -687,6 +687,8 @@ function P:Plan(ctx)
         if log or (not P.IsDrop(e) and Fits(id, e, me, done, inLog) and ((rec and L >= rec.min) or ((e[2] or 0) <= L + P.HORIZON and lvlOK))) then
             cand[id] = true
         end
+        -- Stuetzpunkt-Fuehrung (ctx.hubs, Hubs.lua): am Stuetzpunkt wird alles angenommen, auch hoehere Quests
+        if ctx.hubs and ctx.follow and ctx.follow["accept:" .. id] then cand[id] = true end
     end
     -- 2) bewerten
     local info = {}
@@ -871,10 +873,11 @@ function P:Plan(ctx)
         resolving[id] = false
         local e = Q.q[id]
         if not (e and Fits(id, e, me, done, inLog)) or override[id] == "no" or P.IsDrop(e) then return false end
-        if (e[2] or 0) > L + P.HORIZON then return false end
+        local hubPick = ctx.hubs and ctx.follow and ctx.follow["accept:" .. id]
+        if (e[2] or 0) > L + P.HORIZON and not hubPick then return false end
         -- Vorquest draussen in der Welt mit zu hoher Queststufe: Kette wartet (kommt mit hoeherer Stufe von selbst)
         -- (sehr empfohlene Reihen ausgenommen: Sucharbeit ohne Kaempfe, z. B. Schlafsack)
-        if (e[1] or 0) > L + P.HORIZON + 1 and not dz[e[14] or 0] and not P.RecOf(id) then return false end
+        if (e[1] or 0) > L + P.HORIZON + 1 and not dz[e[14] or 0] and not P.RecOf(id) and not hubPick then return false end
         for _, group in ipairs(Pre(e)) do
             local ok = false
             for _, p in ipairs(group) do
@@ -997,6 +1000,7 @@ function P:Plan(ctx)
         if (me.xpMax or 0) <= 0 then return L end
         return P.LevelAfter(L, me.xp or 0, me.xpMax, xpSum + xpExtra)
     end
+    local hubFloor  -- Stuetzpunkt-Fuehrung: Stufe nach geplantem kurzen Hauen
     local function PreReady(s)
         for _, group in ipairs(Pre(Q.q[s.id])) do
             local ok = false
@@ -1010,7 +1014,10 @@ function P:Plan(ctx)
             if ((Q.q[s.id] or {})[2] or 0) > PlanLevel() then return false end
             return PreReady(s)
         elseif s.kind == "obj" then
-            if ((Q.q[s.id] or {})[1] or 0) > PlanLevel() + (ctx.route and P.ROUTE_OBJ_AHEAD or P.OBJ_AHEAD) then return false end
+            local ahead = ctx.objAhead or (ctx.route and P.ROUTE_OBJ_AHEAD or P.OBJ_AHEAD)
+            -- Stuetzpunkt-Fuehrung: echte Stufe (nach jedem Schritt wird neu geplant), nur geplantes Hauen zaehlt
+            local base = ctx.hubs and math.max(L, hubFloor or 0) or PlanLevel()
+            if ((Q.q[s.id] or {})[1] or 0) > base + ahead then return false end
             return accepted[s.id]
         elseif s.kind == "train" then
             return PlanLevel() >= s.lvl
@@ -1345,7 +1352,8 @@ function P:Plan(ctx)
             local fl = ctx.followLoops or {}
             flNew = {}
             for k, v in pairs(fl) do flNew[k] = v end
-            for _, j in ipairs(jobs) do
+            -- Stuetzpunkt-Fuehrung: die Runde ist vollstaendig (Hubs.lua) – nichts Fremdes einschieben
+            for _, j in ipairs(ctx.hubs and {} or jobs) do
                 -- Route mit Abgabe, aber ohne Ziel-Halt, obwohl die Quest offene Ziele hat (Route mit aelteren Daten
                 -- gebaut – Spieltest 24.11.2026 "Die Warsongberichte": Kasten nur "abgeben bei Kadrak", die Spaeher
                 -- in Eschental fehlten, die Abgabe wurde nie bereit): die Routen-Abgabe gilt nicht, die Quest wird wie
@@ -1455,6 +1463,7 @@ function P:Plan(ctx)
                         gatesDone[gate] = true
                         local gneed = P.XPTo(L, me.xp or 0, me.xpMax, xpSum, gate)
                         if gneed > 0 then Commit({kind = "grind", lvl = gate, xp = gneed, work = gneed / GrindRate(PlanLevel()), w = pos, opt = true, planned = true}, 0, nil) end
+                        hubFloor = gate
                     end
                     if not lo or Ready(lo) then break end
                     local lv = lo.kind == "accept" and (Q.q[lo.id] or {})[2]
@@ -1495,6 +1504,9 @@ function P:Plan(ctx)
                     end
                     if later then
                         -- (verpasste zurueck oder spaeterer Schritt geht): weiter ohne Hauen
+                    elseif need > 0 and ctx.hubs and need > (ctx.grindMax or 3000) then
+                        -- Stuetzpunkt-Fuehrung: nie ganze Stufen hauen (Nutzer 26.11.2026) – der Schritt wartet
+                        routeSkip[lo] = true
                     elseif need > 0 then
                         Commit({kind = "grind", lvl = lv, xp = need, work = need / GrindRate(PlanLevel()), w = pos, opt = true}, 0, nil)
                         if not Ready(lo) then routeSkip[lo] = true end
@@ -2175,7 +2187,9 @@ function P:Plan(ctx)
                         if not d or dd < d then inn, d = n, dd end
                     end
                 end
-                if inn and d <= P.BIND_PASS and not (home and home.inn == inn.id) and not P.CITY_INNS[inn.id] then
+                -- Stuetzpunkt-Fuehrung: Ruhestein nur am Gasthaus des Stuetzpunkts (nicht bei jedem Gasthaus am Weg)
+                local hubOK = not ctx.hubs or (ctx.hubCenter and inn and inn[1] == ctx.hubCenter[1] and D(inn, ctx.hubCenter) <= P.BIND_PASS)
+                if inn and hubOK and d <= P.BIND_PASS and not (home and home.inn == inn.id) and not P.CITY_INNS[inn.id] then
                     local n, ax, ay = 0, 0, 0
                     for k = i + 1, math.min(#order, i + P.BIND_AHEAD) do
                         local w = order[k].w
@@ -2282,7 +2296,8 @@ function P:Plan(ctx)
         local last = steps[#steps]
         -- feste Route: winziges "Monster hauen" (unter P.ROUTE_GRIND_MIN Minuten) nicht anzeigen – das ergibt sich
         -- unterwegs von selbst (Nachstellung 22.11.2026: "bis Stufe 2" als 4. Schritt)
-        local silent = ctx.route and s.kind == "grind" and (s.work or 0) < P.ROUTE_GRIND_MIN
+        -- (Stuetzpunkt-Fuehrung: kurzes Hauen immer zeigen – sonst ginge man ohne die noetige Stufe ans Ziel)
+        local silent = ctx.route and not ctx.hubs and s.kind == "grind" and (s.work or 0) < P.ROUTE_GRIND_MIN
         if silent then
             -- nichts
         elseif s.kind == "train" or s.kind == "fp" or s.kind == "grind" or s.kind == "bind" or s.kind == "vendor" then

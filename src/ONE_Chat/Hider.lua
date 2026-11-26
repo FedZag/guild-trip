@@ -169,12 +169,41 @@ function Hider:TakeInput(text, whisperTo)
             UI:OpenInput(nil, text)
         end
     end
-    if C_Timer and C_Timer.After then C_Timer.After(0, Go) else Go() end
+    -- mehrere Haken fuer denselben Klick (SendTell ruft intern OpenChat): nur einmal oeffnen, der letzte gewinnt
+    if C_Timer and C_Timer.After then
+        local first = not Hider.pendingGo
+        Hider.pendingGo = Go
+        if first then C_Timer.After(0, function() local fn = Hider.pendingGo Hider.pendingGo = nil if fn then fn() end end) end
+    else
+        Go()
+    end
     return true
 end
 function Hider:HookOpeners()
     if self.openersHooked or type(hooksecurefunc) ~= "function" then return end
     self.openersHooked = true
+    -- Neuer Client (Forever): Blizzards Menues (Gildenliste, Freunde, Rechtsklick › Fluestern) rufen
+    -- ChatFrameUtil.SendTell/OpenChat direkt – die alten ChatFrame_*-Namen sind nur Weiterleitungen und wurden
+    -- dabei nicht beruehrt (Spieltest 26.11.2026: Fluestern aus dem Gildenmenue fehlte in der Randleiste).
+    local util = rawget(_G, "ChatFrameUtil")
+    if type(util) == "table" then
+        if type(util.OpenChat) == "function" then
+            hooksecurefunc(util, "OpenChat", function(text) Hider:TakeInput(text) end)
+        end
+        if type(util.SendTell) == "function" then
+            hooksecurefunc(util, "SendTell", function(name) if type(name) == "string" then Hider:TakeInput("", name) end end)
+        end
+        for _, fn in ipairs({"ReplyTell", "ReplyTell2"}) do
+            if type(util[fn]) == "function" then
+                hooksecurefunc(util, fn, function()
+                    local last = Chat.lastWhisperFrom
+                    if not last and type(util.GetLastTellTarget) == "function" then last = Call(util.GetLastTellTarget) end
+                    if not last and type(ChatEdit_GetLastTellTarget) == "function" then last = Call(ChatEdit_GetLastTellTarget) end
+                    Hider:TakeInput("", last)
+                end)
+            end
+        end
+    end
     if type(ChatFrame_OpenChat) == "function" then
         hooksecurefunc("ChatFrame_OpenChat", function(text) Hider:TakeInput(text) end)
     end

@@ -14,8 +14,17 @@ classes.Loot = Loot
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
     -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
-    local r = {pcall(fn, ...)}
-    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
+    local r = (function(...) return {n = select("#", ...), ...} end)(pcall(fn, ...))
+    if not r[1] then return nil end
+    -- geheime Werte (Forever: GUID/Name eines NPCs, waehrend das Addon „tainted“ ist) gelten als unbekannt
+    local n = math.max(2, r.n)
+    if type(issecretvalue) == "function" then
+        for i = 2, n do
+            local ok, s = pcall(issecretvalue, r[i])
+            if not ok or s then r[i] = nil end
+        end
+    end
+    return unpack(r, 2, n)
 end
 local function Now() return Call(GetServerTime) or Call(time) or 0 end
 

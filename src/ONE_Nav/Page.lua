@@ -441,9 +441,9 @@ function Page:Register()
         local opt = function(o) o.category = "nav" ONE.UI:AddSetting(o) end
         opt({id = "navStyle", section = "Pfeil", order = 10, kind = "dropdown", width = 200, label = "Aussehen des Pfeils",
             options = function()
-                return {{value = "one", text = "Guild Trip (gold)"}, {value = "blizzard", text = "Blizzard"}}
+                return {{value = "one", text = "Guild Trip (gold)"}, {value = "glass", text = "Glas"}, {value = "blizzard", text = "Blizzard"}}
             end,
-            get = function() return nav.Arrow:Settings().style == "blizzard" and "blizzard" or "one" end,
+            get = function() local st = nav.Arrow:Settings().style return nav.Arrow.STYLES[st or ""] and st or "one" end,
             set = function(v) nav.Arrow:Create() nav.Arrow:SetStyle(v) end})
         -- Weg auf Minimap/Weltkarte: goldene Punkte (Standard) oder Fussspuren
         opt({id = "navRouteStyle", section = "Wegführung", order = 22, kind = "dropdown", width = 200, label = "Weg zeigen als",

@@ -64,7 +64,7 @@ Chat.kindByEvent.CHAT_MSG_CHANNEL = "channel"
 for e in pairs(Chat.autoReplyEvents) do Chat.kindByEvent[e] = "whisper" end
 -- als schlichte Zeile zeigen (ohne Blase/Namen): Arten und einzelne Ereignisse
 Chat.plainKinds = {system = true, progress = true}
-Chat.plainEvents = {CHAT_MSG_TEXT_EMOTE = true, CHAT_MSG_MONSTER_EMOTE = true, CHAT_MSG_RAID_BOSS_EMOTE = true}
+Chat.plainEvents = {GROUPSEP = true, GUILD_MOTD = true, CHAT_MSG_TEXT_EMOTE = true, CHAT_MSG_MONSTER_EMOTE = true, CHAT_MSG_RAID_BOSS_EMOTE = true}
 function Chat.IsPlain(entry)
     return type(entry) == "table" and (Chat.plainKinds[entry.kind] or Chat.plainEvents[entry.event] or false) and true or false
 end
@@ -499,6 +499,88 @@ function Chat:ExpirePending()
     end
 end
 
+-- ===== Trennzeilen im Gruppen-Reiter (Nutzer 25.11.2026: "der gruppenchat war mir zu unübersichtlich") =====
+-- WoW meldet Beitritt (GROUP_JOINED/GROUP_FORMED) und Verlassen/Aufloesen (GROUP_LEFT). Dann steht im
+-- Gruppen-Reiter eine schlichte Zeile "Neue Gruppe: Brakk, Mira" bzw. "Gruppe verlassen" – in Fenster,
+-- Randleiste und Klassisch gleich (gleicher Eintrag, Art "group", als schlichte Zeile). Kein Zaehler, kein Ton.
+-- Wer einzeln dazukommt/geht, meldet WoW schon selbst als Systemzeile.
+Chat.GROUP_NAMES_MAX = 5
+function Chat.GroupMembers()
+    local out = {}
+    local raid = type(IsInRaid) == "function" and Call(IsInRaid)
+    local n = tonumber((Call(GetNumGroupMembers))) or 0
+    local me = Call(UnitName, "player")
+    for i = 1, raid and n or math.max(0, n - 1) do
+        local name = Call(UnitName, (raid and "raid" or "party") .. i)
+        if type(name) == "string" and name ~= "" and name ~= me and name ~= UNKNOWNOBJECT then out[#out + 1] = name end
+    end
+    return out, raid and true or false
+end
+function Chat.GroupSepText(joined)
+    if not joined then return T("Gruppe verlassen") end
+    local names, raid = Chat.GroupMembers()
+    if raid then return T("Neuer Schlachtzug (%d Mitglieder)", #names + 1) end
+    if #names == 0 then return T("Neue Gruppe") end
+    local shown = {}
+    for i = 1, math.min(#names, Chat.GROUP_NAMES_MAX) do shown[i] = names[i] end
+    return T("Neue Gruppe: %s", table.concat(shown, ", "))
+end
+function Chat:AddGroupSep(joined)
+    local state = joined and "in" or "out"
+    if self.groupState == state then return nil end
+    self.groupState = state
+    local entry = {time = (type(time) == "function" and time()) or 0, kind = "group", event = "GROUPSEP", auto = true,
+        text = "|cffaaaaff– " .. Chat.GroupSepText(joined) .. " –|r", author = "", sep = joined and "join" or "leave"}
+    self:Store(entry)
+    return entry
+end
+function Chat:WatchGroup()
+    if self.groupWatch or type(CreateFrame) ~= "function" then return end
+    local f = CreateFrame("Frame")
+    for _, ev in ipairs({"GROUP_JOINED", "GROUP_FORMED", "GROUP_LEFT"}) do pcall(f.RegisterEvent, f, ev) end
+    -- beim Einloggen/Neuladen schon in einer Gruppe: keine Zeile, nur merken
+    self.groupState = (type(IsInGroup) == "function" and Call(IsInGroup)) and "in" or "out"
+    f:SetScript("OnEvent", function(_, event)
+        if event == "GROUP_LEFT" then Chat:AddGroupSep(false) return end
+        -- Namen sind direkt nach dem Beitritt oft noch nicht da: kurz warten
+        if Chat.groupState == "in" then return end
+        local function Go() if type(IsInGroup) ~= "function" or Call(IsInGroup) then Chat:AddGroupSep(true) end end
+        if C_Timer and C_Timer.After then C_Timer.After(1, Go) else Go() end
+    end)
+    self.groupWatch = f
+end
+
+-- ===== Nachricht des Tages der Gilde (Spieltest 26.11.2026: "auch das motd kommt irgendwie nicht an") =====
+-- WoW schickt sie als eigenes Ereignis GUILD_MOTD (kein CHAT_MSG_*) und schreibt sie selbst in den WoW-Chat –
+-- der ist bei "WoW-Chat ersetzen" versteckt. Jetzt als schlichte grüne Zeile im Gilden-Reiter (alle Ansichten),
+-- je Text nur einmal pro Sitzung; beim Einloggen zur Sicherheit auch aus GetGuildRosterMOTD().
+function Chat:AddMotd(motd)
+    if type(motd) ~= "string" or motd:gsub("%s", "") == "" then return nil end
+    if self.lastMotd == motd then return nil end
+    self.lastMotd = motd
+    local template = type(GUILD_MOTD_TEMPLATE) == "string" and GUILD_MOTD_TEMPLATE or T("Nachricht der Gilde: %s")
+    local ok, text = pcall(string.format, template, motd)
+    text = "|cff40ff40" .. (ok and text or motd) .. "|r"
+    -- nach /reload steht sie schon im Verlauf: nicht nochmal (gleicher Text wie die letzte MOTD-Zeile)
+    for _, buf in pairs(self.buffers) do
+        for k = #buf, 1, -1 do
+            local e = buf[k]
+            if e.event == "GUILD_MOTD" then
+                if e.text == text then return nil end
+                break
+            end
+        end
+    end
+    local entry = {time = (type(time) == "function" and time()) or 0, kind = "guild", event = "GUILD_MOTD", auto = true,
+        text = text, author = ""}
+    self:Store(entry)
+    return entry
+end
+function Chat:CheckMotd()
+    local motd = Call(GetGuildRosterMOTD) or (C_GuildInfo and Call(C_GuildInfo.GetMOTD))
+    return self:AddMotd(motd)
+end
+
 -- Guild-Trip-Meldung als Systemzeile (ONE:Print schreibt in DEFAULT_CHAT_FRAME, der bei ersetztem Chat unsichtbar ist)
 function Chat:AddSystem(text)
     local entry = {time = (type(time) == "function" and time()) or 0, kind = "system", event = "GUILDTRIP",
@@ -731,7 +813,7 @@ function Chat:SoundFor(entry, views)
         if not other then loud = not s.muted.all end
         if not loud then return nil end
     end
-    if entry.auto then return nil end
+    if entry.auto or entry.event == "GROUPSEP" or entry.event == "GUILD_MOTD" then return nil end
     if entry.kind == "whisper" then return s.whisperSound and "chatWhisper" or nil end
     local now = (type(GetTime) == "function" and GetTime()) or 0
     local want = (entry.kind == "guild" or entry.kind == "officer") and s.guildSound
@@ -945,8 +1027,11 @@ function Chat:Format(entry, showKind)
     if s.stamps and type(date) == "function" then parts[#parts + 1] = "|cff8a8a8a" .. date("%H:%M", entry.time) .. "|r " end
     local kind = self.kindByKey[entry.kind]
     if showKind and kind and entry.kind ~= "system" then parts[#parts + 1] = "[" .. T(kind.label) .. "] " end
+    -- Dungeon-Namen, Koordinaten … als Guild-Trip-Link (nur Anzeige, ONE.LinkTips:AddMarker)
+    local text = entry.text
+    if ONE.LinkTips and ONE.LinkTips.Mark and type(text) == "string" then text = ONE.LinkTips.Mark(text) end
     if Chat.IsPlain(entry) then
-        parts[#parts + 1] = entry.text
+        parts[#parts + 1] = text
         return table.concat(parts)
     end
     local name = Short(entry.author)
@@ -956,13 +1041,13 @@ function Chat:Format(entry, showKind)
     if entry.inform then
         parts[#parts + 1] = T("An %s", link) .. ": "
     elseif entry.event == "CHAT_MSG_TEXT_EMOTE" then
-        parts[#parts + 1] = entry.text
+        parts[#parts + 1] = text
         return table.concat(parts)
     elseif entry.kind == "emote" then
         parts[#parts + 1] = link .. " "
     else
         parts[#parts + 1] = link .. ": "
     end
-    parts[#parts + 1] = entry.text
+    parts[#parts + 1] = text
     return table.concat(parts)
 end

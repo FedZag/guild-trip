@@ -392,3 +392,9 @@ EN["Forever erlaubt Gilden-Einladen nur mit selbst getipptem Namen – bitte %s 
 EN["Umschalt+Mausrad: nächster Link (%d/%d)"] = "Shift+mouse wheel: next link (%d/%d)"
 EN["Mausrad über den Blasen blättert zurück (bis %d Nachrichten)"] = "Mouse wheel over the bubbles scrolls back (up to %d messages)"
 EN["%d neue"] = EN["%d neue"] or "%d new"
+-- Trennzeilen im Gruppen-Reiter (25.11.2026)
+EN["Gruppe verlassen"] = EN["Gruppe verlassen"] or "Left the group"
+EN["Neuer Schlachtzug (%d Mitglieder)"] = "New raid (%d members)"
+EN["Neue Gruppe"] = EN["Neue Gruppe"] or "New group"
+EN["Neue Gruppe: %s"] = "New group: %s"
+EN["Nachricht der Gilde: %s"] = "Guild message: %s"

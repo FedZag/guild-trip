@@ -21,8 +21,17 @@ nav.QuestGivers = G
 local function Try(fn, ...)
     if type(fn) ~= "function" then return nil end
     -- alle Rueckgabewerte durchreichen (nicht nur die ersten paar: online ist bei GetGuildRosterInfo der 9.)
-    local r = {pcall(fn, ...)}
-    if r[1] then return unpack(r, 2, math.max(2, table.maxn(r))) end return nil
+    local r = (function(...) return {n = select("#", ...), ...} end)(pcall(fn, ...))
+    if not r[1] then return nil end
+    -- geheime Werte (Forever: GUID/Name eines NPCs, waehrend das Addon „tainted“ ist) gelten als unbekannt
+    local n = math.max(2, r.n)
+    if type(issecretvalue) == "function" then
+        for i = 2, n do
+            local ok, s = pcall(issecretvalue, r[i])
+            if not ok or s then r[i] = nil end
+        end
+    end
+    return unpack(r, 2, n)
 end
 local function Clean(text, max)
     text = tostring(text or ""):gsub("[|;,\r\n]", " ")
@@ -60,7 +69,7 @@ end
 
 -- Schluessel aus der GUID: "Creature-0-1-2-3-NPCID-..." -> "c3245", Gegenstaende "o…"
 function G.KeyFromGUID(guid, name)
-    if type(guid) == "string" then
+    if type(guid) == "string" and not (type(issecretvalue) == "function" and issecretvalue(guid)) then
         local kind, id = guid:match("^(%a+)%-%d+%-%d+%-%d+%-%d+%-(%d+)")
         if kind and id then return (kind == "GameObject" and "o" or "c") .. id end
     end

@@ -369,14 +369,73 @@ function WL:UpdateGears()
         end
     end
 end
+-- Schalter aus den Optionen direkt im Rechtsklick-Menue eines Fensters (Nutzer 25.11.2026: „Optionen in die
+-- jeweiligen Fenster einbinden“). ids = Funktions-Schalter (ONE:RegisterFeature) oder Einstellungen (UI:AddSetting).
+-- Derselbe Schalter wie in den Optionen – egal, wo man ihn umstellt. Unbekannte/unsichtbare ids fallen weg.
+function WL.FindSetting(id)
+    local UI = ONE.UI
+    for _, o in ipairs(UI and UI.settingList or {}) do if o.id == id then return o end end
+end
+function WL.SettingItems(ids)
+    local items = {}
+    for _, id in ipairs(ids or {}) do
+        local f = ONE.features and ONE.features[id]
+        local o = not f and WL.FindSetting(id)
+        if f and (not f.module or not ONE.IsEnabled or ONE:IsEnabled(f.module)) then
+            items[#items + 1] = {text = f.label, tooltip = f.tooltip, setting = id,
+                checked = function() return ONE:FeatureOn(id) end,
+                func = function() ONE:SetFeature(id, not ONE:FeatureOn(id)) end}
+        elseif o and not (type(o.visible) == "function" and not o.visible()) then
+            local function After() if o.onChange then pcall(o.onChange) end if ONE.UI and ONE.UI.Refresh then pcall(ONE.UI.Refresh, ONE.UI) end end
+            if o.kind == "check" then
+                items[#items + 1] = {text = o.label, tooltip = o.tooltip, setting = id,
+                    checked = function() local ok, v = pcall(o.get) return ok and v and true or false end,
+                    func = function() local ok, v = pcall(o.get) pcall(o.set, not (ok and v)) After() end}
+            elseif o.kind == "dropdown" or o.kind == "radio" then
+                local okOpts, opts = pcall(function() return type(o.options) == "function" and o.options() or o.options end)
+                local sub = {}
+                for _, opt in ipairs(okOpts and type(opts) == "table" and opts or {}) do
+                    sub[#sub + 1] = {text = opt.text or tostring(opt.value),
+                        selected = function() local ok, v = pcall(o.get) return ok and v == opt.value end,
+                        func = function() pcall(o.set, opt.value) After() end}
+                end
+                if #sub > 0 then items[#items + 1] = {text = o.label, setting = id, sub = sub} end
+            elseif o.kind == "button" and o.onClick then
+                items[#items + 1] = {text = o.label, setting = id, func = function() pcall(o.onClick) After() end}
+            end
+        end
+    end
+    return items
+end
+
 function WL:ContextMenu(e)
     local items = e.menu and e.menu() or {}
+    -- Schalter aus den Optionen (opts.settings), danach „Alle Optionen …“ (opts.category)
+    local extra = WL.SettingItems(e.settings)
+    if #extra > 0 then
+        items[#items + 1] = {divider = true}
+        for _, it in ipairs(extra) do items[#items + 1] = it end
+    end
+    if e.category and ONE.UI and ONE.UI.OpenOptions then
+        items[#items + 1] = {text = "Alle Optionen …", func = function() ONE.UI:OpenOptions(e.category) end}
+    end
     if type(MenuUtil) == "table" and type(MenuUtil.CreateContextMenu) == "function" then
         local ok = pcall(MenuUtil.CreateContextMenu, e.owner, function(_, root)
             if e.title and root.CreateTitle then root:CreateTitle(T(e.title)) end
             for _, it in ipairs(items) do
-                if it.checked and root.CreateCheckbox then
-                    root:CreateCheckbox(T(it.text), function() return it.checked() and true or false end, function() it.func() end)
+                if it.divider then
+                    if root.CreateDivider then root:CreateDivider() end
+                elseif it.sub then
+                    local d = root:CreateButton(T(it.text))
+                    for _, s in ipairs(it.sub) do
+                        if d and d.CreateRadio then d:CreateRadio(T(s.text), function() return s.selected() and true or false end, function() s.func() end)
+                        elseif d and d.CreateButton then d:CreateButton(T(s.text), function() s.func() end) end
+                    end
+                elseif it.checked and root.CreateCheckbox then
+                    local d = root:CreateCheckbox(T(it.text), function() return it.checked() and true or false end, function() it.func() end)
+                    if it.tooltip and d and d.SetTooltip then
+                        pcall(d.SetTooltip, d, function(tt) if tt.AddLine then tt:AddLine(T(it.tooltip), 1, 1, 1, true) end end)
+                    end
                 else
                     root:CreateButton(T(it.text), function() it.func() end)
                 end
@@ -390,7 +449,8 @@ function WL:ContextMenu(e)
 end
 function WL:Attach(owner, gear, opts)
     opts = opts or {}
-    local e = {owner = owner, gear = gear, def = opts.def, menu = opts.menu, title = opts.title, inset = opts.inset}
+    local e = {owner = owner, gear = gear, def = opts.def, menu = opts.menu, title = opts.title, inset = opts.inset,
+        settings = opts.settings, category = opts.category}
     self.attached[#self.attached + 1] = e
     if gear.SetAlpha then gear:SetAlpha(0) end
     if gear.EnableMouse then gear:EnableMouse(false) end

@@ -332,7 +332,7 @@ function Trips:PrepText(row)
     end
     if #row.locked > 0 then
         local pre = {}
-        for _, p in ipairs(q.prereqs or {}) do pre[#pre + 1] = p.name end
+        for _, p in ipairs(dungeons.Model:Prereqs(q)) do pre[#pre + 1] = p.name end
         parts[#parts + 1] = T("Vorquest fehlt: %s", table.concat(row.locked, ", "))
             .. (#pre > 0 and (" (" .. table.concat(pre, ", ") .. ")") or "")
     end

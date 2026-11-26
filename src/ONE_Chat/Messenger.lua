@@ -434,8 +434,22 @@ function M.Show(text, size)
     if me and me ~= "" and text:find(me, 1, true) then
         text = text:gsub(me:gsub("%p", "%%%0"), "|cffffd100" .. me .. "|r")
     end
+    text = M.Marked(text)
     if s.emojiImages ~= false and chat.Emoji then text = chat.Emoji.Render(text, size, {noAscii = s.asciiSmileys == false}) end
     return text
+end
+-- Dungeon-Namen, Koordinaten … als Guild-Trip-Link (ONE.LinkTips:AddMarker) – nur fuer die Anzeige, nie im gesendeten Text
+function M.Marked(text)
+    local LT = ONE.LinkTips
+    if LT and LT.Mark then return LT.Mark(text) end
+    return text
+end
+-- Tooltip zu einem Link: eigene Link-Arten (Dungeon, Kartenmarkierung, Koordinaten) selbst, sonst wie WoW
+function M.SetTip(tt, link)
+    local LT = ONE.LinkTips
+    local own = LT and LT.Tip and LT.Tip(tt, link)
+    if own ~= nil then return own end
+    return pcall(tt.SetHyperlink, tt, link) and true or false
 end
 -- Eigene Nachricht? (rechts als eigene Blase; Fenster und Randleiste gleich, Spielbild 24.11.2026: im Fenster
 -- standen eigene Gildennachrichten links). Forever-Namen haben oft Leerzeichen ("Testheld Wackelzahn"),
@@ -1592,10 +1606,10 @@ local function NewBubble(log)
 end
 
 -- Links mit Tooltip (kein Spieler, kein Beruf) – gemeinsam fuer Fenster und Randleiste
-M.TIP_KINDS = {item = true, spell = true, enchant = true, quest = true, achievement = true, talent = true, currency = true}
+M.TIP_KINDS = {item = true, spell = true, enchant = true, quest = true, achievement = true, talent = true, currency = true, gtdungeon = true, gtcoord = true, worldmap = true}
 function M.TipLinks(text)
     local out = {}
-    for _, l in ipairs(M.LinksIn(text)) do
+    for _, l in ipairs(M.LinksIn(M.Marked(text))) do
         local kind = l.link:match("^(%a+):")
         if kind and M.TIP_KINDS[kind] then out[#out + 1] = l end
     end
@@ -1608,7 +1622,7 @@ function M.BubbleHover(row)
     local l = links[1]
     if not l then return false end
     GameTooltip:SetOwner(row, "ANCHOR_CURSOR")
-    if not pcall(GameTooltip.SetHyperlink, GameTooltip, l.link) then GameTooltip:Hide() return false end
+    if not M.SetTip(GameTooltip, l.link) then GameTooltip:Hide() return false end
     if #links > 1 then GameTooltip:AddLine(T("Weitere Links: Klick zeigt die Auswahl (%d)", #links), .6, .6, .6, true) end
     GameTooltip:Show()
     row.hoverTip = true
@@ -1707,7 +1721,7 @@ function M:BubbleClick(owner, item)
         if ONE.PlayerMenu then ONE.PlayerMenu:Open(owner, Short(name), {lineID = e.lineID}) end
         return
     end
-    local links = M.LinksIn(e.text)
+    local links = M.LinksIn(M.Marked(e.text))
     if #links == 0 then
         -- Antwort mit Zitat: zur Original-Nachricht springen
         local found = M.FindQuoted(UI.current, e)
@@ -1734,7 +1748,7 @@ function M:BubbleMenu(owner, item)
         if not item.out and name ~= "" and item.type == "bubble" then
             if ONE.PlayerMenu then root:CreateButton(T("Namens-Menü …"), function() ONE.PlayerMenu:Open(owner, name) end) end
         end
-        for _, l in ipairs(M.LinksIn(e.text)) do
+        for _, l in ipairs(M.LinksIn(M.Marked(e.text))) do
             root:CreateButton(T("Öffnen: %s", l.text), function() UI.OpenLink(l.link, l.full, "LeftButton", owner, e.author) end)
         end
         root:CreateButton(T("Text kopieren"), function()

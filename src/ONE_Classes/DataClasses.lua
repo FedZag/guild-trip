@@ -617,6 +617,217 @@ paladin[3].talents = { -- Vergeltung
     {20101, 5}, {9453, 2}, {1328370, 2}, {20262, 5}, {20224, 4},
 }
 
+-- ===== Stufen-Abläufe beim Leveln für alle Klassen (25.11.2026, Freigabe 21.11. „gerne“: erst Magier, dann alle) =====
+-- Lernstufen aus den Spieldaten 1.60.1.70959 (SpellLevels), Talentstufen aus den Talentplänen (ungefähr).
+-- Zahlen = Plätze der Kampfleiste in Original-Reihenfolge (werden wie der normale Ablauf umsortiert).
+-- ===== Stufen-Abläufe Krieger, Schurke, Jäger (Leveln ab Stufe 1) =====
+-- Lernstufen aus den Spieldaten 70959 (SpellLevels.csv); Talentstufen aus den Talentplänen oben
+-- (ein Punkt je Stufe ab 10, Punkt n = Stufe 9 + n).
+
+warrior[1].stages = { -- Waffen: Heldenhafter Stoß 1, Schlachtruf 1, Sturmangriff 4, Verwunden 4, Donnerknall 6,
+    -- Verteidigungshaltung/Blutrausch 10, Überwältigen 12, Demoralisierungsruf 14, Spalten/Vergeltung 20, Hinrichten 24,
+    -- Zerschmettern 30; Talente laut Plan: Aufspießen 30, Weitreichende Stöße 33, Tödlicher Stoß 43
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Schlachtruf, Kampfhaltung · Gegner anlaufen, 5 bei Wut übrig · ab 4: 1 zum Eröffnen, dann 2 · ab 6: Donnerknall bei mehreren · fast tot: Verband oder essen"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Schlachtruf, Kampfhaltung · 1 · 2 · ab 12: 4 sobald möglich · 5 bei Wutüberschuss · Blutrausch für Wut zum Start · mehrere: Donnerknall und Demoralisierungsruf (ab 14) · fast tot: Verteidigungshaltung"},
+    {upTo = 29, flow = "Stufe 20–29 – vorher: Schlachtruf, Kampfhaltung · 1 · 2 · 4 sobald möglich · 5 bei Wutüberschuss · 8 statt 5 bei mehreren · 6 unter 20 % (ab 24) · viele Gegner: Vergeltung"},
+    {upTo = 42, flow = "Stufe 30–42 – vorher: Schlachtruf, Kampfhaltung · 1 · 4 sobald möglich · 2 wenn der Gegner länger lebt · 9 bei Abklingen · 7 als Füller · 5 bei Wutüberschuss · 6 unter 20 % · Weitreichende Stöße (ab 33) und 8 bei mehreren · Tödlicher Stoß kommt mit dem Talent (etwa Stufe 43)"},
+}
+warrior[2].stages = { -- Furor: Heldenhafter Stoß 1, Sturmangriff 4, Verwunden 4, Donnerknall 6, Blutrausch 10,
+    -- Überwältigen 12, Demoralisierungsruf 14, Spalten 20, Hinrichten 24, Berserkerhaltung 30, Wirbelwind 36;
+    -- Talente laut Plan: Durchdringendes Heulen 20, Todeswunsch 31, Blutdurst 40
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Schlachtruf, Kampfhaltung · Gegner anlaufen, 5 bei Wut übrig · ab 4: 1 zum Eröffnen, dann 2 · ab 6: Donnerknall bei mehreren · fast tot: Verband oder essen"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Schlachtruf, Kampfhaltung · 1 · 2 · ab 12: 4 sobald möglich · 5 bei Wutüberschuss · Blutrausch für Wut zum Start · mehrere: Donnerknall und Demoralisierungsruf (ab 14) · fast tot: Verteidigungshaltung"},
+    {upTo = 29, flow = "Stufe 20–29 – vorher: Schlachtruf, Kampfhaltung · 1 · 2 · 4 sobald möglich · 5 bei Wutüberschuss · 8 statt 5 bei mehreren · 11 wenn ein Gegner wegläuft · 6 unter 20 % (ab 24)"},
+    {upTo = 39, flow = "Stufe 30–39 – vorher: Schlachtruf · 1 aus der Kampfhaltung · 2 und 4 kurz in der Kampfhaltung · dann Berserkerhaltung · 10 bei Abklingen (ab 31) · 7 bei Abklingen (ab 36) · 5 ab etwa 50 Wut (8 bei mehreren) · 6 unter 20 % · Blutdurst kommt mit dem Talent (etwa Stufe 40)"},
+}
+warrior[3].stages = { -- Schutz: Heldenhafter Stoß 1, Sturmangriff 4, Verwunden 4, Donnerknall 6, Verteidigungshaltung/
+    -- Spott/Rüstung zerreißen/Blutrausch 10, Schildhieb 12, Rache/Demoralisierungsruf 14, Schildblock 16, Spalten 20,
+    -- Schildwall 28; Talente laut Plan: Letztes Gefecht 25, Erschütternder Schlag 30, Schildschlag 40
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Schlachtruf, Kampfhaltung · Gegner anlaufen, Heldenhafter Stoß bei Wut übrig · ab 4: Sturmangriff zum Eröffnen, dann Verwunden · ab 6: 7 bei mehreren · fast tot: Verband oder essen"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Schlachtruf, Verteidigungshaltung · Sturmangriff zum Ziehen · 3 sobald möglich (ab 14) · 2 mehrmals · 7 bei mehreren · Demoralisierungsruf halten (ab 14) · 5 bei Zaubern (ab 12) · 4 vor Treffern (ab 16) · 1 wenn ein Gegner wegläuft"},
+    {upTo = 29, flow = "Stufe 20–29 – vorher: Schlachtruf, Verteidigungshaltung · Sturmangriff zum Ziehen · 3 sobald möglich · 2 mehrmals · 7 bei Abklingen · Demoralisierungsruf halten · 4 vor Treffern · 8 bei Wutüberschuss · fast tot: Letztes Gefecht (ab 25), Schildwall (ab 28)"},
+    {upTo = 39, flow = "Stufe 30–39 – vorher: Schlachtruf, Verteidigungshaltung · Sturmangriff zum Ziehen · 3 sobald möglich · 2 mehrmals · 9 bei Abklingen · 7 bei Abklingen · Demoralisierungsruf halten · 4 vor Treffern · 8 bei Wutüberschuss · Schildschlag kommt mit dem Talent (etwa Stufe 40)"},
+}
+
+rogue[1].stages = { -- Meucheln: Verstohlenheit/Finsterer Stoß/Ausweiden 1, Meucheln 4, Solarplexus 6, Entrinnen 8,
+    -- Zerhäckseln/Kopfnuss/Sprinten 10, Tritt 12, Hinterhalt 18, Gifte 20 (Tipp), Verschwinden 22, Fieser Trick 26,
+    -- Nierenhieb 30; Talente laut Plan: Kaltblütigkeit 43, Verstümmeln 44
+    {upTo = 9, flow = "Stufe 1–9 – vorher: 1 zum Anschleichen · 2 für Punkte · 3 bei 3–5 Punkten · ab 4: mit Dolch von hinten 5 statt 2 · ab 6: 8 für eine kurze Pause · fast tot: Entrinnen (ab 8), Verband"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: 1 zum Anschleichen · 6 von hinten mit Dolch (ab 18), sonst 5 · 2 für Punkte · 4 früh mit 1–2 Punkten und halten · 3 bei 4–5 Punkten · 7 bei Zaubern (ab 12) · mehrere: Kopfnuss auf einen, Entrinnen · fast tot: 8, Sprinten"},
+    {upTo = 29, flow = "Stufe 20–29 – vorher: Gifte auf beide Waffen, 1 · 6 oder Fieser Trick (ab 26) · 2 für Punkte · 4 sofort und erneuern · 3 bei 4–5 Punkten · 7 bei Zaubern · Notfall: Entrinnen, Verschwinden (ab 22)"},
+    {upTo = 43, flow = "Stufe 30–43 – vorher: Gifte auf beide Waffen, 1 · 6 oder Fieser Trick · 2 für Punkte · 4 sofort und erneuern · 3 bei 4–5 Punkten · 10 vor 3 bei harten Gegnern (ab 43) · 7 bei Zaubern · Nierenhieb gegen Zauberer · Verstümmeln kommt mit dem Talent (etwa Stufe 44)"},
+}
+rogue[2].stages = { -- Kampf: Verstohlenheit/Finsterer Stoß/Ausweiden 1, Solarplexus 6, Entrinnen 8, Zerhäckseln/Sprinten 10,
+    -- Tritt 12, Gifte 20 (Tipp), Verschwinden 22, Fieser Trick 26; Talente laut Plan: Riposte 20, Klingenwirbel 33,
+    -- Adrenalinrausch 44
+    {upTo = 9, flow = "Stufe 1–9 – vorher: direkt angreifen oder 1 · 2 für Punkte · 3 bei 3–5 Punkten · ab 6: 8 für eine kurze Pause · fast tot: Entrinnen (ab 8), Verband"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: direkt angreifen oder 1 · 2 für Punkte · 4 früh mit 1–2 Punkten und halten · 3 bei 3–5 Punkten · 7 bei Zaubern (ab 12) · mehrere: Entrinnen, 4 halten, einer nach dem anderen · fast tot: 8, Sprinten"},
+    {upTo = 32, flow = "Stufe 20–32 – vorher: Gifte auf beide Waffen · direkt angreifen oder 1 und Fieser Trick (ab 26) · 2 für Punkte · 4 halten · 3 bei 3–5 Punkten · 9 nach Parieren · 7 bei Zaubern · mehrere: Entrinnen · Notfall: Verschwinden (ab 22)"},
+}
+rogue[3].stages = { -- Täuschung: Verstohlenheit/Finsterer Stoß/Ausweiden 1, Meucheln 4, Solarplexus 6, Entrinnen 8,
+    -- Zerhäckseln/Kopfnuss/Sprinten 10, Tritt 12, Hinterhalt 18, Gifte 20 (Tipp), Verschwinden 22, Fieser Trick 26;
+    -- Talente laut Plan: Geisterhafter Stoß 25, Vorbereitung 30, Blutsturz 31, Todesmal 40
+    {upTo = 9, flow = "Stufe 1–9 – vorher: 1 zum Anschleichen · 2 für Punkte · 3 bei 3–5 Punkten · ab 4: mit Dolch von hinten 5 zum Start · ab 6: 8 für eine kurze Pause · fast tot: Entrinnen (ab 8), Verband"},
+    {upTo = 17, flow = "Stufe 10–17 – vorher: 1 zum Anschleichen · 5 von hinten zum Start · 2 für Punkte · 4 früh und halten · 3 bei 4–5 Punkten · 7 bei Zaubern (ab 12) · mehrere: Kopfnuss auf einen · fast tot: Entrinnen, 8, Sprinten"},
+    {upTo = 30, flow = "Stufe 18–30 – vorher: Gifte auf beide Waffen (ab 20), 1 · 6 Start · 2 für Punkte · 10 bei Abklingen (ab 25) · 4 halten · 3 bei Punkten · Fieser Trick (ab 26) bei Elite · Notfall: Verschwinden (ab 22), dann 6"},
+}
+
+hunter[1].stages = { -- Tierherrschaft: Raptorstoß/Automatischer Schuss 1, Schlangenbiss/Aspekt des Affen 4, Mal des Jägers/
+    -- Arkaner Schuss 6, Erschütternder Schuss 8, Aspekt des Falken/Tier zähmen 10, Zurechtstutzen/Tier heilen 12,
+    -- Mehrfachschuss 18, Gezielter Schuss/Eiskältefalle/Rückzug 20, Schnellfeuer 26, Totstellen 30;
+    -- Talente laut Plan: Falke beschwören 32, Einschüchterung 33, Zorn des Wildtiers 43
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Aspekt des Affen (ab 4) · Automatischer Schuss aus der Ferne · ab 4: 2 · ab 6: 1 zuerst, 3 bei Abklingen · ab 8: 6 bremst, Abstand halten · nah: 7"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Aspekt des Falken, Tier bereit (ab 10 zähmen) · 1 · Tier greift an · 2 · 3 bei Abklingen · Tier verliert Aggro: 6 · nah: 8 (ab 12), zurückgehen · Tier heilen (ab 12) · 5 bei mehreren (ab 18)"},
+    {upTo = 31, flow = "Stufe 20–31 – vorher: Aspekt des Falken, Tier bereit · 1 · Tier greift an · 2 · 3 bei Abklingen · 4 bei Abklingen · Schnellfeuer (ab 26) bei Abklingen · Tier verliert Aggro: 6 oder Eiskältefalle · 5 bei mehreren · Notfall: Totstellen (ab 30)"},
+    {upTo = 42, flow = "Stufe 32–42 – vorher: Aspekt des Falken, Tier bereit · 1 · Tier greift an · 2 · 3 bei Abklingen · 4 bei Abklingen · 11 und Schnellfeuer bei Abklingen · 10 wenn es eng wird · Tier verliert Aggro: 6 oder Eiskältefalle · Zorn des Wildtiers kommt mit dem Talent (etwa Stufe 43)"},
+}
+hunter[2].stages = { -- Treffsicherheit: Lernstufen wie Tierherrschaft; Talente laut Plan: Aura des Volltreffers 25,
+    -- Scharfschützenschuss 40
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Aspekt des Affen (ab 4) · Automatischer Schuss aus der Ferne · ab 4: 2 · ab 6: 1 zuerst, 3 bei Abklingen · ab 8: 6 bremst, Abstand halten · nah: 7"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Aspekt des Falken, Tier bereit (ab 10 zähmen) · 1 · Tier greift an · 2 · 3 bei Abklingen · Tier verliert Aggro: 6 · nah: 8 (ab 12), zurückgehen · Tier heilen (ab 12) · 5 bei mehreren (ab 18)"},
+    {upTo = 39, flow = "Stufe 20–39 – vorher: Aspekt des Falken, 10 (ab 25) · 1 · 2 · 3 · 4 bei Abklingen · Schnellfeuer (ab 26) bei Abklingen · 5 bei mehreren · Abstand halten · Notfall: Rückzug, Totstellen (ab 30) · Scharfschützenschuss kommt mit dem Talent (etwa Stufe 40)"},
+}
+hunter[3].stages = { -- Überleben: Raptorstoß 1, Schlangenbiss/Aspekt des Affen 4, Mal des Jägers/Arkaner Schuss 6,
+    -- Aspekt des Falken/Tier zähmen 10, Zurechtstutzen/Tier heilen 12, Mungobiss/Feuerbrandfalle 16, Mehrfachschuss 18,
+    -- Rückzug 20; Talente laut Plan: Abschreckung 20, Gegenangriff 27, Schreitertritt 30
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Aspekt des Affen (ab 4) · Automatischer Schuss aus der Ferne · ab 4: 2 · ab 6: 1 zuerst, 7 bei Abklingen · nah: 3 bei Abklingen"},
+    {upTo = 15, flow = "Stufe 10–15 – vorher: Aspekt des Falken, Tier bereit (ab 10 zähmen) · 1 · 2 aus der Ferne · Tier greift an · 7 bei Abklingen · nah: 3 · 6 wenn er wegläuft (ab 12) · Tier heilen (ab 12)"},
+    {upTo = 29, flow = "Stufe 16–29 – vorher: Aspekt des Falken, Tier bereit · 1 · 2 aus der Ferne · nah: 3 · 5 · 4 sobald möglich · 10 nach Parieren (ab 27) · 8 bei mehreren (ab 18) · Notfall: Abschreckung (ab 20), Rückzug"},
+}
+
+-- Stufen-Abläufe (stages) Hexenmeister, Priester, Magier Feuer/Frost
+-- Hinweis: der erste Abschnitt endet nie unter Stufe 9, sonst würde die zweite Zahl in „Stufe 1–X“
+-- von Data.RemapFlow als Platz umgeschrieben (Zahl nach „–“ ohne „Stufe/ab/bis“ davor).
+
+mage[2].stages = { -- Feuer (Lernstufen aus den Spieldaten 70959: Feuerball 1, Frostblitz 4, Feuerschlag 6, Geschosse 8,
+    -- Frostnova 10, Flammenstoß 16, Blinzeln 20, Versengen 22; Talente laut Plan: Entzünden 15, Pyroschlag 20,
+    -- Aufwärmen 25, Verb. Versengen 26–28)
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Frostrüstung, Arkane Intelligenz · 1 bis tot · Nahkämpfer: ab 4 zuerst 8 zum Bremsen · fast tot: 2 (ab 6) · ab 8: 5 bei vollem Mana · Mana knapp: 6, sobald du einen Zauberstab hast · Wasser herbeizaubern ab 4"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Frostrüstung, Arkane Intelligenz · 1 Füller · 2 sobald bereit · nah: 4, zurückgehen, weiter 1 · mehrere: 7 (ab 16) · fast tot: 2 oder 6 · Mana knapp: 6"},
+    {upTo = 27, flow = "Stufe 20–27 – vorher: Frostrüstung, Arkane Intelligenz · 9 vorab · 1 Füller · 2 sobald bereit · ab 25: 9 bei 3x Aufwärmen · ab 26: 3 bis 5 Versengen-Stapel · nah: 4 und Blinzeln · Mana knapp: 6"},
+}
+mage[3].stages = { -- Frost (Lernstufen aus den Spieldaten 70959: Frostblitz 4, Feuerschlag 6, Geschosse 8, Frostnova 10,
+    -- Arkane Explosion 14, Blizzard 20, Kältekegel 26; Talente laut Plan: Geschosssalve 15, Eislanze 27)
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Frostrüstung, Arkane Intelligenz · vor Stufe 4 Feuerball (liegt schon auf der Leiste) · ab 4: 1 bis tot (bremst, Nahkämpfer erreichen dich kaum) · fast tot: 4 (ab 6) · ab 8: 2 bei vollem Mana · Mana knapp: 6, sobald du einen Zauberstab hast · Wasser herbeizaubern ab 4"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Frostrüstung, Arkane Intelligenz · 1 Füller · nah: 3, zurückgehen, weiter 1 · Geschosssalve (ab 15): sofort 2 · fast tot: 4 oder 6 · mehrere nah: 3, dann 8 (ab 14) · Mana knapp: 6"},
+    {upTo = 26, flow = "Stufe 20–26 – vorher: Frostrüstung, Arkane Intelligenz · 1 Füller · Geschosssalve: sofort 2 · nah: 3, zurückgehen, weiter 1 · mehrere: 7 · ab 26: 5 nach 3 · fast tot: 4 · Mana knapp: 6"},
+}
+
+warlock[1].stages = { -- Gebrechen (Lernstufen aus den Spieldaten 70959: Schattenblitz 1, Feuerbrand 1, Wichtel 1, Dämonenhaut 1,
+    -- Verderbnis 4, Aderlass 6, Bann der Pein 8, Furcht 8, Leerwandler 10, Seelendieb 10, Blutsauger 14, Dämonenrüstung 20)
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Dämonenhaut, Wichtel · 5 zum Eröffnen · 3 · ab 4: 1 zuerst · ab 8: 2 dazu · dann 5 bis tot · zweiter Gegner: 7 (ab 8) · Leben > Mana: Aderlass (ab 6) · Mana knapp: essen und trinken"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Dämonenhaut, Leerwandler · Tier vor · 2 · 1 · 3 bei zähen Gegnern · dann 6 bis tot (spart Mana) · ab 14: 4 statt 6, wenn du Leben brauchst · fast tot: 8 für einen Seelensplitter · zweiter Gegner: 1 und 2 drauf, dann 7 · Leben > Mana: Aderlass"},
+    {upTo = 29, flow = "Stufe 20–29 – vorher: Dämonenrüstung, Leerwandler · Tier vor · 2 · 1 · 3 bei zähen Gegnern · 6 bis tot · Leben knapp: 4 · fast tot: 8 für einen Seelensplitter · zweiter Gegner: 1 und 2 drauf, dann 7 · Leben > Mana: Aderlass"},
+}
+warlock[2].stages = { -- Dämonologie (Lernstufen wie Gebrechen, dazu Sengender Schmerz 18, Sayaad 20;
+    -- Talent laut Plan: Dämonisches Brandmal ab 25)
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Dämonenhaut, Wichtel · 5 zum Eröffnen · 3 · ab 4: 2 zuerst · ab 8: 1 dazu · dann 5 bis tot · zweiter Gegner: 8 (ab 8) · Leben > Mana: Aderlass (ab 6) · Mana knapp: essen und trinken"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Dämonenhaut, Leerwandler · Tier vor · 1 · 2 · 3 bei zähen Gegnern · 5 oder 6 bis tot · ab 14: 7, wenn du Leben brauchst · ab 18: 4 als schneller Füller · zweiter Gegner: 1 und 2 drauf, dann 8 · Leben > Mana: Aderlass"},
+    {upTo = 24, flow = "Stufe 20–24 – vorher: Dämonenrüstung, Sayaad (Schaden) oder Leerwandler (sicherer) · Tier vor · 1 · 2 · 3 bei zähen Gegnern · 4 oder 5 Füller · Mana knapp: 6 · Leben knapp: 7 · zweiter Gegner: 1 und 2 drauf, dann 8 · Leben > Mana: Aderlass"},
+}
+warlock[3].stages = { -- Zerstörung (Lernstufen wie Gebrechen, dazu Sengender Schmerz 18; Talente laut Plan:
+    -- Schattenbrand 20, Feuersbrunst 26)
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Dämonenhaut, Wichtel · 1 zum Start · 3 bis tot · ab 4: 4 dazu · ab 8: 2 dazu · zweiter Gegner: 8 (ab 8) · Leben > Mana: Aderlass (ab 6) · Mana knapp: essen und trinken"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Dämonenhaut, Wichtel (wird es eng: Leerwandler) · Tier vor · 1 · 2 · 4 · 3 Füller · fast tot: 5 · ab 14: 7, wenn du Leben brauchst · ab 18: 6 als schneller Füller · zweiter Gegner: 4 und 2 drauf, dann 8 · Leben > Mana: Aderlass"},
+    {upTo = 25, flow = "Stufe 20–25 – vorher: Dämonenrüstung, Wichtel · 1 Start · 2 · 3 oder 6 Füller · 10 zum Abschluss · fast tot: 5 · Leben knapp: 7 · Leben > Mana: Aderlass"},
+}
+
+Data.classes.PRIEST.build[3].stages = { -- Schatten (Lernstufen aus den Spieldaten 70959: Göttliche Pein 1, Seelenstärke 1,
+    -- Schmerz 4, Schild 6, Gedankenschlag 10, Inneres Feuer 12, Psychischer Schrei 14, Verschlingende Seuche 20,
+    -- Dunkles Opfer 20; Talente laut Plan: Willensentzug 10, Gedankenschinden 23, Vampirumarmung 31)
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Seelenstärke · Göttliche Pein aus dem Zauberbuch · ab 4: 2 zuerst · ab 6: 4 vor dem Kampf · fast tot: 5, sobald du einen Zauberstab hast · Mana knapp: essen und trinken"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Seelenstärke, Inneres Feuer (ab 12) · 4 vorher · 1 Start · 2 · dann 5 bis tot (spart Mana) · 1 bei Abklingen · zwei Gegner: Psychischer Schrei (ab 14) · Mana knapp: 5"},
+    {upTo = 30, flow = "Stufe 20–30 – vorher: Seelenstärke, Inneres Feuer · 4 vorher · 1 Start · 2 · 7 bei zähen Gegnern · ab 23: 3 Füller, sonst 5 · Mana knapp: 5 oder Dunkles Opfer"},
+}
+Data.classes.PRIEST.build[2].stages = { -- Heilig (Lernstufen aus den Spieldaten 70959: Göttliche Pein 1, Seelenstärke 1,
+    -- Schmerz 4, Schild 6, Gedankenschlag 10, Inneres Feuer 12, Psychischer Schrei 14, Heilen 16, Heiliges Feuer 20)
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Seelenstärke · 3 bis tot · ab 4: 2 zuerst · ab 6: 4 vor dem Kampf · fast tot: 5, sobald du einen Zauberstab hast · Mana knapp: essen und trinken"},
+    {upTo = 15, flow = "Stufe 10–15 – vorher: Seelenstärke, Inneres Feuer (ab 12) · 4 vorher · 6 Start · 2 · 3 bis tot · zwei Gegner: Psychischer Schrei (ab 14) · Mana knapp: 5"},
+    {upTo = 19, flow = "Stufe 16–19 – vorher: Seelenstärke, Inneres Feuer · 4 vorher · 6 Start · 2 · 3 bis tot · Leben knapp: Heilen · Mana knapp: 5"},
+}
+Data.classes.PRIEST.build[1].stages = { -- Disziplin (Lernstufen aus den Spieldaten 70959: Göttliche Pein 1, Seelenstärke 1,
+    -- Schmerz 4, Schild 6, Gedankenschlag 10, Inneres Feuer 12, Heiliges Feuer 20, Blitzheilung 20; Talent laut Plan: Sühne 31)
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Seelenstärke · 3 bis tot · ab 4: 2 zuerst · ab 6: 4 vor dem Kampf · fast tot: 5, sobald du einen Zauberstab hast · Mana knapp: essen und trinken"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Seelenstärke, Inneres Feuer (ab 12) · 4 vorher · 7 Start · 2 · 3 bis tot · zwei Gegner: Psychischer Schrei (ab 14) · Mana knapp: 5"},
+    {upTo = 30, flow = "Stufe 20–30 – vorher: Seelenstärke, Inneres Feuer · 4 vorher · 1 Start · 2 · 7 bei Abklingen · 3 bis tot · Leben knapp: Blitzheilung · Mana knapp: 5"},
+}
+
+-- Stufen-Abläufe Paladin, Schamane, Druide (Lernstufen aus den Spieldaten 70959, Talente aus den Talentplänen:
+-- erster Punkt Stufe 10, ein Punkt je Stufe). Hinweis: obere Grenzen im Kopf "Stufe A–B" sind bewusst nie 1–8,
+-- sonst hielte RemapFlow das B für einen Platz (Zahl nach "–" zählt als Platz-Bezug).
+
+-- Paladin Heilig: Siegel der Rechtschaffenheit 1, Hingabeaura 1, Heiliges Licht 1, Richturteil 4, Segen der Macht 4,
+-- Göttlicher Schutz 6, Hammer der Gerechtigkeit 8, Handauflegen 10, Heiliger Stoß 12, Vergeltungsaura 16,
+-- Weihe 20, Exorzismus 20, Lichtblitz 20, Segen der Könige 20; Heiliger Schock Talent (Plan: 21. Punkt = Stufe 30, Spieldaten 30)
+paladin[1].stages = {
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Hingabeaura, ab 4 Segen der Macht · 1 an · ab 4: 2, danach 1 gleich wieder an · ab 8: 5 bei Gefahr oder Zaubern · fast tot: Heiliges Licht, ab 6 vorher Göttlicher Schutz · Mana knapp: essen und trinken"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Hingabeaura (ab 16 Vergeltungsaura), Segen der Macht · 1 an · 2 · ab 12: 3 bei Abklingen · 1 gleich wieder an · 5 wenn es eng wird · fast tot: Heiliges Licht · Notfall: Handauflegen"},
+    {upTo = 29, flow = "Stufe 20–29 – vorher: Segen der Könige, Vergeltungsaura · 1 an · 2 · 4 im Nahkampf · 3 · alles bei Abklingen · 6 gegen Untote · Heilen: Lichtblitz, bei viel Schaden Heiliges Licht"},
+}
+-- Paladin Schutz: wie oben, dazu Zorn der Gerechtigkeit 10; Heiliger Schild Talent (Plan: 22. Punkt = Stufe 31, Spieldaten 30)
+paladin[2].stages = {
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Hingabeaura, ab 4 Segen der Macht · 1 an · ab 4: 2, danach 1 gleich wieder an · ab 8: 5 bei Zaubern · fast tot: Heiliges Licht, ab 6 vorher Göttlicher Schutz · Mana knapp: essen und trinken"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Hingabeaura (ab 16 Vergeltungsaura), Segen der Macht, Zorn der Gerechtigkeit · 1 an · 2 · ab 12: 3 bei Abklingen · 5 bei Zaubern · höchstens zwei Gegner zugleich · fast tot: Heiliges Licht · Notfall: Handauflegen"},
+    {upTo = 30, flow = "Stufe 20–30 – vorher: Segen der Könige, Vergeltungsaura, Zorn der Gerechtigkeit · 1 vor dem Kampf · 2 · 4 im Nahkampf · 3 · 6 gegen Untote · drei bis vier Gegner sammeln, Weihe trifft alle"},
+}
+-- Paladin Vergeltung: Siegel der Rechtschaffenheit 1, Richturteil 4, Segen der Macht 4, Siegel des Kreuzfahrers 6,
+-- Göttlicher Schutz 6, Hammer der Gerechtigkeit 8, Handauflegen 10, Heiliger Stoß 12, Vergeltungsaura 16,
+-- Siegel des Befehls Talent (Plan: 11. Punkt = Stufe 20, Spieldaten 20), Weihe 20, Exorzismus 20
+paladin[3].stages = {
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Hingabeaura, ab 4 Segen der Macht · 8 an · ab 4: 2, danach 8 gleich wieder an · ab 6: 5 und 2 zum Eröffnen, dann 8 · ab 8: Hammer der Gerechtigkeit bei Zaubern oder Gefahr · fast tot: Heiliges Licht, ab 6 vorher Göttlicher Schutz"},
+    {upTo = 15, flow = "Stufe 10–15 – vorher: Hingabeaura, Segen der Macht · 5 und 2 zum Eröffnen · 8 an · 2 bei Abklingen · ab 12: 3 bei Abklingen · Hammer der Gerechtigkeit bei Zaubern · fast tot: Heiliges Licht · Notfall: Handauflegen"},
+    {upTo = 19, flow = "Stufe 16–19 – vorher: Vergeltungsaura, Segen der Macht · 5 und 2 zum Eröffnen · 8 an · 2 bei Abklingen · 3 bei Abklingen · zweiter Gegner: Hammer der Gerechtigkeit auf ihn · fast tot: Heiliges Licht"},
+}
+
+-- Schamane Elementar: Blitzschlag 1, Felsbeißer-Waffe 1, Welle der Heilung 1, Erdschock 4, Steinhauttotem 4,
+-- Blitzschlagschild 8, Flammenschock 10, Totem der Verbrennung 10, Flammenzunge-Waffe 10, Frostschock 20,
+-- Geringe Welle der Heilung 20, Magmatotem 26, Totem der Manaquelle 26, Kettenblitz 32, Lavaeruption 40
+-- (Feuernova 1535 fehlt in den Spieldaten, darum nicht eingeplant)
+shaman[1].stages = {
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Felsbeißer-Waffe, ab 8 Blitzschlagschild · 1 zum Ziehen, dann 1 bis er nah ist · ab 4: 4 zum Erledigen oder bei Zaubern · Steinhauttotem (ab 4) bei schweren Gegnern · fast tot: Welle der Heilung · Mana knapp: Nahkampf"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Blitzschlagschild, Flammenzunge-Waffe · 6 stellen · 1 zum Ziehen · 3 sofort · 1 Füller · 4 bei Zaubern oder zum Erledigen · fast tot: Welle der Heilung · Mana knapp: Nahkampf"},
+    {upTo = 31, flow = "Stufe 20–31 – vorher: Blitzschlagschild · 6 stellen · 1 zum Ziehen · 3 halten · 1 Füller · 7 wenn ein Gegner nah kommt, dann zurückgehen · 4 bei Zaubern · mehrere: Magmatotem (ab 26) · fast tot: Geringe Welle der Heilung · lange Kämpfe: Totem der Manaquelle (ab 26)"},
+    {upTo = 39, flow = "Stufe 32–39 – vorher: Blitzschlagschild · 6 stellen · 1 zum Ziehen · 3 halten · 5 bei Abklingen · 1 Füller · 4 bei Zaubern · mehrere: Magmatotem, dann 5 · fast tot: Geringe Welle der Heilung"},
+}
+-- Schamane Verstärkung: wie oben, dazu Totem der Erdstärke 10, Geisterwolf 20, Windzorn-Waffe 30;
+-- Sturmschlag Talent (Plan: 21. Punkt = Stufe 30, Spieldaten nennen 40 – darum vorsichtig „sobald gelernt“)
+shaman[2].stages = {
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Felsbeißer-Waffe, ab 8 Blitzschlagschild · 1 zum Ziehen · dann Nahkampf · ab 4: 4 bei Zaubern oder zum Erledigen · Steinhauttotem (ab 4) bei schweren Gegnern · fast tot: Welle der Heilung"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Blitzschlagschild, Felsbeißer-Waffe · 5 und 6 stellen · 1 zum Ziehen · 3 halten · 4 als Füller, solange Mana reicht · fast tot: Welle der Heilung · Mana knapp: nur Nahkampf, Totems weglassen"},
+    {upTo = 29, flow = "Stufe 20–29 – vorher: Blitzschlagschild, Flammenzunge-Waffe · 5 und 6 stellen · 1 zum Ziehen · 3 halten · 4 als Füller · 8 wenn ein Gegner wegläuft · mehrere: Magmatotem (ab 26) · fast tot: Geringe Welle der Heilung · Geisterwolf zwischen den Kämpfen"},
+    {upTo = 39, flow = "Stufe 30–39 – vorher: Blitzschlagschild, Windzorn-Waffe · 5 und 6 stellen · 1 zum Ziehen · 3 halten · 2 sobald gelernt (Talent), gleich danach 4 · sonst 4 als Füller · 8 wenn ein Gegner wegläuft · mehrere: Magmatotem · fast tot: Geringe Welle der Heilung"},
+}
+-- Schamane Wiederherstellung: wie oben, dazu Totem des heilenden Flusses 20; Wasserschild Talent
+-- (Plan: 11. Punkt = Stufe 20, Spieldaten 20); Springflut Talent (Plan Stufe 40) und Kettenheilung 40
+shaman[3].stages = {
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Felsbeißer-Waffe, ab 8 Blitzschlagschild · 1 zum Ziehen · dann Nahkampf · ab 4: 2 bei Zaubern oder zum Erledigen · Steinhauttotem (ab 4) bei schweren Gegnern · fast tot: Welle der Heilung"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Blitzschlagschild, Felsbeißer-Waffe · 7 stellen · 1 Start · 3 · Nahkampf · 2 bei Zaubern · fast tot: Welle der Heilung · Mana knapp: nur Nahkampf"},
+    {upTo = 31, flow = "Stufe 20–31 – vorher: Wasserschild (Talent), sonst Blitzschlagschild · 7 stellen · 1 Start · 3 · 4 wenn ein Gegner wegläuft · Heilen: Leiste 2, Geringe Welle der Heilung bei Gefahr · Totem des heilenden Flusses bei langen Kämpfen · ab 26 Totem der Manaquelle"},
+    {upTo = 39, flow = "Stufe 32–39 – vorher: Wasserschild · 1 Start · 3 · 5 bei mehreren · Heilen: Leiste 2 · Totem der Manaquelle"},
+}
+
+-- Druide Gleichgewicht: Zorn 1, Mal der Wildnis 1, Heilende Berührung 1, Mondfeuer 4, Verjüngung 4, Dornen 6,
+-- Wucherwurzeln 8, Bärengestalt 10 (Zermalmen, Demoralisierendes Gebrüll 10), Nachwachsen 12, Prankenhieb 16,
+-- Sternenfeuer 20, Katzengestalt 20; Insektenschwarm Talent (Plan: 16. Punkt = Stufe 25)
+druid[1].stages = {
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Mal der Wildnis, ab 6 Dornen · 3 zum Ziehen, dann 3 bis tot · ab 4: 1 zuerst, dann 3 · ab 8: 4, wenn er nah ist, und zurückgehen · fast tot: Heilende Berührung, ab 4 Verjüngung · Mana knapp: essen und trinken"},
+    {upTo = 19, flow = "Stufe 10–19 – vorher: Mal der Wildnis, Dornen · 1 · 3 bis tot · nah: 4, zurückgehen, weiter 3 · mehrere nah: 6, dort Demoralisierendes Gebrüll und Prankenhieb (ab 16) · fast tot: Heilende Berührung, ab 12 Nachwachsen · Mana knapp: 6 für den Rest des Kampfes"},
+    {upTo = 24, flow = "Stufe 20–24 – vorher: Mal der Wildnis, Dornen · 2 zum Ziehen · 1 · 3 Füller, 2 wenn Zeit ist · nah: 4, zurückgehen · fast tot: Nachwachsen · Mana knapp: 6 oder 7"},
+}
+-- Druide Wilder Kampf: wie oben, dazu in Bärengestalt Wutanfall 12, Hieb 14, Prankenhieb 16;
+-- Katzengestalt 20 (Klaue, Schreddern, Zerfetzen, Schleichen 20; Krallenhieb, Tigerfuror 24)
+druid[2].stages = {
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Mal der Wildnis, ab 6 Dornen · 1 zum Ziehen · ab 4: 2 zuerst, dann 1 · ab 8: 3, wenn er nah ist, und zurückgehen · fast tot: Heilende Berührung, ab 4 Verjüngung · Mana knapp: Nahkampf"},
+    {upTo = 15, flow = "Stufe 10–15 – vorher: Mal der Wildnis, Dornen · 2 zum Ziehen · 4 wenn er nah ist · in Bärengestalt: Demoralisierendes Gebrüll, dann Zermalmen bei genug Wut · ab 12 Wutanfall für Wut zum Start · ab 14 Hieb bei Zaubern · fast tot: raus aus der Gestalt, Heilende Berührung, ab 12 Nachwachsen"},
+    {upTo = 19, flow = "Stufe 16–19 – vorher: Mal der Wildnis, Dornen · 2 zum Ziehen · 4 · Demoralisierendes Gebrüll · Zermalmen einzeln · Prankenhieb bei mehreren · Hieb bei Zaubern · fast tot: raus aus der Gestalt, Nachwachsen"},
+}
+-- Druide Wiederherstellung: wie Gleichgewicht, dazu Feenfeuer 18; Heil-Talente erst später (Wildwuchs 40)
+druid[3].stages = {
+    {upTo = 9, flow = "Stufe 1–9 – vorher: Mal der Wildnis, ab 6 Dornen · 1 zum Ziehen · ab 4: 2 zuerst, dann 1 · ab 8: 3, wenn er nah ist, und zurückgehen · fast tot: Heilende Berührung, ab 4 Verjüngung · Mana knapp: essen und trinken"},
+    {upTo = 15, flow = "Stufe 10–15 – vorher: Mal der Wildnis, Dornen · 1 und 2 · nah: 3, zurückgehen, weiter 1 · zäher Gegner: 4, dort Demoralisierendes Gebrüll und Zermalmen · Heilen: Verjüngung zuerst, dann Heilende Berührung · ab 12 Nachwachsen"},
+    {upTo = 19, flow = "Stufe 16–19 – vorher: Mal der Wildnis, Dornen · 1 und 2 · nah: 3, zurückgehen · mehrere nah: 4, Prankenhieb · Heilen: Leiste 2, Verjüngung zuerst · Feenfeuer (ab 18) zum Ziehen"},
+}
+
 -- ===== Tasten in Ablauf-Reihenfolge (15.11.2026, Nutzer-Wunsch) =====
 -- Leiste 1 wird je Ausrichtung so umgeordnet, dass der Ablauf einfach 1, 2, 3 … ist.
 -- Die Bauplaene oben behalten ihre Nummern; beim Laden wird umsortiert und jede
@@ -632,6 +843,8 @@ function Data.IsSlotRef(text, s, e, n, fixed)
     local before, after = text:sub(1, s - 1), text:sub(e + 1)
     if after:match("^%s*[%%+%-]") or after:match("^%s*–") or after:match("^x[%s%)]") or after:match("^%s+Punkt") or after:match("^%s+Stapel") or after:match("^%s+Energie")
         or after:match("^%s+Ladung") then return false end
+    -- "Stufe 1–3": auch die Zahl nach dem Strich ist eine Stufe (Fund 25.11.2026: sonst wird sie als Platz umgeschrieben)
+    if before:match("Stufe%s*%d+%s*–%s*$") or before:match("^%s*%d+%s*–%s*$") then return false end
     if before:match("Stufe%s*$") or before:match("Leiste%s*$") or before:match("bis%s*$") or before:match("[%d%.]$")
         or before:match("ab%s*$") or before:match("unter%s*$") or before:match("auf%s*$") then return false end
     return true

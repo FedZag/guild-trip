@@ -81,7 +81,10 @@ function Launcher:Update()
     -- Nutzer 22.11.2026: bei offenem Guild-Trip-Chat ueberfluessig (dort gibt es "Zum WoW-Chat")
     -- Randleiste an: die Leiste ersetzt den Knopf (Spielbild 23.11.2026: "dieses symbol muss da unbedingt weg")
     local rail = chat.Rail and chat.Rail.Active and chat.Rail.Active()
-    if Chat:Settings().launcher == false or Chat.visible or rail then b:Hide() return end
+    -- ... ausser der WoW-Chat ist gerade voruebergehend da ("Zum WoW-Chat"): dann ist der Knopf der Rueckweg
+    -- (Spielbild 26.11.2026: mit Randleiste kam man sonst nicht zurueck)
+    local peek = chat.Hider and chat.Hider.peek
+    if Chat:Settings().launcher == false or Chat.visible or (rail and not peek) then b:Hide() return end
     b:Show()
     local n = self.WhisperUnread()
     b.badge:SetText(n > 0 and tostring(math.min(n, 99)) or "")

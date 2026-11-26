@@ -267,9 +267,13 @@ playerX, playerY = .5, .5
 
 -- 9) Aussehen: kleiner goldener ONE-Pfeil, optional Blizzard-Pfeil
 assert(arrow.arrow.texture:find("ONE_Nav", 1, true) and arrow.arrow.w == 44, "Standard: eigener Pfeil, 44 px")
+-- reihum: gold -> Glas -> Blizzard (nur mit Atlas) -> gold (25.11.2026)
 ONE.slashCommands.navi("stil")
-assert(arrow.styleInUse == "one", "ohne Blizzard-Atlas bleibt der ONE-Pfeil")
+assert(arrow.styleInUse == "glass" and arrow.arrow.texture:find("ArrowGlass", 1, true), "Glas-Pfeil")
+ONE.slashCommands.navi("stil")
+assert(arrow.styleInUse == "one", "ohne Blizzard-Atlas zurueck zum ONE-Pfeil")
 C_Texture = {GetAtlasInfo = function(name) return name == "Navigation-Tracked-Arrow" and {} or nil end}
+ONE.slashCommands.navi("stil")
 ONE.slashCommands.navi("stil")
 assert(arrow.styleInUse == "blizzard" and arrow.arrow.atlas == "Navigation-Tracked-Arrow")
 assert(ONE.db.nav.arrow.style == "blizzard", "Stil wird gespeichert")

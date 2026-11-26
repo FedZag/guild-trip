@@ -656,7 +656,13 @@ function R:CloseTab()
     self:ClearBubbles(true)
     self:Update()
 end
+-- Wer die Leiste benutzt, ist zurueck im Guild-Trip-Chat: voruebergehend gezeigten WoW-Chat wieder weg
+-- (Spielbild 26.11.2026: nach "Zum WoW-Chat" liess sich der WoW-Chat mit Randleiste nicht mehr schliessen)
+function R.EndPeek()
+    if chat.Hider and chat.Hider.peek and chat.Hider.OnChatShown then chat.Hider:OnChatShown() end
+end
 function R:SetActive(view)
+    R.EndPeek()
     M():SwitchView(view)
     if self.quick and self.quick:IsShown() then self:PaintQuick() end
     self:Update()
@@ -824,7 +830,7 @@ function R:BubbleTip(btn)
     GameTooltip:SetOwner(btn, R.TipAnchor())
     local links = btn.links or {}
     local l = links[btn.linkIndex or 1]
-    if l and pcall(GameTooltip.SetHyperlink, GameTooltip, l.link) then
+    if l and M().SetTip(GameTooltip, l.link) then
         if #links > 1 then
             GameTooltip:AddLine(btn.static and T("Umschalt+Mausrad: nächster Link (%d/%d)", btn.linkIndex or 1, #links)
                 or T("Mausrad: nächster Link (%d/%d)", btn.linkIndex or 1, #links), .6, .6, .6, true)
@@ -1202,6 +1208,7 @@ function R:Dock(on)
     if chat.ItemList and chat.ItemList.frame then m:PlaceOverlay(chat.ItemList.frame, 26) end
 end
 function R:OpenInput(view, text)
+    R.EndPeek()
     local m = M()
     self:Build()
     self:BuildQuick()

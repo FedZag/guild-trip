@@ -220,7 +220,8 @@ function Buffs:Frame()
     f.gear = LookGear(f, Buffs.LOOK, f.label)
     -- Zahnrad nur beim Drueberfahren, Rechtsklick auf "Buffs fehlen" -> Einstellungen (22.11.2026)
     if ONE.WindowLook and ONE.WindowLook.Attach then
-        ONE.WindowLook:Attach(f, f.gear, {def = Buffs.LOOK, label = f.label, title = "Buff-Erinnerung", inset = {20, -4, -6, 24}})
+        ONE.WindowLook:Attach(f, f.gear, {def = Buffs.LOOK, label = f.label, title = "Buff-Erinnerung", inset = {20, -4, -6, 24},
+            category = "classes", settings = {"classes.buffs", "classes.thanks"}})
     end
     -- Im Kampf ausblenden – ueber Blizzards sichere Zustandssteuerung
     if type(RegisterStateDriver) == "function" then pcall(RegisterStateDriver, f, "visibility", "[combat] hide; show") end

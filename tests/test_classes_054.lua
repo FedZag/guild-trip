@@ -115,6 +115,8 @@ local toc = assert(io.open(root .. "/ONE_Classes/ONE_Classes.toc")):read("*a")
 assert(toc:find("## Interface: 16001", 1, true) and toc:find("## Dependencies: ONE_Core", 1, true))
 local c = {}
 for name in toc:gmatch("\n([%w_]+%.lua)") do assert(loadfile(root .. "/ONE_Classes/" .. name))("ONE_Classes", c) end
+-- Stufen-Abschnitte (Leveln ab Stufe 1) prueft test_stages_175; hier der normale Ablauf auf Stufe 20
+for _, def in pairs(c.Data.classes) do for _, b in pairs(def.build) do b.stages = nil end end
 c.Player.maxAge = 0 -- Test aendert Zauber/Talente ohne Spielereignisse: Zwischenspeicher aus
 ONE.modules.classes.Initialize(ONE.modules.classes, ONE)
 assert(tabs.classes and tabs.classes.title == "Klasse", "Reiter angelegt")

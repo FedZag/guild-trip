@@ -743,6 +743,14 @@ function G:LaterTable()
     db.later[who] = type(db.later[who]) == "table" and db.later[who] or {}
     return db.later[who]
 end
+-- Stuetzpunkt-Fuehrung: angefangenes Gebiet, Stuetzpunkt, Runde je Figur (uebersteht /reload und Abstecher)
+function G:HubState()
+    local db = self:DB()
+    db.hubState = type(db.hubState) == "table" and db.hubState or {}
+    local who = Try(UnitName, "player") or "?"
+    db.hubState[who] = type(db.hubState[who]) == "table" and db.hubState[who] or {}
+    return db.hubState[who]
+end
 function G:LaterQuest(id)
     if not id then return end
     local t = self:LaterTable()
@@ -877,15 +885,23 @@ function G:Replan(follow)
         self.planAt = G.PlayerWorldPos()
         local ctx = self:Context()
         tm.context = Clock() - t0
-        local route = G.Route(ctx.me and ctx.me.race, ctx.me and ctx.me.class, ctx.me and ctx.me.sky and ctx.me.faction)
-        if route then
-            ctx.route, ctx.flow = true, true
-            -- selbst angenommene Quests: bereitwilliger einbauen (wer annimmt, will sie machen), nur ohne grossen Umweg
+        -- Stuetzpunkt-Fuehrung (Neuanfang 26.11.2026, Hubs.lua): live nach der echten Stufe, keine feste Route mehr
+        local hubRes
+        local H = lev.Hubs
+        local later = self:LaterTable()
+        if H then
+            local ok, r = pcall(H.Decide, ctx, self:HubState(), later)
+            if ok then hubRes = r elseif ONE.Debug then ONE:Debug("Stützpunkt: " .. tostring(r)) end
+        end
+        local route = hubRes ~= nil
+        if hubRes then
+            ctx.route, ctx.flow, ctx.hubs = true, true, true
             ctx.tempo = P.ROUTE_TEMPO
-            local later = self:LaterTable()
-            ctx.follow, ctx.objNodes, ctx.missed, ctx.routeGates, ctx.routeDungeons = G.RouteFollow(route, ctx.me.level or 1, ctx.inLog, ctx.targets, ctx.done, later, ctx.complete, ctx.me.mapID)
+            ctx.follow, ctx.followLoops, ctx.routeGates = hubRes.follow, hubRes.loops, hubRes.gates
+            ctx.objAhead, ctx.hubCenter = hubRes.ahead, hubRes.hubCenter
+            ctx.grindMax = math.min(H.GRIND_XP, (ctx.me.xpMax or 0) * H.GRIND_SHARE)
             -- zweimal "Spaeter": abgewaehlt (im Log dann "Nicht im Plan", abbrechen mit Rueckfrage)
-            for id, v in pairs(later) do
+            for _, v in pairs(later) do
                 if v >= 2 then
                     local ov = {}
                     for k, x in pairs(ctx.override or {}) do ov[k] = x end
@@ -893,11 +909,6 @@ function G:Replan(follow)
                     ctx.override = ov
                     break
                 end
-            end
-            ctx.followLoops = nil
-            if self:GearOn() then
-                local gc = G.GearChains(self:GearRows(ctx.me.level or 1), ctx.follow, ctx.me.level, ctx.done)
-                if #gc > 0 then ctx.gear = gc end
             end
         elseif follow and not self.fresh then
             local saved = not self.plan and self:SavedFollow() or nil
@@ -913,7 +924,40 @@ function G:Replan(follow)
         self.plan = ok and plan or nil
         if self.plan then G.TimedFirst(self.plan, G.QuestTimers()) end
         if self.plan and route then
-            self.plan.offRoute = G.OffRoute(ctx.follow, G.LogIDs(), self.plan)
+            -- Quests, die mit Absicht warten (zu hoch, anderes Gebiet), sind nicht "Nicht im Plan"
+            local logIDs, waitList = {}, {}
+            for _, id in ipairs(G.LogIDs()) do
+                local why = hubRes.waiting and hubRes.waiting[id]
+                -- Questlog voll und am Stuetzpunkt wartet Machbares: Quests mit Ziel/Abgabe woanders zum Abbrechen
+                -- anbieten ("Nicht im Plan", immer mit Rueckfrage)
+                if hubRes.logFull and (why == "zone" or why == "turnin") then why = nil end
+                if why then waitList[#waitList + 1] = {id = id, why = why} else logIDs[#logIDs + 1] = id end
+            end
+            self.plan.offRoute = G.OffRoute(ctx.follow, logIDs, self.plan)
+            self.plan.waiting = waitList
+            self.plan.hub = {zone = hubRes.zone, at = hubRes.hubAt, round = hubRes.round, ahead = hubRes.ahead, grindTo = hubRes.grindTo}
+            -- Fehlersuche (Spieltest 26.11.2026: Kasten leer in Donnerfels): kein einziger Schritt -> Notiz in den
+            -- SavedVariables (ProjectONEDB…leveling.emptyDiag, nach /reload lesbar); der Kasten zeigt einen Hinweis
+            if #self.plan.steps == 0 then
+                local wl, work = {}, {}
+                for id, why in pairs(hubRes.waiting or {}) do wl[#wl + 1] = id .. "=" .. why end
+                for _, q in ipairs(hubRes.workList or {}) do
+                    work[#work + 1] = q.id .. "(" .. tostring(q.e[1]) .. (q.log and ",log" or "") .. (q.complete and ",fertig" or "") .. ")"
+                end
+                -- dazu die ganze Lage zum Nachstellen am Rechner: Ort, EP, Questlog (fertig?), erledigte Quests
+                local logs, doneIDs = {}, {}
+                for _, id in ipairs(G.LogIDs()) do logs[#logs + 1] = id .. (ctx.complete(id) and ":fertig" or "") end
+                local QDB = rawget(_G, "GuildTripQuestDB")
+                for id in pairs(QDB and QDB.q or {}) do if ctx.done(id) then doneIDs[#doneIDs + 1] = id end end
+                table.sort(doneIDs)
+                local okD, when = pcall(date, "%Y-%m-%d %H:%M:%S")
+                local me = ctx.me
+                self:DB().emptyDiag = {at = okD and when or nil, level = me.level, xp = me.xp, xpMax = me.xpMax, race = me.race,
+                    class = me.class, faction = me.faction, map = me.mapID, x = me.x, y = me.y, zone = hubRes.zone,
+                    hub = hubRes.hub, ahead = hubRes.ahead, grindTo = hubRes.grindTo, version = ONE.version,
+                    keys = table.concat(hubRes.keys or {}, " "), work = table.concat(work, " "), waiting = table.concat(wl, " "),
+                    log = table.concat(logs, " "), done = table.concat(doneIDs, " ")}
+            end
             self.plan.route = true
             -- Lehrer sind kein Routen-Schritt (Nutzer 21.11.2026: "neue Skills lernen nur als Info bei Stufenaufstieg")
             local tr = ctx.train

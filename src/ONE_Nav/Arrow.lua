@@ -11,6 +11,8 @@ local Arrow = {active = false, rotateEvery = 0, refreshEvery = 1, staleAfter = 2
 nav.Arrow = Arrow
 
 local TEXTURE = "Interface\\AddOns\\ONE_Nav\\Textures\\Arrow.tga"
+-- Glas-Pfeil (25.11.2026): durchsichtig mit hellem Rand, passt zum Glas-Aussehen
+local TEXTURE_GLASS = "Interface\\AddOns\\ONE_Nav\\Textures\\ArrowGlass.tga"
 -- Blizzard-Navigationspfeil aus dem Spielclient (nur referenziert, nicht kopiert).
 local BLIZZARD_ATLAS = "Navigation-Tracked-Arrow"
 local DEFAULT_POINT = {x = 0, y = 150}
@@ -47,8 +49,8 @@ end
 -- ===== Aussehen (Zahnrad am Pfeil, Nutzer 22.11.2026: eigene Optionen je Zusatzfenster) =====
 Arrow.LOOK_PRESETS = {
     standard = {},
-    compact = {hide = {hint = true, tip = true}},
-    minimal = {hide = {title = true, hint = true, tip = true}},
+    compact = {hide = {hint = true, tip = true, companion = true}},
+    minimal = {hide = {title = true, hint = true, tip = true, companion = true}},
 }
 Arrow.LOOK = {
     id = "arrow", title = "Navi-Pfeil: Aussehen", key = "look",
@@ -73,7 +75,7 @@ function Arrow:SetScale(v)
     self:Settings().scale = v
     if self.frame then self.frame:SetScale(v) self:ApplyPosition() end
 end
-Arrow.LOOK_FIELDS = {{"title", "title"}, {"distance", "dist"}, {"hint", "text"}, {"tip", "text"}}
+Arrow.LOOK_FIELDS = {{"title", "title"}, {"distance", "dist"}, {"hint", "text"}, {"tip", "text"}, {"companion", "text"}}
 function Arrow:ApplyLook()
     local f = self.frame
     local WL = ONE.WindowLook
@@ -118,13 +120,17 @@ function Arrow.BlizzardArrowAvailable()
     return ok and type(info) == "table"
 end
 
--- Stil "one" = eigener goldener Pfeil, "blizzard" = Pfeil aus dem Spielclient.
+-- Stil "one" = eigener goldener Pfeil, "glass" = Glas-Pfeil, "blizzard" = Pfeil aus dem Spielclient.
+Arrow.STYLES = {one = true, glass = true, blizzard = true}
 function Arrow:ApplyStyle()
     if not self.arrow then return end
     local style = self:Settings().style
     if style == "blizzard" and self.BlizzardArrowAvailable() and type(self.arrow.SetAtlas) == "function"
         and pcall(self.arrow.SetAtlas, self.arrow, BLIZZARD_ATLAS, false) then
         self.styleInUse = "blizzard"
+    elseif style == "glass" then
+        self.arrow:SetTexture(TEXTURE_GLASS)
+        self.styleInUse = "glass"
     else
         self.arrow:SetTexture(TEXTURE)
         self.styleInUse = "one"
@@ -132,15 +138,15 @@ function Arrow:ApplyStyle()
     self.arrow:SetSize(ARROW_SIZE, ARROW_SIZE)
 end
 
+-- Reihum: gold -> Glas -> Blizzard (falls vorhanden) -> gold
 function Arrow:ToggleStyle()
     local s = self:Settings()
-    if s.style == "blizzard" then
+    if s.style == "glass" then
+        s.style = self.BlizzardArrowAvailable() and "blizzard" or "one"
+    elseif s.style == "blizzard" then
         s.style = "one"
-    elseif self.BlizzardArrowAvailable() then
-        s.style = "blizzard"
     else
-        ONE:Print(T("Der Blizzard-Pfeil ist in diesem Client nicht verfügbar."))
-        return self.styleInUse or "one"
+        s.style = "glass"
     end
     self:ApplyStyle()
     return self.styleInUse
@@ -153,7 +159,7 @@ function Arrow:SetStyle(style)
         ONE:Print(T("Der Blizzard-Pfeil ist in diesem Client nicht verfügbar."))
         return self.styleInUse or "one"
     end
-    s.style = style == "blizzard" and "blizzard" or "one"
+    s.style = Arrow.STYLES[style] and style or "one"
     self:ApplyStyle()
     return self.styleInUse
 end
@@ -229,6 +235,8 @@ function Arrow:Create()
     self.hint = Text(f, "GameFontHighlightSmall", nil, 236, self.distance, 2)
     self.tip = Text(f, "GameFontHighlightSmall", nil, 236, self.hint, 3)
     if self.tip.SetTextColor then self.tip:SetTextColor(.85, .85, .85) end
+    -- Begleitzeile: Gilde in der Naehe, naechster Ausflug (Companion.lua)
+    self.companion = Text(f, "GameFontHighlightSmall", nil, 236, self.tip, 2)
     -- Hintergrund (Standard unsichtbar) und Zahnrad: eigenes Aussehen
     f.bg = f:CreateTexture(nil, "BACKGROUND")
     f.bg:SetAllPoints(f)
@@ -257,7 +265,9 @@ function Arrow:Create()
     self.gear = gear
     -- Zahnrad nur beim Drueberfahren; Rechtsklick -> Menue (Festsetzen, Navi beenden, Aussehen) – 22.11.2026
     if ONE.WindowLook and ONE.WindowLook.Attach then
-        ONE.WindowLook:Attach(f, gear, {def = Arrow.LOOK, frameClick = true, title = "Navi-Pfeil", menu = function()
+        ONE.WindowLook:Attach(f, gear, {def = Arrow.LOOK, frameClick = true, title = "Navi-Pfeil", category = "nav",
+            settings = {"navStyle", "nav.arrowCompanion", "nav.routes", "navRouteStyle", "nav.routeDots", "nav.routeWaypoint",
+                "nav.arriveSound", "nav.corpse", "navPlayer"}, menu = function()
             return {
                 {text = "Festsetzen", checked = function() return self:Settings().locked end,
                     func = function() self:SetLocked(not self:Settings().locked) end},
@@ -679,6 +689,7 @@ function Arrow:OnUpdate(elapsed)
         self.refreshElapsed = 0
         self:Refresh()
         if not self.active then return end
+        if nav.Companion then nav.Companion:Update(self.companion, Clock()) end
     end
     if self.rotateElapsed >= self.rotateEvery then
         local dt = self.rotateElapsed

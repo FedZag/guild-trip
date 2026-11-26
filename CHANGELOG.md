@@ -4,6 +4,42 @@ Regel von CurseForge: **Englisch zuerst**, Deutsch darunter. Je Datei den passen
 
 ---
 
+## 0.8.9-alpha (veröffentlicht 26.11.2026)
+
+```
+## 0.8.9-alpha
+
+**English**
+- Quest guide rebuilt: hub by hub, live by your actual level instead of a fixed route; quests up to 2 levels above your own.
+- Chat: dungeon names and abbreviations (e.g. RFC, Deadmines) are colored – tooltip with level and your quests, click opens the dungeon page.
+- Chat: map pins and typed coordinates are clickable and start the navi; Shift+click on the world map while typing inserts a map link.
+- Chat: separator line in the group tab when joining a new group or leaving.
+- Class advisor: level-by-level rotations while leveling for all classes and specs – only spells you already have at that level.
+- Navi arrow: new glass style and a line below it with guild members nearby and the next trip.
+- Windows: matching options right in the right-click menu (navi arrow, quest box, buffs, nearby).
+- Quest box: quest name tooltip shows objective and full description.
+- Chat: whispers started from Blizzard menus land in the Guild Trip chat; guild message of the day shows in the guild tab.
+- Side bar: after "To WoW chat" the bar leads back again.
+- Dungeons: follow-up quests no longer count as prerequisites (dungeon was wrongly locked).
+- Fixed: Lua error when talking to some NPCs (secret ID from Forever).
+
+**Deutsch**
+- Quest-Führung neu: Stützpunkt für Stützpunkt, live nach deiner echten Stufe statt einer festen Route; Quests bis 2 Stufen über deiner eigenen.
+- Chat: Dungeon-Namen und Abkürzungen (z. B. RFC, Todesminen) sind farbig – Tooltip mit Stufe und deinen Quests, Klick öffnet die Dungeon-Seite.
+- Chat: Kartenmarkierungen und getippte Koordinaten sind klickbar und starten das Navi; Umschalt+Klick auf die Weltkarte beim Tippen fügt einen Kartenlink ein.
+- Chat: Trennzeile im Gruppen-Reiter bei neuer Gruppe und beim Verlassen.
+- Klassen-Ratgeber: Stufen-Abläufe beim Leveln für alle Klassen und Ausrichtungen – nur Zauber, die du auf der Stufe schon hast.
+- Navi-Pfeil: neuer Glas-Stil und eine Zeile darunter mit Gilde in der Nähe und dem nächsten Ausflug.
+- Fenster: die passenden Optionen direkt im Rechtsklick-Menü (Navi-Pfeil, Quest-Kasten, Buffs, In der Nähe).
+- Quest-Kasten: Tooltip der Questnamen zeigt Questziel und ganze Beschreibung.
+- Chat: Flüstern aus Blizzards Menüs landet im Guild-Trip-Chat; Gilden-Nachricht des Tages erscheint im Gilden-Reiter.
+- Randleiste: nach „Zum WoW-Chat“ führt die Leiste wieder zurück.
+- Dungeons: Folgequests zählen nicht mehr als Vorquests (Dungeon war fälschlich gesperrt).
+- Fehler behoben: Lua-Fehler beim Ansprechen mancher NPCs (geheime Kennung von Forever).
+```
+
+---
+
 ## 0.8.8-alpha (veröffentlicht 25.11.2026)
 
 ```

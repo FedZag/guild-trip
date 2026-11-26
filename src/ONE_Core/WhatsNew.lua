@@ -10,6 +10,20 @@ ONE.WhatsNew = WhatsNew
 
 -- Neuigkeiten je Version (kurz, fuer Spieler). Neue Versionen oben ergaenzen.
 WhatsNew.notes = {
+    ["0.8.9-alpha"] = {
+        "Quest-Führung neu: Stützpunkt für Stützpunkt, live nach deiner echten Stufe statt einer festen Route; Quests bis 2 Stufen über deiner eigenen",
+        "Chat: Dungeon-Namen und Abkürzungen (z. B. RFC, Todesminen) sind farbig – Tooltip mit Stufe und deinen Quests, Klick öffnet die Dungeon-Seite",
+        "Chat: Kartenmarkierungen und getippte Koordinaten sind klickbar und starten das Navi; Umschalt+Klick auf die Weltkarte beim Tippen fügt einen Kartenlink ein",
+        "Chat: Trennzeile im Gruppen-Reiter bei neuer Gruppe und beim Verlassen",
+        "Klassen-Ratgeber: Stufen-Abläufe beim Leveln für alle Klassen und Ausrichtungen – nur Zauber, die du auf der Stufe schon hast",
+        "Navi-Pfeil: neuer Glas-Stil und eine Zeile darunter mit Gilde in der Nähe und dem nächsten Ausflug",
+        "Fenster: die passenden Optionen direkt im Rechtsklick-Menü (Navi-Pfeil, Quest-Kasten, Buffs, In der Nähe)",
+        "Quest-Kasten: Tooltip der Questnamen zeigt Questziel und ganze Beschreibung",
+        "Chat: Flüstern aus Blizzards Menüs landet im Guild-Trip-Chat; Gilden-Nachricht des Tages erscheint im Gilden-Reiter",
+        "Randleiste: nach „Zum WoW-Chat“ führt die Leiste wieder zurück",
+        "Dungeons: Folgequests zählen nicht mehr als Vorquests (Dungeon war fälschlich gesperrt)",
+        "Fehler behoben: Lua-Fehler beim Ansprechen mancher NPCs (geheime Kennung von Forever)",
+    },
     ["0.8.8-alpha"] = {
         "Quest-Führung: Sind die Quests der laufenden Runde schon im Log, wird erst die Runde im eigenen Gebiet fertig gemacht – kein Abstecher in ein anderes Gebiet und zurück",
         "/trip buffcheck nennt je Spieler den genauen Grund, warum er nicht in der Buff-Liste steht",

@@ -339,6 +339,15 @@ function UI:BuildFrame(look)
     log:SetScript("OnMouseWheel", function(self, delta)
         if delta > 0 then self:ScrollUp() else self:ScrollDown() end
     end)
+    -- eigene Link-Arten (Dungeon-Namen, Kartenmarkierung, Koordinaten): Maus drueber zeigt den Tooltip
+    -- (andere Links wie bisher nur per Klick)
+    log:SetScript("OnHyperlinkEnter", function(self, link)
+        local LT = ONE.LinkTips
+        if not (LT and LT.Handler and LT.Handler(link) and GameTooltip) then return end
+        GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+        if not LT.Tip(GameTooltip, link) then GameTooltip:Hide() end
+    end)
+    log:SetScript("OnHyperlinkLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     log:SetScript("OnHyperlinkClick", function(self, link, text, button)
         local kind, rest = link:match("^(%a+):(.*)$")
         -- Umschalt+Klick wie im WoW-Chat: Name/Link ins offene Eingabefeld bzw. in den Gilden-
@@ -1073,6 +1082,13 @@ end
 function UI.ShiftLink(link, text, button, owner)
     local kind, rest = tostring(link or ""):match("^(%a+):(.*)$")
     if not Shift() then return false end
+    -- erfundene Anzeige-Links (Dungeon-Name, Koordinaten): nur den Text ins Feld, der Link darf nie gesendet werden
+    local LT = ONE.LinkTips
+    if LT and LT.IsPlain and LT.IsPlain(link) then
+        local plain = LT.PlainText(text)
+        if plain ~= "" then UI:InsertIntoInput(plain) end
+        return true
+    end
     if kind == "player" then
         local name = rest:match("^([^:]+)") or ""
         if name == "" then return false end
@@ -1191,6 +1207,10 @@ end
 function UI.OpenLink(link, text, button, owner, author)
     local kind = tostring(link or ""):match("^(%a+):") or "?"
     if kind == "trade" then return UI.ShowTradeInfo(owner, link, text, author) end
+    -- eigene Link-Arten (Dungeon-Name, Kartenmarkierung, Koordinaten): Guild Trip oeffnet selbst, nie SetItemRef
+    local LT = ONE.LinkTips
+    local own = LT and LT.Open and LT.Open(link)
+    if own ~= nil then return own end
     local ok, err = false, "SetItemRef fehlt"
     if type(SetItemRef) == "function" then ok, err = pcall(SetItemRef, link, text, button or "LeftButton", owner) end
     if ONE.db then

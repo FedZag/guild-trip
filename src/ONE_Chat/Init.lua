@@ -17,6 +17,7 @@ ONE:RegisterModule("chat", {
         local frame = CreateFrame("Frame")
         for event in pairs(Chat.kindByEvent) do pcall(frame.RegisterEvent, frame, event) end
         pcall(frame.RegisterEvent, frame, "PLAYER_LOGOUT")
+        pcall(frame.RegisterEvent, frame, "GUILD_MOTD")
         -- Online-Anzeige frisch halten (Gildenliste, Freunde, Battle.net)
         local presence = {GUILD_ROSTER_UPDATE = true, FRIENDLIST_UPDATE = true, BN_FRIEND_INFO_CHANGED = true,
             BN_FRIEND_INVITE_ADDED = true, BN_FRIEND_INVITE_REMOVED = true, BN_FRIEND_INVITE_LIST_INITIALIZED = true,
@@ -25,6 +26,7 @@ ONE:RegisterModule("chat", {
         Chat.presenceEvents = presence
         frame:SetScript("OnEvent", function(_, event, ...)
             if event == "PLAYER_LOGOUT" then pcall(Chat.SaveHistory, Chat) return end
+            if event == "GUILD_MOTD" then pcall(Chat.AddMotd, Chat, ...) return end
             if Chat.presenceEvents[event] then
                 -- gebuendelt: WoW schickt diese Meldungen oft mehrmals hintereinander
                 if Chat.visible and not Chat.presencePending and C_Timer and C_Timer.After then
@@ -36,6 +38,10 @@ ONE:RegisterModule("chat", {
             Chat:OnEvent(event, ...)
         end)
         chat.eventFrame = frame
+        -- Trennzeilen im Gruppen-Reiter (neue Gruppe / verlassen)
+        Chat:WatchGroup()
+        -- Nachricht des Tages: kam GUILD_MOTD vor uns, beim Einloggen selbst nachsehen
+        if C_Timer and C_Timer.After then C_Timer.After(5, function() pcall(Chat.CheckMotd, Chat) end) end
         Chat.listeners[#Chat.listeners + 1] = function(entry, views, update) UI:OnMessage(entry, views, update) end
 
         ONE:RegisterSlash("chat", function() UI:Toggle() end, T("Guild-Trip-Chat öffnen/schließen"))

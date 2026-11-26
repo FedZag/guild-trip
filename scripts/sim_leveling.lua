@@ -12,12 +12,18 @@ for _, f in ipairs({"ONE_QuestDB/Data", "ONE_QuestDB/Timed", "ONE_QuestDB/Names_
     assert(loadfile(root .. "/" .. f .. ".lua"))()
 end
 local lev = {}
-for _, f in ipairs({"Planner", "FlightMasters", "Inns"}) do
+for _, f in ipairs({"Planner", "FlightMasters", "Inns", "Hubs"}) do
     -- SIM_PLANNER=<Datei>: einen anderen Planer nachstellen (z. B. den alten zum Vergleich)
     local file = f == "Planner" and os.getenv("SIM_PLANNER") or (root .. "/ONE_Leveling/" .. f .. ".lua")
     assert(loadfile(file))("ONE_Leveling", lev)
 end
 local P = lev.Planner
+-- SIM_HUB=1: Stuetzpunkt-Fuehrung (Hubs.lua, Neuanfang 26.11.2026) wie im Spiel – live nach echter Stufe, mit harten
+-- Pruefungen (Gebiet verlassen mit offener Arbeit, Quest zu hoch erledigt, Hin und Her, Besuch ohne Quest)
+local HUB = os.getenv("SIM_HUB") and lev.Hubs or nil
+-- Vergleichslaeufe (26.11.2026): SIM_ZONE_MIN / SIM_AHEAD aendern H.ZONE_MIN / H.AHEAD; HUB_DBG=von-bis zeigt Entscheidungen
+if HUB and os.getenv("SIM_ZONE_MIN") then HUB.ZONE_MIN = tonumber(os.getenv("SIM_ZONE_MIN")) end
+if HUB and os.getenv("SIM_AHEAD") then HUB.AHEAD = tonumber(os.getenv("SIM_AHEAD")) end
 -- SIM_FOLLOW=<Routes.lua>: wie im Spiel der festen Route folgen (ctx.route, Guide.RouteFollow) statt frei planen –
 -- die Gegenprobe "was zeigt der Kasten?" (Nutzer 23.11.2026: "so kann man das niemandem praesentieren"). Zaehlt
 -- EINZEL (Fussweg > 1500 m fuer weniger als einen Block Arbeit) und Hauen-Bloecke > P.ROUTE_GRIND_MAX.
@@ -138,7 +144,7 @@ local function Dist(a, b) return math.sqrt((a[2] - b[2]) ^ 2 + (a[3] - b[3]) ^ 2
 local XP_NEED = P.XP_NEED
 
 local function Run(sc)
-    local me = {level = sc.level, xp = 0, xpMax = XP_NEED[sc.level], class = CLASS[sc.class], race = RACE[sc.race],
+    local me = {level = sc.level, xp = sc.xp or 0, xpMax = XP_NEED[sc.level], class = sc.classId or CLASS[sc.class], race = sc.raceId or RACE[sc.race],
         faction = sc.fac, inGroup = false, mapID = sc.map, x = sc.x, y = sc.y}
     local mask = P.FACTION_MASK[sc.fac]
     local done, log = {}, {}
@@ -188,7 +194,8 @@ local function Run(sc)
     local traced
     local acceptedAt, objAt, doneAt = {}, {}, {}
     -- schon im Questlog (Nachstellung eines Spieltests)
-    for _, id in ipairs(sc.log or {}) do log[id] = "open" acceptedAt[id] = 0 end
+    for _, id in ipairs(sc.log or {}) do log[id] = (sc.logDone or {})[id] and "done" or "open" acceptedAt[id] = 0 end
+    for _, id in ipairs(sc.doneList or {}) do done[id] = true end
     local function CouldAt(a, m)
         local e = Q.q[a.id]
         if a.kind == "accept" then
@@ -254,6 +261,42 @@ local function Run(sc)
             flow = os.getenv("SIM_FLOW") ~= nil or nil,
             prefer = plan and plan.steps[1] and plan.steps[1].stopKey,
         }
+        if HUB then
+            local prevZone = hubState.zone
+            local d0 = os.clock()
+            hubRes = HUB.Decide(ctx, hubState, nil)
+            local dd = os.clock() - d0
+            stats.hub.dMax = math.max(stats.hub.dMax or 0, dd)
+            stats.hub.dSum, stats.hub.dN = (stats.hub.dSum or 0) + dd, (stats.hub.dN or 0) + 1
+            if hubRes then
+                ctx.route, ctx.flow, ctx.hubs = true, true, true
+                ctx.follow, ctx.followLoops, ctx.routeGates = hubRes.follow, hubRes.loops, hubRes.gates
+                ctx.objAhead, ctx.hubCenter = hubRes.ahead, hubRes.hubCenter
+                ctx.grindMax = math.min(HUB.GRIND_XP, (me.xpMax or 0) * HUB.GRIND_SHARE)
+                ctx.override = nil
+                if hubRes.zone ~= prevZone and not ctx.probe then HubSwitch(prevZone, hubRes.zone) end
+                -- Questlog voll: der Spieler bricht wartende Quests mit Ziel/Abgabe woanders ab (der Kasten bietet sie an)
+                if hubRes.logFull then
+                    local n = 0
+                    for id, why in pairs(hubRes.waiting) do
+                        if (why == "zone" or why == "turnin") and log[id] then log[id] = nil n = n + 1 end
+                    end
+                    stats.hub.abandon = (stats.hub.abandon or 0) + n
+                    if n > 0 then hubRes = HUB.Decide(ctx, hubState, nil) ctx.follow, ctx.followLoops, ctx.routeGates, ctx.objAhead = hubRes.follow, hubRes.loops, hubRes.gates, hubRes.ahead end
+                end
+                local dbgA, dbgB = (os.getenv("HUB_DBG") or ""):match("^(%d+)%-?(%d*)$")
+                if dbgA and stepNo >= tonumber(dbgA) and stepNo <= tonumber(dbgB ~= "" and dbgB or dbgA) then
+                    print(("  DBG Schritt %d St %d logFull %s"):format(stepNo, me.level, tostring(hubRes.logFull)))
+                    print(("  DBG Gebiet %s Hub %s Arbeit %s ahead %s Runde %s"):format(ZoneName(hubRes.zone or 0), tostring(hubRes.hub), tostring(hubRes.work), tostring(hubRes.ahead), tostring(hubRes.round)))
+                    print("  DBG Fahrplan: " .. table.concat(hubRes.keys, " "))
+                    local wl = {}
+                    for id, why in pairs(hubRes.waiting) do wl[#wl + 1] = id .. "=" .. why end
+                    print("  DBG wartet: " .. table.concat(wl, " "))
+                    for _, q in ipairs(hubRes.workList or {}) do io.write(q.id, "(", q.e[1], q.log and ",log" or "", q.complete and ",fertig" or "", ") ") end print()
+                end
+            end
+            return ctx
+        end
         if FOLLOW then
             local route = FOLLOW[(me.race or 0) .. ":" .. (me.class or 0)] or G.Route(me.race, me.class)
             if route then
@@ -285,6 +328,76 @@ local function Run(sc)
         return ctx
     end
     local function Line(s) if verbose then print(s) end stats.lines[#stats.lines + 1] = s end
+    -- Stuetzpunkt-Fuehrung: Zustand je Figur, letzte Entscheidung, Pruefungen
+    hubState, hubRes = {}, nil
+    for k, v in pairs(sc.hubState or {}) do hubState[k] = v end
+    stats.hub = {leave = 0, high = 0, emergency = 0, visits = {}, empty = 0, back = 0, pingpong = 0, grindXP = 0, grindLong = 0, offZone = 0}
+    -- unabhaengige Gegenprobe (nicht Hubs.lua): gibt es im Gebiet z mit Stufe L noch Quests bis L+1?
+    local RW = GuildTripLeveling
+    local function FirstMap(nodes)
+        local n = nodes and nodes[1] and Q.n[nodes[1]]
+        return n and n[2]
+    end
+    local function MapsOf(nodes)
+        local set = {}
+        for _, nr in ipairs(nodes or {}) do local n = Q.n[nr] for i = 2, n and #n or 0, 3 do set[n[i]] = true end end
+        return set
+    end
+    function OpenWork(z, L)
+        local grey = P.GreyBelow(L)
+        local isDone = function(q) return done[q] == true end
+        local isLog = function(q) return log[q] ~= nil end
+        local list = {}
+        for id, e in pairs(Q.q) do
+            if done[id] then
+            elseif P.IsClassQuest(e) then
+            elseif log[id] == "done" then
+                if MapsOf(e[7])[z] and (#(e[8] or {}) > 0 or e[1] <= L + HUB.AHEAD) then list[#list + 1] = id end
+            elseif log[id] then
+                if e[1] <= L + HUB.AHEAD and e[1] > grey and MapsOf(e[8])[z] then list[#list + 1] = id end
+            elseif (e[1] or 0) > grey and e[1] <= L + HUB.AHEAD and (e[2] or 0) <= L and (e[11] or 0) > 0 and not (RW.dz or {})[e[14] or 0]
+                and not P.IsDrop(e) and FirstMap(e[6]) == z and P.Fits(id, e, me, isDone, isLog) and not P.IsClassQuest(e)
+                and ((#(e[8] or {}) > 0 and MapsOf(e[8])[z]) or (#(e[8] or {}) == 0 and MapsOf(e[7])[z]))
+                and not ((e[12] or 0) > 0 and (done[e[12]] or log[e[12]])) then
+                -- (Regeln wie abgestimmt: Ziel im Gebiet, Klassenquests sind Abstecher, Folgequest nicht schon angenommen)
+                local rew = P.Rew(RW, id)
+                local kind = rew and rew[3] or 0
+                local ok = not (math.floor(kind / 4) % 2 == 1 or math.floor(kind / 8) % 2 == 1)
+                if ok and type(e[9]) == "table" then for _, q in ipairs(e[9]) do if not done[q] then ok = false end end end
+                if ok and type(e[5]) == "table" and #e[5] > 0 then
+                    local any = false
+                    for _, q in ipairs(e[5]) do if done[q] then any = true end end
+                    ok = any
+                end
+                if ok then list[#list + 1] = id end
+            end
+        end
+        return list
+    end
+    function HubSwitch(from, to)
+        local V = stats.hub.visits
+        if from then
+            local open = OpenWork(from, me.level)
+            if #open > 0 then
+                stats.hub.leave = stats.hub.leave + 1
+                Line(("      !! GEBIET VERLASSEN: %s hat noch %d passende Quests (z. B. %d), St %d"):format(ZoneName(from), #open, open[1], me.level))
+            end
+            local cur = V[#V]
+            if cur and cur.q == 0 then
+                stats.hub.empty = stats.hub.empty + 1
+                Line("      !! BESUCH OHNE QUEST: " .. ZoneName(from))
+            end
+        end
+        for _, v in ipairs(V) do if v.zone == to then stats.hub.back = stats.hub.back + 1 break end end
+        -- A B A B: zweimal hin und her zwischen denselben Gebieten
+        local n = #V
+        if n >= 3 and V[n - 2].zone == from and V[n - 1].zone == to and V[n].zone == from then
+            stats.hub.pingpong = stats.hub.pingpong + 1
+            Line(("      !! HIN UND HER: %s <-> %s"):format(ZoneName(from), ZoneName(to)))
+        end
+        V[#V + 1] = {zone = to, level = me.level, q = 0, t = t}
+        Line(("      == GEBIET: %s (St %d)"):format(ZoneName(to), me.level))
+    end
     local einzel
     -- Dungeon-Lauf (Nutzer 23.11.2026: "Dungeon-Quests einbauen"): sind Quests fuer einen Dungeon im Log und passt die
     -- Stufe (ab Mindeststufe + P_DUN_FROM, hoechstens Hoechststufe - 2), geht es zum Eingang; dort werden die Quests
@@ -395,6 +508,13 @@ local function Run(sc)
             -- in der Route vermerken (nicht ausgeliefert): die Stufe danach rechnet scripts/route_opt.lua mit
             if stats.route then stats.route[#stats.route + 1] = {k = "idle", g = g, l = me.level, step = n, map = me.mapID} end
             Line(("%3d %6.1f min  St %2d  (nichts geplant: 10 min Monster hauen)"):format(n, t, me.level))
+            if HUB and hubRes and (stats.hub.idleDbg or 0) < 3 and (stats.idle or 0) >= 10 then
+                stats.hub.idleDbg = (stats.hub.idleDbg or 0) + 1
+                print(("  LEER: Gebiet %s Hub %s Arbeit %s ahead %s | %s"):format(ZoneName(hubRes.zone or 0), tostring(hubRes.hub), tostring(hubRes.work), tostring(hubRes.ahead), table.concat(hubRes.keys, " ")))
+                local wl = {}
+                for _, q in ipairs(hubRes.workList or {}) do wl[#wl + 1] = q.id .. "(" .. q.e[1] .. (q.log and ",log" or "") .. (q.complete and ",fertig" or "") .. ")" end
+                print("  LEER Arbeit: " .. table.concat(wl, " "))
+            end
             plan = nil
         else
         workZone = plan.workZone
@@ -437,7 +557,7 @@ local function Run(sc)
         -- Kippt der Plan unterwegs? (Spieltest 21.11.2026: Orgrimmar -> Zeppelin, am Turm ploetzlich "Verborgene
         -- Feinde"). Das Spiel plant alle G.MOVED_YARDS neu (mit festem Fahrplan) – hier alle 400 yd nachstellen.
         local function Kipp(dest)
-            if os.getenv("SIM_NOKIPP") or not (dest and dest[1] == from[1]) then return end
+            if HUB or os.getenv("SIM_NOKIPP") or not (dest and dest[1] == from[1]) then return end
             local d = Dist(from, dest)
             if d < 500 then return end
             local sm, sx, sy = me.mapID, me.x, me.y
@@ -595,6 +715,7 @@ local function Run(sc)
             if #st.actions == 0 then visit.all = false end
             local acts = {}
             for _, a in ipairs(st.actions) do
+                local lvA = me.level   -- Stufe zu Beginn dieser Handlung (Aufstieg mitten im Schritt zaehlt)
                 executed[a.kind .. ":" .. a.id] = true
                 if a.kind == "accept" then acceptedAt[a.id] = n if #(Q.q[a.id][8] or {}) == 0 then objAt[a.id] = n end
                 elseif a.kind == "obj" then objAt[a.id] = n
@@ -617,6 +738,33 @@ local function Run(sc)
                     t = t + .2
                 end
                 acts[#acts + 1] = a.kind:sub(1, 1) .. a.id
+                if HUB and hubRes then
+                    local ahead = hubRes.ahead or 1
+                    local lvNow = lvA
+                    if (a.kind == "obj" or (a.kind == "turnin" and #(e[8] or {}) == 0)) and e[1] > lvNow + ahead then
+                        stats.hub.high = stats.hub.high + 1
+                        Line(("      !! ZU HOCH: %s %d Stufe %d mit St %d"):format(a.kind, a.id, e[1], lvNow))
+                    end
+                    if a.kind == "turnin" then
+                        local V = stats.hub.visits
+                        if V[#V] then V[#V].q = V[#V].q + 1 end
+                    end
+                    if (a.kind == "accept" or a.kind == "turnin") and st.mapID and st.mapID ~= hubRes.zone and not (Z[st.mapID] and Z[st.mapID].city) then
+                        stats.hub.offZone = stats.hub.offZone + 1
+                    end
+                end
+            end
+            if HUB and hubRes and (hubRes.ahead or HUB.AHEAD) > HUB.AHEAD then
+                stats.hub.emergency = stats.hub.emergency + 1
+                stats.hub.emLv = stats.hub.emLv or {}
+                stats.hub.emLv[me.level] = (stats.hub.emLv[me.level] or 0) + 1
+            end
+            if HUB and st.kind == "grind" then
+                stats.hub.grindXP = stats.hub.grindXP + (st.xp or 0)
+                if (st.xp or 0) > HUB.GRIND_XP + 1 then
+                    stats.hub.grindLong = stats.hub.grindLong + 1
+                    Line(("      !! HAUEN ZU LANG: %d EP"):format(st.xp or 0))
+                end
             end
             if st.kind == "grind" then
                 t = t + (st.work or 0)
@@ -1040,6 +1188,21 @@ local function Run(sc)
 end
 
 if customScen then SCEN[#SCEN + 1] = customScen end
+-- SIM_DIAG=<Datei>: Lage aus einem Spieltest nachstellen (Guide.lua speichert sie bei leerem Kasten als emptyDiag in den
+-- SavedVariables; Datei = "return { …emptyDiag… , hubState = {…} }"): Stufe, EP, Ort, Questlog (":fertig"), erledigte Quests
+if os.getenv("SIM_DIAG") then
+    local d = assert(loadfile(os.getenv("SIM_DIAG")))()
+    local function Ids(text) local out = {} for v in (text or ""):gmatch("%S+") do out[#out + 1] = v end return out end
+    local sc = {key = "diag", fac = d.faction, raceId = d.race, classId = d.class, level = d.level, xp = d.xp, map = d.map,
+        x = d.x, y = d.y, home = {d.map, d.x, d.y}, doneBelow = 0, doneList = {}, logDone = {}, log = {}, hubState = d.hubState}
+    for _, v in ipairs(Ids(d.done)) do sc.doneList[#sc.doneList + 1] = tonumber(v) end
+    for _, v in ipairs(Ids(d.log)) do
+        local id, fin = v:match("^(%d+)(:?f?e?r?t?i?g?)$")
+        sc.log[#sc.log + 1] = tonumber(id)
+        if fin ~= "" then sc.logDone[tonumber(id)] = true end
+    end
+    SCEN = {sc}
+end
 local total = {returns = 0, pingpong = 0, reorder = 0}
 local t0 = os.clock()
 for _, sc in ipairs(SCEN) do
@@ -1052,8 +1215,24 @@ for _, sc in ipairs(SCEN) do
         print(("%-17s %3d Schr. %5.0f min  bis60 %s  St %d->%d  %6d EP/h  %3d Quests  Rückweg %d  Hin-Her %d  Umsort. %d  Kippt %d  PRUEF %d  Ausgel. %d  Flüge %d  RS %d  Hauen %d (%.0f min, >10: %d, max %.0f)  Einzel %d  Log max %d  Leer %d min  Gebietswechsel %d (zurück %d)  Planen Ø %d ms max %d ms | %s")
             :format(sc.key, s.steps, s.minutes, s.t60 and ("%.0f"):format(s.t60) or "-", s.startLevel, s.level, math.floor(s.xp / math.max(1, s.minutes) * 60), s.quests,
                 s.returns, s.pingpong, s.reorder, s.flip or 0, s.hard or 0, s.missed or 0, s.flights, s.hearths, s.grind, s.grindMin, s.grindLong or 0, s.grindMax or 0, s.einzel or 0, s.logMax, s.idle or 0, s.switches or 0, s.zoneBack or 0, (s.planSum or 0) / math.max(1, s.planN or 1) * 1000, (s.planMax or 0) * 1000, table.concat(zl, ", ")))
+        if HUB then
+            local h, seq = s.hub, {}
+            for _, v in ipairs(h.visits) do seq[#seq + 1] = ("%s@%d(%d)"):format(ZoneName(v.zone), v.level, v.q) end
+            print(("  STUETZPUNKT: verlassen %d  zu hoch %d  Notfall %d  Hin-und-her %d  ohne Quest %d  Rückkehr %d  Hauen %d EP (zu lang %d)  ausserhalb %d  abgebrochen %d  Leerlauf %d min  Stuetzpunkt-Rechnung Ø %d ms max %d ms | %s")
+                :format(h.leave, h.high, h.emergency, h.pingpong, h.empty, h.back, h.grindXP, h.grindLong, h.offZone, h.abandon or 0, s.idle or 0,
+                    (h.dSum or 0) / math.max(1, h.dN or 1) * 1000, (h.dMax or 0) * 1000, table.concat(seq, " > ")))
+            local em = {}
+            for lv = 1, 60 do if (h.emLv or {})[lv] then em[#em + 1] = lv .. ":" .. h.emLv[lv] end end
+            print("  NOTFALL je Stufe: " .. table.concat(em, " "))
+            -- (Leerlauf = Fuehrung zeigt nichts, obwohl man spielt: auch ein harter Fehler)
+            total.hard = (total.hard or 0) + h.leave + h.high + h.pingpong + h.empty + h.grindLong + ((s.idle or 0) > 0 and 1 or 0)
+        end
         total.returns, total.pingpong, total.reorder = total.returns + s.returns, total.pingpong + s.pingpong, total.reorder + s.reorder
         total.flip = (total.flip or 0) + (s.flip or 0)
     end
 end
 print(("SUMME Rückwege %d, Hin-und-Her %d, Umsortiert %d, Kippt unterwegs %d  (%.0f s)"):format(total.returns, total.pingpong, total.reorder, total.flip or 0, os.clock() - t0))
+if HUB and os.getenv("SIM_HUB_HART") and (total.hard or 0) > 0 then
+    print("HARTE PRUEFUNG NICHT BESTANDEN: " .. total.hard)
+    os.exit(1)
+end

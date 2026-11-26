@@ -94,6 +94,8 @@ function Waypoints:HookMap()
         if container.GetNormalizedCursorPosition then x, y = container:GetNormalizedCursorPosition() end
         local mapID = map:GetMapID()
         if not (mapID and x and y) or x < 0 or y < 0 or x > 1 or y > 1 then return end
+        -- tippst du gerade im Guild-Trip-Chat: Kartenmarkierung + Link ins Feld statt Navi (ChatLinks.lua)
+        if nav.ChatLinks and nav.ChatLinks.MapClickToChat(mapID, x, y) then return end
         local info = C_Map and C_Map.GetMapInfo and C_Map.GetMapInfo(mapID)
         local label = string.format("%s %.1f, %.1f", info and info.name or T("Kartenpunkt"), x * 100, y * 100)
         nav.Arrow:StartPoint(label, mapID, x, y)

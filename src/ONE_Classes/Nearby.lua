@@ -587,7 +587,8 @@ function Nearby:Frame()
     f.gear = LookGear(f, Nearby.LOOK, f.title)
     -- Zahnrad nur beim Drueberfahren, Rechtsklick auf den Titel -> Einstellungen (22.11.2026)
     if ONE.WindowLook and ONE.WindowLook.Attach then
-        ONE.WindowLook:Attach(f, f.gear, {def = Nearby.LOOK, label = f.title, title = "In der Nähe"})
+        ONE.WindowLook:Attach(f, f.gear, {def = Nearby.LOOK, label = f.title, title = "In der Nähe",
+            category = "classes", settings = {"classes.nearby", "classes.nearbyAuto", "classes.thanks"}})
     end
     self.frame = f
     self:ApplyLook()

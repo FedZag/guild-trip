@@ -140,6 +140,18 @@ function UI:SettingDefs()
     Emo("emojiImages", "Emojis als Bilder zeigen", "Codes wie :daumen: und WoW-Zeichen wie {Stern} erscheinen als Bild. Aus: der Text bleibt, wie er gesendet wurde.", 301)
     Emo("asciiSmileys", "Smileys wie :) als Bild", "Auch getippte Smileys (:) :D ;) <3 …) werden zum Bild – nur, wenn sie frei stehen.", 302)
     Emo("bigEmoji", "Nur Emojis: groß zeigen", "Besteht eine Nachricht nur aus 1–3 Emojis, werden sie groß und ohne Blase gezeigt – wie im Messenger.", 303)
+    -- Links im Chat (25.11.2026): dieselben Schalter wie in Optionen › Dungeons/Navi, hier direkt im Chat
+    local function Feat(fid, order)
+        local f = ONE.features and ONE.features[fid]
+        if not f then return end
+        Add({id = "chat.f." .. fid, section = SECTION[1], order = order, label = f.label, tooltip = f.tooltip,
+            visible = function() return not f.module or ONE:IsEnabled(f.module) end,
+            get = function() return ONE:FeatureOn(fid) end,
+            set = function(on) ONE:SetFeature(fid, on) end,
+            onChange = function() UI:Render() end})
+    end
+    Feat("dungeons.chatNames", 190)
+    Feat("nav.chatCoords", 191)
     Add({id = "chat.bubbleColors", section = SECTION[2], order = 149, label = "Blasen farbig je Art", visible = Messenger,
         tooltip = "Sprechblasen der anderen leicht in der Farbe ihrer Art: Gilde grün, Gruppe blau, Flüstern rosa … Eigene bleiben in der Leuchtfarbe.",
         get = function() return Chat:Settings().bubbleColors ~= false end,

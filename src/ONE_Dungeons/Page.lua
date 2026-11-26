@@ -338,10 +338,11 @@ function Page:Build(panel)
         lines[#lines + 1] = T("Questgeber: %s", q.giver or "?")
         lines[#lines + 1] = T("Ort: %s", where)
         if q.classOnly then lines[#lines + 1] = T("Nur für: %s", T(CLASS_NAMES[q.classOnly] or q.classOnly)) end
-        if q.prereqs then
+        local prereqs = M:Prereqs(q)
+        if #prereqs > 0 then
             lines[#lines + 1] = " "
             lines[#lines + 1] = "|cffffd100" .. T("Vorquests") .. "|r"
-            for _, p in ipairs(q.prereqs) do
+            for _, p in ipairs(prereqs) do
                 local mark = (p.ids and M:IsDone(p.ids)) and "|TInterface\\RaidFrame\\ReadyCheck-Ready:12:12|t " or "|cffaaaaaa-|r "
                 local info = dungeons.QuestData and dungeons.QuestData.prereqInfo and dungeons.QuestData.prereqInfo[p.name]
                 local title = p.ids and M:Title({ids = p.ids, name = p.name}) or p.name
@@ -379,7 +380,17 @@ function Page:Build(panel)
         end
         -- Auswahl halten (nach Schluessel), sonst den ersten passenden Dungeon zeigen
         local selected
-        for _, d in ipairs(items) do if state.selected and d.key == state.selected.key then selected = d end end
+        -- Klick auf einen Dungeon-Namen im Chat (ChatNames.lua): genau diesen zeigen, auch wenn der Filter ihn ausblendet
+        local want = Page.wantKey
+        Page.wantKey = nil
+        if want then
+            for _, d in ipairs(items) do if d.key == want then selected = d end end
+            if not selected then
+                for _, d in ipairs(all) do if d.key == want then selected = d table.insert(items, 1, d) end end
+            end
+            if selected then state.quest = nil end
+        end
+        for _, d in ipairs(items) do if not selected and state.selected and d.key == state.selected.key then selected = d end end
         state.selected = selected or items[1]
         dungeonList:SetItems(items)
         local d = state.selected

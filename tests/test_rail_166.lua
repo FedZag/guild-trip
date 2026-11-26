@@ -761,4 +761,24 @@ assert(R.Layout() == "right", "frei in der rechten Haelfte: Blasen nach links")
 R.frame.GetLeft = function() return 300 end
 assert(R.Layout() == "left", "frei links: wie bisher")
 M.frame.GetLeft, M.frame.GetTop, M.frame.fixedW, M.frame.fixedH = nil, nil, nil, nil
+-- Zurueck aus "Zum WoW-Chat" mit Randleiste (Spielbild 26.11.2026: WoW-Chat liess sich nicht mehr schliessen)
+do
+    local oldHider = c.Hider
+    local H = {peek = true}
+    function H:OnChatShown() self.peek = nil end
+    c.Hider = H
+    Chat:Settings().rail = true
+    assert(R.Active(), "Leiste an")
+    c.Launcher:Build()
+    c.Launcher:Update()
+    assert(c.Launcher.button:IsShown(), "waehrend WoW-Chat da ist: Knopf als Rueckweg sichtbar")
+    R:SetActive("guild")
+    assert(not H.peek, "Klick auf die Leiste blendet den WoW-Chat wieder aus")
+    c.Launcher:Update()
+    assert(not c.Launcher.button:IsShown(), "danach ersetzt die Leiste den Knopf wieder")
+    H.peek = true
+    R:OpenInput()
+    assert(not H.peek, "Schreiben in der Leiste blendet den WoW-Chat aus")
+    c.Hider = oldHider
+end
 print("OK test_rail_166")
